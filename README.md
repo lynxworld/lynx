@@ -2,62 +2,38 @@
 customizable Cypher query execution framework
 
 ```
-               .                 :                          
-                                 #.                         
-                                 #                          
-                                ,                           
-                                ;                           
-                               W                            
-                                                            
-                              K                             
-             .                                              
-                             :                              
-                            t    ,                          
-                           .:    G                          
-            :             G#                                
-                         f .                                
-                        D W                                 
-                       i :.     :                           
-                     :   E      j                           
-                   .:    E      #                           
-        .         E             L                           
-                 G.     j       G                           
-              ..K       t       G:                          
-            L  L        t         :.                        
-         j; :           ;     j     L                       
-       D                fD f         :                      
-    ,:    .   :.        t              :                    
-   ,          .          .:GD           E                   
-                         :  ,            i                  
-                : .       E               j                 
-             E          .   t              E           i    
-                                          L;D               
-           .W                               ..              
-           :                        .        ,              
-          G                        j.    f#jK               
-         .#                    i      #.    iGE             
-        :.D                             L   ,.              
-         i          .                    W,    .            
-        f                                 K W  K : .        
-       :            .                    . #                
-                                                j           
-      f                                     LE   D   :      
-                                             :    j         
-                                            . ;    ;        
-                                                            
-                                           L      .  i      
-                                          K        :KW      
-                                         L,         :       
-                                       i            W       
-                                     ;.  D    . .   D       
-                                   K     .                  
-                               L                   .        
-                   .                     G         K        
-                               D, iE,      f      i         
-                              f       K.      t,;t          
-                              .         ,                   
-                             E            iD  :f            
-                                                            
-  
-                                                              
+                                        Ci                                
+                                        @8                                
+                                       i 1                                
+                .                    .                                    
+                                    ,    1                                
+                                   f     C                                
+                                 ;8      .                                
+                               , 8      i                                 
+                             t  f       C                                 
+                   :      ..   0                                          
+                       G      f        i                                  
+              .      :                 i                                  
+               iC.;,         i         G, 0                               
+          8                  :8  ..8,   .   .8                            
+     f      .    ,.                             i                         
+                              :  . L              C                       
+  :               ,1:           ,                   i                     
+              f                                    .C C                   
+              ;                                   ..                      
+          . 8                              .C; .  .0C.C.                  
+          C:tG                                   1    8L f                
+          .1                                       G      i               
+         ,                                           0 .                  
+       G                                              f,    G             
+                                                        i     ,           
+                                                      L   .      f        
+                                                    1        L   ,        
+                                                  . L           8L        
+                                               1  :      .      i         
+                                         t .                    .         
+                       .                           t           G          
+                                     :        8         C1 iLi            
+                                    0             :,       ;              
+                                   f                                                                                                  
 ``` 
