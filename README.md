@@ -2,49 +2,61 @@
 customizable Cypher query execution framework
 
 ```
-                           K                      
-                           #,                     
-                                                  
-                          D ,                     
-           .             :  D                     
-    .                       ,                     
-                        K                         
-                           .                      
-                      ,#                          
-          :                 ,                     
-                 .    #    G                      
-                           D                      
-                     #                            
-                 ,       .                        
-               E    .                             
-              G     ,                             
-            iW      L       .                     
-   .    .f          G     :K :                    
-      K     E       L  .       G                  
-    L       .       G           W                 
-  L                   fL         :                
-           D     :D    .                          
-           . .        ,                           
-          t             .          :              
-         tE                          W            
-         .                    :                   
-        E,                        #L L#           
-       .WK                      i  . ,.           
-      j L                         # iE .          
-       E                           i . E          
-      G                           : ,t            
-     t                                  i         
-                             .           ,        
-                                      :   :       
-                                       .    .     
-                                    :       :     
-                  .                L       DL     
-                                 i :       t      
-                                : t       .       
-                              L   G        E      
-                          ..                      
-                                  ;               
-                              ;:         ,        
-                         ;      it                
-                        ,          j              
+               .                 :                          
+                                 #.                         
+                                 #                          
+                                ,                           
+                                ;                           
+                               W                            
+                                                            
+                              K                             
+             .                                              
+                             :                              
+                            t    ,                          
+                           .:    G                          
+            :             G#                                
+                         f .                                
+                        D W                                 
+                       i :.     :                           
+                     :   E      j                           
+                   .:    E      #                           
+        .         E             L                           
+                 G.     j       G                           
+              ..K       t       G:                          
+            L  L        t         :.                        
+         j; :           ;     j     L                       
+       D                fD f         :                      
+    ,:    .   :.        t              :                    
+   ,          .          .:GD           E                   
+                         :  ,            i                  
+                : .       E               j                 
+             E          .   t              E           i    
+                                          L;D               
+           .W                               ..              
+           :                        .        ,              
+          G                        j.    f#jK               
+         .#                    i      #.    iGE             
+        :.D                             L   ,.              
+         i          .                    W,    .            
+        f                                 K W  K : .        
+       :            .                    . #                
+                                                j           
+      f                                     LE   D   :      
+                                             :    j         
+                                            . ;    ;        
+                                                            
+                                           L      .  i      
+                                          K        :KW      
+                                         L,         :       
+                                       i            W       
+                                     ;.  D    . .   D       
+                                   K     .                  
+                               L                   .        
+                   .                     G         K        
+                               D, iE,      f      i         
+                              f       K.      t,;t          
+                              .         ,                   
+                             E            iD  :f            
+                                                            
+    
 ```
