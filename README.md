@@ -1,7 +1,6 @@
 # lynx
 customizable Cypher query execution framework
 
-```
                .                 :                          
                                  #.                         
                                  #                          
@@ -59,4 +58,3 @@ customizable Cypher query execution framework
                              E            iD  :f            
                                                             
     
-```
