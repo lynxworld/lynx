@@ -2,39 +2,33 @@
 customizable Cypher query execution framework
 
 <img src="https://github.com/bluejoe2008/lynx/blob/master/lynx.png?raw=true" width=300>
+
 ```
-@                                        Ci                                
-@                                        @8                                
-@                                       i 1                                
-@                .                    .                                    
-@                                    ,    1                                
-@                                   f     C                                
-@                                 ;8      .                                
-@                               , 8      i                                 
-@                             t  f       C                                 
-@                   :      ..   0                                          
-@                       G      f        i                                  
-@              .      :                 i                                  
-@               iC.;,         i         G, 0                               
-@          8                  :8  ..8,   .   .8                            
-@     f      .    ,.                             i                         
-@                              :  . L              C                       
-@  :               ,1:           ,                   i                     
-@              f                                    .C C                   
-@              ;                                   ..                      
-@          . 8                              .C; .  .0C.C.                  
-@          C:tG                                   1    8L f                
-@          .1                                       G      i               
-@         ,                                           0 .                  
-@       G                                              f,    G             
-@                                                        i     ,           
-@                                                      L   .      f        
-@                                                    1        L   ,        
-@                                                  . L           8L        
-@                                               1  :      .      i         
-@                                         t .                    .         
-@                       .                           t           G          
-@                                     :        8         C1 iLi            
-@                                    0             :,       ;              
-@                                   f                            
+                                                  
+                            B                     
+                          :BB                     
+                         :B  .                    
+                        :u  J.                    
+                       qB   M                     
+                      UB    7                     
+                   .r.B    r:                     
+                .:7. Bv    P                      
+              .7i   .P     B                      
+         .::iP7     P      BJi.                   
+     .:Jii. ::      qM  ii i .sIi                 
+  .7i:.     Y       :X i.       iUr               
+           ri. .riY: .i7.         :s:             
+          br .          i.         .PX        .   
+         YU                   .    ..7j           
+        BQ                    ri1qK:.Pd7          
+       BB7                       :2L Q J.         
+      vL                           .BB  d         
+     :r                              iU  1r       
+                                     ..i  .7:     
+                                   .X.  .i  Pi    
+                                .ivQ       rB     
+                 .           .:ri.J:       iv     
+                          i.i..   :.       b      
+                         iPi:::ir:  .. :.Li       
+                         P         .  ..i         
 ```
