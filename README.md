@@ -2,7 +2,6 @@
 customizable Cypher query execution framework
 
 ```
-                                                  
                             B                     
                           :BB                     
                          :B  .                    
@@ -16,7 +15,7 @@ customizable Cypher query execution framework
      .:Jii. ::      qM  ii i .sIi                 
   .7i:.     Y       :X i.       iUr               
            ri. .riY: .i7.         :s:             
-          br .          i.         .PX        .   
+          br .          i.         .PX            
          YU                   .    ..7j           
         BQ                    ri1qK:.Pd7          
        BB7                       :2L Q J.         
