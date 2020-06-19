@@ -3,7 +3,7 @@ package org.opencypher.lynx
 import org.apache.logging.log4j.scala.Logging
 import org.opencypher.okapi.api.graph._
 import org.opencypher.okapi.api.table.CypherRecords
-import org.opencypher.okapi.api.types.CypherType
+import org.opencypher.okapi.api.types.{CTRelationship, CTNode, CypherType}
 import org.opencypher.okapi.api.value.CypherValue
 import org.opencypher.okapi.api.value.CypherValue._
 import org.opencypher.okapi.impl.graph.CypherCatalog
@@ -14,6 +14,8 @@ import org.opencypher.okapi.ir.api.expr._
 import org.opencypher.okapi.ir.impl.parse.CypherParser
 import org.opencypher.okapi.ir.impl.{IRBuilder, IRBuilderContext, QueryLocalCatalog}
 import org.opencypher.okapi.logical.impl._
+
+import scala.collection.mutable
 
 case class LynxNode(id: Long, labels: Set[String], properties: CypherMap) extends Node[Long] {
   override def copy(id: Long, labels: Set[String], properties: CypherMap): LynxNode =
@@ -28,12 +30,17 @@ case class LynxRelationship(id: Long, startId: Long, endId: Long, relType: Strin
   override type I = this.type
 }
 
-case class LynxCypherRecords(meta: Map[String, CypherType], records: Iterator[CypherMap]) extends CypherRecords {
+object LynxCypherRecords {
+  def nodes(colName: String, nodes: Stream[LynxNode]) = new LynxCypherRecords(Map(colName -> CTNode), nodes.map(node => CypherMap(colName -> node)))
+  def rels(colName: String, rels: Stream[LynxRelationship]) = new LynxCypherRecords(Map(colName -> CTRelationship), rels.map(rel => CypherMap(colName -> rel)))
+}
+
+class LynxCypherRecords(meta: Map[String, CypherType], records: Stream[CypherMap]) extends CypherRecords {
   override def collect: Array[CypherMap] = records.toArray
 
-  override def iterator: Iterator[CypherMap] = records
+  override def iterator: Iterator[CypherMap] = records.iterator
 
-  override def rows: Iterator[(String) => CypherValue] = records.map(x => (key: String) => CypherValue(x(key)))
+  override def rows: Iterator[(String) => CypherValue] = records.iterator.map(x => (key: String) => CypherValue(x(key)))
 
   override def size: Long = records.size
 
@@ -41,9 +48,21 @@ case class LynxCypherRecords(meta: Map[String, CypherType], records: Iterator[Cy
 
   override def physicalColumns: Seq[String] = meta.keys.toSeq
 
-  override def show(implicit options: PrintOptions): Unit = {}
+  override def show(implicit options: PrintOptions): Unit = {
+    val rowsShown =
+      if (size > 20) {
+        println("only showing 20 first rows...")
+        records.take(20)
+      }
+      else
+        records
 
-  def select(names: Array[String]) = LynxCypherRecords(meta.filterKeys(names.contains(_)),
+    FormatUtils.printTable(physicalColumns, rowsShown.map(row => {
+      physicalColumns.map(col => row.apply(col).toString())
+    }).toArray.toSeq)
+  }
+
+  def select(names: Array[String]) = new LynxCypherRecords(meta.filterKeys(names.contains(_)),
     records.map(x => CypherMap(x.unwrap.filterKeys(names.contains(_)).toSeq: _*)))
 
   def eval(expr: Expr)(ctx: CypherMap, parameters: CypherMap): CypherValue = {
@@ -60,7 +79,7 @@ case class LynxCypherRecords(meta: Map[String, CypherType], records: Iterator[Cy
     }
   }
 
-  def filter(expr: Expr, parameters: CypherMap) = LynxCypherRecords(meta,
+  def filter(expr: Expr, parameters: CypherMap) = new LynxCypherRecords(meta,
     records.filter { map =>
       expr match {
         case GreaterThan(lhs: Expr, rhs: Expr) =>
@@ -76,27 +95,31 @@ case class LynxCypherRecords(meta: Map[String, CypherType], records: Iterator[Cy
     expr match {
       case ElementProperty(NodeVar(name: String), key: PropertyKey) =>
         val qname = expr.withoutType
-        LynxCypherRecords(meta ++ Map(qname -> expr.cypherType),
+        new LynxCypherRecords(meta ++ Map(qname -> expr.cypherType),
           records.map(x => x ++ CypherMap(qname -> x(name).asInstanceOf[LynxNode].properties(key.name))))
     }
 
   }
 }
 
-object Objects {
-  val emptyResult: CypherResult = new CypherResult {
-    override def getRecords: Option[Records] = ???
+object EmptyCypherResult extends CypherResult {
+  override def getRecords: Option[Records] = None
 
-    override def plans: CypherQueryPlans = ???
+  override def plans: CypherQueryPlans = new CypherQueryPlans() {
+    override def logical: String = "logical"
 
-    override def getGraph: Option[Graph] = None
-
-    override def show(implicit options: PrintOptions): Unit = {}
+    override def relational: String = "relational"
   }
+
+  override def getGraph: Option[Graph] = None
+
+  override def show(implicit options: PrintOptions): Unit = {}
 }
 
-class SingleGraphCypherSession(graph: PropertyGraph, executor: QueryPlanExecutor) extends CypherSession with Logging {
+//TOOD: using RelationalCypherSession
+class LynxCypherSession(graph: PropertyGraph, executor: QueryPlanExecutor) extends CypherSession with Logging {
   private val _catalog = new CypherCatalog()
+  private val _compiled = mutable.Map[String, (Set[Var], CypherMap, CypherStatement, QueryLocalCatalog)]()
 
   override def catalog: PropertyGraphCatalog = _catalog
 
@@ -143,7 +166,6 @@ class SingleGraphCypherSession(graph: PropertyGraph, executor: QueryPlanExecutor
                                 logicalPlan: LogicalOperator,
                                 queryLocalCatalog: QueryLocalCatalog
                               ): Result = {
-    //val optimizedRelationalPlan = AnyCypherOptimizer.process(relationalPlan)
     executor.execute(parameters, logicalPlan, queryLocalCatalog)
   }
 
@@ -154,31 +176,37 @@ class SingleGraphCypherSession(graph: PropertyGraph, executor: QueryPlanExecutor
                                                   drivingTable: Option[CypherRecords],
                                                   queryCatalog: Map[QualifiedGraphName, PropertyGraph]):
   CypherResult = {
-    val inputFields: Set[Var] = Set.empty
-    val (stmt, extractedLiterals, semState) = CypherParser.process(query)(CypherParser.defaultContext)
-
-    val extractedParameters: CypherMap = extractedLiterals.mapValues(v => CypherValue(v))
-    val allParameters = parameters ++ extractedParameters
-
     implicit val session = this
-    val irBuilderContext = IRBuilderContext.initial(
-      query,
-      allParameters,
-      semState,
-      _catalogGraph,
-      qgnGenerator,
-      catalog.listSources,
-      catalog.view,
-      inputFields,
-      queryCatalog
-    )
 
-    val irOut = IRBuilder.process(stmt)(irBuilderContext)
+    def compile: (Set[Var], CypherMap, CypherStatement, QueryLocalCatalog) = {
+      val inputFields: Set[Var] = Set.empty
+      val (stmt, extractedLiterals, semState) = CypherParser.process(query)(CypherParser.defaultContext)
 
-    val ir = IRBuilder.extract(irOut)
-    val queryLocalCatalog = IRBuilder.getContext(irOut).queryLocalCatalog
+      val extractedParameters: CypherMap = extractedLiterals.mapValues(v => CypherValue(v))
+      val allParameters = parameters ++ extractedParameters
 
-    def processIR(ir: CypherStatement): Result = ir match {
+      val irBuilderContext = IRBuilderContext.initial(
+        query,
+        allParameters,
+        semState,
+        _catalogGraph,
+        qgnGenerator,
+        catalog.listSources,
+        catalog.view,
+        inputFields,
+        queryCatalog
+      )
+
+      val irOut = IRBuilder.process(stmt)(irBuilderContext)
+
+      val ir = IRBuilder.extract(irOut)
+      val queryLocalCatalog = IRBuilder.getContext(irOut).queryLocalCatalog
+      (inputFields, allParameters, ir, queryLocalCatalog)
+    }
+
+    val (inputFields: Set[Var], allParameters: CypherMap, ir: CypherStatement, queryLocalCatalog: QueryLocalCatalog) = _compiled.getOrElseUpdate(query, compile)
+
+    def processIR(ir: CypherStatement): CypherResult = ir match {
       case cq: CypherQuery =>
         if (PrintIr.isSet) {
           println("IR:")
@@ -191,19 +219,19 @@ class SingleGraphCypherSession(graph: PropertyGraph, executor: QueryPlanExecutor
         val innerResult = planCypherQuery(graph, innerQueryIr, allParameters, inputFields, queryLocalCatalog)
         val resultGraph = innerResult.graph
         catalog.store(targetGraph.qualifiedGraphName, resultGraph.asInstanceOf[PropertyGraph])
-        Objects.emptyResult.asInstanceOf[Result]
+        EmptyCypherResult
 
       case CreateViewStatement(qgn, parameterNames, queryString) =>
         catalog.store(qgn, parameterNames, queryString)
-        Objects.emptyResult.asInstanceOf[Result]
+        EmptyCypherResult
 
       case DeleteGraphStatement(qgn) =>
         catalog.dropGraph(qgn)
-        Objects.emptyResult.asInstanceOf[Result]
+        EmptyCypherResult
 
       case DeleteViewStatement(qgn) =>
         catalog.dropView(qgn)
-        Objects.emptyResult.asInstanceOf[Result]
+        EmptyCypherResult
     }
 
     processIR(ir)
