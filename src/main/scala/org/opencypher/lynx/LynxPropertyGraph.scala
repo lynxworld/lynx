@@ -12,8 +12,10 @@ import org.opencypher.okapi.ir.api.IRField
 import org.opencypher.okapi.ir.api.expr.{Expr, Var}
 import org.opencypher.okapi.ir.impl.QueryLocalCatalog
 import org.opencypher.okapi.logical.impl._
+import org.opencypher.okapi.trees.BottomUp
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 /**
   * Created by bluejoe on 2020/4/28.
@@ -24,7 +26,7 @@ class InMemoryPropertyGraph extends LynxPropertyGraph with Logging {
   val nodeId = new AtomicLong(1)
   val relId = new AtomicLong(1)
 
-  def filterNodesApproximately(expr: Expr, labels: Set[String]): Stream[LynxNode] = {
+  def filterNodesApproximately(expr: Expr, labels: Set[String], parameters: CypherMap): Stream[LynxNode] = {
     logger.debug(s"filterNodesApproximately: $expr")
     scanNodes(labels, true)
   }
@@ -67,11 +69,13 @@ abstract class LynxPropertyGraph extends PropertyGraph {
 
   def scanRelationships(relCypherType: Option[String]): Stream[LynxRelationship]
 
-  def filterNodesApproximately(expr: Expr, labels: Set[String]): Stream[LynxNode]
+  def filterNodesApproximately(expr: Expr, labels: Set[String], parameters: CypherMap): Stream[LynxNode]
 
-  def filterNodesApproximately(fields: Set[IRField], predicates: Set[Expr], labels: Set[String]): LynxCypherRecords = {
-    //FIXME: incomplete
-    LynxCypherRecords.nodes(fields.head.name, filterNodesApproximately(predicates.head, labels))
+  def filterNodes(fields: Set[IRField], predicates: Set[Expr], labels: Set[String], parameters: CypherMap): LynxCypherRecords = {
+    val nodes = filterNodesApproximately(predicates.head, labels, parameters)
+    //2nd filtering
+    val rec = LynxCypherRecords.nodes(fields.head.name, nodes)
+    rec.filter(predicates.head, parameters)
   }
 
   override def nodes(name: String, nodeCypherType: CTNode, exactLabelMatch: Boolean): LynxCypherRecords =
@@ -92,37 +96,59 @@ abstract class LynxPropertyGraph extends PropertyGraph {
 }
 
 class LynxExecutor(implicit propertyGraph: LynxPropertyGraph) extends DefaultExecutor() {
-  override def optimizied(parameters: CypherMap, op: LogicalOperator, queryLocalCatalog: QueryLocalCatalog): Option[LynxQueryPipe] = {
-    op match {
-      case Filter(expr: Expr, PatternScan(NodePattern(nodeType), _, _, _), solved: SolvedQueryModel) =>
-        Some(TopLevelFilterPipe(solved, parameters))
-      case _ => None
+  val optimizationRules = ArrayBuffer[(LogicalPlannerContext) => PartialFunction[LogicalOperator, LogicalOperator]](
+    (_) => LogicalOptimizer.discardScansForNonexistentLabels,
+    (_) => LogicalOptimizer.replaceCartesianWithValueJoin,
+    LogicalOptimizer.replaceScansWithRecognizedPatterns(_)
+  )
+
+  def rewrite(rule: (LogicalPlannerContext) => PartialFunction[LogicalOperator, LogicalOperator]): this.type = {
+    optimizationRules += rule
+    this
+  }
+
+  def process(input: LogicalOperator)(implicit context: LogicalPlannerContext): LogicalOperator = {
+    optimizationRules.foldLeft(input) {
+      // TODO: Evaluate if multiple rewriters could be fused
+      case (tree: LogicalOperator, optimizationRule) => BottomUp[LogicalOperator](optimizationRule(context)).transform(tree)
     }
   }
+
+  //append new rewriter
+  rewrite {
+    _ => {
+      case filter@Filter(expr: Expr, PatternScan(NodePattern(nodeType), _, _, _), solved: SolvedQueryModel) =>
+        println(s"!!!!top level filter: $filter")
+        filter
+    }
+  }
+
+  override def optimize(plan: LogicalOperator, context: LogicalPlannerContext): LogicalOperator = process(plan)(context)
 }
 
 class DefaultExecutor(implicit propertyGraph: LynxPropertyGraph) extends QueryPlanExecutor {
-  def optimizied(parameters: CypherMap, op: LogicalOperator, queryLocalCatalog: QueryLocalCatalog): Option[LynxQueryPipe] = None
 
   def eval(parameters: CypherMap, op: LogicalOperator, queryLocalCatalog: QueryLocalCatalog): LynxQueryPipe = {
-    optimizied(parameters: CypherMap, op: LogicalOperator, queryLocalCatalog: QueryLocalCatalog).getOrElse(
-      op match {
-        case Expand(source: Var, rel: Var, target: Var, direction, lhs: LogicalOperator, rhs: LogicalOperator, solved: SolvedQueryModel) =>
-          ExpandPipe(source: Var, rel: Var, target: Var, direction)
+    op match {
+      case Expand(source: Var, rel: Var, target: Var, direction, lhs: LogicalOperator, rhs: LogicalOperator, solved: SolvedQueryModel) =>
+        ExpandPipe(source: Var, rel: Var, target: Var, direction)
 
-        case Select(fields: List[Var], in, solved) =>
-          SelectPipe(eval(parameters, in, queryLocalCatalog), fields)
+      case Select(fields: List[Var], in, solved) =>
+        SelectPipe(eval(parameters, in, queryLocalCatalog), fields)
 
-        case Filter(expr: Expr, in: LogicalOperator, solved: SolvedQueryModel) =>
-          FilterPipe(eval(parameters, in, queryLocalCatalog), expr, parameters)
+      case f@Filter(expr: Expr, in: LogicalOperator, solved: SolvedQueryModel) =>
+        f match {
+          case Filter(expr: Expr, PatternScan(NodePattern(nodeType), _, _, _), solved: SolvedQueryModel) =>
+            TopLevelFilterPipe(solved, parameters)
+          case _ => FilterPipe(eval(parameters, in, queryLocalCatalog), expr, parameters)
+        }
 
-        case Project(projectExpr: (Expr, Option[Var]), in: LogicalOperator, solved: SolvedQueryModel) =>
-          ProjectPipe(eval(parameters, in, queryLocalCatalog), projectExpr)
+      case Project(projectExpr: (Expr, Option[Var]), in: LogicalOperator, solved: SolvedQueryModel) =>
+        ProjectPipe(eval(parameters, in, queryLocalCatalog), projectExpr)
 
-        case PatternScan(pattern: Pattern, mapping: Map[Var, PatternElement], in: LogicalOperator, solved: SolvedQueryModel) =>
-          PatternScanPipe(propertyGraph, pattern: Pattern, mapping)
-      }
-    )
+      case PatternScan(pattern: Pattern, mapping: Map[Var, PatternElement], in: LogicalOperator, solved: SolvedQueryModel) =>
+        PatternScanPipe(propertyGraph, pattern: Pattern, mapping)
+    }
   }
 
   override def execute(parameters: CypherMap, logicalPlan: LogicalOperator, queryLocalCatalog: QueryLocalCatalog): CypherResult = {
@@ -145,5 +171,7 @@ class DefaultExecutor(implicit propertyGraph: LynxPropertyGraph) extends QueryPl
       override def show(implicit options: PrintOptions): Unit = res.show(options)
     }
   }
+
+  override def optimize(plan: LogicalOperator, context: LogicalPlannerContext): LogicalOperator = LogicalOptimizer.process(plan)(context)
 }
 

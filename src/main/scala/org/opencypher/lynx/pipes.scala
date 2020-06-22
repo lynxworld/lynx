@@ -38,7 +38,7 @@ case class ProjectPipe(in: LynxQueryPipe, projectExpr: (Expr, Option[Var]))(impl
 case class TopLevelFilterPipe(model: SolvedQueryModel, parameters: CypherMap)(implicit propertyGraph: LynxPropertyGraph) extends LynxQueryPipe {
   override def execute(): LynxCypherRecords = {
     val SolvedQueryModel(fields, predicates) = model
-    propertyGraph.filterNodesApproximately(fields, predicates, Set())
+    propertyGraph.filterNodes(fields, predicates, Set(), parameters)
   }
 }
 
