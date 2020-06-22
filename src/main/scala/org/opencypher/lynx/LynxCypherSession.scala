@@ -3,13 +3,12 @@ package org.opencypher.lynx
 import org.apache.logging.log4j.scala.Logging
 import org.opencypher.okapi.api.graph._
 import org.opencypher.okapi.api.table.CypherRecords
-import org.opencypher.okapi.api.types.{CTRelationship, CTNode, CypherType}
+import org.opencypher.okapi.api.types.{CTNode, CTRelationship, CypherType}
 import org.opencypher.okapi.api.value.CypherValue
 import org.opencypher.okapi.api.value.CypherValue._
 import org.opencypher.okapi.impl.graph.CypherCatalog
 import org.opencypher.okapi.impl.util.PrintOptions
 import org.opencypher.okapi.ir.api._
-import org.opencypher.okapi.ir.api.configuration.IrConfiguration.PrintIr
 import org.opencypher.okapi.ir.api.expr._
 import org.opencypher.okapi.ir.impl.parse.CypherParser
 import org.opencypher.okapi.ir.impl.{IRBuilder, IRBuilderContext, QueryLocalCatalog}
@@ -32,6 +31,7 @@ case class LynxRelationship(id: Long, startId: Long, endId: Long, relType: Strin
 
 object LynxCypherRecords {
   def nodes(colName: String, nodes: Stream[LynxNode]) = new LynxCypherRecords(Map(colName -> CTNode), nodes.map(node => CypherMap(colName -> node)))
+
   def rels(colName: String, rels: Stream[LynxRelationship]) = new LynxCypherRecords(Map(colName -> CTRelationship), rels.map(rel => CypherMap(colName -> rel)))
 }
 
@@ -129,8 +129,6 @@ class LynxCypherSession(graph: PropertyGraph, executor: QueryPlanExecutor) exten
   override type Result = CypherResult
   protected val logicalPlanner: LogicalPlanner = new LogicalPlanner(new LogicalOperatorProducer)
 
-  protected val logicalOptimizer: LogicalOptimizer.type = LogicalOptimizer
-
   override def cypher(
                        query: String,
                        queryParameters: CypherMap = CypherMap.empty,
@@ -157,8 +155,7 @@ class LynxCypherSession(graph: PropertyGraph, executor: QueryPlanExecutor) exten
                            ): LogicalOperator = {
     val logicalPlannerContext = LogicalPlannerContext(graph.schema, inputFields, catalog.listSources, queryLocalCatalog)
     val logicalPlan = logicalPlanner(ir)(logicalPlannerContext)
-    val optimizedLogicalPlan = logicalOptimizer(logicalPlan)(logicalPlannerContext)
-    optimizedLogicalPlan
+    executor.optimize(logicalPlan, logicalPlannerContext)
   }
 
   protected def planRelational(
@@ -208,11 +205,7 @@ class LynxCypherSession(graph: PropertyGraph, executor: QueryPlanExecutor) exten
 
     def processIR(ir: CypherStatement): CypherResult = ir match {
       case cq: CypherQuery =>
-        if (PrintIr.isSet) {
-          println("IR:")
-          println(cq.pretty)
-        }
-
+        logger.debug(s"\r\n${cq.pretty}")
         planCypherQuery(graph, cq, allParameters, inputFields, queryLocalCatalog)
 
       case CreateGraphStatement(targetGraph, innerQueryIr) =>
@@ -239,5 +232,7 @@ class LynxCypherSession(graph: PropertyGraph, executor: QueryPlanExecutor) exten
 }
 
 trait QueryPlanExecutor {
+  def optimize(plan: LogicalOperator, context: LogicalPlannerContext): LogicalOperator
+
   def execute(parameters: CypherMap, logicalPlan: LogicalOperator, queryLocalCatalog: QueryLocalCatalog): CypherResult
 }
