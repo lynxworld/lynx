@@ -1,5 +1,6 @@
 package org.opencypher.lynx
 
+import cn.pandadb.FormatUtils
 import org.apache.logging.log4j.scala.Logging
 import org.opencypher.okapi.api.graph._
 import org.opencypher.okapi.api.table.CypherRecords
