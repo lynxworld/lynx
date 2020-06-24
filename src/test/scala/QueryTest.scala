@@ -1,9 +1,10 @@
+
 import org.junit.{Before, Test}
-import org.opencypher.lynx._
+import org.opencypher.lynx.{InMemoryPropertyGraph, LynxCypherSession, LynxExecutor}
 
 /**
-  * Created by bluejoe on 2020/5/2.
-  */
+ * Created by bluejoe on 2020/5/2.
+ */
 class QueryTest {
   val graph = new InMemoryPropertyGraph()
 
@@ -17,24 +18,30 @@ class QueryTest {
     graph.addRelationship(node2.id, node3.id, "knows")
   }
 
-  @Test
-  def test1(): Unit = {
+  private def run(query: String) = {
     val session = new LynxCypherSession(graph, new LynxExecutor()(graph))
-    val querylist = Array(
-      "match (m) return m.name,m",
-      "match (n) where n.age>20 return n.name",
-      "match (m)-[r]-(n) where n.age>20 return m.name,n.name,r",
-      "match (m)-[:knows]-(n) where n.age>20 return m.name,n.name"
-    )
-    for (i <- 1 to 1) {
-      for (query <- querylist) {
-        println(s"query: $query")
-        val t1 = System.currentTimeMillis()
-        val r = session.cypher(query).records
-        val t2 = System.currentTimeMillis()
-        println(s"fetched ${r.size} records in ${t2 - t1} ms.")
-        r.show
-      }
-    }
+
+    println(s"query: $query")
+    val t1 = System.currentTimeMillis()
+    val records = session.cypher(query).records
+    val t2 = System.currentTimeMillis()
+    println(s"fetched ${records.size} records in ${t2 - t1} ms.")
+    records.show
+    records
+  }
+
+  @Test
+  def testBlob(): Unit = {
+    run("return <file:///etc/profile>")
+  }
+
+  @Test
+  def testNormal(): Unit = {
+    run("return 1")
+    run("return 2>1")
+    run("match (m) return m.name,m")
+    run("match (n) where n.age>20 return n.name")
+    run("match (m)-[r]-(n) where n.age>20 return m.name,n.name,r")
+    run("match (m)-[:knows]-(n) where n.age>20 return m.name,n.name")
   }
 }

@@ -1,10 +1,8 @@
-package org.opencypher.lynx
+package cn.pandadb
 
-/**
-  * Created by bluejoe on 2020/6/16.
-  */
 import java.text.SimpleDateFormat
 import java.util.Date
+
 import org.apache.commons.lang.StringUtils
 
 object FormatUtils {

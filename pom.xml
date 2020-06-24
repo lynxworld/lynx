@@ -9,7 +9,6 @@
     <version>0.1-SNAPSHOT</version>
 
     <dependencies>
-        <!-- https://mvnrepository.com/artifact/org.opencypher/okapi-logical -->
         <dependency>
             <groupId>org.opencypher</groupId>
             <artifactId>okapi-api</artifactId>
@@ -44,6 +43,26 @@
             <groupId>commons-lang</groupId>
             <artifactId>commons-lang</artifactId>
             <version>2.1</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>1.10</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.5</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.4</version>
+        </dependency>
+        <dependency>
+            <groupId>eu.medsea.mimeutil</groupId>
+            <artifactId>mime-util</artifactId>
+            <version>2.1.3</version>
         </dependency>
     </dependencies>
 </project>

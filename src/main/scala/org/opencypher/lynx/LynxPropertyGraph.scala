@@ -18,8 +18,8 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 /**
-  * Created by bluejoe on 2020/4/28.
-  */
+ * Created by bluejoe on 2020/4/28.
+ */
 class InMemoryPropertyGraph extends LynxPropertyGraph with Logging {
   val nodes = mutable.Map[Long, LynxNode]();
   val rels = mutable.Map[Long, LynxRelationship]();
@@ -128,23 +128,23 @@ class LynxExecutor(implicit propertyGraph: LynxPropertyGraph) extends DefaultExe
 
 class DefaultExecutor(implicit propertyGraph: LynxPropertyGraph) extends QueryPlanExecutor {
 
-  def eval(parameters: CypherMap, op: LogicalOperator, queryLocalCatalog: QueryLocalCatalog): LynxQueryPipe = {
+  def eval(op: LogicalOperator, parameters: CypherMap, queryLocalCatalog: QueryLocalCatalog): LynxQueryPipe = {
     op match {
       case Expand(source: Var, rel: Var, target: Var, direction, lhs: LogicalOperator, rhs: LogicalOperator, solved: SolvedQueryModel) =>
         ExpandPipe(source: Var, rel: Var, target: Var, direction)
 
       case Select(fields: List[Var], in, solved) =>
-        SelectPipe(eval(parameters, in, queryLocalCatalog), fields)
+        SelectPipe(eval(in, parameters, queryLocalCatalog), fields)
 
       case f@Filter(expr: Expr, in: LogicalOperator, solved: SolvedQueryModel) =>
         f match {
           case Filter(expr: Expr, PatternScan(NodePattern(nodeType), _, _, _), solved: SolvedQueryModel) =>
             TopLevelFilterPipe(solved, parameters)
-          case _ => FilterPipe(eval(parameters, in, queryLocalCatalog), expr, parameters)
+          case _ => FilterPipe(eval(in, parameters, queryLocalCatalog), expr, parameters)
         }
 
       case Project(projectExpr: (Expr, Option[Var]), in: LogicalOperator, solved: SolvedQueryModel) =>
-        ProjectPipe(eval(parameters, in, queryLocalCatalog), projectExpr)
+        ProjectPipe(eval(in, parameters, queryLocalCatalog), projectExpr)
 
       case PatternScan(pattern: Pattern, mapping: Map[Var, PatternElement], in: LogicalOperator, solved: SolvedQueryModel) =>
         PatternScanPipe(propertyGraph, pattern: Pattern, mapping)
@@ -152,7 +152,7 @@ class DefaultExecutor(implicit propertyGraph: LynxPropertyGraph) extends QueryPl
   }
 
   override def execute(parameters: CypherMap, logicalPlan: LogicalOperator, queryLocalCatalog: QueryLocalCatalog): CypherResult = {
-    val res = eval(parameters, logicalPlan, queryLocalCatalog).execute()
+    val res = eval(logicalPlan, parameters, queryLocalCatalog).execute()
     new CypherResult {
       type Records = LynxCypherRecords
 
