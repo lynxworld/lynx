@@ -7,7 +7,7 @@
     <groupId>org.grapheco</groupId>
     <artifactId>lynx</artifactId>
     <version>0.1-SNAPSHOT</version>
-
+    <properties/>
     <dependencies>
         <dependency>
             <groupId>org.opencypher</groupId>
@@ -17,6 +17,11 @@
         <dependency>
             <groupId>org.opencypher</groupId>
             <artifactId>okapi-logical</artifactId>
+            <version>0.4.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.opencypher</groupId>
+            <artifactId>okapi-relational</artifactId>
             <version>0.4.2</version>
         </dependency>
         <dependency>
