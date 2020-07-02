@@ -1,6 +1,6 @@
 
 import org.junit.{Before, Test}
-import org.opencypher.lynx.{InMemoryPropertyGraph, LynxCypherSession, LynxExecutor}
+import org.opencypher.lynx.{InMemoryPropertyGraph, LynxCypherSession, LynxQueryPlanner}
 
 /**
  * Created by bluejoe on 2020/5/2.
@@ -19,7 +19,7 @@ class QueryTest {
   }
 
   private def run(query: String) = {
-    val session = new LynxCypherSession(graph, new LynxExecutor()(graph))
+    val session = new LynxCypherSession(graph, new LynxQueryPlanner()(graph))
 
     println(s"query: $query")
     val t1 = System.currentTimeMillis()
