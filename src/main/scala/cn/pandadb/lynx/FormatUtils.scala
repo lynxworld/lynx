@@ -1,4 +1,4 @@
-package cn.pandadb
+package cn.pandadb.lynx
 
 import java.text.SimpleDateFormat
 import java.util.Date

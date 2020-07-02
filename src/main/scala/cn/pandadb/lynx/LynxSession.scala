@@ -1,7 +1,5 @@
 package cn.pandadb.lynx
 
-import cn.pandadb.FormatUtils
-import org.opencypher.lynx.{Eval, LynxNode}
 import org.opencypher.okapi.api.graph.{NodePattern, PatternElement, PropertyGraph, RelationshipPattern, SourceEndNodeKey, SourceIdKey, SourceStartNodeKey}
 import org.opencypher.okapi.api.io.conversion.{ElementMapping, NodeMappingBuilder, RelationshipMappingBuilder}
 import org.opencypher.okapi.api.types.{CTIdentity, CTNode, CTRelationship, CypherType}
@@ -167,5 +165,5 @@ case class LynxTable(meta: Seq[(String, CypherType)], records: Stream[CypherMap]
 
   override def rows: Iterator[String => CypherValue.CypherValue] = records.map(record => (colname: String) => record(colname)).iterator
 
-  override def size: Long = ???
+  override def size: Long = records.size
 }

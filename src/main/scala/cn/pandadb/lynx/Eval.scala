@@ -1,4 +1,4 @@
-package org.opencypher.lynx
+package cn.pandadb.lynx
 
 import org.opencypher.okapi.api.value.CypherValue.CypherMap
 import org.opencypher.okapi.ir.api.PropertyKey
