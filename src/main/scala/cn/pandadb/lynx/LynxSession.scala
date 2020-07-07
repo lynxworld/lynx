@@ -1,18 +1,20 @@
 package cn.pandadb.lynx
 
-import org.opencypher.okapi.api.graph.{NodePattern, PatternElement, PropertyGraph, RelationshipPattern, SourceEndNodeKey, SourceIdKey, SourceStartNodeKey}
+import org.opencypher.okapi.api.graph.PropertyGraph
 import org.opencypher.okapi.api.io.conversion.{ElementMapping, NodeMappingBuilder, RelationshipMappingBuilder}
-import org.opencypher.okapi.api.types.{CTIdentity, CTNode, CTRelationship, CypherType}
+import org.opencypher.okapi.api.types.{CTIdentity, CypherType}
 import org.opencypher.okapi.api.value.CypherValue
-import org.opencypher.okapi.api.value.CypherValue.{CypherMap, Node, Relationship}
-import org.opencypher.okapi.ir.api.expr.{Aggregator, Expr, Var}
+import org.opencypher.okapi.api.value.CypherValue.{CypherBigDecimal, CypherBoolean, CypherFloat, CypherInteger, CypherMap, CypherNull, CypherValue}
+import org.opencypher.okapi.ir.api.expr.{Aggregator, Equals, Expr, GreaterThan, Not, Var}
 import org.opencypher.okapi.relational.api.graph.{RelationalCypherGraphFactory, RelationalCypherSession}
 import org.opencypher.okapi.relational.api.io.ElementTable
 import org.opencypher.okapi.relational.api.table.{RelationalCypherRecords, RelationalCypherRecordsFactory, RelationalElementTableFactory, Table}
-import org.opencypher.okapi.relational.impl.planning.{JoinType, Order}
+import org.opencypher.okapi.relational.impl.planning.{FullOuterJoin, InnerJoin, JoinType, LeftOuterJoin, Order, RightOuterJoin}
 import org.opencypher.okapi.relational.impl.table.RecordHeader
 
-class LynxSession extends RelationalCypherSession[LynxTable] {
+import scala.collection.mutable
+
+class LynxSession extends RelationalCypherSession[LynxDataFrame] {
   protected implicit val self: LynxSession = this
 
   override val records: LynxRecordsFactory = LynxRecordsFactory()
@@ -25,130 +27,157 @@ class LynxSession extends RelationalCypherSession[LynxTable] {
     val nodes = elements.filter(_.isInstanceOf[LynxNode]).map(_.asInstanceOf[LynxNode])
     val rels = elements.filter(_.isInstanceOf[LynxRelationship]).map(_.asInstanceOf[LynxRelationship])
 
-    val tables = nodes.groupBy(_.labels.headOption.getOrElse("_default")).map(kv => {
+    val tables = nodes.groupBy(_.labels.headOption.getOrElse("")).map(kv => {
       val (label, groupped) = kv
-      val schema = groupped.flatMap(record => record.withIds.value.map(x => x._1 -> x._2.cypherType) ++ Seq("_id" -> CTIdentity))
+      val schema = mutable.Map[String, CypherType]()
+      groupped.foreach(record => {
+        schema ++= record.withIds.value.map(x => x._1 -> x._2.cypherType)
+        schema += "_id" -> CTIdentity
+      })
+
       elementTables.elementTable(
-        NodeMappingBuilder.create(nodeIdKey = "_id", impliedLabels = Set(label), propertyKeys = schema.map(_._1).filter(!_.startsWith("_")).toSet),
-        LynxTable(schema, groupped.map(_.withIds).toStream))
+        NodeMappingBuilder.create(nodeIdKey = "_id", impliedLabels = if (label.isEmpty) {
+          Set.empty
+        } else {
+          Set(label)
+        }, propertyKeys = schema.map(_._1).filter(!_.startsWith("_")).toSet),
+        LynxDataFrame(schema.toMap, groupped.map(_.withIds).toStream))
     }) ++ rels.groupBy(_.relType).map(kv => {
       val (relType, groupped) = kv
-      val schema = groupped.flatMap(record => record.withIds.value.map(x => x._1 -> x._2.cypherType) ++ Seq("_id" -> CTIdentity, "_from" -> CTIdentity, "_to" -> CTIdentity))
+      val schema = mutable.Map[String, CypherType]()
+      groupped.foreach(record => {
+        schema ++= record.withIds.value.map(x => x._1 -> x._2.cypherType)
+        schema ++= Map("_id" -> CTIdentity, "_from" -> CTIdentity, "_to" -> CTIdentity)
+      })
+
       elementTables.elementTable(
         RelationshipMappingBuilder.create("_id", "_from", "_to", relType, schema.map(_._1).filter(!_.startsWith("_")).toSet),
-        LynxTable(schema, groupped.map(_.withIds).toStream))
+        LynxDataFrame(schema.toMap, groupped.map(_.withIds).toStream))
     })
 
     graphs.create(None, tables.toSeq: _*)
   }
 }
 
-object LynxNode {
-  def apply(id: Long, props: (String, Any)*) = new LynxNode(id, Set.empty, props: _*)
+case class LynxGraphFactory()(implicit val session: LynxSession) extends RelationalCypherGraphFactory[LynxDataFrame] {
 }
 
-case class LynxNode(id: Long, labels: Set[String], props: (String, Any)*) extends LynxElement {
-  val properties = CypherMap(props: _*)
-  val withIds = CypherMap(props ++ Seq("_id" -> id): _*)
-}
-
-case class LynxRelationship(id: Long, startId: Long, endId: Long, relType: String, props: (String, Any)*) extends LynxElement {
-  val properties = CypherMap(props: _*)
-  val withIds = CypherMap((props ++ Seq("_id" -> id, "_from" -> startId, "_to" -> endId)): _*)
-}
-
-trait LynxElement {
-
-}
-
-case class LynxGraphFactory()(implicit val session: LynxSession) extends RelationalCypherGraphFactory[LynxTable] {
-}
-
-case class LynxElementTableFactory()(implicit val session: LynxSession) extends RelationalElementTableFactory[LynxTable] {
-  override def elementTable(elementMapping: ElementMapping, table: LynxTable): ElementTable[LynxTable] =
+case class LynxElementTableFactory()(implicit val session: LynxSession) extends RelationalElementTableFactory[LynxDataFrame] {
+  override def elementTable(elementMapping: ElementMapping, table: LynxDataFrame): ElementTable[LynxDataFrame] =
     LynxElementTable(elementMapping, table)
 }
 
-case class LynxRecordsFactory()(implicit morpheus: LynxSession) extends RelationalCypherRecordsFactory[LynxTable] {
+case class LynxRecordsFactory()(implicit session: LynxSession) extends RelationalCypherRecordsFactory[LynxDataFrame] {
   override type Records = LynxRecords
 
-  override def unit(): LynxRecords = LynxRecords(RecordHeader.empty, LynxTable.empty)
+  override def unit(): LynxRecords = LynxRecords(RecordHeader.empty, LynxDataFrame.unit)
 
-  override def empty(initialHeader: RecordHeader): LynxRecords = LynxRecords(initialHeader, LynxTable.empty)
+  override def empty(initialHeader: RecordHeader): LynxRecords = LynxRecords(initialHeader, LynxDataFrame.empty)
 
-  override def fromElementTable(elementTable: ElementTable[LynxTable]): LynxRecords = ???
+  override def fromElementTable(elementTable: ElementTable[LynxDataFrame]): LynxRecords = ???
 
-  override def from(header: RecordHeader, table: LynxTable, returnItems: Option[Seq[String]]): LynxRecords = {
+  //wrap a result table as a records
+  override def from(header: RecordHeader, table: LynxDataFrame, returnItems: Option[Seq[String]]): LynxRecords = {
     LynxRecords(header, table, returnItems)
   }
 }
 
-case class LynxElementTable(val mapping: ElementMapping, val table: LynxTable)
-  extends ElementTable[LynxTable] with LynxElementTableLike {
+case class LynxElementTable(val mapping: ElementMapping, val table: LynxDataFrame)
+  extends ElementTable[LynxDataFrame] with CypherRecordsLike {
   override type Records = this.type
-}
-
-trait LynxElementTableLike {
-  def table: LynxTable
-
-  def cache(): this.type = ???
-
-  def iterator: Iterator[CypherValue.CypherMap] = table.records.iterator
-
-  def collect: Array[CypherValue.CypherMap] = table.records.toArray
-
-  def columnType: Map[String, CypherType] = table.columnType
-
-  def rows: Iterator[String => CypherValue.CypherValue] = table.rows
 }
 
 case class LynxRecords(
                         header: RecordHeader,
-                        table: LynxTable,
+                        table: LynxDataFrame,
                         override val logicalColumns: Option[Seq[String]] = None
-                      )(implicit session: LynxSession) extends RelationalCypherRecords[LynxTable] with LynxElementTableLike {
+                      )(implicit session: LynxSession) extends RelationalCypherRecords[LynxDataFrame] with CypherRecordsLike {
   override type Records = this.type
+
 }
 
-object LynxTable {
-  def empty(): LynxTable = {
-    LynxTable(Seq.empty, Stream.empty)
+object LynxDataFrame {
+  def empty(): LynxDataFrame = {
+    LynxDataFrame(Map.empty, Stream.empty)
+  }
+
+  def unit(): LynxDataFrame = {
+    LynxDataFrame(Map.empty, Stream(Map.empty))
   }
 }
 
-case class LynxTable(meta: Seq[(String, CypherType)], records: Stream[CypherMap]) extends Table[LynxTable] {
-  val columnMap = meta.toMap
+//meta: (name,STRING),(age,INTEGER)
+case class LynxDataFrame(schema: Map[String, CypherType], records: Stream[Map[String, CypherValue]]) extends Table[LynxDataFrame] {
 
-  override def select(col: (String, String), cols: (String, String)*): LynxTable = {
+  //cols:(name,node_name__ STRING),(age,node_age __INTEGER)
+  override def select(col: (String, String), cols: (String, String)*): LynxDataFrame = {
     val columns = col +: cols
-    LynxTable(columns.map(column => column._2 -> columnMap(column._1)),
-      records.map(record => CypherMap(columns.map(column => column._2 -> record(column._1)): _*))
+    LynxDataFrame(columns.map(column =>
+      column._2 -> schema(column._1)).toMap,
+      records.map(record =>
+        columns.map(column => column._2 -> record(column._1)).toMap)
     )
   }
 
-  override def filter(expr: Expr)(implicit header: RecordHeader, parameters: CypherValue.CypherMap): LynxTable = ???
+  override def filter(expr: Expr)(implicit header: RecordHeader, parameters: CypherValue.CypherMap): LynxDataFrame = {
+    LynxDataFrame(schema,
+      records.filter { map =>
+        implicit val ctx = EvalContext(map, parameters)
+        Runtime.eval(expr) match {
+          case CypherNull => false
+          case CypherBoolean(x) => x
+        }
+      })
+  }
 
-  override def drop(cols: String*): LynxTable = ???
+  override def drop(cols: String*): LynxDataFrame = LynxDataFrame(schema -- cols, records.map(_ -- cols))
 
-  override def join(other: LynxTable, joinType: JoinType, joinCols: (String, String)*): LynxTable = ???
+  override def join(other: LynxDataFrame, joinType: JoinType, joinCols: (String, String)*): LynxDataFrame = {
+    joinType match {
+      case InnerJoin => {
+        val joined = this.records.flatMap {
+          a => {
+            other.records.filter { b => {
+              joinCols.map(kv => a(kv._1) == b(kv._2)).reduce(_ && _)
+            }
+            }.map {
+              b =>
+                a ++ b
+            }
+          }
+        }
 
-  override def unionAll(other: LynxTable): LynxTable = ???
+        LynxDataFrame(this.schema ++ other.schema, joined)
+      }
+    }
+  }
 
-  override def orderBy(sortItems: (Expr, Order)*)(implicit header: RecordHeader, parameters: CypherValue.CypherMap): LynxTable = ???
+  override def unionAll(other: LynxDataFrame): LynxDataFrame = {
+    LynxDataFrame(this.schema ++ other.schema, this.records.union(other.records))
+  }
 
-  override def skip(n: Long): LynxTable = ???
+  override def orderBy(sortItems: (Expr, Order)*)(implicit header: RecordHeader, parameters: CypherValue.CypherMap): LynxDataFrame = ???
 
-  override def limit(n: Long): LynxTable = ???
+  override def skip(n: Long): LynxDataFrame = ???
 
-  override def distinct: LynxTable = ???
+  override def limit(n: Long): LynxDataFrame = ???
 
-  override def distinct(cols: String*): LynxTable = ???
+  override def distinct: LynxDataFrame = ???
 
-  override def group(by: Set[Var], aggregations: Map[String, Aggregator])(implicit header: RecordHeader, parameters: CypherValue.CypherMap): LynxTable = ???
+  override def distinct(cols: String*): LynxDataFrame = ???
 
-  override def withColumns(columns: (Expr, String)*)(implicit header: RecordHeader, parameters: CypherValue.CypherMap): LynxTable = {
-    LynxTable(meta ++ columns.map(column => column._2 -> column._1.cypherType),
-      records.map(record => record ++ CypherMap(columns.map(column => column._2 -> Eval.eval(column._1, record, parameters)): _*)))
+  override def group(by: Set[Var], aggregations: Map[String, Aggregator])(implicit header: RecordHeader, parameters: CypherValue.CypherMap): LynxDataFrame = ???
+
+  //columns:(AliasExpr,AUTOINT0__ INTEGER)
+  override def withColumns(columns: (Expr, String)*)(implicit header: RecordHeader, parameters: CypherValue.CypherMap): LynxDataFrame = {
+    LynxDataFrame(schema ++ columns.map(column => column._2 -> column._1.cypherType),
+      records.map(record =>
+        record ++ columns.map(column => {
+          implicit val ctx = EvalContext(record, parameters)
+          column._2 -> Runtime.eval(column._1)
+        })
+      )
+    )
   }
 
   override def show(rows: Int): Unit = {
@@ -159,9 +188,9 @@ case class LynxTable(meta: Seq[(String, CypherType)], records: Stream[CypherMap]
     }).toArray.toSeq)
   }
 
-  override def physicalColumns: Seq[String] = meta.map(_._1)
+  override def physicalColumns: Seq[String] = schema.keys.toSeq
 
-  override def columnType: Map[String, CypherType] = meta.toMap
+  override def columnType: Map[String, CypherType] = schema
 
   override def rows: Iterator[String => CypherValue.CypherValue] = records.map(record => (colname: String) => record(colname)).iterator
 

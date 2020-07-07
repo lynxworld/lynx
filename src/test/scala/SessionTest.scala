@@ -30,7 +30,9 @@ class SessionTest {
   def testNormal(): Unit = {
     run("return 1")
     run("return 2>1")
+    run("match (m) return m")
     run("match (m) return m.name,m")
+    run("match (m)-[r]-(n) return m.name,n.name,r")
     run("match (n) where n.age>20 return n.name")
     run("match (m)-[r]-(n) where n.age>20 return m.name,n.name,r")
     run("match (m)-[:knows]-(n) where n.age>20 return m.name,n.name")
