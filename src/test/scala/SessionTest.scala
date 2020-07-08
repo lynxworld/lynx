@@ -8,7 +8,7 @@ class SessionTest {
     LynxNode(2, "name" -> "simba", "age" -> 10),
     LynxNode(3, "name" -> "alex", "age" -> 30),
     LynxRelationship(1, 1, 2, "knows"),
-    LynxRelationship(2, 2, 3, "knows")
+    LynxRelationship(2, 1, 3, "knows")
   )
 
   private def run(query: String) = {
@@ -21,9 +21,25 @@ class SessionTest {
     records
   }
 
+  private def runOnEmptyGraph(query: String) = {
+    println(s"query: $query")
+    val t1 = System.currentTimeMillis()
+    val records = session.cypher(query).records
+    val t2 = System.currentTimeMillis()
+    println(s"fetched ${records.size} records in ${t2 - t1} ms.")
+    records.show
+    records
+  }
+
   @Test
   def testBlob(): Unit = {
     run("return <file:///etc/profile>")
+  }
+
+  @Test
+  def testOnEmptyGraph(): Unit = {
+    run("return 1")
+    run("return 2>1")
   }
 
   @Test
