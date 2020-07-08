@@ -33,13 +33,19 @@ class SessionTest {
 
   @Test
   def testBlob(): Unit = {
-    run("return <file:///etc/profile>")
+    runOnEmptyGraph("return <file:///etc/profile>")
+    runOnEmptyGraph("return 1 = <file:///etc/profile>")
+    runOnEmptyGraph("return 1 <> <file:///etc/profile>")
+    runOnEmptyGraph("return <file:///etc/profile> is null")
   }
 
   @Test
   def testOnEmptyGraph(): Unit = {
-    run("return 1")
-    run("return 2>1")
+    runOnEmptyGraph("return 1")
+    runOnEmptyGraph("return 2>1")
+    runOnEmptyGraph("return 2 <> 1")
+    runOnEmptyGraph("return 1 is null")
+    runOnEmptyGraph("return 1 is not null")
   }
 
   @Test

@@ -5,9 +5,11 @@ import org.opencypher.okapi.ir.api.expr._
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.{expressions => ast}
 
+import scala.collection.mutable.ArrayBuffer
+
 object BlobExprs {
-  def convertBlobLiteral(e: ast.BlobLiteralExpr): Expr = {
-    IRBlobLiteral(e.value)
+  def convertBlobLiteral(e: ast.BlobLiteralExpr, context: IRBuilderContext): Expr = {
+    IRBlobLiteral(BlobFactory.make(e.value, context))
   }
 
   def convertCustomPropertyExpr(mapExpr: Expr, propertyKey: PropertyKey): Expr = {
@@ -51,3 +53,18 @@ trait Blob {
 
 }
 
+object BlobFactory {
+  private val factories = ArrayBuffer[PartialFunction[(BlobURL, IRBuilderContext), Blob]]()
+
+  def add(x: PartialFunction[(BlobURL, IRBuilderContext), Blob]) = factories += x
+
+  def make(url: BlobURL, context: IRBuilderContext): Blob = {
+    factories.find(_.isDefinedAt(url, context)).map(_.apply(url, context)).getOrElse(
+      throw new NoSuitableBlobFactory(url)
+    )
+  }
+}
+
+class NoSuitableBlobFactory(url: BlobURL) extends RuntimeException {
+
+}
