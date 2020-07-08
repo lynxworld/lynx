@@ -1,6 +1,6 @@
 package cn.pandadb.lynx
 
-import org.opencypher.okapi.api.types.{CTNode, CypherType}
+import org.opencypher.okapi.api.types.{CTNode, CTRelationship, CypherType}
 import org.opencypher.okapi.api.value.CypherValue
 import org.opencypher.okapi.api.value.CypherValue.{CypherInteger, CypherMap}
 import org.opencypher.okapi.ir.api.expr.{Expr, Var}
@@ -24,7 +24,11 @@ trait CypherRecordsLike {
     expr.cypherType match {
       case CTNode(_, _) => {
         val id = row(header.column(expr)).asInstanceOf[CypherInteger].value
-        LynxNode(id)
+        table.dataSource.getNodeById(id).get
+      }
+      case CTRelationship(_, _) => {
+        val id = row(header.column(expr)).asInstanceOf[CypherInteger].value
+        table.dataSource.getRelationshipById(id).get
       }
       case _ => row(header.column(expr))
     }

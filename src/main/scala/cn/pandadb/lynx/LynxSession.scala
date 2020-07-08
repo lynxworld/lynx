@@ -4,12 +4,12 @@ import org.opencypher.okapi.api.graph.PropertyGraph
 import org.opencypher.okapi.api.io.conversion.{ElementMapping, NodeMappingBuilder, RelationshipMappingBuilder}
 import org.opencypher.okapi.api.types.{CTIdentity, CypherType}
 import org.opencypher.okapi.api.value.CypherValue
-import org.opencypher.okapi.api.value.CypherValue.{CypherBigDecimal, CypherBoolean, CypherFloat, CypherInteger, CypherMap, CypherNull, CypherValue}
-import org.opencypher.okapi.ir.api.expr.{Aggregator, Equals, Expr, GreaterThan, Not, Var}
+import org.opencypher.okapi.api.value.CypherValue.{CypherBoolean, CypherMap, CypherNull, CypherValue}
+import org.opencypher.okapi.ir.api.expr.{Aggregator, Expr, Var}
 import org.opencypher.okapi.relational.api.graph.{RelationalCypherGraphFactory, RelationalCypherSession}
 import org.opencypher.okapi.relational.api.io.ElementTable
 import org.opencypher.okapi.relational.api.table.{RelationalCypherRecords, RelationalCypherRecordsFactory, RelationalElementTableFactory, Table}
-import org.opencypher.okapi.relational.impl.planning.{FullOuterJoin, InnerJoin, JoinType, LeftOuterJoin, Order, RightOuterJoin}
+import org.opencypher.okapi.relational.impl.planning.{InnerJoin, JoinType, Order}
 import org.opencypher.okapi.relational.impl.table.RecordHeader
 
 import scala.collection.mutable
@@ -24,38 +24,7 @@ class LynxSession extends RelationalCypherSession[LynxDataFrame] {
   override val elementTables: LynxElementTableFactory = LynxElementTableFactory()
 
   def createGraphInMemory(elements: LynxElement*): PropertyGraph = {
-    val nodes = elements.filter(_.isInstanceOf[LynxNode]).map(_.asInstanceOf[LynxNode])
-    val rels = elements.filter(_.isInstanceOf[LynxRelationship]).map(_.asInstanceOf[LynxRelationship])
-
-    val tables = nodes.groupBy(_.labels.headOption.getOrElse("")).map(kv => {
-      val (label, groupped) = kv
-      val schema = mutable.Map[String, CypherType]()
-      groupped.foreach(record => {
-        schema ++= record.withIds.value.map(x => x._1 -> x._2.cypherType)
-        schema += "_id" -> CTIdentity
-      })
-
-      elementTables.elementTable(
-        NodeMappingBuilder.create(nodeIdKey = "_id", impliedLabels = if (label.isEmpty) {
-          Set.empty
-        } else {
-          Set(label)
-        }, propertyKeys = schema.map(_._1).filter(!_.startsWith("_")).toSet),
-        LynxDataFrame(schema.toMap, groupped.map(_.withIds).toStream))
-    }) ++ rels.groupBy(_.relType).map(kv => {
-      val (relType, groupped) = kv
-      val schema = mutable.Map[String, CypherType]()
-      groupped.foreach(record => {
-        schema ++= record.withIds.value.map(x => x._1 -> x._2.cypherType)
-        schema ++= Map("_id" -> CTIdentity, "_from" -> CTIdentity, "_to" -> CTIdentity)
-      })
-
-      elementTables.elementTable(
-        RelationshipMappingBuilder.create("_id", "_from", "_to", relType, schema.map(_._1).filter(!_.startsWith("_")).toSet),
-        LynxDataFrame(schema.toMap, groupped.map(_.withIds).toStream))
-    })
-
-    graphs.create(None, tables.toSeq: _*)
+    LynxDataSourceImpl(graphs, elementTables, elements: _*).getGraph()
   }
 }
 
@@ -98,17 +67,61 @@ case class LynxRecords(
 
 object LynxDataFrame {
   def empty(): LynxDataFrame = {
-    LynxDataFrame(Map.empty, Stream.empty)
+    LynxDataFrame(Map.empty, Stream.empty)(null)
   }
 
   def unit(): LynxDataFrame = {
-    LynxDataFrame(Map.empty, Stream(Map.empty))
+    LynxDataFrame(Map.empty, Stream(Map.empty))(null)
   }
 }
 
-//meta: (name,STRING),(age,INTEGER)
-case class LynxDataFrame(schema: Map[String, CypherType], records: Stream[Map[String, CypherValue]]) extends Table[LynxDataFrame] {
+trait LynxDataSource {
+  def getNodeById(id: Long): Option[LynxNode]
+def getRelationshipById(id:Long):Option[LynxRelationship]
+  def getGraph(): PropertyGraph
+}
 
+case class LynxDataSourceImpl(graphs: LynxGraphFactory, elementTables: LynxElementTableFactory, elements: LynxElement*) extends LynxDataSource {
+  implicit val self = this
+  val nodes = elements.filter(_.isInstanceOf[LynxNode]).map(_.asInstanceOf[LynxNode])
+  val rels = elements.filter(_.isInstanceOf[LynxRelationship]).map(_.asInstanceOf[LynxRelationship])
+
+  val tables = nodes.groupBy(_.labels.headOption.getOrElse("")).map(kv => {
+    val (label, groupped) = kv
+    val schema = mutable.Map[String, CypherType]()
+    groupped.foreach(record => {
+      schema ++= record.withIds.value.map(x => x._1 -> x._2.cypherType)
+      schema += "_id" -> CTIdentity
+    })
+
+    elementTables.elementTable(
+      NodeMappingBuilder.create(nodeIdKey = "_id", impliedLabels = if (label.isEmpty) {
+        Set.empty
+      } else {
+        Set(label)
+      }, propertyKeys = schema.map(_._1).filter(!_.startsWith("_")).toSet),
+      LynxDataFrame(schema.toMap, groupped.map(_.withIds).toStream))
+  }) ++ rels.groupBy(_.relType).map(kv => {
+    val (relType, groupped) = kv
+    val schema = mutable.Map[String, CypherType]()
+    groupped.foreach(record => {
+      schema ++= record.withIds.value.map(x => x._1 -> x._2.cypherType)
+      schema ++= Map("_id" -> CTIdentity, "_from" -> CTIdentity, "_to" -> CTIdentity)
+    })
+
+    elementTables.elementTable(
+      RelationshipMappingBuilder.create("_id", "_from", "_to", relType, schema.map(_._1).filter(!_.startsWith("_")).toSet),
+      LynxDataFrame(schema.toMap, groupped.map(_.withIds).toStream))
+  })
+
+  override def getNodeById(id: Long): Option[LynxNode] = nodes.find(_.id == id)
+  override def getRelationshipById(id:Long):Option[LynxRelationship]= rels.find(_.id == id)
+
+  override def getGraph(): PropertyGraph = graphs.create(None, tables.toSeq: _*)
+}
+
+//meta: (name,STRING),(age,INTEGER)
+case class LynxDataFrame(schema: Map[String, CypherType], records: Stream[Map[String, CypherValue]])(implicit val dataSource: LynxDataSource) extends Table[LynxDataFrame] {
   //cols:(name,node_name__ STRING),(age,node_age __INTEGER)
   override def select(col: (String, String), cols: (String, String)*): LynxDataFrame = {
     val columns = col +: cols
@@ -122,7 +135,7 @@ case class LynxDataFrame(schema: Map[String, CypherType], records: Stream[Map[St
   override def filter(expr: Expr)(implicit header: RecordHeader, parameters: CypherValue.CypherMap): LynxDataFrame = {
     LynxDataFrame(schema,
       records.filter { map =>
-        implicit val ctx = EvalContext(map, parameters)
+        implicit val ctx = EvalContext(header, map, parameters)
         Runtime.eval(expr) match {
           case CypherNull => false
           case CypherBoolean(x) => x
@@ -173,7 +186,7 @@ case class LynxDataFrame(schema: Map[String, CypherType], records: Stream[Map[St
     LynxDataFrame(schema ++ columns.map(column => column._2 -> column._1.cypherType),
       records.map(record =>
         record ++ columns.map(column => {
-          implicit val ctx = EvalContext(record, parameters)
+          implicit val ctx = EvalContext(header, record, parameters)
           column._2 -> Runtime.eval(column._1)
         })
       )
