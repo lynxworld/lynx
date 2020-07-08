@@ -31,7 +31,7 @@ import org.opencypher.okapi.impl.exception.{IllegalArgumentException, NoSuitable
 import org.opencypher.okapi.ir.api._
 import org.opencypher.okapi.ir.api.expr.FlattenOps._
 import org.opencypher.okapi.ir.api.expr.PrefixId.GraphIdPrefix
-import org.opencypher.okapi.ir.impl.{BigDecimalSignatures, Blob}
+import org.opencypher.okapi.ir.impl.{BigDecimalSignatures, Blob, BlobFactory, IRBuilderContext}
 import org.opencypher.okapi.ir.impl.BigDecimalSignatures.{Addition, Division, Multiplication}
 import org.opencypher.okapi.trees.AbstractTreeNode
 import org.opencypher.v9_0.expressions.{AlgoNameWithThresholdExpr, BlobURL}
@@ -1281,10 +1281,8 @@ final case class CaseExpr(alternatives: List[(Expr, Expr)], default: Option[Expr
 ////<--cypher-plus
 case object CTBlob extends CypherType
 
-case class IRBlobLiteral(url: BlobURL) extends Lit[Blob] {
+case class IRBlobLiteral(v: Blob) extends Lit[Blob] {
   override val cypherType: CypherType = CTBlob
-
-  override def v: Blob = null
 }
 
 case class IRCustomPropertyExpr(mapExpr: Expr, propertyKey: PropertyKey)

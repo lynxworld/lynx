@@ -309,7 +309,7 @@ final class ExpressionConverter(context: IRBuilderContext) {
       case RegexMatch(lhs, rhs) => expr.RegexMatch(convert(lhs), convert(rhs))
 
       ////NOTE: cypher plus
-      case e: ast.BlobLiteralExpr => BlobExprs.convertBlobLiteral(e)
+      case e: ast.BlobLiteralExpr => BlobExprs.convertBlobLiteral(e, context)
       case e: ast.CustomPropertyExpr => BlobExprs.convertCustomPropertyExpr(convert(e.map), PropertyKey(e.propertyKey.name))
       case e: ast.SemanticLikeExpr => BlobExprs.convertSemanticLikeExpr(convert(e.lhs), e.ant, convert(e.rhs))
       case e: ast.SemanticUnlikeExpr => BlobExprs.convertSemanticUnlikeExpr(convert(e.lhs), e.ant, convert(e.rhs))

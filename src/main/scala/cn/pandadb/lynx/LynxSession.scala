@@ -1,21 +1,34 @@
 package cn.pandadb.lynx
 
+import java.io.File
+
+import cn.pandadb.lynx.blob.LynxBlob
+import org.apache.commons.codec.binary.Base64
 import org.opencypher.okapi.api.graph.PropertyGraph
 import org.opencypher.okapi.api.io.conversion.{ElementMapping, NodeMappingBuilder, RelationshipMappingBuilder}
 import org.opencypher.okapi.api.types.{CTIdentity, CypherType}
 import org.opencypher.okapi.api.value.CypherValue
 import org.opencypher.okapi.api.value.CypherValue.{CypherBoolean, CypherMap, CypherNull, CypherValue}
 import org.opencypher.okapi.ir.api.expr.{Aggregator, Expr, Var}
+import org.opencypher.okapi.ir.impl.BlobFactory
 import org.opencypher.okapi.relational.api.graph.{RelationalCypherGraphFactory, RelationalCypherSession}
 import org.opencypher.okapi.relational.api.io.ElementTable
 import org.opencypher.okapi.relational.api.table.{RelationalCypherRecords, RelationalCypherRecordsFactory, RelationalElementTableFactory, Table}
 import org.opencypher.okapi.relational.impl.planning.{InnerJoin, JoinType, Order}
 import org.opencypher.okapi.relational.impl.table.RecordHeader
+import org.opencypher.v9_0.expressions.{BlobBase64URL, BlobFileURL, BlobFtpURL, BlobHttpURL}
 
 import scala.collection.mutable
 
 class LynxSession extends RelationalCypherSession[LynxDataFrame] {
   protected implicit val self: LynxSession = this
+
+  BlobFactory.add {
+    case (BlobFileURL(filePath), _) => LynxBlob.fromFile(new File(filePath))
+    case (BlobHttpURL(url), _) => LynxBlob.fromHttpURL(url)
+    case (BlobFtpURL(url), _) => LynxBlob.fromURL(url)
+    case (BlobBase64URL(base64), _) => LynxBlob.fromBytes(Base64.decodeBase64(base64))
+  }
 
   override val records: LynxRecordsFactory = LynxRecordsFactory()
 
@@ -77,7 +90,9 @@ object LynxDataFrame {
 
 trait LynxDataSource {
   def getNodeById(id: Long): Option[LynxNode]
-def getRelationshipById(id:Long):Option[LynxRelationship]
+
+  def getRelationshipById(id: Long): Option[LynxRelationship]
+
   def getGraph(): PropertyGraph
 }
 
@@ -115,7 +130,8 @@ case class LynxDataSourceImpl(graphs: LynxGraphFactory, elementTables: LynxEleme
   })
 
   override def getNodeById(id: Long): Option[LynxNode] = nodes.find(_.id == id)
-  override def getRelationshipById(id:Long):Option[LynxRelationship]= rels.find(_.id == id)
+
+  override def getRelationshipById(id: Long): Option[LynxRelationship] = rels.find(_.id == id)
 
   override def getGraph(): PropertyGraph = graphs.create(None, tables.toSeq: _*)
 }

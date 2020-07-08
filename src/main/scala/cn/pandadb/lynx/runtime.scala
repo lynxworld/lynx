@@ -1,5 +1,6 @@
 package cn.pandadb.lynx
 
+import org.opencypher.okapi.api.value.CypherValue
 import org.opencypher.okapi.api.value.CypherValue.{CypherBigDecimal, CypherBoolean, CypherFloat, CypherInteger, CypherMap, CypherNull, CypherValue}
 import org.opencypher.okapi.ir.api.expr._
 import org.opencypher.okapi.relational.impl.table.RecordHeader
@@ -13,6 +14,18 @@ object Runtime {
     val EvalContext(header, record, properties) = ctx
 
     expr match {
+      case IsNull(expr) =>
+        eval(expr) match {
+          case CypherNull => true
+          case _ => false
+        }
+
+      case IsNotNull(expr) =>
+        eval(expr) match {
+          case CypherNull => false
+          case _ => true
+        }
+
       case Not(expr) =>
         eval(expr) match {
           case CypherNull => CypherNull
@@ -48,10 +61,13 @@ object Runtime {
         eval(expr0)
 
       case TrueLit =>
-        CypherBoolean(true)
+        true
 
       case FalseLit =>
-        CypherBoolean(false)
+        false
+
+      case lit: IRBlobLiteral =>
+        CypherValue(lit.v)
     }
   }
 }
