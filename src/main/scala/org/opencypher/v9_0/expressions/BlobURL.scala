@@ -10,7 +10,7 @@ trait BlobURL {
   def asCanonicalString: String;
 }
 
-case class BlobLiteralExpr(value: BlobURL)(val position: InputPosition) extends Expression {
+case class ASTBlobLiteral(value: BlobURL)(val position: InputPosition) extends Expression {
   override def asCanonicalStringVal = value.asCanonicalString
 }
 
@@ -34,15 +34,15 @@ case class BlobFtpURL(url: String) extends BlobURL {
   override def asCanonicalString = url
 }
 
-case class AlgoNameWithThresholdExpr(algorithm: Option[String], threshold: Option[Double])(val position: InputPosition)
+case class ASTAlgoNameWithThreshold(algorithm: Option[String], threshold: Option[Double])(val position: InputPosition)
   extends Expression {
 }
 
-case class CustomPropertyExpr(map: Expression, propertyKey: PropertyKeyName)(val position: InputPosition) extends LogicalProperty {
+case class ASTCustomProperty(map: Expression, propertyKey: PropertyKeyName)(val position: InputPosition) extends LogicalProperty {
   override def asCanonicalStringVal = s"${map.asCanonicalStringVal}.${propertyKey.asCanonicalStringVal}"
 }
 
-case class SemanticLikeExpr(lhs: Expression, ant: Option[AlgoNameWithThresholdExpr], rhs: Expression)(val position: InputPosition)
+case class ASTSemanticLike(lhs: Expression, ant: Option[ASTAlgoNameWithThreshold], rhs: Expression)(val position: InputPosition)
   extends Expression with BinaryOperatorExpression {
   override val signatures = Vector(
     TypeSignature(argumentTypes = Vector(CTAny, CTAny), outputType = CTBoolean)
@@ -51,7 +51,7 @@ case class SemanticLikeExpr(lhs: Expression, ant: Option[AlgoNameWithThresholdEx
   override def canonicalOperatorSymbol = this.getClass.getSimpleName
 }
 
-case class SemanticUnlikeExpr(lhs: Expression, ant: Option[AlgoNameWithThresholdExpr], rhs: Expression)(val position: InputPosition)
+case class ASTSemanticUnlike(lhs: Expression, ant: Option[ASTAlgoNameWithThreshold], rhs: Expression)(val position: InputPosition)
   extends Expression with BinaryOperatorExpression {
   override val signatures = Vector(
     TypeSignature(argumentTypes = Vector(CTAny, CTAny), outputType = CTBoolean)
@@ -60,7 +60,7 @@ case class SemanticUnlikeExpr(lhs: Expression, ant: Option[AlgoNameWithThreshold
   override def canonicalOperatorSymbol = this.getClass.getSimpleName
 }
 
-case class SemanticCompareExpr(lhs: Expression, ant: Option[AlgoNameWithThresholdExpr], rhs: Expression)(val position: InputPosition)
+case class ASTSemanticCompare(lhs: Expression, ant: Option[ASTAlgoNameWithThreshold], rhs: Expression)(val position: InputPosition)
   extends Expression with BinaryOperatorExpression {
   override val signatures = Vector(
     TypeSignature(argumentTypes = Vector(CTAny, CTAny), outputType = CTFloat)
@@ -69,7 +69,7 @@ case class SemanticCompareExpr(lhs: Expression, ant: Option[AlgoNameWithThreshol
   override def canonicalOperatorSymbol = this.getClass.getSimpleName
 }
 
-case class SemanticSetCompareExpr(lhs: Expression, ant: Option[AlgoNameWithThresholdExpr], rhs: Expression)(val position: InputPosition)
+case class ASTSemanticSetCompare(lhs: Expression, ant: Option[ASTAlgoNameWithThreshold], rhs: Expression)(val position: InputPosition)
   extends Expression with BinaryOperatorExpression {
   override val signatures = Vector(
     TypeSignature(argumentTypes = Vector(CTAny, CTAny), outputType = CTList(CTList(CTFloat)))
@@ -78,7 +78,7 @@ case class SemanticSetCompareExpr(lhs: Expression, ant: Option[AlgoNameWithThres
   override def canonicalOperatorSymbol = this.getClass.getSimpleName
 }
 
-case class SemanticContainExpr(lhs: Expression, ant: Option[AlgoNameWithThresholdExpr], rhs: Expression)(val position: InputPosition)
+case class ASTSemanticContain(lhs: Expression, ant: Option[ASTAlgoNameWithThreshold], rhs: Expression)(val position: InputPosition)
   extends Expression with BinaryOperatorExpression {
   override val signatures = Vector(
     TypeSignature(argumentTypes = Vector(CTAny, CTAny), outputType = CTBoolean)
@@ -87,7 +87,7 @@ case class SemanticContainExpr(lhs: Expression, ant: Option[AlgoNameWithThreshol
   override def canonicalOperatorSymbol = this.getClass.getSimpleName
 }
 
-case class SemanticInExpr(lhs: Expression, ant: Option[AlgoNameWithThresholdExpr], rhs: Expression)(val position: InputPosition)
+case class ASTSemanticIn(lhs: Expression, ant: Option[ASTAlgoNameWithThreshold], rhs: Expression)(val position: InputPosition)
   extends Expression with BinaryOperatorExpression {
   override val signatures = Vector(
     TypeSignature(argumentTypes = Vector(CTAny, CTAny), outputType = CTBoolean)
@@ -96,7 +96,7 @@ case class SemanticInExpr(lhs: Expression, ant: Option[AlgoNameWithThresholdExpr
   override def canonicalOperatorSymbol = this.getClass.getSimpleName
 }
 
-case class SemanticContainSetExpr(lhs: Expression, ant: Option[AlgoNameWithThresholdExpr], rhs: Expression)(val position: InputPosition)
+case class ASTSemanticContainSet(lhs: Expression, ant: Option[ASTAlgoNameWithThreshold], rhs: Expression)(val position: InputPosition)
   extends Expression with BinaryOperatorExpression {
   override val signatures = Vector(
     TypeSignature(argumentTypes = Vector(CTAny, CTAny), outputType = CTBoolean)
@@ -105,7 +105,7 @@ case class SemanticContainSetExpr(lhs: Expression, ant: Option[AlgoNameWithThres
   override def canonicalOperatorSymbol = this.getClass.getSimpleName
 }
 
-case class SemanticSetInExpr(lhs: Expression, ant: Option[AlgoNameWithThresholdExpr], rhs: Expression)(val position: InputPosition)
+case class ASTSemanticSetIn(lhs: Expression, ant: Option[ASTAlgoNameWithThreshold], rhs: Expression)(val position: InputPosition)
   extends Expression with BinaryOperatorExpression {
   override val signatures = Vector(
     TypeSignature(argumentTypes = Vector(CTAny, CTAny), outputType = CTBoolean)

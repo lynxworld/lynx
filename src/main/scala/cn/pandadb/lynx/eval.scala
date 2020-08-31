@@ -9,7 +9,7 @@ case class EvalContext(header: RecordHeader, record: CypherMap, properties: Cyph
 
 }
 
-object Runtime {
+object ExpressionEvaluator {
   def eval(expr: Expr)(implicit ctx: EvalContext): CypherValue = {
     val EvalContext(header, record, properties) = ctx
 

@@ -3,6 +3,7 @@ package cn.pandadb.lynx
 import java.io.File
 
 import cn.pandadb.lynx.blob.LynxBlob
+import cn.pandadb.lynx.util.FormatUtils
 import org.apache.commons.codec.binary.Base64
 import org.opencypher.okapi.api.graph.PropertyGraph
 import org.opencypher.okapi.api.io.conversion.{ElementMapping, NodeMappingBuilder, RelationshipMappingBuilder}
@@ -23,7 +24,7 @@ import scala.collection.mutable
 class LynxSession extends RelationalCypherSession[LynxDataFrame] {
   protected implicit val self: LynxSession = this
 
-  BlobFactory.add {
+  BlobFactory.configure {
     case (BlobFileURL(filePath), _) => LynxBlob.fromFile(new File(filePath))
     case (BlobHttpURL(url), _) => LynxBlob.fromHttpURL(url)
     case (BlobFtpURL(url), _) => LynxBlob.fromURL(url)
@@ -152,7 +153,7 @@ case class LynxDataFrame(schema: Map[String, CypherType], records: Stream[Map[St
     LynxDataFrame(schema,
       records.filter { map =>
         implicit val ctx = EvalContext(header, map, parameters)
-        Runtime.eval(expr) match {
+        ExpressionEvaluator.eval(expr) match {
           case CypherNull => false
           case CypherBoolean(x) => x
         }
@@ -203,7 +204,7 @@ case class LynxDataFrame(schema: Map[String, CypherType], records: Stream[Map[St
       records.map(record =>
         record ++ columns.map(column => {
           implicit val ctx = EvalContext(header, record, parameters)
-          column._2 -> Runtime.eval(column._1)
+          column._2 -> ExpressionEvaluator.eval(column._1)
         })
       )
     )

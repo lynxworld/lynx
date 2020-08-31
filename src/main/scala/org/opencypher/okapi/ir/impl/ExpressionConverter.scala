@@ -309,16 +309,16 @@ final class ExpressionConverter(context: IRBuilderContext) {
       case RegexMatch(lhs, rhs) => expr.RegexMatch(convert(lhs), convert(rhs))
 
       ////NOTE: cypher plus
-      case e: ast.BlobLiteralExpr => BlobExprs.convertBlobLiteral(e, context)
-      case e: ast.CustomPropertyExpr => BlobExprs.convertCustomPropertyExpr(convert(e.map), PropertyKey(e.propertyKey.name))
-      case e: ast.SemanticLikeExpr => BlobExprs.convertSemanticLikeExpr(convert(e.lhs), e.ant, convert(e.rhs))
-      case e: ast.SemanticUnlikeExpr => BlobExprs.convertSemanticUnlikeExpr(convert(e.lhs), e.ant, convert(e.rhs))
-      case e: ast.SemanticCompareExpr => BlobExprs.convertSemanticCompareExpr(convert(e.lhs), e.ant, convert(e.rhs))
-      case e: ast.SemanticSetCompareExpr => BlobExprs.convertSemanticSetCompareExpr(convert(e.lhs), e.ant, convert(e.rhs))
-      case e: ast.SemanticInExpr => BlobExprs.convertSemanticInExpr(convert(e.lhs), e.ant, convert(e.rhs))
-      case e: ast.SemanticContainExpr => BlobExprs.convertSemanticContainExpr(convert(e.lhs), e.ant, convert(e.rhs))
-      case e: ast.SemanticSetInExpr => BlobExprs.convertSemanticSetInExpr(convert(e.lhs), e.ant, convert(e.rhs))
-      case e: ast.SemanticContainSetExpr => BlobExprs.convertSemanticContainSetExpr(convert(e.lhs), e.ant, convert(e.rhs))
+      case e: ast.ASTBlobLiteral => BlobExprs.convertBlobLiteral(e, context)
+      case e: ast.ASTCustomProperty => BlobExprs.convertCustomPropertyExpr(convert(e.map), PropertyKey(e.propertyKey.name))
+      case e: ast.ASTSemanticLike => BlobExprs.convertSemanticLikeExpr(convert(e.lhs), e.ant, convert(e.rhs))
+      case e: ast.ASTSemanticUnlike => BlobExprs.convertSemanticUnlikeExpr(convert(e.lhs), e.ant, convert(e.rhs))
+      case e: ast.ASTSemanticCompare => BlobExprs.convertSemanticCompareExpr(convert(e.lhs), e.ant, convert(e.rhs))
+      case e: ast.ASTSemanticSetCompare => BlobExprs.convertSemanticSetCompareExpr(convert(e.lhs), e.ant, convert(e.rhs))
+      case e: ast.ASTSemanticIn => BlobExprs.convertSemanticInExpr(convert(e.lhs), e.ant, convert(e.rhs))
+      case e: ast.ASTSemanticContain => BlobExprs.convertSemanticContainExpr(convert(e.lhs), e.ant, convert(e.rhs))
+      case e: ast.ASTSemanticSetIn => BlobExprs.convertSemanticSetInExpr(convert(e.lhs), e.ant, convert(e.rhs))
+      case e: ast.ASTSemanticContainSet => BlobExprs.convertSemanticContainSetExpr(convert(e.lhs), e.ant, convert(e.rhs))
       ////NOTE: end
 
       case _ =>
