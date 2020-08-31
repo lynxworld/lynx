@@ -18,7 +18,7 @@ package org.opencypher.v9_0.parser
 import org.opencypher.v9_0.util.InputPosition
 import org.opencypher.v9_0.{expressions => ast}
 import org.opencypher.v9_0.expressions
-import org.opencypher.v9_0.expressions.{AlgoNameWithThresholdExpr, BlobBase64URL, BlobFileURL, BlobFtpURL, BlobHttpURL, BlobLiteralExpr, CustomPropertyExpr, InternalUrl, SemanticCompareExpr, SemanticContainExpr, SemanticContainSetExpr, SemanticInExpr, SemanticLikeExpr, SemanticSetCompareExpr, SemanticSetInExpr, SemanticUnlikeExpr, _}
+import org.opencypher.v9_0.expressions.{ASTAlgoNameWithThreshold, BlobBase64URL, BlobFileURL, BlobFtpURL, BlobHttpURL, ASTBlobLiteral, ASTCustomProperty, InternalUrl, ASTSemanticCompare, ASTSemanticContain, ASTSemanticContainSet, ASTSemanticIn, ASTSemanticLike, ASTSemanticSetCompare, ASTSemanticSetIn, ASTSemanticUnlike, _}
 import org.parboiled.scala._
 
 import scala.collection.mutable.ListBuffer
@@ -127,16 +127,16 @@ trait Expressions extends Parser
   )
 
   ////<--blob semantic operator
-  private def AlgoNameWithThreshold: Rule1[AlgoNameWithThresholdExpr] = rule("an algorithm with threshold") {
+  private def AlgoNameWithThreshold: Rule1[ASTAlgoNameWithThreshold] = rule("an algorithm with threshold") {
     group(SymbolicNameString ~ optional(operator("/") ~ DoubleLiteral)) ~~>>
-      ((a, b) => AlgoNameWithThresholdExpr(Some(a), b.map(_.value))) |
+      ((a, b) => ASTAlgoNameWithThreshold(Some(a), b.map(_.value))) |
       group(DoubleLiteral ~ optional(operator("/") ~ SymbolicNameString)) ~~>>
-        ((a, b) => AlgoNameWithThresholdExpr(b, Some(a.value)))
+        ((a, b) => ASTAlgoNameWithThreshold(b, Some(a.value)))
   }
 
-  private def AlgoName: Rule1[AlgoNameWithThresholdExpr] = rule("an algorithm with threshold") {
+  private def AlgoName: Rule1[ASTAlgoNameWithThreshold] = rule("an algorithm with threshold") {
     group(SymbolicNameString) ~~>>
-      ((a) => AlgoNameWithThresholdExpr(Some(a), None))
+      ((a) => ASTAlgoNameWithThreshold(Some(a), None))
   }
 
   ////blob semantic operator-->
@@ -148,28 +148,28 @@ trait Expressions extends Parser
         ////<--blob semantic operator
         | group(operator("~:") ~ optional(AlgoNameWithThreshold) ~~ Expression2) ~~>>
         ((a: expressions.Expression, b, c) =>
-          SemanticLikeExpr(a, b, c))
+          ASTSemanticLike(a, b, c))
         | group(operator("!:") ~ optional(AlgoNameWithThreshold) ~~ Expression2) ~~>>
         ((a: expressions.Expression, b, c) =>
-          SemanticUnlikeExpr(a, b, c))
+          ASTSemanticUnlike(a, b, c))
         | group(operator(":::") ~ optional(AlgoName) ~~ Expression2) ~~>>
         ((a: expressions.Expression, b, c) =>
-          SemanticSetCompareExpr(a, b, c))
+          ASTSemanticSetCompare(a, b, c))
         | group(operator(">>:") ~ optional(AlgoNameWithThreshold) ~~ Expression2) ~~>>
         ((a: expressions.Expression, b, c) =>
-          SemanticContainSetExpr(a, b, c))
+          ASTSemanticContainSet(a, b, c))
         | group(operator("<<:") ~ optional(AlgoNameWithThreshold) ~~ Expression2) ~~>>
         ((a: expressions.Expression, b, c) =>
-          SemanticSetInExpr(a, b, c))
+          ASTSemanticSetIn(a, b, c))
         | group(operator("::") ~ optional(AlgoName) ~~ Expression2) ~~>>
         ((a: expressions.Expression, b, c) =>
-          SemanticCompareExpr(a, b, c))
+          ASTSemanticCompare(a, b, c))
         | group(operator(">:") ~ optional(AlgoNameWithThreshold) ~~ Expression2) ~~>>
         ((a: expressions.Expression, b, c) =>
-          SemanticContainExpr(a, b, c))
+          ASTSemanticContain(a, b, c))
         | group(operator("<:") ~ optional(AlgoNameWithThreshold) ~~ Expression2) ~~>>
         ((a: expressions.Expression, b, c) =>
-          SemanticInExpr(a, b, c))
+          ASTSemanticIn(a, b, c))
         ////blob semantic operator-->
 
         | group(keyword("IN") ~~ Expression2) ~~>> (expressions.In(_: org.opencypher.v9_0.expressions.Expression, _))
@@ -185,7 +185,7 @@ trait Expressions extends Parser
     Expression1 ~ zeroOrMore(WS ~ (
       PropertyLookup
         ////NOTE: <--cypher plus
-        | operator("->") ~~ (PropertyKeyName ~~>> (CustomPropertyExpr(_: expressions.Expression, _)))
+        | operator("->") ~~ (PropertyKeyName ~~>> (ASTCustomProperty(_: expressions.Expression, _)))
         ////cypher plus-->
         | NodeLabels ~~>> (ast.HasLabels(_: org.opencypher.v9_0.expressions.Expression, _))
         |  "[" ~~ Expression ~~ "]" ~~>> (ast.ContainerIndex(_: org.opencypher.v9_0.expressions.Expression, _))
@@ -202,21 +202,21 @@ trait Expressions extends Parser
       ~~> (_.toString())
   )
 
-  private def BlobLiteral: Rule1[BlobLiteralExpr] = rule("<blob>")(
+  private def BlobLiteral: Rule1[ASTBlobLiteral] = rule("<blob>")(
     LeftArrowHead ~ ignoreCase("FILE://") ~ BlobURLPath ~ RightArrowHead
-      ~~>> (x => BlobLiteralExpr(BlobFileURL(x)))
+      ~~>> (x => ASTBlobLiteral(BlobFileURL(x)))
       | LeftArrowHead ~ ignoreCase("BASE64://") ~ BlobURLPath ~ RightArrowHead
-      ~~>> (x => BlobLiteralExpr(BlobBase64URL(x.mkString(""))))
+      ~~>> (x => ASTBlobLiteral(BlobBase64URL(x.mkString(""))))
       | LeftArrowHead ~ ignoreCase("INTERNAL://") ~ BlobURLPath ~ RightArrowHead
-      ~~>> (x => BlobLiteralExpr(InternalUrl(x.mkString(""))))
+      ~~>> (x => ASTBlobLiteral(InternalUrl(x.mkString(""))))
       | LeftArrowHead ~ ignoreCase("HTTP://") ~ BlobURLPath ~ RightArrowHead
-      ~~>> (x => BlobLiteralExpr(BlobHttpURL(s"http://${x.mkString("")}")))
+      ~~>> (x => ASTBlobLiteral(BlobHttpURL(s"http://${x.mkString("")}")))
       | LeftArrowHead ~ ignoreCase("HTTPS://") ~ BlobURLPath ~ RightArrowHead
-      ~~>> (x => BlobLiteralExpr(BlobHttpURL(s"https://${x.mkString("")}")))
+      ~~>> (x => ASTBlobLiteral(BlobHttpURL(s"https://${x.mkString("")}")))
       | LeftArrowHead ~ ignoreCase("FTP://") ~ BlobURLPath ~ RightArrowHead
-      ~~>> (x => BlobLiteralExpr(BlobFtpURL(s"ftp://${x.mkString("")}")))
+      ~~>> (x => ASTBlobLiteral(BlobFtpURL(s"ftp://${x.mkString("")}")))
       | LeftArrowHead ~ ignoreCase("SFTP://") ~ BlobURLPath ~ RightArrowHead
-      ~~>> (x => BlobLiteralExpr(BlobFtpURL(s"sftp://${x.mkString("")}")))
+      ~~>> (x => ASTBlobLiteral(BlobFtpURL(s"sftp://${x.mkString("")}")))
   )
   ////BlobURLPath-->
 

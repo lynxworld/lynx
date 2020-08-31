@@ -34,7 +34,7 @@ import org.opencypher.okapi.ir.api.expr.PrefixId.GraphIdPrefix
 import org.opencypher.okapi.ir.impl.{BigDecimalSignatures, Blob, BlobFactory, IRBuilderContext}
 import org.opencypher.okapi.ir.impl.BigDecimalSignatures.{Addition, Division, Multiplication}
 import org.opencypher.okapi.trees.AbstractTreeNode
-import org.opencypher.v9_0.expressions.{AlgoNameWithThresholdExpr, BlobURL}
+import org.opencypher.v9_0.expressions.{ASTAlgoNameWithThreshold, BlobURL}
 
 import scala.annotation.tailrec
 import scala.reflect.ClassTag
@@ -1285,7 +1285,7 @@ case class IRBlobLiteral(v: Blob) extends Lit[Blob] {
   override val cypherType: CypherType = CTBlob
 }
 
-case class IRCustomPropertyExpr(mapExpr: Expr, propertyKey: PropertyKey)
+case class IRCustomProperty(mapExpr: Expr, propertyKey: PropertyKey)
   extends Expr with Product with Serializable {
 
   override def cypherType: CypherType = CTAnyMaterial
@@ -1293,7 +1293,7 @@ case class IRCustomPropertyExpr(mapExpr: Expr, propertyKey: PropertyKey)
   override def withoutType: String = s"$mapExpr.${propertyKey.name}"
 }
 
-case class IRSemanticLikeExpr(lhsExpr: Expr, ant: Option[AlgoNameWithThresholdExpr], rhsExpr: Expr)
+case class IRSemanticLike(lhsExpr: Expr, ant: Option[ASTAlgoNameWithThreshold], rhsExpr: Expr)
   extends TypeValidatedExpr with Product with Serializable {
 
   override def exprs: List[Expr] = List(lhsExpr, rhsExpr)
@@ -1302,10 +1302,10 @@ case class IRSemanticLikeExpr(lhsExpr: Expr, ant: Option[AlgoNameWithThresholdEx
 
   override def signature(inputCypherTypes: Seq[CypherType]): Option[CypherType] = Some(CTBoolean)
 
-  override def withoutType: String = "SemanticLike"
+  override def withoutType: String = this.getClass.getSimpleName.substring(2)
 }
 
-case class IRSemanticUnlikeExpr(lhsExpr: Expr, ant: Option[AlgoNameWithThresholdExpr], rhsExpr: Expr)
+case class IRSemanticUnlike(lhsExpr: Expr, ant: Option[ASTAlgoNameWithThreshold], rhsExpr: Expr)
   extends TypeValidatedExpr with Product with Serializable {
 
   override def exprs: List[Expr] = List(lhsExpr, rhsExpr)
@@ -1314,10 +1314,10 @@ case class IRSemanticUnlikeExpr(lhsExpr: Expr, ant: Option[AlgoNameWithThreshold
 
   override def signature(inputCypherTypes: Seq[CypherType]): Option[CypherType] = Some(CTBoolean)
 
-  override def withoutType: String = "SemanticUnlike"
+  override def withoutType: String = this.getClass.getSimpleName.substring(2)
 }
 
-case class IRSemanticSetCompareExpr(lhsExpr: Expr, ant: Option[AlgoNameWithThresholdExpr], rhsExpr: Expr)
+case class IRSemanticSetCompare(lhsExpr: Expr, ant: Option[ASTAlgoNameWithThreshold], rhsExpr: Expr)
   extends TypeValidatedExpr with Product with Serializable {
   override def exprs: List[Expr] = List(lhsExpr, rhsExpr)
 
@@ -1325,10 +1325,10 @@ case class IRSemanticSetCompareExpr(lhsExpr: Expr, ant: Option[AlgoNameWithThres
 
   override def signature(inputCypherTypes: Seq[CypherType]): Option[CypherType] = Some(CTFloat)
 
-  override def withoutType: String = "SemanticLike"
+  override def withoutType: String = this.getClass.getSimpleName.substring(2)
 }
 
-case class IRSemanticCompareExpr(lhsExpr: Expr, ant: Option[AlgoNameWithThresholdExpr], rhsExpr: Expr)
+case class IRSemanticCompare(lhsExpr: Expr, ant: Option[ASTAlgoNameWithThreshold], rhsExpr: Expr)
   extends TypeValidatedExpr with Product with Serializable {
   override def exprs: List[Expr] = List(lhsExpr, rhsExpr)
 
@@ -1336,10 +1336,10 @@ case class IRSemanticCompareExpr(lhsExpr: Expr, ant: Option[AlgoNameWithThreshol
 
   override def signature(inputCypherTypes: Seq[CypherType]): Option[CypherType] = Some(CTFloat)
 
-  override def withoutType: String = "SemanticLike"
+  override def withoutType: String = this.getClass.getSimpleName.substring(2)
 }
 
-case class IRSemanticInExpr(lhsExpr: Expr, ant: Option[AlgoNameWithThresholdExpr], rhsExpr: Expr)
+case class IRSemanticIn(lhsExpr: Expr, ant: Option[ASTAlgoNameWithThreshold], rhsExpr: Expr)
   extends TypeValidatedExpr with Product with Serializable {
 
   override def exprs: List[Expr] = List(lhsExpr, rhsExpr)
@@ -1348,10 +1348,10 @@ case class IRSemanticInExpr(lhsExpr: Expr, ant: Option[AlgoNameWithThresholdExpr
 
   override def signature(inputCypherTypes: Seq[CypherType]): Option[CypherType] = Some(CTBoolean)
 
-  override def withoutType: String = "SemanticLike"
+  override def withoutType: String = this.getClass.getSimpleName.substring(2)
 }
 
-case class IRSemanticContainExpr(lhsExpr: Expr, ant: Option[AlgoNameWithThresholdExpr], rhsExpr: Expr)
+case class IRSemanticContain(lhsExpr: Expr, ant: Option[ASTAlgoNameWithThreshold], rhsExpr: Expr)
   extends TypeValidatedExpr with Product with Serializable {
 
   override def exprs: List[Expr] = List(lhsExpr, rhsExpr)
@@ -1360,10 +1360,10 @@ case class IRSemanticContainExpr(lhsExpr: Expr, ant: Option[AlgoNameWithThreshol
 
   override def signature(inputCypherTypes: Seq[CypherType]): Option[CypherType] = Some(CTBoolean)
 
-  override def withoutType: String = "SemanticUnlike"
+  override def withoutType: String = this.getClass.getSimpleName.substring(2)
 }
 
-case class IRSemanticSetInExpr(lhsExpr: Expr, ant: Option[AlgoNameWithThresholdExpr], rhsExpr: Expr)
+case class IRSemanticSetIn(lhsExpr: Expr, ant: Option[ASTAlgoNameWithThreshold], rhsExpr: Expr)
   extends TypeValidatedExpr with Product with Serializable {
 
   override def exprs: List[Expr] = List(lhsExpr, rhsExpr)
@@ -1372,10 +1372,10 @@ case class IRSemanticSetInExpr(lhsExpr: Expr, ant: Option[AlgoNameWithThresholdE
 
   override def signature(inputCypherTypes: Seq[CypherType]): Option[CypherType] = Some(CTBoolean)
 
-  override def withoutType: String = "SemanticLike"
+  override def withoutType: String = this.getClass.getSimpleName.substring(2)
 }
 
-case class IRSemanticContainSetExpr(lhsExpr: Expr, ant: Option[AlgoNameWithThresholdExpr], rhsExpr: Expr)
+case class IRSemanticContainSet(lhsExpr: Expr, ant: Option[ASTAlgoNameWithThreshold], rhsExpr: Expr)
   extends TypeValidatedExpr with Product with Serializable {
 
   override def exprs: List[Expr] = List(lhsExpr, rhsExpr)
@@ -1384,7 +1384,7 @@ case class IRSemanticContainSetExpr(lhsExpr: Expr, ant: Option[AlgoNameWithThres
 
   override def signature(inputCypherTypes: Seq[CypherType]): Option[CypherType] = Some(CTBoolean)
 
-  override def withoutType: String = "SemanticUnlike"
+  override def withoutType: String = this.getClass.getSimpleName.substring(2)
 }
 
 ////-->
