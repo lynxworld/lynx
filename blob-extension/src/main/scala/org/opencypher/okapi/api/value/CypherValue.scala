@@ -30,14 +30,10 @@ import java.math.MathContext
 import java.util.Objects
 
 import org.opencypher.okapi.api.types._
-import org.opencypher.okapi.api.value.CypherValue.Element._
-import org.opencypher.okapi.api.value.CypherValue.Node._
-import org.opencypher.okapi.api.value.CypherValue.Relationship._
 import org.opencypher.okapi.impl.exception.{IllegalArgumentException, UnsupportedOperationException}
 import org.opencypher.okapi.impl.temporal.Duration
 import org.opencypher.okapi.ir.api.expr.CTBlob
 import org.opencypher.okapi.ir.impl.Blob
-import ujson._
 
 import scala.language.implicitConversions
 import scala.reflect.{ClassTag, classTag}
