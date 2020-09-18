@@ -44,6 +44,5 @@
     <orderEntry type="library" name="Maven: org.opencypher:okapi-logical:0.4.2" level="project" />
     <orderEntry type="library" name="Maven: org.opencypher:okapi-ir:0.4.2" level="project" />
     <orderEntry type="library" name="Maven: org.atnos:eff_2.12:5.0.0" level="project" />
-    <orderEntry type="library" name="Maven: org.opencypher:okapi-relational:0.4.2" level="project" />
   </component>
 </module>
