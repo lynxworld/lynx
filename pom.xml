@@ -25,10 +25,12 @@
             <artifactId>okapi-logical</artifactId>
             <version>0.4.2</version>
         </dependency>
+        <!--
         <dependency>
             <groupId>org.opencypher</groupId>
             <artifactId>okapi-relational</artifactId>
             <version>0.4.2</version>
         </dependency>
+        -->
     </dependencies>
 </project>
