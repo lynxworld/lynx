@@ -49,6 +49,7 @@ class SessionTest {
   @Test
   def testOnEmptyGraph(): Unit = {
     runOnEmptyGraph("return 1")
+    val rs = runOnEmptyGraph("return 1 AS n")
     runOnEmptyGraph("return 2>1")
     runOnEmptyGraph("return 2 <> 1")
     runOnEmptyGraph("return 1 is null")
