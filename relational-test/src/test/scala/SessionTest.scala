@@ -1,7 +1,14 @@
 import cn.pandadb.lynx.{LynxNode, LynxRelationship, LynxSession}
 import org.junit.Test
+import org.opencypher.okapi.ir.api.configuration.IrConfiguration.PrintIr
+import org.opencypher.okapi.logical.api.configuration.LogicalConfiguration.PrintLogicalPlan
+import org.opencypher.okapi.relational.api.configuration.CoraConfiguration.PrintRelationalPlan
 
 class SessionTest {
+  PrintIr.set()
+  PrintLogicalPlan.set()
+  PrintRelationalPlan.set()
+
   val session = new LynxSession()
   val graph = session.createGraphInMemory(
     LynxNode(1, "name" -> "bluejoe", "age" -> 40),

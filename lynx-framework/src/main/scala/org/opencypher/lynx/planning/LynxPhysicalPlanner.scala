@@ -18,7 +18,6 @@ import org.opencypher.lynx.graph.{LynxPropertyGraph}
 import org.opencypher.okapi.ir.impl.util.VarConverters.RichPatternElement
 
 object LynxPhysicalPlanner {
-  // TODO: rename to 'plan'
   def process(input: LogicalOperator)(implicit context: LynxPlannerContext): PhysicalOperator = {
 
     input match {
@@ -26,7 +25,6 @@ object LynxPhysicalPlanner {
         process(lhs).join(process(rhs), Seq.empty, CrossJoin)
 
       case logical.Select(fields, in, _) =>
-
         val inOp = process(in)
 
         val selectExpressions = fields
@@ -166,7 +164,6 @@ object LynxPhysicalPlanner {
         val isExpandInto = sourceOp == targetOp
 
         val planner = direction match {
-          // TODO: verify that var length is able to traverse in different directions
           case Outgoing | Incoming => new DirectedVarLengthExpandPlanner(
             source, list, edgeScan, target,
             lower, upper,
@@ -234,14 +231,14 @@ object LynxPhysicalPlanner {
       case _ => lynx.Start(logicalGraph.qualifiedGraphName)
     }
 
-    val graph:LynxPropertyGraph = logicalGraph match {
+    val graph: LynxPropertyGraph = logicalGraph match {
       case _: LogicalCatalogGraph =>
-        inOp.context.resolveGraph(logicalGraph.qualifiedGraphName).get
+        inOp.context.resolveGraph(logicalGraph.qualifiedGraphName)
+
       case p: LogicalPatternGraph =>
-        inOp.context.resolveGraph(p.qualifiedGraphName).getOrElse(planConstructGraph(inOp, p).graph)
+        inOp.context.queryLocalCatalog.getOrElse(p.qualifiedGraphName, planConstructGraph(inOp, p).graph)
     }
 
-    //exactMatch?
     val scanOp = graph.scanOperator(scanPattern)
 
     val validScan = scanPattern.elements.forall { patternElement =>
@@ -534,4 +531,5 @@ object LynxPhysicalPlanner {
       }
     }
   }
+
 }

@@ -1,8 +1,5 @@
 import org.junit.Test
 import org.opencypher.lynx.{LynxRecords, LynxSession}
-import org.opencypher.lynx.graph.LynxPropertyGraph
-import org.opencypher.okapi.api.schema.PropertyGraphSchema
-import org.opencypher.okapi.api.types.{CTNode, CTRelationship}
 
 class MyTest {
   val session = new LynxSession()
@@ -13,7 +10,7 @@ class MyTest {
     run("match (n) return n")
   }
 
-  private def run(query: String) = {
+  private def run(query: String):LynxRecords = {
     println(s"query: $query")
     val t1 = System.currentTimeMillis()
     val records = session.cypher(query).records

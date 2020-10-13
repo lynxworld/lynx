@@ -7,6 +7,7 @@ import org.opencypher.okapi.api.graph.{PropertyGraph, _}
 import org.opencypher.okapi.api.table.CypherRecords
 import org.opencypher.okapi.api.value.CypherValue
 import org.opencypher.okapi.api.value.CypherValue.CypherMap
+import org.opencypher.okapi.impl.exception.IllegalArgumentException
 import org.opencypher.okapi.impl.graph.CypherCatalog
 import org.opencypher.okapi.impl.io.SessionGraphDataSource
 import org.opencypher.okapi.ir.api._
@@ -20,10 +21,16 @@ object LynxSession {
 }
 
 class LynxSession extends CypherSession with Logging {
-  override type Result = CypherResult
+  override type Result = LynxResult
   protected val parser: CypherParser = CypherParser
 
   private implicit val session: LynxSession = this
+
+  private[opencypher] def graphAt(qgn: QualifiedGraphName): Option[LynxPropertyGraph] =
+    if (catalog.graphNames.contains(qgn)) Some(catalog.graph(qgn).asInstanceOf[LynxPropertyGraph]) else None
+
+  private[opencypher] def createPlannerContext(parameters: CypherMap = CypherMap.empty, maybeDrivingTable: Option[LynxRecords] = None): LynxPlannerContext =
+    LynxPlannerContext(graphAt, maybeDrivingTable, parameters)(session)
 
   override def cypher(
                        query: String,
@@ -53,9 +60,14 @@ class LynxSession extends CypherSession with Logging {
                             queryLocalCatalog: QueryLocalCatalog
                           ): (LynxPlannerContext, PhysicalOperator) = {
     //physical planning
-    val ctx = new LynxPlannerContext(session, queryLocalCatalog.registeredGraphs, parameters, maybeDrivingTable)
+    val ctx = createPlannerContext(parameters, maybeDrivingTable)
+
     val physicalPlan = createPhysicalPlan(logicalPlan, ctx)
+    logger.debug(s"physical plan: ${physicalPlan.pretty}")
+
     val optimizedPlan = optimizePhysicalPlan(physicalPlan, ctx)
+    logger.debug(s"Optimized physical plan: ${optimizedPlan.pretty}")
+
     ctx -> optimizedPlan
   }
 
@@ -86,7 +98,7 @@ class LynxSession extends CypherSession with Logging {
     (input: PhysicalOperator, context: LynxPlannerContext) => LynxPhysicalOptimizer.process(input)(context)
 
   protected val createCypherResult: (PhysicalOperator, LogicalOperator, LynxPlannerContext) => LynxResult =
-    (input: PhysicalOperator, logical: LogicalOperator, context: LynxPlannerContext) => new LynxResult(input, Some(logical))
+    (input: PhysicalOperator, logical: LogicalOperator, context: LynxPlannerContext) => LynxResult(input, logical)
 
   /**
    * Interface through which the user may (de-)register property graph datasources as well as read, write and delete property graphs.
@@ -169,15 +181,14 @@ class LynxSession extends CypherSession with Logging {
   }
 }
 
-class LynxPlannerContext(val session: LynxSession, queryLocalCatalog: Map[QualifiedGraphName, PropertyGraph], val parameters: CypherMap, val maybeInputRecords: Option[LynxRecords]) {
-  def registerGraph(qualifiedGraphName: QualifiedGraphName, graph: LynxPropertyGraph) = ??? //queryLocalCatalog += qualifiedGraphName -> graph
+case class LynxPlannerContext(sessionCatalog: QualifiedGraphName => Option[LynxPropertyGraph],
+                              maybeInputRecords: Option[LynxRecords] = None,
+                              parameters: CypherMap = CypherMap.empty,
+                              var queryLocalCatalog: Map[QualifiedGraphName, LynxPropertyGraph] = Map.empty[QualifiedGraphName, LynxPropertyGraph]
+                             )(implicit val session: LynxSession) {
 
-  def getGraph(qualifiedGraphName: QualifiedGraphName): LynxPropertyGraph = queryLocalCatalog(qualifiedGraphName).asInstanceOf[LynxPropertyGraph]
-
-  def resolveGraph(qualifiedGraphName: QualifiedGraphName): Option[LynxPropertyGraph] = queryLocalCatalog.get(qualifiedGraphName).map(_.asInstanceOf[LynxPropertyGraph])
-}
-
-object LynxPlannerContext {
-  def apply(session: LynxSession, op: (QualifiedGraphName) => Option[LynxPropertyGraph]): LynxPlannerContext =
-    new LynxPlannerContext(session, Map.empty[QualifiedGraphName, PropertyGraph], CypherMap.empty, None)
+  def resolveGraph(qgn: QualifiedGraphName): LynxPropertyGraph = queryLocalCatalog.get(qgn) match {
+    case None => sessionCatalog(qgn).getOrElse(throw IllegalArgumentException(s"a graph at $qgn"))
+    case Some(g) => g
+  }
 }

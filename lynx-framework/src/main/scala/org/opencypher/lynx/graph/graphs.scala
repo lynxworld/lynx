@@ -143,4 +143,15 @@ case class EmptyGraph()(implicit val session: LynxSession) extends LynxPropertyG
   override def nodes(name: String, nodeCypherType: CTNode, exactLabelMatch: Boolean): LynxRecords = LynxRecords.empty()
 
   override def relationships(name: String, relCypherType: CTRelationship): LynxRecords = LynxRecords.empty()
+
+  override def scanOperator(searchPattern: Pattern, exactLabelMatch: Boolean = false)(implicit ctx: LynxPlannerContext): PhysicalOperator = {
+    val context: LynxPlannerContext = session.createPlannerContext()
+
+    val scanHeader = searchPattern.elements
+      .map { e => RecordHeader.from(e.toVar) }
+      .reduce(_ ++ _)
+
+    val records = LynxRecords.empty(scanHeader)
+    Start.fromEmptyGraph(records)(context)
+  }
 }
