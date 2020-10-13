@@ -11,7 +11,7 @@
     <modules>
         <module>lynx-framework</module>
         <module>blob-extension</module>
-        <module>example</module>
+        <module>relational-test</module>
     </modules>
     <properties/>
     <dependencies>

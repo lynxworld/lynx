@@ -16,7 +16,8 @@ import scala.annotation.tailrec
 
 object LynxDataFrame {
   val unit = new LynxDataFrame(Map.empty[String, CypherType], Stream.apply(Map[String, CypherValue]()))
-  val empty = new LynxDataFrame(Map.empty[String, CypherType], Stream.empty[Map[String, CypherValue]])
+
+  def empty(schema: Map[String, CypherType] = Map.empty[String, CypherType]) = new LynxDataFrame(schema, Stream.empty[Map[String, CypherValue]])
 }
 
 //meta: (name,STRING),(age,INTEGER)

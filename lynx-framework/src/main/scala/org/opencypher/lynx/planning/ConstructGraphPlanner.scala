@@ -46,7 +46,7 @@ object ConstructGraphPlanner {
     }
 
     val constructOp = ConstructGraph(constructTable, constructedGraph, construct, context)
-    context.registerGraph(construct.qualifiedGraphName, constructOp.graph)
+    context.queryLocalCatalog += (construct.qualifiedGraphName -> constructOp.graph)
     constructOp
   }
 
@@ -265,7 +265,7 @@ object ConstructGraphPlanner {
       case c: ConstructedNode =>
         c.baseElement.get.cypherType match {
           case CTNode(baseLabels, Some(sourceGraph)) =>
-            val sourceSchema = context.getGraph(sourceGraph).schema
+            val sourceSchema = context.resolveGraph(sourceGraph).schema
             val allLabels = c.labels.map(_.name) ++ baseLabels ++ setLabels.getOrElse(c.v, Set.empty)
             sourceSchema.forNode(allLabels).allCombinations.map(c.v -> CTNode(_)).toSeq
           case other => throw UnsupportedOperationException(s"Cannot construct node scan from $other")
@@ -277,7 +277,7 @@ object ConstructGraphPlanner {
       case c: ConstructedRelationship =>
         c.baseElement.get.cypherType match {
           case CTRelationship(baseTypes, Some(sourceGraph)) =>
-            val sourceSchema = context.getGraph(sourceGraph).schema
+            val sourceSchema = context.resolveGraph(sourceGraph).schema
             val possibleTypes = c.typ match {
               case Some(t) => Set(t)
               case _ => baseTypes
@@ -302,12 +302,12 @@ object ConstructGraphPlanner {
 
     clonedElementsToKeep.toSeq.flatMap {
       case (v, CTNode(labels, Some(sourceGraph))) =>
-        val sourceSchema = context.getGraph(sourceGraph).schema
+        val sourceSchema = context.resolveGraph(sourceGraph).schema
         val allLabels = labels ++ setLabels.getOrElse(v, Set.empty)
         sourceSchema.forNode(allLabels).allCombinations.map(v -> CTNode(_))
 
       case (v, r@CTRelationship(_, Some(sourceGraph))) =>
-        val sourceSchema = context.getGraph(sourceGraph).schema
+        val sourceSchema = context.resolveGraph(sourceGraph).schema
         sourceSchema.forRelationship(r.toCTRelationship).relationshipTypes.map(v -> CTRelationship(_)).toSeq
 
       case other => throw UnsupportedOperationException(s"Cannot construct scan from $other")
