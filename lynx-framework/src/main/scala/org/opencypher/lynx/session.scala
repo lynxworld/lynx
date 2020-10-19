@@ -63,10 +63,10 @@ class LynxSession extends CypherSession with Logging {
     val ctx = createPlannerContext(parameters, maybeDrivingTable)
 
     val physicalPlan = createPhysicalPlan(logicalPlan, ctx)
-    logger.debug(s"physical plan: ${physicalPlan.pretty}")
+    logger.debug(s"physical plan: \r\n${physicalPlan.pretty}")
 
     val optimizedPlan = optimizePhysicalPlan(physicalPlan, ctx)
-    logger.debug(s"Optimized physical plan: ${optimizedPlan.pretty}")
+    logger.debug(s"Optimized physical plan: \r\n${optimizedPlan.pretty}")
 
     ctx -> optimizedPlan
   }
@@ -76,11 +76,11 @@ class LynxSession extends CypherSession with Logging {
     val logicalPlannerContext = LogicalPlannerContext(graph.schema, inputFields, catalog.listSources, queryLocalCatalog)
     val logicalPlan = createLogicalPlan(cypherQuery, logicalPlannerContext)
 
-    logger.debug(s"logical plan: ${logicalPlan.pretty}")
+    logger.debug(s"logical plan: \r\n${logicalPlan.pretty}")
 
     //Logical optimization
     val optimizedLogicalPlan = optimizeLogicalPlan(logicalPlan, logicalPlannerContext)
-    logger.debug(s"Optimized logical plan: ${optimizedLogicalPlan.pretty}")
+    logger.debug(s"Optimized logical plan: \r\n${optimizedLogicalPlan.pretty}")
 
     optimizedLogicalPlan
   }
@@ -149,7 +149,7 @@ class LynxSession extends CypherSession with Logging {
 
     def processIR(ir: CypherStatement): Result = ir match {
       case cq: CypherQuery =>
-        logger.debug(s"IR: ${cq.pretty}")
+        logger.debug(s"IR: \r\n${cq.pretty}")
         planCypherQuery(propertyGraph, cq, allParameters, inputFields, maybeRelationalRecords, queryLocalCatalog)
 
       case CreateGraphStatement(targetGraph, innerQueryIr) =>
@@ -191,4 +191,6 @@ case class LynxPlannerContext(sessionCatalog: QualifiedGraphName => Option[LynxP
     case None => sessionCatalog(qgn).getOrElse(throw IllegalArgumentException(s"a graph at $qgn"))
     case Some(g) => g
   }
+
+  override def toString: String = this.getClass.getSimpleName
 }
