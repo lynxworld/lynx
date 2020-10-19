@@ -67,4 +67,9 @@ class SessionTest {
     run("match (m)-[r]-(n) where n.age>20 return m.name,n.name,r")
     run("match (m)-[:knows]-(n) where n.age>20 return m.name,n.name")
   }
+
+  @Test
+  def testNormal2(): Unit = {
+    run("match (m)-[r]-(n) return r")
+  }
 }

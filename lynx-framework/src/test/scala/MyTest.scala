@@ -25,10 +25,10 @@ case class LynxRelationship(id: Long, startId: Long, endId: Long, relType: Strin
 }
 
 class MyTest {
-  val session = new LynxSession()
+  val _session = new LynxSession()
 
   val graphDemo = new LynxPropertyGraph() {
-    override implicit def session: LynxSession = session
+    override implicit def session: LynxSession = _session
 
     override def nodes(name: String, nodeCypherType: CTNode, exactLabelMatch: Boolean): LynxRecords = {
       LynxRecords(
@@ -98,7 +98,7 @@ class MyTest {
   private def runOnEmptyGraph(query: String): CypherRecords = {
     println(s"query: $query")
     val t1 = System.currentTimeMillis()
-    val records = session.cypher(query).records
+    val records = _session.cypher(query).records
     val t2 = System.currentTimeMillis()
     println(s"fetched records in ${t2 - t1} ms.")
     records.show
