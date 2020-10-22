@@ -98,7 +98,7 @@ object Start {
     Start(LynxSession.EMPTY_GRAPH_NAME, Some(records))
   }
 
-  def fromRecords(context: LynxPlannerContext, qgn: QualifiedGraphName, records: LynxRecords): Start = {
+  def fromRecords(qgn: QualifiedGraphName, records: LynxRecords)(implicit context: LynxPlannerContext): Start = {
     Start(qgn, Some(records))(context)
   }
 }
@@ -352,7 +352,11 @@ final case class Join(
   override lazy val recordHeader: RecordHeader = lhs.recordHeader join rhs.recordHeader
 
   override lazy val _table: LynxDataFrame = {
-    val joinCols = joinExprs.map { case (l, r) => recordHeader.column(l) -> rhs.recordHeader.column(r) }
+    val joinCols = joinExprs.map {
+      case (l, r) =>
+        recordHeader.column(l) -> rhs.recordHeader.column(r)
+    }
+
     lhs.table.join(rhs.table, joinType, joinCols: _*)
   }
 }
@@ -412,7 +416,7 @@ final case class ConstructGraph(
 
   override lazy val recordHeader: RecordHeader = RecordHeader.empty
 
-  override lazy val  _table: LynxDataFrame = LynxDataFrame.unit
+  override lazy val _table: LynxDataFrame = LynxDataFrame.unit
 
   override lazy val graph: LynxPropertyGraph = constructedGraph
 

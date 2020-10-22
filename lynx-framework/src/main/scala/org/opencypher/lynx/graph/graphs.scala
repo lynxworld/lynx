@@ -9,7 +9,7 @@ import org.opencypher.okapi.api.schema.PropertyGraphSchema
 import org.opencypher.okapi.api.table.CypherRecords
 import org.opencypher.okapi.api.types.{CTNode, CTRelationship}
 import org.opencypher.okapi.api.value.CypherValue
-import org.opencypher.okapi.impl.exception.UnsupportedOperationException
+import org.opencypher.okapi.impl.exception.{IllegalArgumentException, UnsupportedOperationException}
 import org.opencypher.okapi.ir.api.expr.PrefixId.GraphIdPrefix
 import org.opencypher.okapi.ir.impl.util.VarConverters.RichPatternElement
 
@@ -29,19 +29,19 @@ trait LynxPropertyGraph extends PropertyGraph with Scannable {
 
     val selectedScans: Seq[PhysicalOperator] = searchPattern.elements.map({
       case PatternElement(name, cypherType@CTNode(knownLabels, _)) if knownLabels.isEmpty =>
-        Start.fromRecords(ctx, cypherType.graph.getOrElse(LynxSession.EMPTY_GRAPH_NAME),
+        Start.fromRecords(cypherType.graph.getOrElse(LynxSession.EMPTY_GRAPH_NAME),
           graph.nodes(name, cypherType, exactLabelMatch))
 
       case PatternElement(name, cypherType@CTNode(knownLabels, _)) =>
-        Start.fromRecords(ctx, cypherType.graph.getOrElse(LynxSession.EMPTY_GRAPH_NAME),
+        Start.fromRecords(cypherType.graph.getOrElse(LynxSession.EMPTY_GRAPH_NAME),
           graph.nodes(name, cypherType, exactLabelMatch))
 
       case PatternElement(name, cypherType@CTRelationship(types, _)) if types.isEmpty =>
-        Start.fromRecords(ctx, cypherType.graph.getOrElse(LynxSession.EMPTY_GRAPH_NAME),
+        Start.fromRecords(cypherType.graph.getOrElse(LynxSession.EMPTY_GRAPH_NAME),
           graph.relationships(name, cypherType))
 
       case PatternElement(name, cypherType@CTRelationship(types, _)) =>
-        Start.fromRecords(ctx, cypherType.graph.getOrElse(LynxSession.EMPTY_GRAPH_NAME),
+        Start.fromRecords(cypherType.graph.getOrElse(LynxSession.EMPTY_GRAPH_NAME),
           graph.relationships(name, cypherType))
     }).toSeq
 
@@ -144,7 +144,7 @@ case class EmptyGraph()(implicit val session: LynxSession) extends LynxPropertyG
 
   override def relationships(name: String, relCypherType: CTRelationship): LynxRecords = LynxRecords.empty()
 
-  override def scanOperator(searchPattern: Pattern, exactLabelMatch: Boolean = false)(implicit ctx: LynxPlannerContext): PhysicalOperator = {
+  override def scanOperator(searchPattern: Pattern, exactLabelMatch: Boolean)(implicit ctx: LynxPlannerContext): PhysicalOperator = {
     val context: LynxPlannerContext = session.createPlannerContext()
 
     val scanHeader = searchPattern.elements

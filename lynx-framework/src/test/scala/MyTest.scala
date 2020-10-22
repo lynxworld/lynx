@@ -1,12 +1,14 @@
 import org.junit.{Assert, Test}
 import org.opencypher.lynx.graph.LynxPropertyGraph
 import org.opencypher.lynx.{LynxDataFrame, LynxRecords, LynxSession, RecordHeader}
-import org.opencypher.okapi.api.schema.PropertyGraphSchema
+import org.opencypher.okapi.api.graph.{SourceEndNodeKey, SourceStartNodeKey}
+import org.opencypher.okapi.api.schema.{LabelPropertyMap, PropertyGraphSchema, PropertyKeys, RelTypePropertyMap}
 import org.opencypher.okapi.api.table.CypherRecords
-import org.opencypher.okapi.api.types.{CTNode, CTRelationship}
+import org.opencypher.okapi.api.types.{CTNode, CTRelationship, CTString, CypherType}
 import org.opencypher.okapi.api.value.CypherValue
 import org.opencypher.okapi.api.value.CypherValue.{CypherMap, CypherString, CypherValue, Node, Relationship}
-import org.opencypher.okapi.ir.api.expr.{NodeVar, RelationshipVar}
+import org.opencypher.okapi.impl.schema.PropertyGraphSchemaImpl
+import org.opencypher.okapi.ir.api.expr.{EndNode, NodeVar, RelationshipVar, StartNode}
 
 case class LynxNode(id: Long, labels: Set[String], props: (String, CypherValue)*) extends Node[Long] {
   val properties = props.toMap
@@ -30,32 +32,48 @@ class MyTest {
   val graphDemo = new LynxPropertyGraph() {
     override implicit def session: LynxSession = _session
 
+    val node1 = LynxNode(1, Set(), "name" -> CypherValue("bluejoe"))
+    val node2 = LynxNode(2, Set(), "name" -> CypherValue("alex"))
+    val node3 = LynxNode(3, Set(), "name" -> CypherValue("simba"))
+
     override def nodes(name: String, nodeCypherType: CTNode, exactLabelMatch: Boolean): LynxRecords = {
       LynxRecords(
         RecordHeader(Map(NodeVar(name)(CTNode) -> name)),
         LynxDataFrame(
           Map(name -> CTNode),
           Array(
-            Map(name -> LynxNode(1, Set(), "name" -> CypherValue("bluejoe"))),
-            Map(name -> LynxNode(2, Set(), "name" -> CypherValue("alex"))),
-            Map(name -> LynxNode(3, Set(), "name" -> CypherValue("simba")))
+            Map(name -> node1),
+            Map(name -> node2),
+            Map(name -> node3)
           ).toStream)
       )
     }
 
     override def relationships(name: String, relCypherType: CTRelationship): LynxRecords = {
       LynxRecords(
-        RecordHeader(Map(RelationshipVar(name)(CTRelationship) -> name)),
+        RecordHeader(Map(
+          RelationshipVar(name)(CTRelationship) -> name,
+          StartNode(RelationshipVar(name)(CTRelationship))(CTNode) -> SourceStartNodeKey.name,
+          EndNode(RelationshipVar(name)(CTRelationship))(CTNode) -> SourceEndNodeKey.name
+        )),
         LynxDataFrame(
-          Map(name -> CTNode),
+          Map(name -> CTRelationship, SourceStartNodeKey.name -> CTNode, SourceEndNodeKey.name -> CTNode),
           Array(
-            Map(name -> LynxRelationship(1, 1, 2, "knows")),
-            Map(name -> LynxRelationship(2, 2, 3, "knows"))
+            Map(name -> LynxRelationship(1, 1, 2, "knows"), SourceStartNodeKey.name -> node1, SourceEndNodeKey.name -> node2),
+            Map(name -> LynxRelationship(2, 2, 3, "knows"), SourceStartNodeKey.name -> node2, SourceEndNodeKey.name -> node3)
           ).toStream)
       )
     }
 
-    override def schema: PropertyGraphSchema = PropertyGraphSchema.empty
+    override def schema: PropertyGraphSchema =
+      PropertyGraphSchemaImpl(
+        Map[Set[String], Map[String, CypherType]](
+          Set[String]() -> Map("name" -> CTString)
+        ),
+        Map[String, Map[String, CypherType]](
+          "knows" -> Map[String, CypherType]()
+        )
+      )
   }
 
   @Test

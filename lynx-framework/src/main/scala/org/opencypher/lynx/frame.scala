@@ -98,13 +98,13 @@ case class LynxDataFrame(schema: Map[String, CypherType], records: Stream[Map[St
     joinType match {
       case InnerJoin => {
         val joined = this.records.flatMap {
-          a => {
-            other.records.filter { b => {
-              joinCols.map(kv => a(kv._1) == b(kv._2)).reduce(_ && _)
-            }
+          thisRecordMap => {
+            other.records.filter {
+              otherRecordMap => {
+                joinCols.map(joinCol => thisRecordMap(joinCol._1) == otherRecordMap(joinCol._2)).reduce(_ && _)
+              }
             }.map {
-              b =>
-                a ++ b
+              thisRecordMap ++ _
             }
           }
         }
@@ -294,7 +294,8 @@ case class RecordHeader(exprToColumn: Map[Expr, String]) {
 
   def column(expr: Expr): String = expr match {
     case AliasExpr(innerExpr, _) => column(innerExpr)
-    case _ => exprToColumn.getOrElse(expr, throw IllegalArgumentException(s"Header does not contain a column for $expr.\n\t${this.toString}"))
+    case _ => exprToColumn.getOrElse(expr,
+      throw IllegalArgumentException(s"Header does not contain a column for $expr.\n\t${this.toString}"))
   }
 
   def ownedBy(expr: Var): Set[Expr] = {
