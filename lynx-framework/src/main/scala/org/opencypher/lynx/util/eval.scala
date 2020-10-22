@@ -73,6 +73,9 @@ object ExpressionEvaluator {
       case FalseLit =>
         false
 
+      case NullLit =>
+        CypherNull
+
       case lit: ASTBlobLiteral =>
         CypherValue(lit.value)
     }

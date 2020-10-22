@@ -24,15 +24,13 @@ object LynxPhysicalPlanner {
       case logical.CartesianProduct(lhs, rhs, _) =>
         process(lhs).join(process(rhs), Seq.empty, CrossJoin)
 
+        //select fields
       case logical.Select(fields, in, _) =>
         val inOp = process(in)
-
-        val selectExpressions = fields
-          .flatMap(inOp.recordHeader.ownedBy)
-          .distinct
-
+        val selectExpressions = fields.flatMap(inOp.recordHeader.ownedBy).distinct
         inOp.select(selectExpressions: _*)
 
+        //as
       case logical.Project(projectExpr, in, _) =>
         val inOp = process(in)
         val (expr, maybeAlias) = projectExpr
@@ -47,9 +45,11 @@ object LynxPhysicalPlanner {
       case logical.EmptyRecords(fields, in, _) =>
         lynx.EmptyRecords(process(in), fields)
 
-      case logical.Start(graph, _) => lynx.Start(graph.qualifiedGraphName)
+      case logical.Start(graph, _) =>
+        lynx.Start(graph.qualifiedGraphName)
 
-      case logical.DrivingTable(graph, _, _) => lynx.Start(graph.qualifiedGraphName, context.maybeInputRecords)
+      case logical.DrivingTable(graph, _, _) =>
+        lynx.Start(graph.qualifiedGraphName, context.maybeInputRecords)
 
       case logical.FromGraph(graph, in, _) =>
         val inOp = process(in)
@@ -58,6 +58,7 @@ object LynxPhysicalPlanner {
           case construct: LogicalPatternGraph => planConstructGraph(inOp, construct)
         }
 
+        //list -> rows
       case logical.Unwind(list, item, in, _) =>
         val explodeExpr = Explode(list)
         process(in).add(explodeExpr as item)
@@ -70,7 +71,8 @@ object LynxPhysicalPlanner {
           mapping
         )
 
-      case logical.Aggregate(aggregations, group, in, _) => lynx.Aggregate(process(in), group, aggregations)
+      case logical.Aggregate(aggregations, group, in, _) =>
+        lynx.Aggregate(process(in), group, aggregations)
 
       case logical.Filter(expr, in, _) => process(in).filter(expr)
 
