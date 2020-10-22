@@ -16,6 +16,8 @@ case class LynxRecords(header: RecordHeader, table: LynxDataFrame, maybeDisplayN
 
   override def collect: Array[CypherMap] = iterator.toArray
 
+  override def logicalColumns: Option[Seq[String]] = maybeDisplayNames
+
   override def physicalColumns: Seq[String] = header.columns.toSeq
 
   override def columnType: Map[String, CypherType] = header.exprToColumn.map(t => t._2 -> t._1.cypherType)
