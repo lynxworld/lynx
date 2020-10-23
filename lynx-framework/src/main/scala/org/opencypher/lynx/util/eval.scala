@@ -2,7 +2,7 @@ package org.opencypher.lynx.util
 
 import org.opencypher.lynx.RecordHeader
 import org.opencypher.okapi.api.value.CypherValue
-import org.opencypher.okapi.api.value.CypherValue.{CypherBigDecimal, CypherBoolean, CypherFloat, CypherInteger, CypherMap, CypherNull, CypherValue}
+import org.opencypher.okapi.api.value.CypherValue.{CypherBigDecimal, CypherBoolean, CypherFloat, CypherInteger, CypherMap, CypherNull, CypherValue, Element, Node}
 import org.opencypher.okapi.ir.api.expr._
 import org.opencypher.v9_0.expressions.ASTBlobLiteral
 
@@ -58,11 +58,14 @@ object ExpressionEvaluator {
         properties(param.name)
 
       case _: Var | _: HasLabel | _: Type | _: StartNode | _: EndNode =>
-        record(expr.withoutType)
+        //record(expr.withoutType)
+        record(header.column(expr))
 
-      case _: ElementProperty =>
-        val col = header.column(expr)
-        record(col)
+      case ep: ElementProperty =>
+        (ep.key.name -> eval(ep.propertyOwner)) match {
+            //TODO: lazy load of Element.property()
+          case (name, e: Element[_]) => e.properties(name)
+        }
 
       case AliasExpr(expr0: Expr, alias: Var) =>
         eval(expr0)

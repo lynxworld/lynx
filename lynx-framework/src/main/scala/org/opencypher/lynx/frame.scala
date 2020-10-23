@@ -268,6 +268,7 @@ object RecordHeader {
 
 final case class RecordHeaderException(msg: String) extends RuntimeException(msg)
 
+//e.g n.name->n_name
 case class RecordHeader(exprToColumn: Map[Expr, String]) {
 
   // ==============

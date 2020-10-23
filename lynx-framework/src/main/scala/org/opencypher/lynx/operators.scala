@@ -106,9 +106,11 @@ object Start {
 final case class Start(qgn: QualifiedGraphName, maybeRecords: Option[LynxRecords] = None)(implicit override val context: LynxPlannerContext)
   extends PhysicalOperator {
 
-  override lazy val recordHeader: RecordHeader = maybeRecords.map(_.header).getOrElse(RecordHeader.empty)
+  override lazy val recordHeader: RecordHeader =
+    maybeRecords.map(_.header).getOrElse(RecordHeader.empty)
 
-  override lazy val _table: LynxDataFrame = maybeRecords.map(_.table).getOrElse(LynxDataFrame.unit)
+  override lazy val _table: LynxDataFrame =
+    maybeRecords.map(_.table).getOrElse(LynxDataFrame.unit)
 
   override lazy val graph: LynxPropertyGraph = resolve(qgn)
 
@@ -173,7 +175,11 @@ final case class Add(in: PhysicalOperator, exprs: List[Expr]) extends PhysicalOp
     if (physicalAdditions.isEmpty) {
       in.table
     } else {
-      in.table.withColumns(physicalAdditions.map(expr => expr -> recordHeader.column(expr)): _*)(recordHeader, context.parameters)
+      in.table.withColumns(
+        physicalAdditions.map(
+          expr =>
+            expr -> recordHeader.column(expr)): _*
+      )(recordHeader, context.parameters)
     }
   }
 }
