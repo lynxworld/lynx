@@ -11,8 +11,23 @@ import org.opencypher.okapi.impl.table.RecordsPrinter
 import org.opencypher.okapi.impl.util.PrintOptions
 import org.opencypher.okapi.logical.impl.LogicalOperator
 
+//RecordHeader.exprToColumn={SimpleVar('n.name')->'n_name'}
+//maybeDisplayNames=['n.name']
+//table.schema={'n_name'->CTString}
+//table.records=[{'n_name'->'bluejoe'}]
 case class LynxRecords(header: RecordHeader, table: LynxDataFrame, maybeDisplayNames: Option[Seq[String]] = None) extends CypherRecords {
-  override def iterator: Iterator[CypherMap] = table.rows.map(row => new CypherMap(table.columnType.keySet.map(key => key -> row(key)).toMap))
+  lazy val mappingLogical2PhysicalColumns: Map[String, String] = {
+    if (maybeDisplayNames.isDefined)
+      header.exprToColumn.map(kv => kv._1.withoutType -> kv._2)
+    else
+      physicalColumns.map(key => key -> key).toMap
+  }
+
+  override def iterator: Iterator[CypherMap] = {
+    table.rows.map { row =>
+      new CypherMap(mappingLogical2PhysicalColumns.map(kv => kv._1 -> row(kv._2)))
+    }
+  }
 
   override def collect: Array[CypherMap] = iterator.toArray
 
@@ -22,11 +37,13 @@ case class LynxRecords(header: RecordHeader, table: LynxDataFrame, maybeDisplayN
 
   override def columnType: Map[String, CypherType] = header.exprToColumn.map(t => t._2 -> t._1.cypherType)
 
-  override def rows: Iterator[String => CypherValue.CypherValue] = table.rows
+  override def rows: Iterator[String => CypherValue.CypherValue] =
+    iterator.map(cm => (key) => cm(key))
 
   override def size: Long = table.size
 
-  override def show(implicit options: PrintOptions): Unit = RecordsPrinter.print(this)
+  override def show(implicit options: PrintOptions): Unit =
+    RecordsPrinter.print(this)
 
   def union(other: LynxRecords) = LynxRecords(
     RecordHeader(header.exprToColumn ++ other.header.exprToColumn),

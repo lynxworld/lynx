@@ -11,7 +11,7 @@ import org.opencypher.okapi.impl.schema.PropertyGraphSchemaImpl
 import org.opencypher.okapi.ir.api.expr.{EndNode, NodeVar, RelationshipVar, StartNode}
 
 case class LynxNode(id: Long, labels: Set[String], props: (String, CypherValue)*) extends Node[Long] {
-  val properties = props.toMap
+  lazy val properties = props.toMap
   val withIds = props.toMap + ("_id" -> CypherValue(id))
   override type I = this.type
 
@@ -32,9 +32,9 @@ class MyTest {
   val graphDemo = new LynxPropertyGraph() {
     override implicit def session: LynxSession = _session
 
-    val node1 = LynxNode(1, Set(), "name" -> CypherValue("bluejoe"))
-    val node2 = LynxNode(2, Set(), "name" -> CypherValue("alex"))
-    val node3 = LynxNode(3, Set(), "name" -> CypherValue("simba"))
+    val node1 = LynxNode(1, Set(), "name" -> CypherValue("bluejoe"), "age" -> CypherValue(40))
+    val node2 = LynxNode(2, Set(), "name" -> CypherValue("alex"), "age" -> CypherValue(30))
+    val node3 = LynxNode(3, Set(), "name" -> CypherValue("simba"), "age" -> CypherValue(10))
 
     override def nodes(name: String, nodeCypherType: CTNode, exactLabelMatch: Boolean): LynxRecords = {
       LynxRecords(
@@ -98,19 +98,55 @@ class MyTest {
   }
 
   @Test
-  def testDemoGraph(): Unit = {
+  def testQueryUnit(): Unit = {
     var rs: CypherRecords = null
     rs = runOnDemoGraph("return 1")
     Assert.assertEquals(Seq("1"), rs.physicalColumns)
     Assert.assertEquals(1, rs.collect.size)
-    Assert.assertEquals(CypherMap("1" -> 1), rs.collect.apply(0))
+  }
 
-    rs = runOnDemoGraph("match (n) return n")
+  @Test
+  def testQueryUnitAsN(): Unit = {
+    val rs = runOnDemoGraph("return 1 as N")
+    Assert.assertEquals(CypherMap("N" -> 1), rs.collect.apply(0))
+    Assert.assertEquals(CypherValue(1), rs.collect.apply(0).apply("N"))
+
+  }
+
+  @Test
+  def testQueryNodes(): Unit = {
+    val rs = runOnDemoGraph("match (n) return n")
     Assert.assertEquals(3, rs.collect.size)
+    Assert.assertEquals(Seq(1, 2, 3), rs.collect.map(_.apply("n").cast[Node[Long]].id).toSeq)
 
-    rs = runOnDemoGraph("match (n)-[r]-(m) return r")
+  }
+
+  @Test
+  def testQueryRelations(): Unit = {
+    val rs = runOnDemoGraph("match (n)-[r]-(m) return r")
     Assert.assertEquals(2, rs.collect.size)
+  }
 
+  @Test
+  def testQueryNodeProperty(): Unit = {
+    val rs = runOnDemoGraph("match (n) return n.name")
+    Assert.assertEquals(3, rs.collect.size)
+    Assert.assertEquals(Seq("bluejoe", "alex", "simba"),
+      rs.collect.map(_.apply("n.name").cast[CypherString].value).toSeq)
+  }
+
+  @Test
+  def testQueryNodePropertyAlias(): Unit = {
+    val rs = runOnDemoGraph("match (n) return n.name as name")
+    Assert.assertEquals(3, rs.collect.size)
+    Assert.assertEquals(CypherValue("bluejoe"), rs.collect.apply(0).apply("name"))
+  }
+
+  @Test
+  def testQueryNodesWithFilter(): Unit = {
+    val rs = runOnDemoGraph("match (n) where n.name='bluejoe' return n")
+    Assert.assertEquals(1, rs.collect.size)
+    Assert.assertEquals(1, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
   }
 
   private def runOnEmptyGraph(query: String): CypherRecords = {
