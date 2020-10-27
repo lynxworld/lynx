@@ -220,5 +220,18 @@ trait PropertyGraphScan[Id] {
 
   def allNodes(): Seq[Node[Id]]
 
+  def allNodes(labels: Set[String], exactLabelMatch: Boolean): Seq[Node[Id]] = {
+    allNodes().filter { node =>
+      if (exactLabelMatch)
+        node.labels.equals(labels)
+      else
+        node.labels.intersect(labels).size == labels.size
+    }
+  }
+
   def allRelationships(): Seq[Relationship[Id]]
+
+  def allRelationships(relTypes: Set[String]): Seq[Relationship[Id]] = {
+    allRelationships().filter(rel => (relTypes.contains(rel.relType)))
+  }
 }
