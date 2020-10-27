@@ -1,14 +1,9 @@
 import org.junit.{Assert, Test}
-import org.opencypher.lynx.graph.LynxPropertyGraph
-import org.opencypher.lynx.{DataFrame, LynxRecords, LynxSession, PropertyGraphScan, RecordHeader}
-import org.opencypher.okapi.api.graph.{SourceEndNodeKey, SourceStartNodeKey}
+import org.opencypher.lynx.{LynxSession, PropertyGraphScan}
 import org.opencypher.okapi.api.schema.PropertyGraphSchema
 import org.opencypher.okapi.api.table.CypherRecords
-import org.opencypher.okapi.api.types.{CTNode, CTRelationship, CTString, CypherType}
 import org.opencypher.okapi.api.value.CypherValue
 import org.opencypher.okapi.api.value.CypherValue.{CypherMap, CypherString, CypherValue, Node, Relationship}
-import org.opencypher.okapi.impl.schema.PropertyGraphSchemaImpl
-import org.opencypher.okapi.ir.api.expr.{EndNode, NodeVar, RelationshipVar, StartNode}
 
 case class LynxNode(id: Long, labels: Set[String], props: (String, CypherValue)*) extends Node[Long] {
   lazy val properties = props.toMap

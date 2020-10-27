@@ -62,15 +62,25 @@ object LynxPropertyGraph {
 class ScanGraph[Id](scan: PropertyGraphScan[Id])(implicit val session: LynxSession) extends LynxPropertyGraph {
 
   override def nodes(name: String, nodeCypherType: CTNode, exactLabelMatch: Boolean): LynxRecords = {
+    val nodes = if (nodeCypherType.labels.nonEmpty) {
+      scan.allNodes(nodeCypherType.labels, exactLabelMatch)
+    }
+    else {
+      scan.allNodes()
+    }
     new LynxRecords(
       RecordHeader(Map(NodeVar(name)(CTNode) -> name)),
-      session.createDataFrame(
-        Set(name -> CTNode),
-        scan.allNodes().map(Seq(_)))
+      session.createDataFrame(Set(name -> CTNode), nodes.map(Seq(_)))
     )
   }
 
   override def relationships(name: String, relCypherType: CTRelationship): LynxRecords = {
+    val rels = if (relCypherType.types.nonEmpty) {
+      scan.allRelationships(relCypherType.types)
+    }
+    else {
+      scan.allRelationships()
+    }
     new LynxRecords(
       RecordHeader(Map(
         RelationshipVar(name)(CTRelationship) -> name,
@@ -79,7 +89,7 @@ class ScanGraph[Id](scan: PropertyGraphScan[Id])(implicit val session: LynxSessi
       )),
       session.createDataFrame(
         Set(name -> CTRelationship, SourceStartNodeKey.name -> CTNode, SourceEndNodeKey.name -> CTNode),
-        scan.allRelationships().map(rel => Seq(rel, scan.nodeAt(rel.startId), scan.nodeAt(rel.endId))))
+        rels.map(rel => Seq(rel, scan.nodeAt(rel.startId), scan.nodeAt(rel.endId))))
     )
   }
 
