@@ -1,169 +1,15 @@
 package org.opencypher.lynx
 
-import org.opencypher.lynx.planning.{InnerJoin, JoinType, Order}
-import org.opencypher.lynx.util.EvalContext
 import org.opencypher.okapi.api.types._
-import org.opencypher.okapi.api.value.CypherValue
-import org.opencypher.okapi.api.value.CypherValue.Format._
-import org.opencypher.okapi.api.value.CypherValue.{CypherBoolean, CypherMap, CypherNull, CypherValue}
 import org.opencypher.okapi.impl.exception.IllegalArgumentException
-import org.opencypher.okapi.impl.util.{PrintOptions, TablePrinter}
+import org.opencypher.okapi.impl.util.TablePrinter
 import org.opencypher.okapi.ir.api.expr._
 import org.opencypher.okapi.ir.api.{Label, RelType}
 
 import scala.annotation.tailrec
 import scala.collection.Seq
 
-//meta: (name,STRING),(age,INTEGER)
-class LynxDataFrameImpl(val schema: Set[(String, CypherType)], val records: Seq[Seq[_ <: CypherValue]])
-                       (implicit session: LynxSession) extends LynxDataFrame {
-  val evaluator = session.evaluator
-  val columnIndex = schema.zipWithIndex.map(x => x._1._1 -> x._2).toMap
-  override val columnType: Map[String, CypherType] = schema.toMap
-
-  override def cache() = this
-
-  private def cell(row: Seq[_ <: CypherValue], column: String): CypherValue =
-    row(columnIndex(column))
-
-  override def select(cols: String*): this.type = {
-    val tuples = cols.zip(cols)
-    select(tuples.head, tuples.tail: _*)
-  }
-
-  override def select(col: (String, String), cols: (String, String)*): this.type= {
-    val columns = col +: cols
-
-    new LynxDataFrameImpl(columns.map(column =>
-      column._2 -> columnType(column._1)).toSet,
-      records.map(row =>
-        columns.map(column => cell(row, column._1)))
-    )
-  }
-
-  override def filter(expr: Expr)(implicit header: RecordHeader, parameters: CypherMap): this.type= {
-    new LynxDataFrameImpl(schema,
-      records.filter { row =>
-        implicit val ctx = EvalContext(header, (column) => cell(row, column), parameters)
-        evaluator.eval(expr) match {
-          case CypherNull => false
-          case CypherBoolean(x) => x
-        }
-      })
-  }
-
-  override def drop(cols: String*): this.type= {
-    val remained = schema.dropWhile(col => cols.contains(col)).map(_._1)
-    select(remained)
-  }
-
-  override def join(df: LynxDataFrame, joinType: JoinType, joinCols: (String, String)*): this.type= {
-    val other = df.asInstanceOf[LynxDataFrameImpl]
-    joinType match {
-      case InnerJoin => {
-        val joined = this.records.flatMap {
-          thisRow => {
-            other.records.filter {
-              otherRow => {
-                joinCols.map(joinCol =>
-                  this.cell(thisRow, joinCol._1) ==
-                    other.cell(otherRow, joinCol._2)).reduce(_ && _)
-              }
-            }.map {
-              thisRow ++ _
-            }
-          }
-        }
-
-        new LynxDataFrameImpl(this.schema ++ other.schema, joined)
-      }
-    }
-  }
-
-  override def unionAll(df: LynxDataFrame): this.type= {
-    val other = df.asInstanceOf[LynxDataFrameImpl]
-    new LynxDataFrameImpl(this.schema ++ other.schema, this.records.union(other.records))
-  }
-
-  override def orderBy(sortItems: (Expr, Order)*)(implicit header: RecordHeader, parameters: CypherMap): this.type= {
-    ???
-  }
-
-  def skip(n: Long): this.type= {
-    new LynxDataFrameImpl(this.schema, this.records.drop(n.toInt))
-  }
-
-  override def limit(n: Long): this.type= {
-    new LynxDataFrameImpl(this.schema, this.records.take(n.toInt))
-  }
-
-  override def distinct: this.type= {
-    new LynxDataFrameImpl(this.schema, this.records.distinct)
-  }
-
-  override def distinct(cols: String*): this.type= {
-    this.select(cols: _*).distinct
-  }
-
-  override def group(by: Set[Var], aggregations: Map[String, Aggregator])
-                    (implicit header: RecordHeader, parameters: CypherMap): this.type= {
-    //by=[Var(`class`), Var(`sex`)]
-    //aggregations={`avg_age`->Avg(`age`), `max_age`->Max(`age`)}
-
-    //df1=
-    // ((`class`=4, `sex`=0) -> Stream[{...}, {...}])
-    // ((`class`=4, `sex`=1) -> Stream[{...}, {...}])
-    // ((`class`=5, `sex`=0) -> Stream[{...}, {...}])
-    val df1 = records.groupBy(row =>
-      by.map(evaluator.eval(_)(EvalContext(header, cell(row, _), parameters)))
-    )
-
-    //df2=
-    //`class`=4, `sex`=0, `avg_age`=9, `max_age`=10
-
-    val df2 = df1.map(groupped =>
-      groupped._1.toSeq ++
-        aggregations.map(agr =>
-          evaluator.aggregate(agr._2, groupped._2.map(row => cell(row, agr._1)))
-        ).toSeq
-    )
-
-    new LynxDataFrameImpl(by.map(v => v.name -> v.cypherType) ++ aggregations.map(agr => agr._1 -> agr._2.cypherType),
-      df2.toSeq)
-  }
-
-  override def withColumns(columns: (Expr, String)*)(implicit header: RecordHeader, parameters: CypherMap): this.type= {
-    new LynxDataFrameImpl(schema ++ columns.map(column => column._2 -> column._1.cypherType),
-      records.map(row =>
-        row ++ columns.map(column => {
-          implicit val ctx = EvalContext(header, cell(row, _), parameters)
-          evaluator.eval(column._1)
-        })
-      )
-    )
-  }
-
-  override def show(rows: Int = 20): Unit = {
-    val columns = schema.map(_._1)
-    implicit val options: PrintOptions = PrintOptions.out
-    val content: Seq[Seq[CypherValue]] = records.take(rows).map { row =>
-      columns.foldLeft(Seq.empty[CypherValue]) {
-        case (currentSeq, column) => currentSeq :+ cell(row, column)
-      }
-    }
-
-    options.stream
-      .append(TablePrinter.toTable(columns.toSeq, content)(v => v.toCypherString))
-      .flush()
-  }
-
-  override def physicalColumns: Seq[String] = schema.map(_._1).toSeq
-
-  override def rows: Iterator[String => CypherValue.CypherValue] =
-    records.map(row => (key: String) => cell(row, key)).iterator
-
-  override def size: Long = records.size
-}
+final case class RecordHeaderException(msg: String) extends RuntimeException(msg)
 
 object RecordHeader {
 
@@ -189,8 +35,6 @@ object RecordHeader {
     case other => throw IllegalArgumentException("A node or relationship variable", other)
   }
 }
-
-final case class RecordHeaderException(msg: String) extends RuntimeException(msg)
 
 //e.g n.name->n_name
 case class RecordHeader(exprToColumn: Map[Expr, String]) {

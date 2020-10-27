@@ -4,6 +4,7 @@ package org.opencypher.lynx.graph
 import org.opencypher.lynx.util.PropertyGraphSchemaOps.PropertyGraphSchemaOps
 import org.opencypher.lynx.planning.LynxPhysicalPlanner.PhysicalOperatorOps
 import org.opencypher.lynx._
+import org.opencypher.lynx.planning.{PhysicalOperator, Start, TabularUnionAll}
 import org.opencypher.okapi.api.graph._
 import org.opencypher.okapi.api.schema.PropertyGraphSchema
 import org.opencypher.okapi.api.table.CypherRecords
@@ -89,19 +90,19 @@ class ScanGraph[Id](scan: PropertyGraphScan[Id])(implicit val session: LynxSessi
     val session = ctx.session
     val selectedScans: Seq[PhysicalOperator] = searchPattern.elements.map({
       case PatternElement(name, cypherType@CTNode(knownLabels, _)) if knownLabels.isEmpty =>
-        Start.fromRecords(cypherType.graph.getOrElse(session.emptyGraphName),
+        Start.fromRecords(cypherType.graph.getOrElse(LynxSession.emptyGraphName),
           graph.nodes(name, cypherType, exactLabelMatch))
 
       case PatternElement(name, cypherType@CTNode(knownLabels, _)) =>
-        Start.fromRecords(cypherType.graph.getOrElse(session.emptyGraphName),
+        Start.fromRecords(cypherType.graph.getOrElse(LynxSession.emptyGraphName),
           graph.nodes(name, cypherType, exactLabelMatch))
 
       case PatternElement(name, cypherType@CTRelationship(types, _)) if types.isEmpty =>
-        Start.fromRecords(cypherType.graph.getOrElse(session.emptyGraphName),
+        Start.fromRecords(cypherType.graph.getOrElse(LynxSession.emptyGraphName),
           graph.relationships(name, cypherType))
 
       case PatternElement(name, cypherType@CTRelationship(types, _)) =>
-        Start.fromRecords(cypherType.graph.getOrElse(session.emptyGraphName),
+        Start.fromRecords(cypherType.graph.getOrElse(LynxSession.emptyGraphName),
           graph.relationships(name, cypherType))
     }).toSeq
 
@@ -114,7 +115,7 @@ class ScanGraph[Id](scan: PropertyGraphScan[Id])(implicit val session: LynxSessi
           .map { e => schema.headerForElement(e.toVar) }
           .reduce(_ ++ _)
 
-        Start.fromRecords(session.emptyRecords(scanHeader))(ctx)
+        Start.fromRecords(LynxSession.emptyRecords(scanHeader)(ctx.session))(ctx)
 
       case singleOp :: Nil =>
         singleOp
@@ -170,9 +171,9 @@ case class PrefixedGraph(graph: LynxPropertyGraph, prefix: GraphIdPrefix)
 case class EmptyGraph()(implicit val session: LynxSession) extends LynxPropertyGraph {
   override val schema: PropertyGraphSchema = PropertyGraphSchema.empty
 
-  override def nodes(name: String, nodeCypherType: CTNode, exactLabelMatch: Boolean): LynxRecords = session.emptyRecords()
+  override def nodes(name: String, nodeCypherType: CTNode, exactLabelMatch: Boolean): LynxRecords = LynxSession.emptyRecords()
 
-  override def relationships(name: String, relCypherType: CTRelationship): LynxRecords = session.emptyRecords()
+  override def relationships(name: String, relCypherType: CTRelationship): LynxRecords = LynxSession.emptyRecords()
 
   override def scanOperator(searchPattern: Pattern, exactLabelMatch: Boolean)(implicit ctx: LynxPlannerContext): PhysicalOperator = {
     val context: LynxPlannerContext = session.createPlannerContext()
@@ -181,7 +182,7 @@ case class EmptyGraph()(implicit val session: LynxSession) extends LynxPropertyG
       .map { e => RecordHeader.from(e.toVar) }
       .reduce(_ ++ _)
 
-    val records = session.emptyRecords(scanHeader)
+    val records = LynxSession.emptyRecords(scanHeader)
     Start.fromRecords(records)(context)
   }
 }

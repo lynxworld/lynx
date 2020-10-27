@@ -1,6 +1,6 @@
 import org.junit.{Assert, Test}
 import org.opencypher.lynx.graph.LynxPropertyGraph
-import org.opencypher.lynx.{LynxDataFrame, LynxRecords, LynxSession, PropertyGraphScan, RecordHeader}
+import org.opencypher.lynx.{DataFrame, LynxRecords, LynxSession, PropertyGraphScan, RecordHeader}
 import org.opencypher.okapi.api.graph.{SourceEndNodeKey, SourceStartNodeKey}
 import org.opencypher.okapi.api.schema.PropertyGraphSchema
 import org.opencypher.okapi.api.table.CypherRecords

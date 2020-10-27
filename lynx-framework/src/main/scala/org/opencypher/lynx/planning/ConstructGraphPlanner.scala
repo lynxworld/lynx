@@ -3,7 +3,7 @@ package org.opencypher.lynx.planning
 import org.opencypher.lynx.util.PropertyGraphSchemaOps.PropertyGraphSchemaOps
 import org.opencypher.lynx.graph.LynxPropertyGraph
 import org.opencypher.lynx.planning.LynxPhysicalPlanner.PhysicalOperatorOps
-import org.opencypher.lynx.{Alias, ConstructGraph, Distinct, Filter, PhysicalOperator, LynxPlannerContext, RecordHeader, Start}
+import org.opencypher.lynx.{LynxPlannerContext, RecordHeader}
 import org.opencypher.okapi.api.graph.{PropertyGraph, QualifiedGraphName}
 import org.opencypher.okapi.api.schema.PropertyGraphSchema
 import org.opencypher.okapi.api.types._
@@ -246,7 +246,7 @@ object ConstructGraphPlanner {
     // The first half of the id space is protected
     val columnPartitionOffset = columnIdPartition.toLong << columnIdShift
 
-    ToId(Add(MonotonicallyIncreasingId(), IntegerLit(columnPartitionOffset)))
+    ToId(expr.Add(MonotonicallyIncreasingId(), IntegerLit(columnPartitionOffset)))
   }
 
   /**
