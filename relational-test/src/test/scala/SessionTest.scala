@@ -1,7 +1,14 @@
 import cn.pandadb.lynx.{LynxNode, LynxRelationship, LynxSession}
 import org.junit.Test
+import org.opencypher.okapi.ir.api.configuration.IrConfiguration.PrintIr
+import org.opencypher.okapi.logical.api.configuration.LogicalConfiguration.PrintLogicalPlan
+import org.opencypher.okapi.relational.api.configuration.CoraConfiguration.PrintRelationalPlan
 
 class SessionTest {
+  PrintIr.set()
+  PrintLogicalPlan.set()
+  PrintRelationalPlan.set()
+
   val session = new LynxSession()
   val graph = session.createGraphInMemory(
     LynxNode(1, "name" -> "bluejoe", "age" -> 40),
@@ -42,6 +49,7 @@ class SessionTest {
   @Test
   def testOnEmptyGraph(): Unit = {
     runOnEmptyGraph("return 1")
+    val rs = runOnEmptyGraph("return 1 AS n")
     runOnEmptyGraph("return 2>1")
     runOnEmptyGraph("return 2 <> 1")
     runOnEmptyGraph("return 1 is null")
@@ -58,5 +66,10 @@ class SessionTest {
     run("match (n) where n.age>20 return n.name")
     run("match (m)-[r]-(n) where n.age>20 return m.name,n.name,r")
     run("match (m)-[:knows]-(n) where n.age>20 return m.name,n.name")
+  }
+
+  @Test
+  def testNormal2(): Unit = {
+    run("match (m)-[r]-(n) return r")
   }
 }
