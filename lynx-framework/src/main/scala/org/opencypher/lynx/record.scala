@@ -3,7 +3,7 @@ package org.opencypher.lynx
 import org.opencypher.lynx.graph.LynxPropertyGraph
 import org.opencypher.lynx.planning.LynxPhysicalPlanner.PhysicalOperatorOps
 import org.opencypher.okapi.api.graph.{CypherQueryPlans, _}
-import org.opencypher.okapi.api.table.CypherRecords
+import org.opencypher.okapi.api.table.{CypherRecords, CypherTable}
 import org.opencypher.okapi.api.types.CypherType
 import org.opencypher.okapi.api.value.CypherValue
 import org.opencypher.okapi.api.value.CypherValue.CypherMap
@@ -15,10 +15,10 @@ import org.opencypher.okapi.logical.impl.LogicalOperator
 //maybeDisplayNames=['n.name']
 //table.schema={'n_name'->CTString}
 //table.records=[{'n_name'->'bluejoe'}]
-case class LynxRecords(header: RecordHeader, table: LynxDataFrame, maybeDisplayNames: Option[Seq[String]] = None) extends CypherRecords {
+class LynxRecords(val header: RecordHeader, val table: LynxDataFrame, maybeDisplayNames: Option[Seq[String]] = None) extends CypherRecords {
   lazy val mappingLogical2PhysicalColumns: Map[String, String] = {
     if (maybeDisplayNames.isDefined)
-      header.exprToColumn.map(kv => kv._1.withoutType -> kv._2)
+      header.exprToColumn.map(kv => kv._1.withoutType -> kv._2).filter(x => maybeDisplayNames.get.contains(x._1))
     else
       physicalColumns.map(key => key -> key).toMap
   }
@@ -45,16 +45,11 @@ case class LynxRecords(header: RecordHeader, table: LynxDataFrame, maybeDisplayN
   override def show(implicit options: PrintOptions): Unit =
     RecordsPrinter.print(this)
 
-  def union(other: LynxRecords) = LynxRecords(
+  def union(other: LynxRecords) = new LynxRecords(
     RecordHeader(header.exprToColumn ++ other.header.exprToColumn),
     table.unionAll(other.table),
     maybeDisplayNames
   )
-}
-
-object LynxRecords {
-  def empty(header: RecordHeader = RecordHeader.empty) =
-    new LynxRecords(header, LynxDataFrame.empty(header.exprToColumn.map(x => x._2 -> x._1.cypherType)))
 }
 
 trait LynxResult extends CypherResult {
@@ -84,7 +79,7 @@ object LynxResult {
         case None => Some(header.vars.map(_.withoutType).toSeq)
       }
 
-      Some(LynxRecords(alignedResult.recordHeader, alignedResult.table, maybeDisplayNames))
+      Some(new LynxRecords(alignedResult.recordHeader, alignedResult.table, maybeDisplayNames))
     }
 
     override def show(implicit options: PrintOptions): Unit = records.show(options)
@@ -102,7 +97,7 @@ object LynxResult {
 
     override def getGraph: Option[Graph] = Some(LynxPropertyGraph.empty())
 
-    override def getRecords: Option[Records] = Some(LynxRecords.empty())
+    override def getRecords: Option[Records] = Some(session.emptyRecords())
 
     override def plans: CypherQueryPlans = new CypherQueryPlans() {
       override def logical: String = null
@@ -110,6 +105,6 @@ object LynxResult {
       override def relational: String = null
     }
 
-    override def show(implicit options: PrintOptions): Unit = LynxRecords.empty().show
+    override def show(implicit options: PrintOptions): Unit = session.emptyRecords().show
   }
 }

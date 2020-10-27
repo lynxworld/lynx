@@ -1,12 +1,15 @@
 package org.opencypher.lynx
 
 import org.apache.logging.log4j.scala.Logging
-import org.opencypher.lynx.graph.{EmptyGraph, LynxPropertyGraph}
+import org.opencypher.lynx.graph.{EmptyGraph, LynxPropertyGraph, ScanGraph}
 import org.opencypher.lynx.planning.{LynxPhysicalOptimizer, LynxPhysicalPlanner}
+import org.opencypher.lynx.util.{ExpressionEvaluator, SimpleExpressionEvaluator}
 import org.opencypher.okapi.api.graph.{PropertyGraph, _}
-import org.opencypher.okapi.api.table.CypherRecords
+import org.opencypher.okapi.api.schema.PropertyGraphSchema
+import org.opencypher.okapi.api.table.{CypherRecords, CypherTable}
+import org.opencypher.okapi.api.types.{CTNode, CypherType}
 import org.opencypher.okapi.api.value.CypherValue
-import org.opencypher.okapi.api.value.CypherValue.CypherMap
+import org.opencypher.okapi.api.value.CypherValue.{CypherMap, CypherValue, Node, Relationship}
 import org.opencypher.okapi.impl.exception.IllegalArgumentException
 import org.opencypher.okapi.impl.graph.CypherCatalog
 import org.opencypher.okapi.impl.io.SessionGraphDataSource
@@ -16,13 +19,30 @@ import org.opencypher.okapi.ir.impl.parse.CypherParser
 import org.opencypher.okapi.ir.impl.{IRBuilder, IRBuilderContext, QueryLocalCatalog}
 import org.opencypher.okapi.logical.impl.{LogicalOperator, _}
 
-object LynxSession {
-  val EMPTY_GRAPH_NAME = QualifiedGraphName(SessionGraphDataSource.Namespace, GraphName("emptyGraph"))
-}
+import scala.collection.Seq
 
 class LynxSession extends CypherSession with Logging {
   override type Result = LynxResult
-  protected val parser: CypherParser = CypherParser
+  val emptyGraphName = QualifiedGraphName(SessionGraphDataSource.Namespace, GraphName("emptyGraph"))
+
+  protected val _createDataFrame =
+    (schema: Set[(String, CypherType)], records: Seq[Seq[_ <: CypherValue]]) => new LynxDataFrameImpl(schema, records)(this)
+
+  def createDataFrame(schema: Set[(String, CypherType)], records: Seq[Seq[_ <: CypherValue]]): LynxDataFrame =
+    _createDataFrame(schema, records)
+
+  lazy val unitDataFrame = _createDataFrame(Set.empty[(String, CypherType)], Seq(Seq[CypherValue]()))
+
+  def emptyRecords(header: RecordHeader = RecordHeader.empty) =
+    new LynxRecords(header, emptyDataFrame(header.exprToColumn.map(x => x._2 -> x._1.cypherType).toSet))
+
+  def emptyDataFrame(schema: Set[(String, CypherType)] = Set.empty[(String, CypherType)]) =
+    _createDataFrame(schema, Seq.empty[Seq[CypherValue]])
+
+  protected val _parser: CypherParser = CypherParser
+  protected val _evaluator: ExpressionEvaluator = new SimpleExpressionEvaluator(this)
+
+  def evaluator(): ExpressionEvaluator = _evaluator
 
   private implicit val session: LynxSession = this
 
@@ -31,6 +51,8 @@ class LynxSession extends CypherSession with Logging {
 
   private[opencypher] def createPlannerContext(parameters: CypherMap = CypherMap.empty, maybeDrivingTable: Option[LynxRecords] = None): LynxPlannerContext =
     LynxPlannerContext(graphAt, maybeDrivingTable, parameters)(session)
+
+  def createPropertyGraph[Id](scan: PropertyGraphScan[Id]): LynxPropertyGraph = new ScanGraph[Id](scan)(session)
 
   override def cypher(
                        query: String,
@@ -50,7 +72,7 @@ class LynxSession extends CypherSession with Logging {
                              ): Result = {
     val optimizedLogicalPlan: LogicalOperator = planLogical(graph, cypherQuery, inputFields, queryLocalCatalog)
     val (ctx, physicalPlan) = planPhysical(maybeDrivingTable, allParameters, optimizedLogicalPlan, queryLocalCatalog)
-    createCypherResult(physicalPlan, optimizedLogicalPlan, ctx)
+    _createCypherResult(physicalPlan, optimizedLogicalPlan, ctx)
   }
 
   private def planPhysical(
@@ -62,10 +84,10 @@ class LynxSession extends CypherSession with Logging {
     //physical planning
     val ctx = createPlannerContext(parameters, maybeDrivingTable)
 
-    val physicalPlan = createPhysicalPlan(logicalPlan, ctx)
+    val physicalPlan = _createPhysicalPlan(logicalPlan, ctx)
     logger.debug(s"physical plan: \r\n${physicalPlan.pretty}")
 
-    val optimizedPlan = optimizePhysicalPlan(physicalPlan, ctx)
+    val optimizedPlan = _optimizePhysicalPlan(physicalPlan, ctx)
     logger.debug(s"Optimized physical plan: \r\n${optimizedPlan.pretty}")
 
     ctx -> optimizedPlan
@@ -74,30 +96,30 @@ class LynxSession extends CypherSession with Logging {
   private def planLogical(graph: PropertyGraph, cypherQuery: CypherQuery, inputFields: Set[Var], queryLocalCatalog: QueryLocalCatalog) = {
     //Logical planning
     val logicalPlannerContext = LogicalPlannerContext(graph.schema, inputFields, catalog.listSources, queryLocalCatalog)
-    val logicalPlan = createLogicalPlan(cypherQuery, logicalPlannerContext)
+    val logicalPlan = _createLogicalPlan(cypherQuery, logicalPlannerContext)
 
     logger.debug(s"logical plan: \r\n${logicalPlan.pretty}")
 
     //Logical optimization
-    val optimizedLogicalPlan = optimizeLogicalPlan(logicalPlan, logicalPlannerContext)
+    val optimizedLogicalPlan = _optimizeLogicalPlan(logicalPlan, logicalPlannerContext)
     logger.debug(s"Optimized logical plan: \r\n${optimizedLogicalPlan.pretty}")
 
     optimizedLogicalPlan
   }
 
-  protected val createLogicalPlan: (CypherQuery, LogicalPlannerContext) => LogicalOperator =
+  protected val _createLogicalPlan: (CypherQuery, LogicalPlannerContext) => LogicalOperator =
     (ir: CypherQuery, context: LogicalPlannerContext) => new LogicalPlanner(new LogicalOperatorProducer).process(ir)(context)
 
-  protected val optimizeLogicalPlan: (LogicalOperator, LogicalPlannerContext) => LogicalOperator =
+  protected val _optimizeLogicalPlan: (LogicalOperator, LogicalPlannerContext) => LogicalOperator =
     (input: LogicalOperator, context: LogicalPlannerContext) => LogicalOptimizer.process(input)(context)
 
-  protected val createPhysicalPlan: (LogicalOperator, LynxPlannerContext) => PhysicalOperator =
+  protected val _createPhysicalPlan: (LogicalOperator, LynxPlannerContext) => PhysicalOperator =
     (input: LogicalOperator, context: LynxPlannerContext) => LynxPhysicalPlanner.process(input)(context)
 
-  protected val optimizePhysicalPlan: (PhysicalOperator, LynxPlannerContext) => PhysicalOperator =
+  protected val _optimizePhysicalPlan: (PhysicalOperator, LynxPlannerContext) => PhysicalOperator =
     (input: PhysicalOperator, context: LynxPlannerContext) => LynxPhysicalOptimizer.process(input)(context)
 
-  protected val createCypherResult: (PhysicalOperator, LogicalOperator, LynxPlannerContext) => LynxResult =
+  protected val _createCypherResult: (PhysicalOperator, LogicalOperator, LynxPlannerContext) => LynxResult =
     (input: PhysicalOperator, logical: LogicalOperator, context: LynxPlannerContext) => LynxResult(input, logical)
 
   /**
@@ -122,7 +144,7 @@ class LynxSession extends CypherSession with Logging {
     }
 
     //AST construction
-    val (stmt, extractedLiterals, semState) = parser.process(query, inputFields)(CypherParser.defaultContext)
+    val (stmt, extractedLiterals, semState) = _parser.process(query, inputFields)(CypherParser.defaultContext)
 
     val extractedParameters: CypherMap = extractedLiterals.mapValues(v => CypherValue(v))
     val allParameters = queryParameters ++ extractedParameters
@@ -193,4 +215,14 @@ case class LynxPlannerContext(sessionCatalog: QualifiedGraphName => Option[LynxP
   }
 
   override def toString: String = this.getClass.getSimpleName
+}
+
+trait PropertyGraphScan[Id] {
+  def nodeAt(id: Id): Node[Id]
+
+  def schema: PropertyGraphSchema = PropertyGraphSchema.empty
+
+  def allNodes(): Seq[Node[Id]]
+
+  def allRelationships(): Seq[Relationship[Id]]
 }
