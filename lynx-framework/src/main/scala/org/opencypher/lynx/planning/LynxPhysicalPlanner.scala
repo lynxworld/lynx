@@ -24,13 +24,13 @@ object LynxPhysicalPlanner {
       case logical.CartesianProduct(lhs, rhs, _) =>
         process(lhs).join(process(rhs), Seq.empty, CrossJoin)
 
-        //select fields
+      //select fields
       case logical.Select(fields, in, _) =>
         val inOp = process(in)
         val selectExpressions = fields.flatMap(inOp.recordHeader.ownedBy).distinct
         inOp.select(selectExpressions: _*)
 
-        //as
+      //as
       case logical.Project(projectExpr, in, _) =>
         val inOp = process(in)
         val (expr, maybeAlias) = projectExpr
@@ -58,7 +58,7 @@ object LynxPhysicalPlanner {
           case construct: LogicalPatternGraph => planConstructGraph(inOp, construct)
         }
 
-        //list -> rows
+      //list -> rows
       case logical.Unwind(list, item, in, _) =>
         val explodeExpr = Explode(list)
         process(in).add(explodeExpr as item)
@@ -90,6 +90,8 @@ object LynxPhysicalPlanner {
       case logical.GraphUnionAll(left, right) =>
         process(left).graphUnionAll(process(right))
 
+      //source=NodeVar(`n`), rel=RelationshipVar(`r`), target=NodeVar(`m`),
+      //sourceOp=PatternScan(NodePattern), targetOp=PatternScan(NodePattern)
       case logical.Expand(source, rel, target, direction, sourceOp, targetOp, _) =>
         val first = process(sourceOp)
         val third = process(targetOp)
@@ -293,13 +295,15 @@ object LynxPhysicalPlanner {
   implicit class PhysicalOperatorOps(op: PhysicalOperator) {
     private implicit def context: LynxPlannerContext = op.context
 
+    val session = context.session
+
     def select(expressions: Expr*): PhysicalOperator = lynx.Select(op, expressions.toList)
 
     def filter(expression: Expr): PhysicalOperator = {
       if (expression == TrueLit) {
         op
       } else if (expression.cypherType == CTNull) {
-        lynx.Start.fromEmptyGraph(LynxRecords.empty(op.recordHeader))
+        lynx.Start.fromRecords(session.emptyRecords(op.recordHeader))
       } else {
         lynx.Filter(op, expression)
       }

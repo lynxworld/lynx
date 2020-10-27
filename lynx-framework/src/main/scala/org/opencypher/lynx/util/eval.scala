@@ -1,24 +1,30 @@
 package org.opencypher.lynx.util
 
-import org.opencypher.lynx.RecordHeader
+import org.opencypher.lynx.{LynxSession, RecordHeader}
 import org.opencypher.okapi.api.value.CypherValue
 import org.opencypher.okapi.api.value.CypherValue.{CypherBigDecimal, CypherBoolean, CypherFloat, CypherInteger, CypherMap, CypherNull, CypherValue, Element, Node}
 import org.opencypher.okapi.ir.api.expr._
 import org.opencypher.v9_0.expressions.ASTBlobLiteral
 
-case class EvalContext(header: RecordHeader, record: CypherMap, properties: CypherMap) {
+case class EvalContext(header: RecordHeader, valueOfColumn: (String) => CypherValue, parameters: CypherMap) {
 
 }
 
-object ExpressionEvaluator {
-  def aggregate(expr: Expr, values: Stream[CypherValue]): CypherValue = {
+trait ExpressionEvaluator {
+  def aggregate(expr: Expr, values: Seq[CypherValue]): CypherValue
+
+  def eval(expr: Expr)(implicit ctx: EvalContext): CypherValue
+}
+
+class SimpleExpressionEvaluator(session: LynxSession) extends ExpressionEvaluator {
+  def aggregate(expr: Expr, values: Seq[CypherValue]): CypherValue = {
     expr match {
       case CountStar => values.size
     }
   }
 
   def eval(expr: Expr)(implicit ctx: EvalContext): CypherValue = {
-    val EvalContext(header, record, properties) = ctx
+    val EvalContext(header, valueOfColumn, parameters) = ctx
 
     expr match {
       case IsNull(expr) =>
@@ -55,15 +61,15 @@ object ExpressionEvaluator {
         }
 
       case param: Param =>
-        properties(param.name)
+        parameters(param.name)
 
       case _: Var | _: HasLabel | _: Type | _: StartNode | _: EndNode =>
         //record(expr.withoutType)
-        record(header.column(expr))
+        valueOfColumn(header.column(expr))
 
       case ep: ElementProperty =>
         (ep.key.name -> eval(ep.propertyOwner)) match {
-            //TODO: lazy load of Element.property()
+          //TODO: lazy load of Element.property()
           case (name, e: Element[_]) => e.properties(name)
         }
 

@@ -1,8 +1,8 @@
 import org.junit.{Assert, Test}
 import org.opencypher.lynx.graph.LynxPropertyGraph
-import org.opencypher.lynx.{LynxDataFrame, LynxRecords, LynxSession, RecordHeader}
+import org.opencypher.lynx.{LynxDataFrame, LynxRecords, LynxSession, PropertyGraphScan, RecordHeader}
 import org.opencypher.okapi.api.graph.{SourceEndNodeKey, SourceStartNodeKey}
-import org.opencypher.okapi.api.schema.{LabelPropertyMap, PropertyGraphSchema, PropertyKeys, RelTypePropertyMap}
+import org.opencypher.okapi.api.schema.PropertyGraphSchema
 import org.opencypher.okapi.api.table.CypherRecords
 import org.opencypher.okapi.api.types.{CTNode, CTRelationship, CTString, CypherType}
 import org.opencypher.okapi.api.value.CypherValue
@@ -29,43 +29,21 @@ case class LynxRelationship(id: Long, startId: Long, endId: Long, relType: Strin
 class MyTest {
   val _session = new LynxSession()
 
-  val graphDemo = new LynxPropertyGraph() {
-    override implicit def session: LynxSession = _session
-
+  val graphDemo = _session.createPropertyGraph(new PropertyGraphScan[Long] {
     val node1 = LynxNode(1, Set(), "name" -> CypherValue("bluejoe"), "age" -> CypherValue(40))
     val node2 = LynxNode(2, Set(), "name" -> CypherValue("alex"), "age" -> CypherValue(30))
     val node3 = LynxNode(3, Set(), "name" -> CypherValue("simba"), "age" -> CypherValue(10))
 
-    override def nodes(name: String, nodeCypherType: CTNode, exactLabelMatch: Boolean): LynxRecords = {
-      LynxRecords(
-        RecordHeader(Map(NodeVar(name)(CTNode) -> name)),
-        LynxDataFrame(
-          Map(name -> CTNode),
-          Array(
-            Map(name -> node1),
-            Map(name -> node2),
-            Map(name -> node3)
-          ).toStream)
-      )
-    }
+    override def allNodes(): Seq[Node[Long]] = Array(node1, node2, node3)
 
-    override def relationships(name: String, relCypherType: CTRelationship): LynxRecords = {
-      LynxRecords(
-        RecordHeader(Map(
-          RelationshipVar(name)(CTRelationship) -> name,
-          StartNode(RelationshipVar(name)(CTRelationship))(CTNode) -> SourceStartNodeKey.name,
-          EndNode(RelationshipVar(name)(CTRelationship))(CTNode) -> SourceEndNodeKey.name
-        )),
-        LynxDataFrame(
-          Map(name -> CTRelationship, SourceStartNodeKey.name -> CTNode, SourceEndNodeKey.name -> CTNode),
-          Array(
-            Map(name -> LynxRelationship(1, 1, 2, "knows"), SourceStartNodeKey.name -> node1, SourceEndNodeKey.name -> node2),
-            Map(name -> LynxRelationship(2, 2, 3, "knows"), SourceStartNodeKey.name -> node2, SourceEndNodeKey.name -> node3)
-          ).toStream)
-      )
-    }
+    override def allRelationships(): Seq[Relationship[Long]] = Array(
+      LynxRelationship(1, 1, 2, "knows"),
+      LynxRelationship(2, 2, 3, "knows")
+    )
 
-    override def schema: PropertyGraphSchema =
+    override def schema: PropertyGraphSchema = PropertyGraphSchema.empty
+
+    /*
       PropertyGraphSchemaImpl(
         Map[Set[String], Map[String, CypherType]](
           Set[String]() -> Map("name" -> CTString)
@@ -74,7 +52,13 @@ class MyTest {
           "knows" -> Map[String, CypherType]()
         )
       )
-  }
+     */
+    override def nodeAt(id: Long): Node[Long] = id match {
+      case 1L => node1
+      case 2L => node2
+      case 3L => node3
+    }
+  })
 
   @Test
   def testEmptyGraph(): Unit = {
@@ -124,7 +108,25 @@ class MyTest {
   @Test
   def testQueryRelations(): Unit = {
     val rs = runOnDemoGraph("match (n)-[r]-(m) return r")
+    Assert.assertEquals(4, rs.collect.size)
+  }
+
+  @Test
+  def testQueryDirectedRelations(): Unit = {
+    val rs = runOnDemoGraph("match (n)-[r]->(m) return r")
     Assert.assertEquals(2, rs.collect.size)
+  }
+
+  @Test
+  def testQueryDistinctRelations(): Unit = {
+    val rs = runOnDemoGraph("match (n)-[r]-(m) return distinct r")
+    Assert.assertEquals(2, rs.collect.size)
+  }
+
+  @Test
+  def testQueryRelationsWithPath(): Unit = {
+    val rs = runOnDemoGraph("match (n)-[r]-(m) return m,n,r")
+    Assert.assertEquals(4, rs.collect.size)
   }
 
   @Test
@@ -168,5 +170,4 @@ class MyTest {
     records.show
     records.records
   }
-
 }

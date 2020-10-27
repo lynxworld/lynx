@@ -94,8 +94,8 @@ abstract class PhysicalOperator extends AbstractTreeNode[PhysicalOperator] {
 // Leaf
 
 object Start {
-  def fromEmptyGraph(records: LynxRecords)(implicit context: LynxPlannerContext): Start = {
-    Start(LynxSession.EMPTY_GRAPH_NAME, Some(records))
+  def fromRecords(records: LynxRecords)(implicit context: LynxPlannerContext): Start = {
+    Start(context.session.emptyGraphName, Some(records))
   }
 
   def fromRecords(qgn: QualifiedGraphName, records: LynxRecords)(implicit context: LynxPlannerContext): Start = {
@@ -110,7 +110,7 @@ final case class Start(qgn: QualifiedGraphName, maybeRecords: Option[LynxRecords
     maybeRecords.map(_.header).getOrElse(RecordHeader.empty)
 
   override lazy val _table: LynxDataFrame =
-    maybeRecords.map(_.table).getOrElse(LynxDataFrame.unit)
+    maybeRecords.map(_.table).getOrElse(session.unitDataFrame)
 
   override lazy val graph: LynxPropertyGraph = resolve(qgn)
 
@@ -221,7 +221,7 @@ final case class ReturnGraph(in: PhysicalOperator)
 
   override lazy val recordHeader: RecordHeader = RecordHeader.empty
 
-  override lazy val _table: LynxDataFrame = LynxDataFrame.empty()
+  override lazy val _table: LynxDataFrame = session.emptyDataFrame()
 }
 
 final case class Select(in: PhysicalOperator,
@@ -330,7 +330,7 @@ final case class EmptyRecords(
 
   override lazy val recordHeader: RecordHeader = RecordHeader.from(fields)
 
-  override lazy val _table: LynxDataFrame = LynxDataFrame.empty()
+  override lazy val _table: LynxDataFrame = session.emptyDataFrame()
 }
 
 final case class FromCatalogGraph(
@@ -422,7 +422,7 @@ final case class ConstructGraph(
 
   override lazy val recordHeader: RecordHeader = RecordHeader.empty
 
-  override lazy val _table: LynxDataFrame = LynxDataFrame.unit
+  override lazy val _table: LynxDataFrame = session.unitDataFrame
 
   override lazy val graph: LynxPropertyGraph = constructedGraph
 

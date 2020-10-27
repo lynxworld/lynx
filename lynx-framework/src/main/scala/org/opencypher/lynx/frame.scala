@@ -1,228 +1,154 @@
 package org.opencypher.lynx
 
 import org.opencypher.lynx.planning.{InnerJoin, JoinType, Order}
-import org.opencypher.lynx.util.{EvalContext, ExpressionEvaluator}
-import org.opencypher.okapi.api.table.CypherTable
-import org.opencypher.okapi.api.types.{CTIdentity, CTNode, CTRelationship, CTVoid, CypherType}
+import org.opencypher.lynx.util.EvalContext
+import org.opencypher.okapi.api.types._
 import org.opencypher.okapi.api.value.CypherValue
+import org.opencypher.okapi.api.value.CypherValue.Format._
 import org.opencypher.okapi.api.value.CypherValue.{CypherBoolean, CypherMap, CypherNull, CypherValue}
 import org.opencypher.okapi.impl.exception.IllegalArgumentException
 import org.opencypher.okapi.impl.util.{PrintOptions, TablePrinter}
+import org.opencypher.okapi.ir.api.expr._
 import org.opencypher.okapi.ir.api.{Label, RelType}
-import org.opencypher.okapi.ir.api.expr.{Aggregator, AliasExpr, ElementProperty, EndNode, Expr, HasLabel, HasType, NodeVar, Property, RelationshipVar, ReturnItem, StartNode, Var}
-import org.opencypher.okapi.api.value.CypherValue.Format._
 
 import scala.annotation.tailrec
-
-object LynxDataFrame {
-  val unit = new LynxDataFrame(Map.empty[String, CypherType], Stream.apply(Map[String, CypherValue]()))
-
-  def empty(schema: Map[String, CypherType] = Map.empty[String, CypherType]) = new LynxDataFrame(schema, Stream.empty[Map[String, CypherValue]])
-}
+import scala.collection.Seq
 
 //meta: (name,STRING),(age,INTEGER)
-case class LynxDataFrame(schema: Map[String, CypherType], records: Stream[Map[String, CypherValue]]) extends CypherTable {
+class LynxDataFrameImpl(val schema: Set[(String, CypherType)], val records: Seq[Seq[_ <: CypherValue]])
+                       (implicit session: LynxSession) extends LynxDataFrame {
+  val evaluator = session.evaluator
+  val columnIndex = schema.zipWithIndex.map(x => x._1._1 -> x._2).toMap
+  override val columnType: Map[String, CypherType] = schema.toMap
 
-  /**
-   * If supported by the backend, calling that operator caches the underlying table within the backend runtime.
-   *
-   * @return cached version of that table
-   */
-  def cache() = this
+  override def cache() = this
 
-  /**
-   * Returns a table containing only the given columns. The column order within the table is aligned with the argument.
-   *
-   * @param cols columns to select
-   * @return table containing only requested columns
-   */
-  def select(cols: String*): LynxDataFrame = {
+  private def cell(row: Seq[_ <: CypherValue], column: String): CypherValue =
+    row(columnIndex(column))
+
+  override def select(cols: String*): this.type = {
     val tuples = cols.zip(cols)
     select(tuples.head, tuples.tail: _*)
   }
 
-  /**
-   * Returns a table containing only the given columns. The column order within the table is aligned with the argument.
-   *
-   * @param cols columns to select and their alias
-   * @return table containing only requested aliased columns
-   */
-  def select(col: (String, String), cols: (String, String)*): LynxDataFrame = {
+  override def select(col: (String, String), cols: (String, String)*): this.type= {
     val columns = col +: cols
 
-    LynxDataFrame(columns.map(column =>
-      column._2 -> schema(column._1)).toMap,
-      records.map(record =>
-        columns.map(column => column._2 -> record(column._1)).toMap)
+    new LynxDataFrameImpl(columns.map(column =>
+      column._2 -> columnType(column._1)).toSet,
+      records.map(row =>
+        columns.map(column => cell(row, column._1)))
     )
   }
 
-  /**
-   * Returns a table containing only rows where the given expression evaluates to true.
-   *
-   * @param expr       filter expression
-   * @param header     table record header
-   * @param parameters query parameters
-   * @return table with filtered rows
-   */
-  def filter(expr: Expr)(implicit header: RecordHeader, parameters: CypherMap): LynxDataFrame = {
-    LynxDataFrame(schema,
-      records.filter { map =>
-        implicit val ctx = EvalContext(header, map, parameters)
-        ExpressionEvaluator.eval(expr) match {
+  override def filter(expr: Expr)(implicit header: RecordHeader, parameters: CypherMap): this.type= {
+    new LynxDataFrameImpl(schema,
+      records.filter { row =>
+        implicit val ctx = EvalContext(header, (column) => cell(row, column), parameters)
+        evaluator.eval(expr) match {
           case CypherNull => false
           case CypherBoolean(x) => x
         }
       })
   }
 
-  /**
-   * Returns a table with the given columns removed.
-   *
-   * @param cols columns to drop
-   * @return table with dropped columns
-   */
-  def drop(cols: String*): LynxDataFrame = {
-    LynxDataFrame(schema -- cols, records.map(_ -- cols))
+  override def drop(cols: String*): this.type= {
+    val remained = schema.dropWhile(col => cols.contains(col)).map(_._1)
+    select(remained)
   }
 
-  /**
-   * Joins the current table with the given table on the specified join columns using equi-join semantics.
-   *
-   * @param other    table to join
-   * @param joinType join type to perform (e.g. inner, outer, ...)
-   * @param joinCols columns to join the two tables on
-   * @return joined table
-   */
-  def join(other: LynxDataFrame, joinType: JoinType, joinCols: (String, String)*): LynxDataFrame = {
+  override def join(df: LynxDataFrame, joinType: JoinType, joinCols: (String, String)*): this.type= {
+    val other = df.asInstanceOf[LynxDataFrameImpl]
     joinType match {
       case InnerJoin => {
         val joined = this.records.flatMap {
-          thisRecordMap => {
+          thisRow => {
             other.records.filter {
-              otherRecordMap => {
-                joinCols.map(joinCol => thisRecordMap(joinCol._1) == otherRecordMap(joinCol._2)).reduce(_ && _)
+              otherRow => {
+                joinCols.map(joinCol =>
+                  this.cell(thisRow, joinCol._1) ==
+                    other.cell(otherRow, joinCol._2)).reduce(_ && _)
               }
             }.map {
-              thisRecordMap ++ _
+              thisRow ++ _
             }
           }
         }
 
-        LynxDataFrame(this.schema ++ other.schema, joined)
+        new LynxDataFrameImpl(this.schema ++ other.schema, joined)
       }
     }
   }
 
-  /**
-   * Computes the union of the current table and the given table. Requires both tables to have identical column layouts.
-   *
-   * @param other table to union with
-   * @return union table
-   */
-  def unionAll(other: LynxDataFrame): LynxDataFrame = {
-    LynxDataFrame(this.schema ++ other.schema, this.records.union(other.records))
+  override def unionAll(df: LynxDataFrame): this.type= {
+    val other = df.asInstanceOf[LynxDataFrameImpl]
+    new LynxDataFrameImpl(this.schema ++ other.schema, this.records.union(other.records))
   }
 
-  /**
-   * Returns a table that is ordered by the given columns.
-   *
-   * @param sortItems a sequence of column names and their order (i.e. ascending / descending)
-   * @return ordered table
-   */
-  def orderBy(sortItems: (Expr, Order)*)(implicit header: RecordHeader, parameters: CypherMap): LynxDataFrame = {
+  override def orderBy(sortItems: (Expr, Order)*)(implicit header: RecordHeader, parameters: CypherMap): this.type= {
     ???
   }
 
-  /**
-   * Returns a table without the first n rows of the current table.
-   *
-   * @param n number of rows to skip
-   * @return table with skipped rows
-   */
-  def skip(n: Long): LynxDataFrame = {
-    LynxDataFrame(this.schema, this.records.drop(n.toInt))
+  def skip(n: Long): this.type= {
+    new LynxDataFrameImpl(this.schema, this.records.drop(n.toInt))
   }
 
-  /**
-   * Returns a table containing the first n rows of the current table.
-   *
-   * @param n number of rows to return
-   * @return table with at most n rows
-   */
-  def limit(n: Long): LynxDataFrame = {
-    LynxDataFrame(this.schema, this.records.take(n.toInt))
+  override def limit(n: Long): this.type= {
+    new LynxDataFrameImpl(this.schema, this.records.take(n.toInt))
   }
 
-  /**
-   * Returns a table where each row is unique.
-   *
-   * @return table with unique rows
-   */
-  def distinct: LynxDataFrame = {
-    LynxDataFrame(this.schema, this.records.distinct)
+  override def distinct: this.type= {
+    new LynxDataFrameImpl(this.schema, this.records.distinct)
   }
 
-  /**
-   * Returns a table where each row is unique with regard to the specified columns
-   *
-   * @param cols columns to consider when comparing rows
-   * @return table containing the specific columns and distinct rows
-   */
-  def distinct(cols: String*): LynxDataFrame = {
+  override def distinct(cols: String*): this.type= {
     this.select(cols: _*).distinct
   }
 
-  /**
-   * Groups the rows within the table by the given query variables. Additionally a set of aggregations can be performed
-   * on the grouped table.
-   *
-   * @param by           query variables to group by (e.g. (n)), if empty, the whole row is used as grouping key
-   * @param aggregations set of aggregations functions and the column to store the result in
-   * @param header       table record header
-   * @param parameters   query parameters
-   * @return table grouped by the given keys and results of possible aggregate functions
-   */
-  def group(by: Set[Var], aggregations: Map[String, Aggregator])
-           (implicit header: RecordHeader, parameters: CypherMap): LynxDataFrame = {
-    val df2 = records.groupBy(map => by.map(map(_))).map(groupped => {
-      aggregations.map(agr => agr._1 -> ExpressionEvaluator.aggregate(agr._2, groupped._2.map(_.apply(agr._1))))
-    })
+  override def group(by: Set[Var], aggregations: Map[String, Aggregator])
+                    (implicit header: RecordHeader, parameters: CypherMap): this.type= {
+    //by=[Var(`class`), Var(`sex`)]
+    //aggregations={`avg_age`->Avg(`age`), `max_age`->Max(`age`)}
 
-    LynxDataFrame(aggregations.map(agr => agr._1 -> schema(agr._1)), df2.toStream)
+    //df1=
+    // ((`class`=4, `sex`=0) -> Stream[{...}, {...}])
+    // ((`class`=4, `sex`=1) -> Stream[{...}, {...}])
+    // ((`class`=5, `sex`=0) -> Stream[{...}, {...}])
+    val df1 = records.groupBy(row =>
+      by.map(evaluator.eval(_)(EvalContext(header, cell(row, _), parameters)))
+    )
+
+    //df2=
+    //`class`=4, `sex`=0, `avg_age`=9, `max_age`=10
+
+    val df2 = df1.map(groupped =>
+      groupped._1.toSeq ++
+        aggregations.map(agr =>
+          evaluator.aggregate(agr._2, groupped._2.map(row => cell(row, agr._1)))
+        ).toSeq
+    )
+
+    new LynxDataFrameImpl(by.map(v => v.name -> v.cypherType) ++ aggregations.map(agr => agr._1 -> agr._2.cypherType),
+      df2.toSeq)
   }
 
-  /**
-   * Returns a table with additional expressions, which are evaluated and stored in the specified columns.
-   *
-   * @note If the column already exists, its contents will be replaced.
-   * @param columns    tuples of expressions to evaluate and corresponding column name
-   * @param header     table record header
-   * @param parameters query parameters
-   * @return
-   */
-  def withColumns(columns: (Expr, String)*)(implicit header: RecordHeader, parameters: CypherMap): LynxDataFrame = {
-    LynxDataFrame(schema ++ columns.map(column => column._2 -> column._1.cypherType),
-      records.map(record =>
-        record ++ columns.map(column => {
-          implicit val ctx = EvalContext(header, record, parameters)
-          column._2 -> ExpressionEvaluator.eval(column._1)
+  override def withColumns(columns: (Expr, String)*)(implicit header: RecordHeader, parameters: CypherMap): this.type= {
+    new LynxDataFrameImpl(schema ++ columns.map(column => column._2 -> column._1.cypherType),
+      records.map(row =>
+        row ++ columns.map(column => {
+          implicit val ctx = EvalContext(header, cell(row, _), parameters)
+          evaluator.eval(column._1)
         })
       )
     )
   }
 
-  /**
-   * Prints the table to the system console.
-   *
-   * @param rows number of rows to print
-   */
-  def show(rows: Int = 20): Unit = {
-    val columns = schema.keySet
+  override def show(rows: Int = 20): Unit = {
+    val columns = schema.map(_._1)
     implicit val options: PrintOptions = PrintOptions.out
     val content: Seq[Seq[CypherValue]] = records.take(rows).map { row =>
       columns.foldLeft(Seq.empty[CypherValue]) {
-        case (currentSeq, column) => currentSeq :+ row(column)
+        case (currentSeq, column) => currentSeq :+ cell(row, column)
       }
     }
 
@@ -231,12 +157,10 @@ case class LynxDataFrame(schema: Map[String, CypherType], records: Stream[Map[St
       .flush()
   }
 
-  override def physicalColumns: Seq[String] = schema.keySet.toSeq
-
-  override def columnType: Map[String, CypherType] = schema
+  override def physicalColumns: Seq[String] = schema.map(_._1).toSeq
 
   override def rows: Iterator[String => CypherValue.CypherValue] =
-    records.map(record => (key: String) => record(key)).iterator
+    records.map(row => (key: String) => cell(row, key)).iterator
 
   override def size: Long = records.size
 }
