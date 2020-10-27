@@ -1,7 +1,7 @@
 package org.opencypher.lynx.planning
 
 import org.opencypher.lynx.planning.LynxPhysicalPlanner.{process, _}
-import org.opencypher.lynx.{PhysicalOperator, LynxPlannerContext, RecordHeader, RecordHeaderException, TabularUnionAll}
+import org.opencypher.lynx.{LynxPlannerContext, RecordHeader, RecordHeaderException}
 import org.opencypher.okapi.ir.api.expr._
 import org.opencypher.okapi.logical.impl.LogicalOperator
 

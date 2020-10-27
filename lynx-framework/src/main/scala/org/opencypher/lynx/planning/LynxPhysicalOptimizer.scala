@@ -1,6 +1,6 @@
 package org.opencypher.lynx.planning
 
-import org.opencypher.lynx.{Cache, PhysicalOperator, LynxPlannerContext, Start}
+import org.opencypher.lynx.LynxPlannerContext
 import org.opencypher.okapi.trees.TopDown
 
 object LynxPhysicalOptimizer {

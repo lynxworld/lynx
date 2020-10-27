@@ -2,6 +2,7 @@ package org.opencypher.lynx
 
 import org.opencypher.lynx.graph.LynxPropertyGraph
 import org.opencypher.lynx.planning.LynxPhysicalPlanner.PhysicalOperatorOps
+import org.opencypher.lynx.planning.{GraphUnionAll, PhysicalOperator, ReturnGraph}
 import org.opencypher.okapi.api.graph.{CypherQueryPlans, _}
 import org.opencypher.okapi.api.table.{CypherRecords, CypherTable}
 import org.opencypher.okapi.api.types.CypherType
@@ -15,7 +16,7 @@ import org.opencypher.okapi.logical.impl.LogicalOperator
 //maybeDisplayNames=['n.name']
 //table.schema={'n_name'->CTString}
 //table.records=[{'n_name'->'bluejoe'}]
-class LynxRecords(val header: RecordHeader, val table: LynxDataFrame, maybeDisplayNames: Option[Seq[String]] = None) extends CypherRecords {
+class LynxRecords(val header: RecordHeader, val table: DataFrame, maybeDisplayNames: Option[Seq[String]] = None) extends CypherRecords {
   lazy val mappingLogical2PhysicalColumns: Map[String, String] = {
     if (maybeDisplayNames.isDefined)
       header.exprToColumn.map(kv => kv._1.withoutType -> kv._2).filter(x => maybeDisplayNames.get.contains(x._1))
@@ -97,7 +98,7 @@ object LynxResult {
 
     override def getGraph: Option[Graph] = Some(LynxPropertyGraph.empty())
 
-    override def getRecords: Option[Records] = Some(session.emptyRecords())
+    override def getRecords: Option[Records] = Some(LynxSession.emptyRecords())
 
     override def plans: CypherQueryPlans = new CypherQueryPlans() {
       override def logical: String = null
@@ -105,6 +106,6 @@ object LynxResult {
       override def relational: String = null
     }
 
-    override def show(implicit options: PrintOptions): Unit = session.emptyRecords().show
+    override def show(implicit options: PrintOptions): Unit = LynxSession.emptyRecords().show
   }
 }

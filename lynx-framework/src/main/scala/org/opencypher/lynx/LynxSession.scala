@@ -2,8 +2,7 @@ package org.opencypher.lynx
 
 import org.apache.logging.log4j.scala.Logging
 import org.opencypher.lynx.graph.{EmptyGraph, LynxPropertyGraph, ScanGraph}
-import org.opencypher.lynx.planning.{LynxPhysicalOptimizer, LynxPhysicalPlanner}
-import org.opencypher.lynx.util.{ExpressionEvaluator, SimpleExpressionEvaluator}
+import org.opencypher.lynx.planning.{LynxPhysicalOptimizer, LynxPhysicalPlanner, PhysicalOperator}
 import org.opencypher.okapi.api.graph.{PropertyGraph, _}
 import org.opencypher.okapi.api.schema.PropertyGraphSchema
 import org.opencypher.okapi.api.table.{CypherRecords, CypherTable}
@@ -21,28 +20,25 @@ import org.opencypher.okapi.logical.impl.{LogicalOperator, _}
 
 import scala.collection.Seq
 
-class LynxSession extends CypherSession with Logging {
-  override type Result = LynxResult
+object LynxSession {
   val emptyGraphName = QualifiedGraphName(SessionGraphDataSource.Namespace, GraphName("emptyGraph"))
 
-  protected val _createDataFrame =
-    (schema: Set[(String, CypherType)], records: Seq[Seq[_ <: CypherValue]]) => new LynxDataFrameImpl(schema, records)(this)
+  def unitDataFrame()(implicit session: LynxSession) = session.createDataFrame(Set.empty[(String, CypherType)], Seq(Seq[CypherValue]()))
 
-  def createDataFrame(schema: Set[(String, CypherType)], records: Seq[Seq[_ <: CypherValue]]): LynxDataFrame =
-    _createDataFrame(schema, records)
-
-  lazy val unitDataFrame = _createDataFrame(Set.empty[(String, CypherType)], Seq(Seq[CypherValue]()))
-
-  def emptyRecords(header: RecordHeader = RecordHeader.empty) =
+  def emptyRecords(header: RecordHeader = RecordHeader.empty)(implicit session: LynxSession) =
     new LynxRecords(header, emptyDataFrame(header.exprToColumn.map(x => x._2 -> x._1.cypherType).toSet))
 
-  def emptyDataFrame(schema: Set[(String, CypherType)] = Set.empty[(String, CypherType)]) =
-    _createDataFrame(schema, Seq.empty[Seq[CypherValue]])
+  def emptyDataFrame(schema: Set[(String, CypherType)] = Set.empty[(String, CypherType)])(implicit session: LynxSession) =
+    session.createDataFrame(schema, Seq.empty[Seq[CypherValue]])
+}
+
+class LynxSession extends CypherSession with Logging {
+  override type Result = LynxResult
+
+  def createDataFrame(schema: Set[(String, CypherType)], records: Seq[Seq[_ <: CypherValue]]): DataFrame =
+    new LynxDataFrame(schema, records)(this)
 
   protected val _parser: CypherParser = CypherParser
-  protected val _evaluator: ExpressionEvaluator = new SimpleExpressionEvaluator(this)
-
-  def evaluator(): ExpressionEvaluator = _evaluator
 
   private implicit val session: LynxSession = this
 
