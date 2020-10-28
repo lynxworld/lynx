@@ -303,7 +303,7 @@ object LynxPhysicalPlanner {
       if (expression == TrueLit) {
         op
       } else if (expression.cypherType == CTNull) {
-        planning.Start.fromRecords(LynxSession.emptyRecords(op.recordHeader))
+        planning.Start.fromRecords(LynxRecords.empty(op.recordHeader))
       } else {
         planning.Filter(op, expression)
       }
