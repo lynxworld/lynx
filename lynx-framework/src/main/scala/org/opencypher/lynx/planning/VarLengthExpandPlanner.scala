@@ -6,7 +6,9 @@ import org.opencypher.okapi.ir.api.expr._
 import org.opencypher.okapi.logical.impl.LogicalOperator
 
 sealed trait ExpandDirection
+
 case object Outbound extends ExpandDirection
+
 case object Inbound extends ExpandDirection
 
 abstract class VarLengthExpandPlanner {
@@ -42,10 +44,10 @@ abstract class VarLengthExpandPlanner {
   protected val startEdgeScan: Var = ListSegment(1, list)
 
   /**
-    * Performs the initial expand from the start node
-    *
-    * @param dir expand direction
-    */
+   * Performs the initial expand from the start node
+   *
+   * @param dir expand direction
+   */
   protected def init(dir: ExpandDirection): PhysicalOperator = {
     val startEdgeScanOp: PhysicalOperator = physicalEdgeScanOp
       .alias(edgeScan as startEdgeScan)
@@ -64,19 +66,19 @@ abstract class VarLengthExpandPlanner {
   }
 
   /**
-    * Performs the ith expand.
-    *
-    * @param i              number of the iteration
-    * @param iterationTable result of the i-1th iteration
-    * @param directions     expansion directions
-    * @param edgeVars       edges already traversed
-    */
+   * Performs the ith expand.
+   *
+   * @param i              number of the iteration
+   * @param iterationTable result of the i-1th iteration
+   * @param directions     expansion directions
+   * @param edgeVars       edges already traversed
+   */
   def expand(
               i: Int,
               iterationTable: PhysicalOperator,
               directions: (ExpandDirection, ExpandDirection),
               edgeVars: Seq[Var]
-  ): (PhysicalOperator, Var) = {
+            ): (PhysicalOperator, Var) = {
     val nextEdgeCT = if (i > lower) edgeScan.cypherType.nullable else edgeScan.cypherType
     val nextEdge = ListSegment(i, list)
 
@@ -102,13 +104,13 @@ abstract class VarLengthExpandPlanner {
   }
 
   /**
-    * Finalize the expansions
-    *   1. adds paths of length zero if needed
-    *   2. fills empty columns with null values
-    *   3. unions paths of different lengths
-    *
-    * @param paths valid paths
-    */
+   * Finalize the expansions
+   *   1. adds paths of length zero if needed
+   *      2. fills empty columns with null values
+   *      3. unions paths of different lengths
+   *
+   * @param paths valid paths
+   */
   protected def finalize(paths: Seq[PhysicalOperator]): PhysicalOperator = {
     val targetHeader = paths.maxBy(_.recordHeader.columns.size).recordHeader
 
@@ -137,28 +139,28 @@ abstract class VarLengthExpandPlanner {
   }
 
   /**
-    * Creates the isomorphism filter for the given edge list
-    *
-    * @param rel        new edge
-    * @param candidates candidate edges
-    */
+   * Creates the isomorphism filter for the given edge list
+   *
+   * @param rel        new edge
+   * @param candidates candidate edges
+   */
   protected def isomorphismFilter(rel: Var, candidates: Set[Var]): Expr =
     Ands(candidates.map(e => Not(Equals(e, rel))).toSeq: _*)
 
   /**
-    * Copies the content of a variable into another variable
-    *
-    * @param from         source variable
-    * @param to           target variable
-    * @param targetHeader target header
-    * @param physicalOp   base operation
-    */
+   * Copies the content of a variable into another variable
+   *
+   * @param from         source variable
+   * @param to           target variable
+   * @param targetHeader target header
+   * @param physicalOp   base operation
+   */
   protected def copyElement(
-    from: Var,
-    to: Var,
-    targetHeader: RecordHeader,
-    physicalOp: PhysicalOperator
-  ): PhysicalOperator = {
+                             from: Var,
+                             to: Var,
+                             targetHeader: RecordHeader,
+                             physicalOp: PhysicalOperator
+                           ): PhysicalOperator = {
     // TODO: remove when https://github.com/opencypher/morpheus/issues/513 is resolved
     val correctTarget = targetHeader.elementVars.find(_ == to).get
 
@@ -176,12 +178,12 @@ abstract class VarLengthExpandPlanner {
   }
 
   /**
-    * Joins a given path with it's target node
-    *
-    * @param path the path
-    * @param edge the paths last edge
-    * @param dir  expand direction
-    */
+   * Joins a given path with it's target node
+   *
+   * @param path the path
+   * @param edge the paths last edge
+   * @param dir  expand direction
+   */
   protected def addTargetOps(path: PhysicalOperator, edge: Var, dir: ExpandDirection): PhysicalOperator = {
     val expr = dir match {
       case Outbound => path.recordHeader.endNodeFor(edge)
@@ -208,7 +210,7 @@ class DirectedVarLengthExpandPlanner(
                                       override val relEdgeScanOp: PhysicalOperator,
                                       override val targetOp: LogicalOperator,
                                       override val isExpandInto: Boolean
-)(override implicit val context: LynxPlannerContext) extends VarLengthExpandPlanner {
+                                    )(override implicit val context: LynxPlannerContext) extends VarLengthExpandPlanner {
 
   override def plan: PhysicalOperator = {
     // Iteratively expand beginning from startOp with cacheOp
@@ -239,7 +241,7 @@ class UndirectedVarLengthExpandPlanner(
                                         override val relEdgeScanOp: PhysicalOperator,
                                         override val targetOp: LogicalOperator,
                                         override val isExpandInto: Boolean
-)(override implicit val context: LynxPlannerContext) extends VarLengthExpandPlanner {
+                                      )(override implicit val context: LynxPlannerContext) extends VarLengthExpandPlanner {
 
   override def plan: PhysicalOperator = {
 

@@ -3,10 +3,11 @@ package org.opencypher.lynx.planning
 import cats.data.NonEmptyList
 import org.opencypher.lynx._
 import org.opencypher.lynx.graph.LynxPropertyGraph
-import org.opencypher.okapi.api.graph.QualifiedGraphName
+import org.opencypher.okapi.api.graph.{GraphName, QualifiedGraphName}
 import org.opencypher.okapi.api.types.{CTInteger, CTNode, CTRelationship}
 import org.opencypher.okapi.api.value.CypherValue.CypherInteger
 import org.opencypher.okapi.impl.exception.IllegalArgumentException
+import org.opencypher.okapi.impl.io.SessionGraphDataSource
 import org.opencypher.okapi.ir.api.block.{Asc, Desc, SortItem}
 import org.opencypher.okapi.ir.api.expr.PrefixId.GraphIdPrefix
 import org.opencypher.okapi.ir.api.expr._
@@ -17,11 +18,13 @@ abstract class PhysicalOperator extends AbstractTreeNode[PhysicalOperator] {
 
   def recordHeader: RecordHeader = children.head.recordHeader
 
-  lazy val _table: DataFrame = children.head.table
+  lazy val _table: LynxTable = children.head.table
 
   implicit def context: LynxPlannerContext = children.head.context
 
   implicit def session: LynxSession = context.session
+
+  lazy val tableOperator: TableOperator = session.tableOperator
 
   def graph: LynxPropertyGraph = children.head.graph
 
@@ -33,7 +36,7 @@ abstract class PhysicalOperator extends AbstractTreeNode[PhysicalOperator] {
                        (implicit context: LynxPlannerContext): LynxPropertyGraph =
     context.resolveGraph(qualifiedGraphName)
 
-  lazy val table: DataFrame = {
+  lazy val table: LynxTable = {
     val t = _table
 
     if (t.physicalColumns.toSet != recordHeader.columns) {
@@ -94,8 +97,14 @@ abstract class PhysicalOperator extends AbstractTreeNode[PhysicalOperator] {
 // Leaf
 
 object Start {
+  val EMPTY_GRAPH_NAME = QualifiedGraphName(SessionGraphDataSource.Namespace, GraphName("emptyGraph"))
+
   def fromRecords(records: LynxRecords)(implicit context: LynxPlannerContext): Start = {
-    Start(LynxSession.emptyGraphName, Some(records))
+    Start(EMPTY_GRAPH_NAME, Some(records))
+  }
+
+  def fromRecords(qgn: Option[QualifiedGraphName], records: LynxRecords)(implicit context: LynxPlannerContext): Start = {
+    fromRecords(qgn.getOrElse(EMPTY_GRAPH_NAME), records)
   }
 
   def fromRecords(qgn: QualifiedGraphName, records: LynxRecords)(implicit context: LynxPlannerContext): Start = {
@@ -109,8 +118,8 @@ final case class Start(qgn: QualifiedGraphName, maybeRecords: Option[LynxRecords
   override lazy val recordHeader: RecordHeader =
     maybeRecords.map(_.header).getOrElse(RecordHeader.empty)
 
-  override lazy val _table: DataFrame =
-    maybeRecords.map(_.table).getOrElse(LynxSession.unitDataFrame)
+  override lazy val _table: LynxTable =
+    maybeRecords.map(_.table).getOrElse(LynxTable.unit)
 
   override lazy val graph: LynxPropertyGraph = resolve(qgn)
 
@@ -139,7 +148,7 @@ final case class PrefixGraph(in: PhysicalOperator, prefix: GraphIdPrefix) extend
  */
 final case class Cache(in: PhysicalOperator) extends PhysicalOperator {
 
-  override lazy val _table: DataFrame = in._table.cache()
+  override lazy val _table: LynxTable = tableOperator.cache(in._table)
 
 }
 
@@ -169,13 +178,14 @@ final case class Add(in: PhysicalOperator, exprs: List[Expr]) extends PhysicalOp
     }
   }
 
-  override lazy val _table: DataFrame = {
+  override lazy val _table: LynxTable = {
     // TODO check for equal nullability setting
     val physicalAdditions = exprs.filterNot(in.recordHeader.contains)
     if (physicalAdditions.isEmpty) {
       in.table
     } else {
-      in.table.withColumns(
+      tableOperator.withColumns(
+        in.table,
         physicalAdditions.map(
           expr =>
             expr -> recordHeader.column(expr)): _*
@@ -190,9 +200,9 @@ final case class AddInto(in: PhysicalOperator, valueIntoTuples: List[(Expr, Expr
     valueIntoTuples.map(_._2).foldLeft(in.recordHeader)(_.withExpr(_))
   }
 
-  override lazy val _table: DataFrame = {
+  override lazy val _table: LynxTable = {
     val valuesToColumnNames = valueIntoTuples.map { case (value, into) => value -> recordHeader.column(into) }
-    in.table.withColumns(valuesToColumnNames: _*)(recordHeader, context.parameters)
+    tableOperator.withColumns(in.table, valuesToColumnNames: _*)(recordHeader, context.parameters)
   }
 }
 
@@ -202,9 +212,9 @@ final case class Drop[E <: Expr](in: PhysicalOperator, exprs: Set[E]) extends Ph
 
   private lazy val columnsToDrop = in.recordHeader.columns -- recordHeader.columns
 
-  override lazy val _table: DataFrame = {
+  override lazy val _table: LynxTable = {
     if (columnsToDrop.nonEmpty) {
-      in.table.drop(columnsToDrop.toSeq: _*)
+      tableOperator.drop(in.table, columnsToDrop.toSeq: _*)
     } else {
       in.table
     }
@@ -213,7 +223,7 @@ final case class Drop[E <: Expr](in: PhysicalOperator, exprs: Set[E]) extends Ph
 
 final case class Filter(in: PhysicalOperator, expr: Expr) extends PhysicalOperator {
 
-  override lazy val _table: DataFrame = in.table.filter(expr)(recordHeader, context.parameters)
+  override lazy val _table: LynxTable = tableOperator.filter(in.table, expr)(recordHeader, context.parameters)
 }
 
 final case class ReturnGraph(in: PhysicalOperator)
@@ -221,7 +231,7 @@ final case class ReturnGraph(in: PhysicalOperator)
 
   override lazy val recordHeader: RecordHeader = RecordHeader.empty
 
-  override lazy val _table: DataFrame = LynxSession.emptyDataFrame()
+  override lazy val _table: LynxTable = LynxTable.empty()
 }
 
 final case class Select(in: PhysicalOperator,
@@ -238,10 +248,10 @@ final case class Select(in: PhysicalOperator,
     case other => other
   }
 
-  override lazy val _table: DataFrame = {
+  override lazy val _table: LynxTable = {
     val selectExpressions = returnExpressions.flatMap(expr => recordHeader.expressionsFor(expr).toSeq.sorted)
     val selectColumns = selectExpressions.map { expr => selectHeader.column(expr) -> recordHeader.column(expr) }.distinct
-    in.table.select(selectColumns.head, selectColumns.tail: _*)
+    tableOperator.select(in.table, selectColumns.head, selectColumns.tail: _*)
   }
 
   override lazy val maybeReturnItems: Option[Seq[Var]] =
@@ -253,7 +263,7 @@ final case class Distinct(
                            fields: Set[Var]
                          ) extends PhysicalOperator {
 
-  override lazy val _table: DataFrame = in.table.distinct(fields.flatMap(recordHeader.expressionsFor).map(recordHeader.column).toSeq: _*)
+  override lazy val _table: LynxTable = tableOperator.distinct(in.table, fields.flatMap(recordHeader.expressionsFor).map(recordHeader.column).toSeq: _*)
 
 }
 
@@ -265,9 +275,9 @@ final case class Aggregate(
 
   override lazy val recordHeader: RecordHeader = in.recordHeader.select(group).withExprs(aggregations.map { case (v, _) => v })
 
-  override lazy val _table: DataFrame = {
+  override lazy val _table: LynxTable = {
     val preparedAggregations = aggregations.map { case (v, agg) => recordHeader.column(v) -> agg }.toMap
-    in.table.group(group, preparedAggregations)(in.recordHeader, context.parameters)
+    tableOperator.group(in.table, group, preparedAggregations)(in.recordHeader, context.parameters)
   }
 }
 
@@ -276,12 +286,12 @@ final case class OrderBy(
                           sortItems: Seq[SortItem]
                         ) extends PhysicalOperator {
 
-  override lazy val _table: DataFrame = {
+  override lazy val _table: LynxTable = {
     val tableSortItems = sortItems.map {
       case Asc(expr) => expr -> Ascending
       case Desc(expr) => expr -> Descending
     }
-    in.table.orderBy(tableSortItems: _*)(recordHeader, context.parameters)
+    tableOperator.orderBy(in.table, tableSortItems: _*)(recordHeader, context.parameters)
   }
 }
 
@@ -290,7 +300,7 @@ final case class Skip(
                        expr: Expr
                      ) extends PhysicalOperator {
 
-  override lazy val _table: DataFrame = {
+  override lazy val _table: LynxTable = {
     val skip: Long = expr match {
       case IntegerLit(v) => v
       case Param(name) =>
@@ -300,7 +310,7 @@ final case class Skip(
         }
       case other => throw IllegalArgumentException("an integer literal or parameter", other)
     }
-    in.table.skip(skip)
+    tableOperator.skip(in.table, skip)
   }
 }
 
@@ -309,7 +319,7 @@ final case class Limit(
                         expr: Expr
                       ) extends PhysicalOperator {
 
-  override lazy val _table: DataFrame = {
+  override lazy val _table: LynxTable = {
     val limit: Long = expr match {
       case IntegerLit(v) => v
       case Param(name) =>
@@ -319,7 +329,7 @@ final case class Limit(
         }
       case other => throw IllegalArgumentException("an integer literal", other)
     }
-    in.table.limit(limit)
+    tableOperator.limit(in.table, limit)
   }
 }
 
@@ -330,7 +340,7 @@ final case class EmptyRecords(
 
   override lazy val recordHeader: RecordHeader = RecordHeader.from(fields)
 
-  override lazy val _table: DataFrame = LynxSession.emptyDataFrame()
+  override lazy val _table: LynxTable = LynxTable.empty()
 }
 
 final case class FromCatalogGraph(
@@ -357,13 +367,13 @@ final case class Join(
 
   override lazy val recordHeader: RecordHeader = lhs.recordHeader join rhs.recordHeader
 
-  override lazy val _table: DataFrame = {
+  override lazy val _table: LynxTable = {
     val joinCols = joinExprs.map {
       case (l, r) =>
         recordHeader.column(l) -> rhs.recordHeader.column(r)
     }
 
-    lhs.table.join(rhs.table, joinType, joinCols: _*)
+    tableOperator.join(lhs.table, rhs.table, joinType, joinCols: _*)
   }
 }
 
@@ -383,7 +393,7 @@ final case class TabularUnionAll(
                                   rhs: PhysicalOperator
                                 ) extends PhysicalOperator {
 
-  override lazy val _table: DataFrame = {
+  override lazy val _table: LynxTable = {
     val lhsTable = lhs.table
     val rhsTable = rhs.table
 
@@ -401,13 +411,13 @@ final case class TabularUnionAll(
       throw IllegalArgumentException("same column names", s"left:  $sortedLeftColumns\n\tright: $sortedRightColumns")
     }
 
-    val orderedRhsTable: DataFrame = if (leftColumns != rightColumns) {
-      rhsTable.select(leftColumns: _*)
+    val orderedRhsTable: LynxTable = if (leftColumns != rightColumns) {
+      tableOperator.select(rhsTable, leftColumns: _*)
     } else {
       rhsTable
     }
 
-    lhsTable.unionAll(orderedRhsTable)
+    tableOperator.unionAll(lhsTable, orderedRhsTable)
   }
 }
 
@@ -422,7 +432,7 @@ final case class ConstructGraph(
 
   override lazy val recordHeader: RecordHeader = RecordHeader.empty
 
-  override lazy val _table: DataFrame = LynxSession.unitDataFrame
+  override lazy val _table: LynxTable = LynxTable.unit
 
   override lazy val graph: LynxPropertyGraph = constructedGraph
 

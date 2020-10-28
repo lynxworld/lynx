@@ -2,7 +2,7 @@ package org.opencypher.lynx
 
 import org.apache.logging.log4j.scala.Logging
 import org.opencypher.lynx.graph.{EmptyGraph, LynxPropertyGraph, ScanGraph}
-import org.opencypher.lynx.planning.{LynxPhysicalOptimizer, LynxPhysicalPlanner, PhysicalOperator}
+import org.opencypher.lynx.planning.{LynxPhysicalOptimizer, LynxPhysicalPlanner, PhysicalOperator, SimpleTableOperator}
 import org.opencypher.okapi.api.graph.{PropertyGraph, _}
 import org.opencypher.okapi.api.schema.PropertyGraphSchema
 import org.opencypher.okapi.api.table.{CypherRecords, CypherTable}
@@ -20,27 +20,29 @@ import org.opencypher.okapi.logical.impl.{LogicalOperator, _}
 
 import scala.collection.Seq
 
-object LynxSession {
-  val emptyGraphName = QualifiedGraphName(SessionGraphDataSource.Namespace, GraphName("emptyGraph"))
-
-  def unitDataFrame()(implicit session: LynxSession) = session.createDataFrame(Set.empty[(String, CypherType)], Seq(Seq[CypherValue]()))
-
-  def emptyRecords(header: RecordHeader = RecordHeader.empty)(implicit session: LynxSession) =
-    new LynxRecords(header, emptyDataFrame(header.exprToColumn.map(x => x._2 -> x._1.cypherType).toSet))
-
-  def emptyDataFrame(schema: Set[(String, CypherType)] = Set.empty[(String, CypherType)])(implicit session: LynxSession) =
-    session.createDataFrame(schema, Seq.empty[Seq[CypherValue]])
-}
-
 class LynxSession extends CypherSession with Logging {
   override type Result = LynxResult
-
-  def createDataFrame(schema: Set[(String, CypherType)], records: Seq[Seq[_ <: CypherValue]]): DataFrame =
-    new LynxDataFrame(schema, records)(this)
-
-  protected val _parser: CypherParser = CypherParser
-
   private implicit val session: LynxSession = this
+
+  //////////<---overridable vals
+  protected val _parser: CypherParser = CypherParser
+  protected val _tableOperator: TableOperator = new SimpleTableOperator
+  protected val _createLogicalPlan: (CypherQuery, LogicalPlannerContext) => LogicalOperator =
+    (ir: CypherQuery, context: LogicalPlannerContext) => new LogicalPlanner(new LogicalOperatorProducer).process(ir)(context)
+
+  protected val _optimizeLogicalPlan: (LogicalOperator, LogicalPlannerContext) => LogicalOperator =
+    (input: LogicalOperator, context: LogicalPlannerContext) => LogicalOptimizer.process(input)(context)
+
+  protected val _createPhysicalPlan: (LogicalOperator, LynxPlannerContext) => PhysicalOperator =
+    (input: LogicalOperator, context: LynxPlannerContext) => LynxPhysicalPlanner.process(input)(context)
+
+  protected val _optimizePhysicalPlan: (PhysicalOperator, LynxPlannerContext) => PhysicalOperator =
+    (input: PhysicalOperator, context: LynxPlannerContext) => LynxPhysicalOptimizer.process(input)(context)
+
+  protected val _createCypherResult: (PhysicalOperator, LogicalOperator, LynxPlannerContext) => LynxResult =
+    (input: PhysicalOperator, logical: LogicalOperator, context: LynxPlannerContext) => LynxResult(input, logical)
+
+  //////////overridable vals--->
 
   private[opencypher] def graphAt(qgn: QualifiedGraphName): Option[LynxPropertyGraph] =
     if (catalog.graphNames.contains(qgn)) Some(catalog.graph(qgn).asInstanceOf[LynxPropertyGraph]) else None
@@ -49,6 +51,8 @@ class LynxSession extends CypherSession with Logging {
     LynxPlannerContext(graphAt, maybeDrivingTable, parameters)(session)
 
   def createPropertyGraph[Id](scan: PropertyGraphScan[Id]): LynxPropertyGraph = new ScanGraph[Id](scan)(session)
+
+  def tableOperator: TableOperator = _tableOperator
 
   override def cypher(
                        query: String,
@@ -102,21 +106,6 @@ class LynxSession extends CypherSession with Logging {
 
     optimizedLogicalPlan
   }
-
-  protected val _createLogicalPlan: (CypherQuery, LogicalPlannerContext) => LogicalOperator =
-    (ir: CypherQuery, context: LogicalPlannerContext) => new LogicalPlanner(new LogicalOperatorProducer).process(ir)(context)
-
-  protected val _optimizeLogicalPlan: (LogicalOperator, LogicalPlannerContext) => LogicalOperator =
-    (input: LogicalOperator, context: LogicalPlannerContext) => LogicalOptimizer.process(input)(context)
-
-  protected val _createPhysicalPlan: (LogicalOperator, LynxPlannerContext) => PhysicalOperator =
-    (input: LogicalOperator, context: LynxPlannerContext) => LynxPhysicalPlanner.process(input)(context)
-
-  protected val _optimizePhysicalPlan: (PhysicalOperator, LynxPlannerContext) => PhysicalOperator =
-    (input: PhysicalOperator, context: LynxPlannerContext) => LynxPhysicalOptimizer.process(input)(context)
-
-  protected val _createCypherResult: (PhysicalOperator, LogicalOperator, LynxPlannerContext) => LynxResult =
-    (input: PhysicalOperator, logical: LogicalOperator, context: LynxPlannerContext) => LynxResult(input, logical)
 
   /**
    * Interface through which the user may (de-)register property graph datasources as well as read, write and delete property graphs.
