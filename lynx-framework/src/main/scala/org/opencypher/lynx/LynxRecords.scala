@@ -12,11 +12,19 @@ import org.opencypher.okapi.impl.table.RecordsPrinter
 import org.opencypher.okapi.impl.util.PrintOptions
 import org.opencypher.okapi.logical.impl.LogicalOperator
 
+object LynxRecords {
+  def empty(header: RecordHeader = RecordHeader.empty)(implicit session: LynxSession): LynxRecords =
+    new LynxRecords(header, LynxTable.empty(header.exprToColumn.map(x => x._2 -> x._1.cypherType).toSet))
+
+  def apply(header: RecordHeader, table: LynxTable, maybeDisplayNames: Option[Seq[String]] = None): LynxRecords =
+    new LynxRecords(header, table, maybeDisplayNames)
+}
+
 //RecordHeader.exprToColumn={SimpleVar('n.name')->'n_name'}
 //maybeDisplayNames=['n.name']
 //table.schema={'n_name'->CTString}
 //table.records=[{'n_name'->'bluejoe'}]
-class LynxRecords(val header: RecordHeader, val table: DataFrame, maybeDisplayNames: Option[Seq[String]] = None) extends CypherRecords {
+class LynxRecords(val header: RecordHeader, val table: LynxTable, maybeDisplayNames: Option[Seq[String]] = None) extends CypherRecords {
   lazy val mappingLogical2PhysicalColumns: Map[String, String] = {
     if (maybeDisplayNames.isDefined)
       header.exprToColumn.map(kv => kv._1.withoutType -> kv._2).filter(x => maybeDisplayNames.get.contains(x._1))
@@ -45,12 +53,6 @@ class LynxRecords(val header: RecordHeader, val table: DataFrame, maybeDisplayNa
 
   override def show(implicit options: PrintOptions): Unit =
     RecordsPrinter.print(this)
-
-  def union(other: LynxRecords) = new LynxRecords(
-    RecordHeader(header.exprToColumn ++ other.header.exprToColumn),
-    table.unionAll(other.table),
-    maybeDisplayNames
-  )
 }
 
 trait LynxResult extends CypherResult {
@@ -98,7 +100,7 @@ object LynxResult {
 
     override def getGraph: Option[Graph] = Some(LynxPropertyGraph.empty())
 
-    override def getRecords: Option[Records] = Some(LynxSession.emptyRecords())
+    override def getRecords: Option[Records] = Some(LynxRecords.empty())
 
     override def plans: CypherQueryPlans = new CypherQueryPlans() {
       override def logical: String = null
@@ -106,6 +108,6 @@ object LynxResult {
       override def relational: String = null
     }
 
-    override def show(implicit options: PrintOptions): Unit = LynxSession.emptyRecords().show
+    override def show(implicit options: PrintOptions): Unit = LynxRecords.empty().show
   }
 }
