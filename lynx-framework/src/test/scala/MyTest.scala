@@ -125,6 +125,12 @@ class MyTest {
   }
 
   @Test
+  def testQueryMRN(): Unit = {
+    val rs = runOnDemoGraph("match (m)-[r]->(n) return m,r,n")
+    Assert.assertEquals(2, rs.collect.size)
+  }
+
+  @Test
   def testQueryNodeProperty(): Unit = {
     val rs = runOnDemoGraph("match (n) return n.name")
     Assert.assertEquals(3, rs.collect.size)

@@ -72,7 +72,7 @@ class ScanGraph[Id](scan: PropertyGraphScan[Id])(implicit val session: LynxSessi
     }
     new LynxRecords(
       RecordHeader(Map(NodeVar(name)(CTNode) -> name)),
-      LynxTable(Set(name -> CTNode), nodes.map(Seq(_)))
+      LynxTable(Seq(name -> CTNode), nodes.map(Seq(_)))
     )
   }
 
@@ -91,7 +91,7 @@ class ScanGraph[Id](scan: PropertyGraphScan[Id])(implicit val session: LynxSessi
         EndNode(RelationshipVar(name)(CTRelationship))(CTNode) -> SourceEndNodeKey.name
       )),
       LynxTable(
-        Set(name -> CTRelationship, SourceStartNodeKey.name -> CTNode, SourceEndNodeKey.name -> CTNode),
+        Seq(name -> CTRelationship, SourceStartNodeKey.name -> CTNode, SourceEndNodeKey.name -> CTNode),
         rels.map(rel => Seq(rel, scan.nodeAt(rel.startId), scan.nodeAt(rel.endId))))
     )
   }

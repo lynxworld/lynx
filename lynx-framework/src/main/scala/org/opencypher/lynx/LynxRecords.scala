@@ -14,14 +14,14 @@ import org.opencypher.okapi.logical.impl.LogicalOperator
 
 object LynxRecords {
   def empty(header: RecordHeader = RecordHeader.empty)(implicit session: LynxSession): LynxRecords =
-    new LynxRecords(header, LynxTable.empty(header.exprToColumn.map(x => x._2 -> x._1.cypherType).toSet))
+    new LynxRecords(header, LynxTable.empty(header.exprToColumn.map(x => x._2 -> x._1.cypherType).toSeq))
 
   def apply(header: RecordHeader, table: LynxTable, maybeDisplayNames: Option[Seq[String]] = None): LynxRecords =
     new LynxRecords(header, table, maybeDisplayNames)
 }
 
 //RecordHeader.exprToColumn={SimpleVar('n.name')->'n_name'}
-//maybeDisplayNames=['n.name']
+//maybeDisplayNames=['n.name'], order will differ with RecordHeader
 //table.schema={'n_name'->CTString}
 //table.records=[{'n_name'->'bluejoe'}]
 class LynxRecords(val header: RecordHeader, val table: LynxTable, maybeDisplayNames: Option[Seq[String]] = None) extends CypherRecords {
