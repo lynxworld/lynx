@@ -128,6 +128,15 @@ class MyTest {
   def testQueryMRN(): Unit = {
     val rs = runOnDemoGraph("match (m)-[r]->(n) return m,r,n")
     Assert.assertEquals(2, rs.collect.size)
+
+    Assert.assertEquals(1, rs.collect.apply(0).apply("m").cast[Node[Long]].id)
+    Assert.assertEquals(1, rs.collect.apply(0).apply("r").cast[Relationship[Long]].id)
+    Assert.assertEquals(2, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
+
+    Assert.assertEquals(2, rs.collect.apply(1).apply("m").cast[Node[Long]].id)
+    Assert.assertEquals(2, rs.collect.apply(1).apply("r").cast[Relationship[Long]].id)
+    Assert.assertEquals(3, rs.collect.apply(1).apply("n").cast[Node[Long]].id)
+
   }
 
   @Test

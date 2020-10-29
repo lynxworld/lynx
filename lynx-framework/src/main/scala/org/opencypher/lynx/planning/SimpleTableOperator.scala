@@ -156,8 +156,17 @@ class SimpleTableOperator extends TableOperator {
             }
           }.toMap
 
-        val joinedRecords = table1.zip(table2).map(x => x._1._2 ++ x._2._2).toSeq
-        val joinedSchema = a.schema ++ b.schema //FIXME: disorder
+        val (joinedSchema, joinedRecords) = {
+          if (table1.size <= table2.size) {
+            (a.schema ++ b.schema) ->
+              table1.map(x => x._2 ++ table2.getOrElse(x._1, Seq.empty[CypherValue])).toSeq
+          }
+          else {
+            (b.schema ++ a.schema) ->
+              table2.map(x => x._2 ++ table1.getOrElse(x._1, Seq.empty[CypherValue])).toSeq
+          }
+        }
+
         LynxTable(joinedSchema, joinedRecords)
     }
   }

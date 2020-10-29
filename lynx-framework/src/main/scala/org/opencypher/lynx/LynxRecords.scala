@@ -82,7 +82,7 @@ object LynxResult {
         case None => Some(header.vars.map(_.withoutType).toSeq)
       }
 
-      Some(new LynxRecords(alignedResult.recordHeader, alignedResult.table, maybeDisplayNames))
+      Some(LynxRecords(alignedResult.recordHeader, alignedResult.table, maybeDisplayNames))
     }
 
     override def show(implicit options: PrintOptions): Unit = records.show(options)
