@@ -100,22 +100,27 @@ class SimpleTableOperator extends TableOperator {
   }
 
   override def select(table: LynxTable, cols: String*): LynxTable = {
-    val tuples = cols.zip(cols)
-    select(table, tuples.head, tuples.tail: _*)
+    selectWithAlias(table, cols.zip(cols): _*)
   }
 
-  override def select(table: LynxTable, col: (String, String), cols: (String, String)*): LynxTable = {
-    val columns = col +: cols
-
-    new LynxTable(columns.map(column =>
-      column._2 -> table.columnType(column._1)).toSet,
-      table.records.map(row =>
-        columns.map(column => table.cell(row, column._1)))
+  override def selectWithAlias(table: LynxTable, cols: (String, String)*): LynxTable = {
+    LynxTable(
+      cols.map {
+        column =>
+          column._2 -> table.columnType(column._1)
+      },
+      table.records.map {
+        row =>
+          cols.map {
+            column =>
+              table.cell(row, column._1)
+          }
+      }
     )
   }
 
   override def filter(table: LynxTable, expr: Expr)(implicit header: RecordHeader, parameters: CypherMap): LynxTable = {
-    new LynxTable(table.schema,
+    LynxTable(table.schema,
       table.records.filter { row =>
         implicit val ctx = EvalContext(header, (column) => table.cell(row, column), parameters)
         eval(expr) match {
@@ -130,30 +135,35 @@ class SimpleTableOperator extends TableOperator {
     select(table, remained.toSeq: _*)
   }
 
+  //a.schema={"node","rel","source","target"}
+  //b.schema={"n__NODE"}
+  //joinCols={"target"->"n__NODE"}
   override def join(a: LynxTable, b: LynxTable, joinType: JoinType, joinCols: (String, String)*): LynxTable = {
     joinType match {
-      case InnerJoin => {
-        val joined = a.records.flatMap {
-          thisRow => {
-            b.records.filter {
-              otherRow => {
-                joinCols.map(joinCol =>
-                  a.cell(thisRow, joinCol._1) ==
-                    b.cell(otherRow, joinCol._2)).reduce(_ && _)
-              }
-            }.map {
-              thisRow ++ _
+      case InnerJoin =>
+        val table1 =
+          a.records.map {
+            row => {
+              //row=[Node1,Relation1,Node1,Node2]
+              joinCols.map(joinCol => a.cell(row, joinCol._1)) -> row
             }
-          }
-        }
+          }.toMap
+        val table2 =
+          b.records.map {
+            row => {
+              //row=[Node2]
+              joinCols.map(joinCol => b.cell(row, joinCol._2)) -> row
+            }
+          }.toMap
 
-        new LynxTable(a.schema ++ b.schema, joined)
-      }
+        val joinedRecords = table1.zip(table2).map(x => x._1._2 ++ x._2._2).toSeq
+        val joinedSchema = a.schema ++ b.schema //FIXME: disorder
+        LynxTable(joinedSchema, joinedRecords)
     }
   }
 
   override def unionAll(a: LynxTable, b: LynxTable): LynxTable = {
-    new LynxTable(a.schema ++ b.schema, a.records.union(b.records))
+    LynxTable(a.schema ++ b.schema, a.records.union(b.records))
   }
 
   override def orderBy(table: LynxTable, sortItems: (Expr, Order)*)(implicit header: RecordHeader, parameters: CypherMap): LynxTable = {
@@ -161,15 +171,15 @@ class SimpleTableOperator extends TableOperator {
   }
 
   override def skip(table: LynxTable, n: Long): LynxTable = {
-    new LynxTable(table.schema, table.records.drop(n.toInt))
+    LynxTable(table.schema, table.records.drop(n.toInt))
   }
 
   override def limit(table: LynxTable, n: Long): LynxTable = {
-    new LynxTable(table.schema, table.records.take(n.toInt))
+    LynxTable(table.schema, table.records.take(n.toInt))
   }
 
   override def distinct(table: LynxTable): LynxTable = {
-    new LynxTable(table.schema, table.records.distinct)
+    LynxTable(table.schema, table.records.distinct)
   }
 
   override def distinct(table: LynxTable, cols: String*): LynxTable = {
@@ -199,12 +209,12 @@ class SimpleTableOperator extends TableOperator {
         ).toSeq
     )
 
-    new LynxTable(by.map(v => v.name -> v.cypherType) ++ aggregations.map(agr => agr._1 -> agr._2.cypherType),
+    LynxTable(by.toSeq.map(v => v.name -> v.cypherType) ++ aggregations.map(agr => agr._1 -> agr._2.cypherType),
       df2.toSeq)
   }
 
   override def withColumns(table: LynxTable, columns: (Expr, String)*)(implicit header: RecordHeader, parameters: CypherMap): LynxTable = {
-    new LynxTable(table.schema ++ columns.map(column => column._2 -> column._1.cypherType),
+    LynxTable(table.schema ++ columns.map(column => column._2 -> column._1.cypherType),
       table.records.map(row =>
         row ++ columns.map(column => {
           implicit val ctx = EvalContext(header, table.cell(row, _), parameters)

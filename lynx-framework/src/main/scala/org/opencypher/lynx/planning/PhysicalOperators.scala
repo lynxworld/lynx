@@ -251,7 +251,7 @@ final case class Select(in: PhysicalOperator,
   override lazy val _table: LynxTable = {
     val selectExpressions = returnExpressions.flatMap(expr => recordHeader.expressionsFor(expr).toSeq.sorted)
     val selectColumns = selectExpressions.map { expr => selectHeader.column(expr) -> recordHeader.column(expr) }.distinct
-    tableOperator.select(in.table, selectColumns.head, selectColumns.tail: _*)
+    tableOperator.selectWithAlias(in.table, selectColumns: _*)
   }
 
   override lazy val maybeReturnItems: Option[Seq[Var]] =
@@ -263,7 +263,9 @@ final case class Distinct(
                            fields: Set[Var]
                          ) extends PhysicalOperator {
 
-  override lazy val _table: LynxTable = tableOperator.distinct(in.table, fields.flatMap(recordHeader.expressionsFor).map(recordHeader.column).toSeq: _*)
+  override lazy val _table: LynxTable =
+    tableOperator.distinct(in.table,
+      fields.flatMap(recordHeader.expressionsFor).map(recordHeader.column).toSeq: _*)
 
 }
 

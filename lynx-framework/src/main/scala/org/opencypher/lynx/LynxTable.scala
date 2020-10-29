@@ -8,22 +8,22 @@ import org.opencypher.okapi.api.value.CypherValue.CypherValue
 import scala.collection.Seq
 
 object LynxTable {
-  def unit: LynxTable = apply(Set.empty[(String, CypherType)], Seq(Seq[CypherValue]()))
+  def unit: LynxTable = apply(Seq.empty[(String, CypherType)], Seq(Seq[CypherValue]()))
 
-  def apply(schema: Set[(String, CypherType)], records: Seq[Seq[_ <: CypherValue]]): LynxTable =
+  def apply(schema: Seq[(String, CypherType)], records: Seq[Seq[_ <: CypherValue]]): LynxTable =
     new LynxTable(schema, records)
 
-  def empty(schema: Set[(String, CypherType)] = Set.empty[(String, CypherType)]): LynxTable =
+  def empty(schema: Seq[(String, CypherType)] = Seq.empty[(String, CypherType)]): LynxTable =
     apply(schema, Seq.empty[Seq[CypherValue]])
 }
 
 //meta: (name,STRING),(age,INTEGER)
-class LynxTable(val schema: Set[(String, CypherType)], val records: Seq[Seq[_ <: CypherValue]]) extends CypherTable {
-  val columnIndex = schema.zipWithIndex.map(x => x._1._1 -> x._2).toMap
+class LynxTable(val schema: Seq[(String, CypherType)], val records: Seq[Seq[_ <: CypherValue]]) extends CypherTable {
+  private lazy val _columnIndex = schema.zipWithIndex.map(x => x._1._1 -> x._2).toMap
   override val columnType: Map[String, CypherType] = schema.toMap
 
   def cell(row: Seq[_ <: CypherValue], column: String): CypherValue =
-    row(columnIndex(column))
+    row(_columnIndex(column))
 
   override def physicalColumns: Seq[String] = schema.map(_._1).toSeq
 

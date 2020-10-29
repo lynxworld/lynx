@@ -36,7 +36,7 @@ trait TableOperator {
    * @param cols columns to select and their alias
    * @return table containing only requested aliased columns
    */
-  def select(table: LynxTable, col: (String, String), cols: (String, String)*): LynxTable
+  def selectWithAlias(table: LynxTable, cols: (String, String)*): LynxTable
 
   /**
    * Returns a table containing only rows where the given expression evaluates to true.
