@@ -18,7 +18,7 @@ import org.opencypher.okapi.ir.impl.parse.CypherParser
 import org.opencypher.okapi.ir.impl.{IRBuilder, IRBuilderContext, QueryLocalCatalog}
 import org.opencypher.okapi.logical.impl.{LogicalOperator, _}
 
-import scala.collection.Seq
+import scala.collection.{Seq, mutable}
 
 class LynxSession extends CypherSession with Logging {
   override type Result = LynxResult
@@ -41,6 +41,19 @@ class LynxSession extends CypherSession with Logging {
 
   protected val _createCypherResult: (PhysicalOperator, LogicalOperator, LynxPlannerContext) => LynxResult =
     (input: PhysicalOperator, logical: LogicalOperator, context: LynxPlannerContext) => LynxResult(input, logical)
+
+  private val _cachedLogicalPlans = mutable.Map[(PropertyGraph, CypherQuery, CypherMap), LogicalOperator]()
+
+  protected def getOrUpdateLogicalPlan(graph: PropertyGraph, cypherQuery: CypherQuery, parameters: CypherMap, logicalPlan: () => LogicalOperator): LogicalOperator =
+    _cachedLogicalPlans.getOrElseUpdate((graph, cypherQuery, parameters), logicalPlan())
+
+  private val _cachedCypherStatements = mutable.Map[(PropertyGraph, String, CypherMap), (CypherStatement, QueryLocalCatalog, CypherMap, Set[Var], Option[LynxRecords])]()
+
+  def getOrUpdateCypherStatement(propertyGraph: PropertyGraph, query: String, queryParameters: CypherMap,
+                                 createCypherStatement: () => (CypherStatement, QueryLocalCatalog, CypherMap, Set[Var], Option[LynxRecords])):
+  (CypherStatement, QueryLocalCatalog, CypherMap, Set[Var], Option[LynxRecords]) = {
+    _cachedCypherStatements.getOrElseUpdate((propertyGraph, query, queryParameters), createCypherStatement())
+  }
 
   //////////overridable vals--->
 
@@ -70,7 +83,19 @@ class LynxSession extends CypherSession with Logging {
                                maybeDrivingTable: Option[LynxRecords],
                                queryLocalCatalog: QueryLocalCatalog
                              ): Result = {
-    val optimizedLogicalPlan: LogicalOperator = planLogical(graph, cypherQuery, inputFields, queryLocalCatalog)
+    def createLogicalPlan() = {
+      planLogical(graph, cypherQuery, inputFields, queryLocalCatalog)
+    }
+
+    val optimizedLogicalPlan: LogicalOperator = {
+      if (maybeDrivingTable.isEmpty && queryLocalCatalog.registeredGraphs.isEmpty) {
+        getOrUpdateLogicalPlan(graph, cypherQuery, allParameters, createLogicalPlan);
+      }
+      else {
+        createLogicalPlan()
+      }
+    }
+
     val (ctx, physicalPlan) = planPhysical(maybeDrivingTable, allParameters, optimizedLogicalPlan, queryLocalCatalog)
     _createCypherResult(physicalPlan, optimizedLogicalPlan, ctx)
   }
@@ -121,38 +146,51 @@ class LynxSession extends CypherSession with Logging {
                                                   drivingTable: Option[CypherRecords],
                                                   queryCatalog: Map[QualifiedGraphName, PropertyGraph]): Result = {
 
-    val maybeRelationalRecords: Option[LynxRecords] = drivingTable.map(_.asInstanceOf[LynxRecords])
+    def createStatement() = {
+      val maybeRelationalRecords: Option[LynxRecords] = drivingTable.map(_.asInstanceOf[LynxRecords])
 
-    val inputFields: Set[Var] = maybeRelationalRecords match {
-      case Some(inputRecords) => inputRecords.header.vars
-      case None => Set.empty[Var]
+      val inputFields: Set[Var] = maybeRelationalRecords match {
+        case Some(inputRecords) => inputRecords.header.vars
+        case None => Set.empty[Var]
+      }
+
+      //AST construction
+      val (stmt, extractedLiterals, semState) = _parser.process(query, inputFields)(CypherParser.defaultContext)
+
+      val extractedParameters: CypherMap = extractedLiterals.mapValues(v => CypherValue(v))
+      val allParameters = queryParameters ++ extractedParameters
+
+      val ambientGraphNew = mountAmbientGraph(propertyGraph)
+
+      //IR translation
+      val irBuilderContext = IRBuilderContext.initial(
+        query,
+        allParameters,
+        semState,
+        ambientGraphNew,
+        qgnGenerator,
+        catalog.listSources,
+        catalog.view,
+        inputFields,
+        queryCatalog
+      )
+
+      val irOut = IRBuilder.process(stmt)(irBuilderContext)
+      (
+        IRBuilder.extract(irOut),
+        IRBuilder.getContext(irOut).queryLocalCatalog,
+        allParameters,
+        inputFields,
+        maybeRelationalRecords
+      )
     }
 
-    //AST construction
-    val (stmt, extractedLiterals, semState) = _parser.process(query, inputFields)(CypherParser.defaultContext)
-
-    val extractedParameters: CypherMap = extractedLiterals.mapValues(v => CypherValue(v))
-    val allParameters = queryParameters ++ extractedParameters
-
-    val ambientGraphNew = mountAmbientGraph(propertyGraph)
-
-    //IR translation
-    val irBuilderContext = IRBuilderContext.initial(
-      query,
-      allParameters,
-      semState,
-      ambientGraphNew,
-      qgnGenerator,
-      catalog.listSources,
-      catalog.view,
-      inputFields,
-      queryCatalog
-    )
-
-    val irOut = IRBuilder.process(stmt)(irBuilderContext)
-
-    val ir = IRBuilder.extract(irOut)
-    val queryLocalCatalog = IRBuilder.getContext(irOut).queryLocalCatalog
+    val (ir, queryLocalCatalog, allParameters, inputFields, maybeRelationalRecords) = {
+      if (drivingTable.isEmpty && queryCatalog.isEmpty)
+        getOrUpdateCypherStatement(propertyGraph, query, queryParameters, createStatement)
+      else
+        createStatement()
+    }
 
     def processIR(ir: CypherStatement): Result = ir match {
       case cq: CypherQuery =>
