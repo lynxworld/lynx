@@ -17,7 +17,7 @@ class SimpleTableOperator extends TableOperator {
       columns.foldLeft(Seq.empty[CypherValue]) {
         case (currentSeq, column) => currentSeq :+ table.cell(row, column)
       }
-    }
+    }.toSeq
 
     options.stream
       .append(TablePrinter.toTable(columns.toSeq, content)(v => v.toCypherString))
@@ -159,11 +159,11 @@ class SimpleTableOperator extends TableOperator {
         val (joinedSchema, joinedRecords) = {
           if (table1.size <= table2.size) {
             (a.schema ++ b.schema) ->
-              table1.map(x => x._2 ++ table2.getOrElse(x._1, Seq.empty[CypherValue])).toSeq
+              table1.map(x => x._2 ++ table2.getOrElse(x._1, Seq.empty[CypherValue]))
           }
           else {
             (b.schema ++ a.schema) ->
-              table2.map(x => x._2 ++ table1.getOrElse(x._1, Seq.empty[CypherValue])).toSeq
+              table2.map(x => x._2 ++ table1.getOrElse(x._1, Seq.empty[CypherValue]))
           }
         }
 
@@ -172,7 +172,8 @@ class SimpleTableOperator extends TableOperator {
   }
 
   override def unionAll(a: LynxTable, b: LynxTable): LynxTable = {
-    LynxTable(a.schema ++ b.schema, a.records.union(b.records))
+    //TODO: large number of records
+    LynxTable(a.schema ++ b.schema, a.records.toSeq.union(b.records.toSeq))
   }
 
   override def orderBy(table: LynxTable, sortItems: (Expr, Order)*)(implicit header: RecordHeader, parameters: CypherMap): LynxTable = {
@@ -188,7 +189,8 @@ class SimpleTableOperator extends TableOperator {
   }
 
   override def distinct(table: LynxTable): LynxTable = {
-    LynxTable(table.schema, table.records.distinct)
+    //TODO: large number of records
+    LynxTable(table.schema, table.records.toSeq.distinct)
   }
 
   override def distinct(table: LynxTable, cols: String*): LynxTable = {
@@ -204,13 +206,14 @@ class SimpleTableOperator extends TableOperator {
     // ((`class`=4, `sex`=0) -> Stream[{...}, {...}])
     // ((`class`=4, `sex`=1) -> Stream[{...}, {...}])
     // ((`class`=5, `sex`=0) -> Stream[{...}, {...}])
-    val df1 = table.records.groupBy(row =>
+    //TODO: large number of records
+    val df1 = table.records.toSeq.groupBy(row =>
       by.map(eval(_)(EvalContext(header, table.cell(row, _), parameters)))
     )
 
     //df2=
     //`class`=4, `sex`=0, `avg_age`=9, `max_age`=10
-
+    //TODO: large number of records
     val df2 = df1.map(groupped =>
       groupped._1.toSeq ++
         aggregations.map(agr =>
@@ -219,7 +222,7 @@ class SimpleTableOperator extends TableOperator {
     )
 
     LynxTable(by.toSeq.map(v => v.name -> v.cypherType) ++ aggregations.map(agr => agr._1 -> agr._2.cypherType),
-      df2.toSeq)
+      df2)
   }
 
   override def withColumns(table: LynxTable, columns: (Expr, String)*)(implicit header: RecordHeader, parameters: CypherMap): LynxTable = {
