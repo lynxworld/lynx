@@ -29,9 +29,9 @@ class MyTest {
     val node2 = LynxNode(2, Set(), "name" -> CypherValue("alex"), "age" -> CypherValue(30))
     val node3 = LynxNode(3, Set(), "name" -> CypherValue("simba"), "age" -> CypherValue(10))
 
-    override def allNodes(): Seq[Node[Long]] = Array(node1, node2, node3)
+    override def allNodes(): Iterable[Node[Long]] = Array(node1, node2, node3)
 
-    override def allRelationships(): Seq[Relationship[Long]] = Array(
+    override def allRelationships(): Iterable[Relationship[Long]] = Array(
       LynxRelationship(1, 1, 2, "knows"),
       LynxRelationship(2, 2, 3, "knows")
     )

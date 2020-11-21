@@ -245,9 +245,9 @@ trait PropertyGraphScan[Id] {
 
   def schema: PropertyGraphSchema = PropertyGraphSchema.empty
 
-  def allNodes(): Seq[Node[Id]]
+  def allNodes(): Iterable[Node[Id]]
 
-  def allNodes(labels: Set[String], exactLabelMatch: Boolean): Seq[Node[Id]] = {
+  def allNodes(labels: Set[String], exactLabelMatch: Boolean): Iterable[Node[Id]] = {
     allNodes().filter { node =>
       if (exactLabelMatch)
         node.labels.equals(labels)
@@ -256,9 +256,9 @@ trait PropertyGraphScan[Id] {
     }
   }
 
-  def allRelationships(): Seq[Relationship[Id]]
+  def allRelationships(): Iterable[Relationship[Id]]
 
-  def allRelationships(relTypes: Set[String]): Seq[Relationship[Id]] = {
+  def allRelationships(relTypes: Set[String]): Iterable[Relationship[Id]] = {
     allRelationships().filter(rel => (relTypes.contains(rel.relType)))
   }
 }
