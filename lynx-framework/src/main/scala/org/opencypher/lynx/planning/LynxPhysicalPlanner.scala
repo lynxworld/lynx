@@ -43,7 +43,10 @@ object LynxPhysicalPlanner {
         }
 
       case logical.EmptyRecords(fields, in, _) =>
-        planning.EmptyRecords(process(in), fields)
+        val elementExprs: Set[Var] = Set(fields.toSeq: _*)
+        if (elementExprs.nonEmpty) LabelRecorders(process(in), fields)
+        else planning.EmptyRecords(process(in), fields)
+
 
       case logical.Start(graph, _) =>
         planning.Start(graph.qualifiedGraphName)
@@ -303,7 +306,8 @@ object LynxPhysicalPlanner {
       if (expression == TrueLit) {
         op
       } else if (expression.cypherType == CTNull) {
-        planning.Start.fromRecords(LynxRecords.empty(op.recordHeader))
+        //planning.Start.fromRecords(LynxRecords.empty(op.recordHeader))
+        planning.Filter(op, expression)
       } else {
         planning.Filter(op, expression)
       }

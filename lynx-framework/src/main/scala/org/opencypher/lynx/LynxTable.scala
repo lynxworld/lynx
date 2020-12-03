@@ -19,7 +19,7 @@ object LynxTable {
 
 //meta: (name,STRING),(age,INTEGER)
 class LynxTable(val schema: Seq[(String, CypherType)], val records: Iterable[Seq[_ <: CypherValue]]) extends CypherTable {
-  private lazy val _columnIndex = schema.zipWithIndex.map(x => x._1._1 -> x._2).toMap
+  private lazy val _columnIndex = schema.distinct.zipWithIndex.map(x => x._1._1 -> x._2).toMap
   override val columnType: Map[String, CypherType] = schema.toMap
 
   def cell(row: Seq[_ <: CypherValue], column: String): CypherValue =
