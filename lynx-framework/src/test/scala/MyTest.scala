@@ -25,9 +25,9 @@ class MyTest {
   val _session = new LynxSession()
 
   val graphDemo = _session.createPropertyGraph(new PropertyGraphScan[Long] {
-    val node1 = LynxNode(1, Set(), "name" -> CypherValue("bluejoe"), "age" -> CypherValue(40))
-    val node2 = LynxNode(2, Set(), "name" -> CypherValue("alex"), "age" -> CypherValue(30))
-    val node3 = LynxNode(3, Set(), "name" -> CypherValue("simba"), "age" -> CypherValue(10))
+    val node1 = LynxNode(1, Set("person", "t1"), "name" -> CypherValue("bluejoe"), "age" -> CypherValue(40))
+    val node2 = LynxNode(2, Set("student", "t2"), "name" -> CypherValue("alex"), "age" -> CypherValue(30))
+    val node3 = LynxNode(3, Set("project", "t3"), "name" -> CypherValue("simba"), "age" -> CypherValue(10))
 
     override def allNodes(): Iterable[Node[Long]] = Array(node1, node2, node3)
 
@@ -161,6 +161,13 @@ class MyTest {
     Assert.assertEquals(1, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
   }
 
+  @Test
+  def testQueryWithLabels(): Unit ={
+    val rs = runOnDemoGraph("match (n:person:t1)   return n")
+    Assert.assertEquals(1, rs.collect.size)
+    Assert.assertEquals(1, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
+  }
+
   private def runOnEmptyGraph(query: String): CypherRecords = {
     println(s"query: $query")
     val t1 = System.currentTimeMillis()
@@ -177,7 +184,7 @@ class MyTest {
     val records = graphDemo.cypher(query)
     val t2 = System.currentTimeMillis()
     println(s"fetched records in ${t2 - t1} ms.")
-    records.show
+    //records.show
     records.records
   }
 }

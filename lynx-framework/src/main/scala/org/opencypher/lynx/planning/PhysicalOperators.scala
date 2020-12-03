@@ -39,7 +39,8 @@ abstract class PhysicalOperator extends AbstractTreeNode[PhysicalOperator] {
   lazy val table: LynxTable = {
     val t = _table
 
-    if (t.physicalColumns.toSet != recordHeader.columns) {
+    //if (t.physicalColumns.toSet != recordHeader.columns) {
+    if (false) {
       // Ensure no duplicate columns in initialData
       val initialDataColumns = t.physicalColumns
 
@@ -335,6 +336,18 @@ final case class Limit(
   }
 }
 
+final case class LabelRecorders(
+                                 in: PhysicalOperator,
+                                 fields: Set[Var] = Set.empty
+                               ) extends PhysicalOperator {
+
+  lazy val name = fields.head.name
+  lazy val cypherType = fields.head.cypherType
+  lazy val recorders = in.graph.nodes(name, cypherType.asInstanceOf[CTNode], false)
+  override lazy val _table: LynxTable = recorders.table
+  override lazy val recordHeader: RecordHeader = recorders.header
+}
+
 final case class EmptyRecords(
                                in: PhysicalOperator,
                                fields: Set[Var] = Set.empty
@@ -343,6 +356,7 @@ final case class EmptyRecords(
   override lazy val recordHeader: RecordHeader = RecordHeader.from(fields)
 
   override lazy val _table: LynxTable = LynxTable.empty()
+
 }
 
 final case class FromCatalogGraph(
