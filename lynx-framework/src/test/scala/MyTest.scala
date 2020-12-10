@@ -182,6 +182,32 @@ class MyTest {
     rs = runOnDemoGraph("match (n:t2) return n")
     Assert.assertEquals(0, rs.collect.size)
   }
+  @Test
+  def testQueryWithLabelsAndRelation(): Unit = {
+    val rs = runOnDemoGraph("match (n:person)-[r]-(m) return n")
+    Assert.assertEquals(1, rs.collect.size)
+    Assert.assertEquals(1, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
+  }
+
+  @Test
+  def testQueryWithLabelsAndRelationWithLabel(): Unit = {
+    val rs = runOnDemoGraph("match (n:person)-[r:knows]-(m) return n")
+    Assert.assertEquals(1, rs.collect.size)
+    Assert.assertEquals(1, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
+  }
+
+  @Test
+  def testQueryRelationWithLabel(): Unit = {
+    val rs = runOnDemoGraph("match (n:person)-[r:knows]-(m) return n")
+    Assert.assertEquals(1, rs.collect.size)
+    Assert.assertEquals(1, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
+  }
+  @Test
+  def testQueryWithLabel(): Unit = {
+    val rs = runOnDemoGraph("match (n:person)-[r]-(m:person) return n")
+    Assert.assertEquals(1, rs.collect.size)
+    Assert.assertEquals(1, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
+  }
 
   private def runOnEmptyGraph(query: String): CypherRecords = {
     println(s"query: $query")
