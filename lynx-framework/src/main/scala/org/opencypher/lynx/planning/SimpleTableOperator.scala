@@ -135,35 +135,59 @@ class SimpleTableOperator extends TableOperator {
     select(table, remained.toSeq: _*)
   }
 
+  /*
+   table a:
+   ╔════════╗
+   ║  node  ║
+   ╠════════╣
+   ║   1    ║
+   ║   2    ║
+   ╚════════╝
+   table b:
+   ╔═════╤════════╤════════╗
+   ║ rel │ source │ target ║
+   ╠═════╪════════╪════════╣
+   ║  1  │    1   │   2    ║
+   ║  2  │    2   │   3    ║
+   ╚═════╧════════╧════════╝
+   joinCols: a.node=b.source
+   expected:
+   ╔══════╤═════╤════════╤════════╗
+   ║ node │ rel │ source │ target ║
+   ╠══════╪═════╪════════╪════════╣
+   ║  1   │  1  │    1   │   2    ║
+   ║  2   │  2  │    2   │   3    ║
+   ╚══════╧═════╧════════╧════════╝
+  */
+
   //a.schema={"node","rel","source","target"}
   //b.schema={"n__NODE"}
   //joinCols={"target"->"n__NODE"}
   override def join(a: LynxTable, b: LynxTable, joinType: JoinType, joinCols: (String, String)*): LynxTable = {
     joinType match {
       case InnerJoin =>
-        val table1 =
-          a.records.map {
-            row => {
-              //row=[Node1,Relation1,Node1,Node2]
-              joinCols.map(joinCol => a.cell(row, joinCol._1)) -> row
-            }
-          }.toMap
-        val table2 =
-          b.records.map {
-            row => {
-              //row=[Node2]
-              joinCols.map(joinCol => b.cell(row, joinCol._2)) -> row
-            }
-          }.toMap
-
-        val (joinedSchema, joinedRecords) = {
-          if (table1.size <= table2.size) {
-            (a.schema ++ b.schema) ->
-              table1.map(x => x._2 ++ table2.getOrElse(x._1, Seq.empty[CypherValue]))
+        val (smallTable, largeTable, smallColumns, largeColumns) =
+          if (a.size < b.size) {
+            (a, b, joinCols.map(_._1), joinCols.map(_._2))
           }
           else {
-            (b.schema ++ a.schema) ->
-              table2.map(x => x._2 ++ table1.getOrElse(x._1, Seq.empty[CypherValue]))
+            (b, a, joinCols.map(_._2), joinCols.map(_._1))
+          }
+
+        val smallMap: Map[Seq[CypherValue], Iterable[(Seq[CypherValue], Seq[CypherValue])]] =
+          smallTable.records.map {
+            row => {
+              //joinCols: a.node=b.source
+              val value = smallColumns.map(joinCol => smallTable.cell(row, joinCol))
+              value -> row
+            }
+          }.groupBy(_._1)
+
+        val joinedSchema = smallTable.schema ++ largeTable.schema
+        val joinedRecords = largeTable.records.flatMap {
+          row => {
+            val value = largeColumns.map(joinCol => largeTable.cell(row, joinCol))
+            smallMap.getOrElse(value, Seq()).map(x => x._2 ++ row)
           }
         }
 
