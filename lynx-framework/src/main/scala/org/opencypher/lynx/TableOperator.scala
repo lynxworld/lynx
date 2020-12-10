@@ -101,13 +101,6 @@ trait TableOperator {
   def limit(table: LynxTable, n: Long): LynxTable
 
   /**
-   * Returns a table where each row is unique.
-   *
-   * @return table with unique rows
-   */
-  def distinct(table: LynxTable): LynxTable
-
-  /**
    * Returns a table where each row is unique with regard to the specified columns
    *
    * @param cols columns to consider when comparing rows

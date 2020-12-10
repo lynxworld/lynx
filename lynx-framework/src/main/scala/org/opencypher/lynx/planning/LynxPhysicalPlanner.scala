@@ -43,10 +43,7 @@ object LynxPhysicalPlanner {
         }
 
       case logical.EmptyRecords(fields, in, _) =>
-        val elementExprs: Set[Var] = Set(fields.toSeq: _*)
-        if (elementExprs.nonEmpty) LabelRecorders(process(in), fields)
-        else planning.EmptyRecords(process(in), fields)
-
+          planning.EmptyRecords(process(in), fields)
 
       case logical.Start(graph, _) =>
         planning.Start(graph.qualifiedGraphName)
@@ -254,8 +251,10 @@ object LynxPhysicalPlanner {
       }
     }
 
-    if (!validScan) throw SchemaException(s"Expected the scan to include Variables for all elements of ${scanPattern.elements}" +
-      s" but got ${scanOp.recordHeader.elementVars}")
+    if (!validScan) {
+      throw SchemaException(s"Expected the scan to include Variables for all elements of ${scanPattern.elements}" +
+        s" but got ${scanOp.recordHeader.elementVars}")
+    }
 
     scanOp
       .assignScanName(varPatternElementMapping.mapValues(_.toVar).map(_.swap))

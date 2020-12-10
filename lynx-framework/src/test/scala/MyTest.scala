@@ -2,8 +2,10 @@ import org.junit.{Assert, Test}
 import org.opencypher.lynx.{LynxSession, PropertyGraphScan}
 import org.opencypher.okapi.api.schema.PropertyGraphSchema
 import org.opencypher.okapi.api.table.CypherRecords
+import org.opencypher.okapi.api.types.{CTString, CTInteger, CypherType}
 import org.opencypher.okapi.api.value.CypherValue
-import org.opencypher.okapi.api.value.CypherValue.{CypherMap, CypherString, CypherValue, Node, Relationship}
+import org.opencypher.okapi.api.value.CypherValue.{CypherInteger, CypherMap, CypherString, CypherValue, Node, Relationship}
+import org.opencypher.okapi.impl.schema.PropertyGraphSchemaImpl
 
 case class LynxNode(id: Long, labels: Set[String], props: (String, CypherValue)*) extends Node[Long] {
   lazy val properties = props.toMap
@@ -26,8 +28,8 @@ class MyTest {
 
   val graphDemo = _session.createPropertyGraph(new PropertyGraphScan[Long] {
     val node1 = LynxNode(1, Set("person", "t1"), "name" -> CypherValue("bluejoe"), "age" -> CypherValue(40))
-    val node2 = LynxNode(2, Set("student", "t2"), "name" -> CypherValue("alex"), "age" -> CypherValue(30))
-    val node3 = LynxNode(3, Set("project", "t3"), "name" -> CypherValue("simba"), "age" -> CypherValue(10))
+    val node2 = LynxNode(2, Set("person"), "name" -> CypherValue("alex"), "age" -> CypherValue(30))
+    val node3 = LynxNode(3, Set(), "name" -> CypherValue("simba"), "age" -> CypherValue(10))
 
     override def allNodes(): Iterable[Node[Long]] = Array(node1, node2, node3)
 
@@ -36,18 +38,16 @@ class MyTest {
       LynxRelationship(2, 2, 3, "knows")
     )
 
-    override def schema: PropertyGraphSchema = PropertyGraphSchema.empty
-
-    /*
+    override def schema: PropertyGraphSchema =
       PropertyGraphSchemaImpl(
         Map[Set[String], Map[String, CypherType]](
-          Set[String]() -> Map("name" -> CTString)
+          Set[String]("person", "t1") -> Map("name" -> CTString, "age" -> CTInteger)
         ),
         Map[String, Map[String, CypherType]](
           "knows" -> Map[String, CypherType]()
         )
       )
-     */
+
     override def nodeAt(id: Long): Node[Long] = id match {
       case 1L => node1
       case 2L => node2
@@ -109,18 +109,21 @@ class MyTest {
   @Test
   def testQueryDirectedRelations(): Unit = {
     val rs = runOnDemoGraph("match (n)-[r]->(m) return r")
+    rs.show
     Assert.assertEquals(2, rs.collect.size)
   }
 
   @Test
   def testQueryDistinctRelations(): Unit = {
     val rs = runOnDemoGraph("match (n)-[r]-(m) return distinct r")
+    rs.show
     Assert.assertEquals(2, rs.collect.size)
   }
 
   @Test
   def testQueryRelationsWithPath(): Unit = {
     val rs = runOnDemoGraph("match (n)-[r]-(m) return m,n,r")
+    rs.show
     Assert.assertEquals(4, rs.collect.size)
   }
 
@@ -162,10 +165,22 @@ class MyTest {
   }
 
   @Test
-  def testQueryWithLabels(): Unit ={
-    val rs = runOnDemoGraph("match (n:person:t1)   return n")
+  def testQueryWithLabels(): Unit = {
+    var rs = runOnDemoGraph("match (n:person) return n")
+    Assert.assertEquals(2, rs.collect.size)
+    Assert.assertEquals(1, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
+    Assert.assertEquals(2, rs.collect.apply(1).apply("n").cast[Node[Long]].id)
+
+    rs = runOnDemoGraph("match (n:t1) return n")
     Assert.assertEquals(1, rs.collect.size)
     Assert.assertEquals(1, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
+
+    rs = runOnDemoGraph("match (n:person:t1) return n")
+    Assert.assertEquals(1, rs.collect.size)
+    Assert.assertEquals(1, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
+
+    rs = runOnDemoGraph("match (n:t2) return n")
+    Assert.assertEquals(0, rs.collect.size)
   }
 
   private def runOnEmptyGraph(query: String): CypherRecords = {
