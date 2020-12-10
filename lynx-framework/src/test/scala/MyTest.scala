@@ -102,7 +102,8 @@ class MyTest {
 
   @Test
   def testQueryRelations(): Unit = {
-    val rs = runOnDemoGraph("match (n)-[r]-(m) return r")
+    val rs = runOnDemoGraph("match (m)-[r]-(n) return m,r,n")
+    rs.show
     Assert.assertEquals(4, rs.collect.size)
   }
 
@@ -182,29 +183,36 @@ class MyTest {
     rs = runOnDemoGraph("match (n:t2) return n")
     Assert.assertEquals(0, rs.collect.size)
   }
+
   @Test
   def testQueryWithLabelsAndRelation(): Unit = {
-    val rs = runOnDemoGraph("match (n:person)-[r]-(m) return n")
-    Assert.assertEquals(1, rs.collect.size)
+    val rs = runOnDemoGraph("match (n:person)-[r]->(m) return n")
+    rs.show
+    Assert.assertEquals(2, rs.collect.size)
     Assert.assertEquals(1, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
   }
 
   @Test
   def testQueryWithLabelsAndRelationWithLabel(): Unit = {
-    val rs = runOnDemoGraph("match (n:person)-[r:knows]-(m) return n")
-    Assert.assertEquals(1, rs.collect.size)
+    val rs = runOnDemoGraph("match (n:person)-[r:knows]->(m) return n")
+    rs.show
+    Assert.assertEquals(2, rs.collect.size)
     Assert.assertEquals(1, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
   }
 
   @Test
-  def testQueryRelationWithLabel(): Unit = {
-    val rs = runOnDemoGraph("match (n:person)-[r:knows]-(m) return n")
-    Assert.assertEquals(1, rs.collect.size)
+  def testQueryWithRelationLabel(): Unit = {
+    val rs = runOnDemoGraph("match (n:person)-[r:knows]-(m) return n,r,m")
+    rs.show
+    Assert.assertEquals(3, rs.collect.size)
     Assert.assertEquals(1, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
+    Assert.assertEquals(2, rs.collect.apply(0).apply("m").cast[Node[Long]].id)
   }
+
   @Test
-  def testQueryWithLabel(): Unit = {
-    val rs = runOnDemoGraph("match (n:person)-[r]-(m:person) return n")
+  def testQueryWithNodeLabel(): Unit = {
+    val rs = runOnDemoGraph("match (n:person)-[r]->(m:person) return n")
+    rs.show
     Assert.assertEquals(1, rs.collect.size)
     Assert.assertEquals(1, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
   }
