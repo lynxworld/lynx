@@ -16,7 +16,7 @@ import org.opencypher.okapi.trees.AbstractTreeNode
 
 abstract class PhysicalOperator extends AbstractTreeNode[PhysicalOperator] {
 
-  def recordHeader: RecordHeader = children.head.recordHeader
+  lazy val recordHeader: RecordHeader = children.head.recordHeader
 
   lazy val _table: LynxTable = children.head.table
 
@@ -39,8 +39,10 @@ abstract class PhysicalOperator extends AbstractTreeNode[PhysicalOperator] {
   lazy val table: LynxTable = {
     val t = _table
 
-    //if (t.physicalColumns.toSet != recordHeader.columns) {
-    if (false) {
+    //in=TabularUnionAll
+    //t.physicalColumns.toSet={"rel","source","target"}
+    //recordHeader.columns={"source","rel","target","node","m__NODE()"}
+    if (t.physicalColumns.toSet != recordHeader.columns) {
       // Ensure no duplicate columns in initialData
       val initialDataColumns = t.physicalColumns
 
@@ -259,15 +261,11 @@ final case class Select(in: PhysicalOperator,
     Some(returnExpressions.flatMap(_.owner).collect { case e: Var => e }.distinct)
 }
 
-final case class Distinct(
-                           in: PhysicalOperator,
-                           fields: Set[Var]
-                         ) extends PhysicalOperator {
+final case class Distinct(in: PhysicalOperator, fields: Set[Var]) extends PhysicalOperator {
+  override lazy val recordHeader: RecordHeader = RecordHeader(fields.map(expr => expr -> in.recordHeader.column(expr)).toMap)
 
   override lazy val _table: LynxTable =
-    tableOperator.distinct(in.table,
-      fields.flatMap(recordHeader.expressionsFor).map(recordHeader.column).toSeq: _*)
-
+    tableOperator.distinct(in.table, recordHeader.columns.toSeq: _*)
 }
 
 final case class Aggregate(
@@ -336,27 +334,12 @@ final case class Limit(
   }
 }
 
-final case class LabelRecorders(
-                                 in: PhysicalOperator,
-                                 fields: Set[Var] = Set.empty
-                               ) extends PhysicalOperator {
-
-  lazy val name = fields.head.name
-  lazy val cypherType = fields.head.cypherType
-  lazy val recorders = in.graph.nodes(name, cypherType.asInstanceOf[CTNode], false)
-  override lazy val _table: LynxTable = recorders.table
-  override lazy val recordHeader: RecordHeader = recorders.header
-}
-
 final case class EmptyRecords(
                                in: PhysicalOperator,
                                fields: Set[Var] = Set.empty
                              ) extends PhysicalOperator {
-
   override lazy val recordHeader: RecordHeader = RecordHeader.from(fields)
-
-  override lazy val _table: LynxTable = LynxTable.empty()
-
+  override lazy val _table: LynxTable = LynxTable.empty(recordHeader.exprToColumn.map(kv => kv._2 -> kv._1.cypherType).toSeq)
 }
 
 final case class FromCatalogGraph(

@@ -173,7 +173,7 @@ class SimpleTableOperator extends TableOperator {
 
   override def unionAll(a: LynxTable, b: LynxTable): LynxTable = {
     //TODO: large number of records
-    LynxTable(a.schema ++ b.schema, a.records.toSeq.union(b.records.toSeq))
+    LynxTable((a.schema ++ b.schema).distinct, a.records.toSeq.union(b.records.toSeq))
   }
 
   override def orderBy(table: LynxTable, sortItems: (Expr, Order)*)(implicit header: RecordHeader, parameters: CypherMap): LynxTable = {
@@ -188,13 +188,9 @@ class SimpleTableOperator extends TableOperator {
     LynxTable(table.schema, table.records.take(n.toInt))
   }
 
-  override def distinct(table: LynxTable): LynxTable = {
-    //TODO: large number of records
-    LynxTable(table.schema, table.records.toSeq.distinct)
-  }
-
   override def distinct(table: LynxTable, cols: String*): LynxTable = {
-    distinct(select(table, cols: _*))
+    val table2 = select(table, cols: _*)
+    LynxTable(table2.schema, table2.records.toSeq.distinct)
   }
 
   override def group(table: LynxTable, by: Set[Var], aggregations: Map[String, Aggregator])

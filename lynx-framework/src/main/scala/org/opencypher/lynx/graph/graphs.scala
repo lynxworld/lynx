@@ -71,7 +71,7 @@ class ScanGraph[Id](scan: PropertyGraphScan[Id])(implicit val session: LynxSessi
       scan.allNodes()
     }
     new LynxRecords(
-      RecordHeader(Map(NodeVar(name)(CTNode) -> name)),
+      RecordHeader(Map(NodeVar(name)(nodeCypherType) -> name)),
       LynxTable(Seq(name -> CTNode), nodes.map(Seq(_)))
     )
   }
@@ -86,9 +86,9 @@ class ScanGraph[Id](scan: PropertyGraphScan[Id])(implicit val session: LynxSessi
 
     new LynxRecords(
       RecordHeader(Map(
-        RelationshipVar(name)(CTRelationship) -> name,
-        StartNode(RelationshipVar(name)(CTRelationship))(CTNode) -> SourceStartNodeKey.name,
-        EndNode(RelationshipVar(name)(CTRelationship))(CTNode) -> SourceEndNodeKey.name
+        RelationshipVar(name)(relCypherType) -> name,
+        StartNode(RelationshipVar(name)(relCypherType))(CTNode) -> SourceStartNodeKey.name,
+        EndNode(RelationshipVar(name)(relCypherType))(CTNode) -> SourceEndNodeKey.name
       )),
       LynxTable(
         Seq(name -> CTRelationship, SourceStartNodeKey.name -> CTNode, SourceEndNodeKey.name -> CTNode),
