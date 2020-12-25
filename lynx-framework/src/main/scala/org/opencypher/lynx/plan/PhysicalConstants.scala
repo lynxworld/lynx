@@ -1,4 +1,4 @@
-package org.opencypher.lynx.planning
+package org.opencypher.lynx.plan
 
 sealed trait JoinType
 

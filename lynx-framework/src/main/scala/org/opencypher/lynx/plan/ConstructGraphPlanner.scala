@@ -1,8 +1,8 @@
-package org.opencypher.lynx.planning
+package org.opencypher.lynx.plan
 
 import org.opencypher.lynx.util.PropertyGraphSchemaOps.PropertyGraphSchemaOps
 import org.opencypher.lynx.graph.LynxPropertyGraph
-import org.opencypher.lynx.planning.LynxPhysicalPlanner.PhysicalOperatorOps
+import org.opencypher.lynx.plan.LynxPhysicalPlanner.PhysicalOperatorOps
 import org.opencypher.lynx.{LynxPlannerContext, RecordHeader}
 import org.opencypher.okapi.api.graph.{PropertyGraph, QualifiedGraphName}
 import org.opencypher.okapi.api.schema.PropertyGraphSchema

@@ -72,4 +72,9 @@ class SessionTest {
   def testNormal2(): Unit = {
     run("match (m)-[r]-(n) return r")
   }
+
+  @Test
+  def testCreate(): Unit = {
+    run("CREATE (bluejoe {name: 'bluejoe', age: 40})")
+  }
 }

@@ -2,8 +2,9 @@
 package org.opencypher.lynx.graph
 
 import org.opencypher.lynx._
-import org.opencypher.lynx.planning.LynxPhysicalPlanner.PhysicalOperatorOps
-import org.opencypher.lynx.planning.{PhysicalOperator, Start, TabularUnionAll}
+import org.opencypher.lynx.ir.{IRNode, PropertyGraphWriter, IRRelation, WritablePropertyGraph}
+import org.opencypher.lynx.plan.LynxPhysicalPlanner.PhysicalOperatorOps
+import org.opencypher.lynx.plan.{PhysicalOperator, Start, TabularUnionAll}
 import org.opencypher.lynx.util.PropertyGraphSchemaOps.PropertyGraphSchemaOps
 import org.opencypher.okapi.api.graph._
 import org.opencypher.okapi.api.schema.PropertyGraphSchema
@@ -60,8 +61,11 @@ object LynxPropertyGraph {
   def prefixed(graph: LynxPropertyGraph, prefix: GraphIdPrefix)(implicit session: LynxSession): LynxPropertyGraph = PrefixedGraph(graph, prefix)
 }
 
+class WritableScanGraph[Id](scan: PropertyGraphScanner[Id], writer: PropertyGraphWriter[Id])(implicit override val session: LynxSession) extends ScanGraph[Id](scan) with WritablePropertyGraph[Id] {
+  def createElements(nodes: Array[IRNode], rels: Array[IRRelation[Id]]) = writer.createElements(nodes, rels)
+}
 
-class ScanGraph[Id](scan: PropertyGraphScan[Id])(implicit val session: LynxSession) extends LynxPropertyGraph {
+class ScanGraph[Id](scan: PropertyGraphScanner[Id])(implicit val session: LynxSession) extends LynxPropertyGraph {
 
   override def nodes(name: String, nodeCypherType: CTNode, exactLabelMatch: Boolean): LynxRecords = {
     val nodes = if (nodeCypherType.labels.nonEmpty) {

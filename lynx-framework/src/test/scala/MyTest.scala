@@ -1,59 +1,9 @@
 import org.junit.{Assert, Test}
-import org.opencypher.lynx.{LynxSession, PropertyGraphScan}
-import org.opencypher.okapi.api.schema.PropertyGraphSchema
 import org.opencypher.okapi.api.table.CypherRecords
-import org.opencypher.okapi.api.types.{CTString, CTInteger, CypherType}
 import org.opencypher.okapi.api.value.CypherValue
 import org.opencypher.okapi.api.value.CypherValue.{CypherInteger, CypherMap, CypherString, CypherValue, Node, Relationship}
-import org.opencypher.okapi.impl.schema.PropertyGraphSchemaImpl
 
-case class LynxNode(id: Long, labels: Set[String], props: (String, CypherValue)*) extends Node[Long] {
-  lazy val properties = props.toMap
-  val withIds = props.toMap + ("_id" -> CypherValue(id))
-  override type I = this.type
-
-  override def copy(id: Long, labels: Set[String], properties: CypherMap): LynxNode.this.type = this
-}
-
-case class LynxRelationship(id: Long, startId: Long, endId: Long, relType: String, props: (String, CypherValue)*) extends Relationship[Long] {
-  val properties = props.toMap
-  val withIds = props.toMap ++ Map("_id" -> CypherValue(id), "_from" -> CypherValue(startId), "_to" -> CypherValue(endId))
-  override type I = this.type
-
-  override def copy(id: Long, source: Long, target: Long, relType: String, properties: CypherMap): LynxRelationship.this.type = this
-}
-
-class MyTest {
-  val _session = new LynxSession()
-
-  val graphDemo = _session.createPropertyGraph(new PropertyGraphScan[Long] {
-    val node1 = LynxNode(1, Set("person", "t1"), "name" -> CypherValue("bluejoe"), "age" -> CypherValue(40))
-    val node2 = LynxNode(2, Set("person"), "name" -> CypherValue("alex"), "age" -> CypherValue(30))
-    val node3 = LynxNode(3, Set(), "name" -> CypherValue("simba"), "age" -> CypherValue(10))
-
-    override def allNodes(): Iterable[Node[Long]] = Array(node1, node2, node3)
-
-    override def allRelationships(): Iterable[Relationship[Long]] = Array(
-      LynxRelationship(1, 1, 2, "knows"),
-      LynxRelationship(2, 2, 3, "knows")
-    )
-
-    override def schema: PropertyGraphSchema =
-      PropertyGraphSchemaImpl(
-        Map[Set[String], Map[String, CypherType]](
-          Set[String]("person", "t1") -> Map("name" -> CTString, "age" -> CTInteger)
-        ),
-        Map[String, Map[String, CypherType]](
-          "knows" -> Map[String, CypherType]()
-        )
-      )
-
-    override def nodeAt(id: Long): Node[Long] = id match {
-      case 1L => node1
-      case 2L => node2
-      case 3L => node3
-    }
-  })
+class MyTest extends TestBase {
 
   @Test
   def testEmptyGraph(): Unit = {
@@ -215,6 +165,37 @@ class MyTest {
     rs.show
     Assert.assertEquals(1, rs.collect.size)
     Assert.assertEquals(1, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
+  }
+
+  @Test
+  def testCreateNode(): Unit = {
+    val size1 = nodes.size
+    val size2 = rels.size
+    val rs = runOnDemoGraph("CREATE (n {name: 'bluejoe', age: 40})")
+    rs.show
+    Assert.assertEquals(size1 + 1, nodes.size)
+    Assert.assertEquals(size2, rels.size)
+  }
+
+  @Test
+  def testCreateNodesRelation(): Unit = {
+    val size1 = nodes.size
+    val size2 = rels.size
+    val rs = runOnDemoGraph("CREATE (n:person {name: 'bluejoe', age: 40}),(m:person {name: 'alex', age: 30}),(n)-[:knows]->(m)")
+    rs.show
+    Assert.assertEquals(size1 + 2, nodes.size)
+    Assert.assertEquals(size2 + 1, rels.size)
+
+    Assert.assertEquals(CypherString("bluejoe"), nodes(size1).properties("name"))
+    Assert.assertEquals(CypherInteger(40), nodes(size1).properties("age"))
+    Assert.assertEquals(Set("person"), nodes(size1).labels)
+
+    Assert.assertEquals(CypherString("alex"), nodes(size1 + 1).properties("name"))
+    Assert.assertEquals(CypherInteger(30), nodes(size1 + 1).properties("age"))
+    Assert.assertEquals(Set("person"), nodes(size1 + 1).labels)
+
+    Assert.assertEquals("knows", rels(size2).relType)
+    Assert.assertEquals(nodes(size1 + 1).id, rels(size2).startId)
   }
 
   private def runOnEmptyGraph(query: String): CypherRecords = {
