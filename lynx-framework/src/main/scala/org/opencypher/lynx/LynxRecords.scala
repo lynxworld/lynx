@@ -1,8 +1,8 @@
 package org.opencypher.lynx
 
 import org.opencypher.lynx.graph.LynxPropertyGraph
-import org.opencypher.lynx.planning.LynxPhysicalPlanner.PhysicalOperatorOps
-import org.opencypher.lynx.planning.{GraphUnionAll, PhysicalOperator, ReturnGraph}
+import org.opencypher.lynx.plan.LynxPhysicalPlanner.PhysicalOperatorOps
+import org.opencypher.lynx.plan.{GraphUnionAll, PhysicalOperator, ReturnGraph}
 import org.opencypher.okapi.api.graph.{CypherQueryPlans, _}
 import org.opencypher.okapi.api.table.{CypherRecords, CypherTable}
 import org.opencypher.okapi.api.types.CypherType

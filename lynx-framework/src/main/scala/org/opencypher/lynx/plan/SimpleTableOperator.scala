@@ -1,4 +1,4 @@
-package org.opencypher.lynx.planning
+package org.opencypher.lynx.plan
 
 import org.opencypher.lynx.{EvalContext, LynxTable, RecordHeader, TableOperator}
 import org.opencypher.okapi.api.value.CypherValue

@@ -1,7 +1,7 @@
-package org.opencypher.lynx.planning
+package org.opencypher.lynx.plan
 
 import cats.data.NonEmptyList
-import org.opencypher.lynx.{planning, _}
+import org.opencypher.lynx.{plan, _}
 import org.opencypher.lynx
 import org.opencypher.okapi.api.graph.{Pattern, PatternElement, QualifiedGraphName, RelationshipPattern}
 import org.opencypher.okapi.api.types.{CTAny, CTNode, CTNull, CTRelationship}
@@ -43,13 +43,13 @@ object LynxPhysicalPlanner {
         }
 
       case logical.EmptyRecords(fields, in, _) =>
-          planning.EmptyRecords(process(in), fields)
+          plan.EmptyRecords(process(in), fields)
 
       case logical.Start(graph, _) =>
-        planning.Start(graph.qualifiedGraphName)
+        plan.Start(graph.qualifiedGraphName)
 
       case logical.DrivingTable(graph, _, _) =>
-        planning.Start(graph.qualifiedGraphName, context.maybeInputRecords)
+        plan.Start(graph.qualifiedGraphName, context.maybeInputRecords)
 
       case logical.FromGraph(graph, in, _) =>
         val inOp = process(in)
@@ -72,7 +72,7 @@ object LynxPhysicalPlanner {
         )
 
       case logical.Aggregate(aggregations, group, in, _) =>
-        planning.Aggregate(process(in), group, aggregations)
+        plan.Aggregate(process(in), group, aggregations)
 
       case logical.Filter(expr, in, _) => process(in).filter(expr)
 
@@ -82,7 +82,7 @@ object LynxPhysicalPlanner {
 
       case logical.Distinct(fields, in, _) =>
         val elementExprs: Set[Var] = Set(fields.toSeq: _*)
-        planning.Distinct(process(in), elementExprs)
+        plan.Distinct(process(in), elementExprs)
 
       case logical.TabularUnionAll(left, right) =>
         process(left).unionAll(process(right))
@@ -126,7 +126,7 @@ object LynxPhysicalPlanner {
             val tempIncoming = first.join(relsWithoutLoops, Seq(source -> endNode), InnerJoin)
             val incoming = tempIncoming.join(third, Seq(startNode -> target), InnerJoin)
 
-            planning.TabularUnionAll(outgoing, incoming)
+            plan.TabularUnionAll(outgoing, incoming)
         }
 
       case logical.ExpandInto(source, rel, target, direction, sourceOp, _) =>
@@ -150,7 +150,7 @@ object LynxPhysicalPlanner {
           case Undirected =>
             val outgoing = in.join(relationships, Seq(source -> startNode, target -> endNode), InnerJoin)
             val incoming = in.join(relationships, Seq(target -> startNode, source -> endNode), InnerJoin)
-            planning.TabularUnionAll(outgoing, incoming)
+            plan.TabularUnionAll(outgoing, incoming)
         }
 
       case logical.BoundedVarLengthExpand(source, list, target, edgeScanType, direction, lower, upper, sourceOp, targetOp, _) =>
@@ -202,7 +202,7 @@ object LynxPhysicalPlanner {
         val exprsToRemove = joinExprs.flatMap(v => rightHeader.ownedBy(v))
         val reducedRhsData = rightWithAliases.dropExprSet(exprsToRemove)
         // 3. Compute distinct rows in rhs
-        val distinctRhsData = planning.Distinct(reducedRhsData, renameExprs.map(_.alias))
+        val distinctRhsData = plan.Distinct(reducedRhsData, renameExprs.map(_.alias))
         // 4. Join lhs and prepared rhs using a left outer join
         val joinedData = leftResult.join(distinctRhsData, renameExprs.map(a => a.expr -> a.alias).toSeq, LeftOuterJoin)
         // 5. If at least one rhs join column is not null, the sub-query exists and true is projected to the target expression
@@ -210,15 +210,15 @@ object LynxPhysicalPlanner {
         joinedData.addInto(IsNotNull(targetExpr) -> predicateField.targetField)
 
       case logical.OrderBy(sortItems: Seq[SortItem], in, _) =>
-        planning.OrderBy(process(in), sortItems)
+        plan.OrderBy(process(in), sortItems)
 
       case logical.Skip(expr, in, _) =>
-        planning.Skip(process(in), expr)
+        plan.Skip(process(in), expr)
 
       case logical.Limit(expr, in, _) =>
-        planning.Limit(process(in), expr)
+        plan.Limit(process(in), expr)
 
-      case logical.ReturnGraph(in, _) => planning.ReturnGraph(process(in))
+      case logical.ReturnGraph(in, _) => plan.ReturnGraph(process(in))
 
       case other => throw NotImplementedException(s"Physical planning of operator $other")
     }
@@ -232,7 +232,7 @@ object LynxPhysicalPlanner {
               )(implicit context: LynxPlannerContext): PhysicalOperator = {
     val inOp = maybeInOp match {
       case Some(relationalOp) => relationalOp
-      case _ => planning.Start(logicalGraph.qualifiedGraphName)
+      case _ => plan.Start(logicalGraph.qualifiedGraphName)
     }
 
     val graph: LynxPropertyGraph = logicalGraph match {
@@ -284,14 +284,14 @@ object LynxPhysicalPlanner {
 
     // 3. Rename the join expressions on the right hand side, in order to make them distinguishable after the join
     val joinExprRenames = joinExprs.map(e => e as Var(generateUniqueName)(e.cypherType))
-    val rhsWithAlias = planning.Alias(rhsWithDropped, joinExprRenames.toSeq)
-    val rhsJoinReady = planning.Drop(rhsWithAlias, joinExprs.collect { case e: Expr => e })
+    val rhsWithAlias = plan.Alias(rhsWithDropped, joinExprRenames.toSeq)
+    val rhsJoinReady = plan.Drop(rhsWithAlias, joinExprs.collect { case e: Expr => e })
 
     // 4. Left outer join the left side and the processed right side
     val joined = lhsOp.join(rhsJoinReady, joinExprRenames.map(a => a.expr -> a.alias).toSeq, LeftOuterJoin)
 
     // 5. Select the resulting header expressions
-    planning.Select(joined, joined.recordHeader.expressions.toList)
+    plan.Select(joined, joined.recordHeader.expressions.toList)
   }
 
   implicit class PhysicalOperatorOps(op: PhysicalOperator) {
@@ -299,16 +299,16 @@ object LynxPhysicalPlanner {
 
     implicit val session = context.session
 
-    def select(expressions: Expr*): PhysicalOperator = planning.Select(op, expressions.toList)
+    def select(expressions: Expr*): PhysicalOperator = plan.Select(op, expressions.toList)
 
     def filter(expression: Expr): PhysicalOperator = {
       if (expression == TrueLit) {
         op
       } else if (expression.cypherType == CTNull) {
         //planning.Start.fromRecords(LynxRecords.empty(op.recordHeader))
-        planning.Filter(op, expression)
+        plan.Filter(op, expression)
       } else {
-        planning.Filter(op, expression)
+        plan.Filter(op, expression)
       }
     }
 
@@ -325,11 +325,11 @@ object LynxPhysicalPlanner {
         .map(expr => expr -> expr.withoutType.toString.replace('.', '_'))
         .toMap
 
-      planning.Select(op, selectExprs, renames)
+      plan.Select(op, selectExprs, renames)
     }
 
     def renameColumns(columnRenames: Map[Expr, String]): PhysicalOperator = {
-      if (columnRenames.isEmpty) op else planning.Select(op, op.recordHeader.expressions.toList, columnRenames)
+      if (columnRenames.isEmpty) op else plan.Select(op, op.recordHeader.expressions.toList, columnRenames)
     }
 
     def join(other: PhysicalOperator, joinExprs: Seq[(Expr, Expr)], joinType: JoinType): PhysicalOperator = {
@@ -337,7 +337,7 @@ object LynxPhysicalPlanner {
     }
 
     def graphUnionAll(other: PhysicalOperator): PhysicalOperator = {
-      planning.GraphUnionAll(NonEmptyList(op, List(other)), QualifiedGraphName("UnionAllGraph"))
+      plan.GraphUnionAll(NonEmptyList(op, List(other)), QualifiedGraphName("UnionAllGraph"))
     }
 
     def unionAll(other: PhysicalOperator): PhysicalOperator = {
@@ -356,7 +356,7 @@ object LynxPhysicalPlanner {
         case (acc, elementVar) => acc.alignExpressions(elementVar, elementVar, targetHeader)
       }.alignColumnNames(targetHeader)
 
-      planning.TabularUnionAll(opWithAlignedElements, otherWithAlignedElements)
+      plan.TabularUnionAll(opWithAlignedElements, otherWithAlignedElements)
     }
 
     def add(values: Expr*): PhysicalOperator = {
@@ -370,7 +370,7 @@ object LynxPhysicalPlanner {
     def dropExprSet[E <: Expr](expressions: Set[E]): PhysicalOperator = {
       val necessaryDrops = expressions.filter(op.recordHeader.expressions.contains)
       if (necessaryDrops.nonEmpty) {
-        planning.Drop(op, necessaryDrops)
+        plan.Drop(op, necessaryDrops)
       } else op
     }
 

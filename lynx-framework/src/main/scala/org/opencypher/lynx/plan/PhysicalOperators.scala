@@ -1,4 +1,4 @@
-package org.opencypher.lynx.planning
+package org.opencypher.lynx.plan
 
 import cats.data.NonEmptyList
 import org.opencypher.lynx._

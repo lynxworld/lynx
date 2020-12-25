@@ -1,6 +1,6 @@
 package org.opencypher.lynx
 
-import org.opencypher.lynx.planning.{JoinType, Order}
+import org.opencypher.lynx.plan.{JoinType, Order}
 import org.opencypher.okapi.api.value.CypherValue.{CypherMap, CypherValue}
 import org.opencypher.okapi.ir.api.expr.{Aggregator, CountStar, Expr, Var}
 

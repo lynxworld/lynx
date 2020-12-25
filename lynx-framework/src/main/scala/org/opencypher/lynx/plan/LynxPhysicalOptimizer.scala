@@ -1,4 +1,4 @@
-package org.opencypher.lynx.planning
+package org.opencypher.lynx.plan
 
 import org.opencypher.lynx.LynxPlannerContext
 import org.opencypher.okapi.trees.TopDown

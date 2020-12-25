@@ -1,27 +1,31 @@
 package org.opencypher.lynx
 
 import org.apache.logging.log4j.scala.Logging
-import org.opencypher.lynx.graph.{EmptyGraph, LynxPropertyGraph, ScanGraph}
-import org.opencypher.lynx.planning.{LynxPhysicalOptimizer, LynxPhysicalPlanner, PhysicalOperator, SimpleTableOperator}
+import org.opencypher.lynx.graph.{EmptyGraph, LynxPropertyGraph, ScanGraph, WritableScanGraph}
+import org.opencypher.lynx.ir.{LynxIRBuilder, IRNode, PropertyGraphWriter, WritablePropertyGraph}
+import org.opencypher.lynx.plan.{LynxPhysicalOptimizer, LynxPhysicalPlanner, PhysicalOperator, SimpleTableOperator}
 import org.opencypher.okapi.api.graph.{PropertyGraph, _}
 import org.opencypher.okapi.api.schema.PropertyGraphSchema
 import org.opencypher.okapi.api.table.{CypherRecords, CypherTable}
-import org.opencypher.okapi.api.types.{CTNode, CypherType}
 import org.opencypher.okapi.api.value.CypherValue
 import org.opencypher.okapi.api.value.CypherValue.{CypherMap, CypherValue, Node, Relationship}
 import org.opencypher.okapi.impl.exception.IllegalArgumentException
 import org.opencypher.okapi.impl.graph.CypherCatalog
-import org.opencypher.okapi.impl.io.SessionGraphDataSource
-import org.opencypher.okapi.ir.api._
+import org.opencypher.okapi.ir.api.{CypherStatement, _}
 import org.opencypher.okapi.ir.api.expr.Var
 import org.opencypher.okapi.ir.impl.parse.CypherParser
 import org.opencypher.okapi.ir.impl.{IRBuilder, IRBuilderContext, QueryLocalCatalog}
 import org.opencypher.okapi.logical.impl.{LogicalOperator, _}
+import org.opencypher.v9_0.ast
+import org.opencypher.v9_0.ast.Statement
+import org.opencypher.v9_0.ast.semantics.SemanticState
 
 import scala.collection.{Seq, mutable}
 
 class LynxSession extends CypherSession with Logging {
   override type Result = LynxResult
+  type Id = Long
+
   private implicit val session: LynxSession = this
 
   //////////<---overridable vals
@@ -41,6 +45,11 @@ class LynxSession extends CypherSession with Logging {
 
   protected val _createCypherResult: (PhysicalOperator, LogicalOperator, LynxPlannerContext) => LynxResult =
     (input: PhysicalOperator, logical: LogicalOperator, context: LynxPlannerContext) => LynxResult(input, logical)
+
+  //AST Statement-->CypherStatement
+  protected val _translateASTIntoIR: (
+    String, ast.Statement, CypherMap, SemanticState, IRCatalogGraph, Set[Var], Map[QualifiedGraphName, PropertyGraph]) => (CypherStatement, QueryLocalCatalog) =
+    _defaultTranslate
 
   private val _cachedLogicalPlans = mutable.Map[(PropertyGraph, CypherQuery, CypherMap), LogicalOperator]()
 
@@ -63,7 +72,9 @@ class LynxSession extends CypherSession with Logging {
   private[opencypher] def createPlannerContext(parameters: CypherMap = CypherMap.empty, maybeDrivingTable: Option[LynxRecords] = None): LynxPlannerContext =
     LynxPlannerContext(graphAt, maybeDrivingTable, parameters)(session)
 
-  def createPropertyGraph[Id](scan: PropertyGraphScan[Id]): LynxPropertyGraph = new ScanGraph[Id](scan)(session)
+  def createPropertyGraph(scan: PropertyGraphScanner[Id]): LynxPropertyGraph = new ScanGraph[Id](scan)(session)
+
+  def createPropertyGraph(scan: PropertyGraphScanner[Id], writer: PropertyGraphWriter[Id]): WritablePropertyGraph[Id] = new WritableScanGraph[Id](scan, writer)(session)
 
   def tableOperator: TableOperator = _tableOperator
 
@@ -139,6 +150,30 @@ class LynxSession extends CypherSession with Logging {
    */
   override lazy val catalog: PropertyGraphCatalog = CypherCatalog()
 
+  private def _defaultTranslate(
+                                 query: String,
+                                 statement: ast.Statement,
+                                 allParameters: CypherMap,
+                                 semState: SemanticState,
+                                 workingGraph: IRCatalogGraph,
+                                 inputFields: Set[Var],
+                                 queryCatalog: Map[QualifiedGraphName, PropertyGraph]
+                               ): (CypherStatement, QueryLocalCatalog) = {
+    val irBuilderContext = IRBuilderContext.initial(
+      query,
+      allParameters,
+      semState,
+      workingGraph,
+      qgnGenerator,
+      catalog.listSources,
+      catalog.view,
+      inputFields,
+      queryCatalog
+    )
+
+    LynxIRBuilder.process(statement, irBuilderContext, this)
+  }
+
   override private[opencypher] def cypherOnGraph(
                                                   propertyGraph: PropertyGraph,
                                                   query: String,
@@ -146,7 +181,7 @@ class LynxSession extends CypherSession with Logging {
                                                   drivingTable: Option[CypherRecords],
                                                   queryCatalog: Map[QualifiedGraphName, PropertyGraph]): Result = {
 
-    def createStatement() = {
+    def createStatement(): (CypherStatement, QueryLocalCatalog, CypherMap, Set[Var], Option[LynxRecords]) = {
       val maybeRelationalRecords: Option[LynxRecords] = drivingTable.map(_.asInstanceOf[LynxRecords])
 
       val inputFields: Set[Var] = maybeRelationalRecords match {
@@ -155,34 +190,26 @@ class LynxSession extends CypherSession with Logging {
       }
 
       //AST construction
-      val (stmt, extractedLiterals, semState) = _parser.process(query, inputFields)(CypherParser.defaultContext)
+      val (stmt: Statement, extractedLiterals: Map[String, Any], semState: SemanticState) =
+        _parser.process(query, inputFields)(CypherParser.defaultContext)
 
       val extractedParameters: CypherMap = extractedLiterals.mapValues(v => CypherValue(v))
       val allParameters = queryParameters ++ extractedParameters
 
       val ambientGraphNew = mountAmbientGraph(propertyGraph)
 
+      //AST Statement-->CypherStatement
       //IR translation
-      val irBuilderContext = IRBuilderContext.initial(
+      val (cypherStatement, queryLocalCatalog) = _translateASTIntoIR(
         query,
+        stmt,
         allParameters,
         semState,
         ambientGraphNew,
-        qgnGenerator,
-        catalog.listSources,
-        catalog.view,
         inputFields,
-        queryCatalog
-      )
+        queryCatalog)
 
-      val irOut = IRBuilder.process(stmt)(irBuilderContext)
-      (
-        IRBuilder.extract(irOut),
-        IRBuilder.getContext(irOut).queryLocalCatalog,
-        allParameters,
-        inputFields,
-        maybeRelationalRecords
-      )
+      (cypherStatement, queryLocalCatalog, allParameters, inputFields, maybeRelationalRecords)
     }
 
     val (ir, queryLocalCatalog, allParameters, inputFields, maybeRelationalRecords) = {
@@ -193,6 +220,10 @@ class LynxSession extends CypherSession with Logging {
     }
 
     def processIR(ir: CypherStatement): Result = ir match {
+      case ces: CreateElementStatement[Id] =>
+        propertyGraph.asInstanceOf[WritablePropertyGraph[Id]].createElements(ces.nodes, ces.rels)
+        LynxResult.empty
+
       case cq: CypherQuery =>
         logger.debug(s"IR: \r\n${cq.pretty}")
         planCypherQuery(propertyGraph, cq, allParameters, inputFields, maybeRelationalRecords, queryLocalCatalog)
@@ -240,7 +271,7 @@ case class LynxPlannerContext(sessionCatalog: QualifiedGraphName => Option[LynxP
   override def toString: String = this.getClass.getSimpleName
 }
 
-trait PropertyGraphScan[Id] {
+trait PropertyGraphScanner[Id] {
   def nodeAt(id: Id): Node[Id]
 
   def schema: PropertyGraphSchema = PropertyGraphSchema.empty
