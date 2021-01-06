@@ -58,17 +58,21 @@ class TestBase {
 }
 
 case class TestNode(id: Long, labels: Set[String], props: (String, CypherValue)*) extends Node[Long] {
-  lazy val properties = props.toMap
+  private lazy val _properties = props.toMap
   val withIds = props.toMap + ("_id" -> CypherValue(id))
   override type I = this.type
+
+  override def properties: CypherMap = _properties
 
   override def copy(id: Long, labels: Set[String], properties: CypherMap): TestNode.this.type = this
 }
 
 case class TestRelationship(id: Long, startId: Long, endId: Long, relType: String, props: (String, CypherValue)*) extends Relationship[Long] {
-  val properties = props.toMap
+  private lazy val _properties = props.toMap
   val withIds = props.toMap ++ Map("_id" -> CypherValue(id), "_from" -> CypherValue(startId), "_to" -> CypherValue(endId))
   override type I = this.type
+
+  override def properties: CypherMap = _properties
 
   override def copy(id: Long, source: Long, target: Long, relType: String, properties: CypherMap): TestRelationship.this.type = this
 }

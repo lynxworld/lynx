@@ -48,6 +48,7 @@ object LynxIRBuilder {
         }
 
         CreateElementStatement(nodes.map(_._2).toArray, rels.toArray) -> QueryLocalCatalog.empty
+
       case _ =>
         val irOut = IRBuilder.process(statement)(irBuilderContext)
         IRBuilder.extract(irOut) -> IRBuilder.getContext(irOut).queryLocalCatalog

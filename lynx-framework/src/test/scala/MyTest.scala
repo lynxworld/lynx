@@ -32,6 +32,9 @@ class MyTest extends TestBase {
     rs = runOnDemoGraph("return 1")
     Assert.assertEquals(Seq("1"), rs.physicalColumns)
     Assert.assertEquals(1, rs.collect.size)
+    rs = runOnDemoGraph("return 1+2")
+    Assert.assertEquals(Seq("1+2"), rs.physicalColumns)
+    rs = runOnDemoGraph("match (n) with n as x return x.name")
   }
 
   @Test
@@ -167,38 +170,7 @@ class MyTest extends TestBase {
     Assert.assertEquals(1, rs.collect.apply(0).apply("n").cast[Node[Long]].id)
   }
 
-  @Test
-  def testCreateNode(): Unit = {
-    val size1 = nodes.size
-    val size2 = rels.size
-    val rs = runOnDemoGraph("CREATE (n {name: 'bluejoe', age: 40})")
-    rs.show
-    Assert.assertEquals(size1 + 1, nodes.size)
-    Assert.assertEquals(size2, rels.size)
-  }
-
-  @Test
-  def testCreateNodesRelation(): Unit = {
-    val size1 = nodes.size
-    val size2 = rels.size
-    val rs = runOnDemoGraph("CREATE (n:person {name: 'bluejoe', age: 40}),(m:person {name: 'alex', age: 30}),(n)-[:knows]->(m)")
-    rs.show
-    Assert.assertEquals(size1 + 2, nodes.size)
-    Assert.assertEquals(size2 + 1, rels.size)
-
-    Assert.assertEquals(CypherString("bluejoe"), nodes(size1).properties("name"))
-    Assert.assertEquals(CypherInteger(40), nodes(size1).properties("age"))
-    Assert.assertEquals(Set("person"), nodes(size1).labels)
-
-    Assert.assertEquals(CypherString("alex"), nodes(size1 + 1).properties("name"))
-    Assert.assertEquals(CypherInteger(30), nodes(size1 + 1).properties("age"))
-    Assert.assertEquals(Set("person"), nodes(size1 + 1).labels)
-
-    Assert.assertEquals("knows", rels(size2).relType)
-    Assert.assertEquals(nodes(size1 + 1).id, rels(size2).startId)
-  }
-
-  private def runOnEmptyGraph(query: String): CypherRecords = {
+  protected def runOnEmptyGraph(query: String): CypherRecords = {
     println(s"query: $query")
     val t1 = System.currentTimeMillis()
     val records = _session.cypher(query).records
@@ -208,7 +180,7 @@ class MyTest extends TestBase {
     records
   }
 
-  private def runOnDemoGraph(query: String): CypherRecords = {
+  protected def runOnDemoGraph(query: String): CypherRecords = {
     println(s"query: $query")
     val t1 = System.currentTimeMillis()
     val records = graphDemo.cypher(query)

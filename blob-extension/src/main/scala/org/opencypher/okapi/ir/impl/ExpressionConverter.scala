@@ -338,7 +338,7 @@ object BigDecimalSignatures {
    * @return
    */
   // TODO change to tuples
-  def arithmeticSignature(precisionScaleOp: PrecisionScaleOp): Signature = {
+  def arithmeticSignature(precisionScaleOp: PrecisionScaleOp): (Seq[CypherType])=>Option[CypherType] = {
     case Seq(CTBigDecimal(p1, s1), CTBigDecimal(p2, s2)) => Some(CTBigDecimal(precisionScaleOp(p1, s1, p2, s2)))
     case Seq(CTBigDecimal(p, s), CTInteger) => Some(CTBigDecimal(precisionScaleOp(p, s, 20, 0)))
     case Seq(CTInteger, CTBigDecimal(p, s)) => Some(CTBigDecimal(precisionScaleOp(20, 0, p, s)))

@@ -67,5 +67,15 @@
             <artifactId>lynx-framework</artifactId>
             <version>0.1-SNAPSHOT</version>
         </dependency>
+        <dependency>
+            <groupId>org.opencypher</groupId>
+            <artifactId>okapi-api</artifactId>
+            <version>0.4.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.opencypher</groupId>
+            <artifactId>okapi-logical</artifactId>
+            <version>0.4.2</version>
+        </dependency>
     </dependencies>
 </project>
