@@ -12,14 +12,11 @@
         <module>lynx-framework</module>
         <module>blob-extension</module>
         <module>relational-test</module>
+        <module>non-okapi</module>
     </modules>
     <properties/>
     <dependencies>
-        <dependency>
-            <groupId>org.typelevel</groupId>
-            <artifactId>cats-core_2.12</artifactId>
-            <version>1.6.0</version>
-        </dependency>
+        <!--
         <dependency>
             <groupId>org.opencypher</groupId>
             <artifactId>okapi-api</artifactId>
@@ -30,6 +27,7 @@
             <artifactId>okapi-logical</artifactId>
             <version>0.4.2</version>
         </dependency>
+        -->
         <!--
         <dependency>
             <groupId>org.opencypher</groupId>

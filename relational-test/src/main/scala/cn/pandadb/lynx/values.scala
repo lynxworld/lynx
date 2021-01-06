@@ -8,7 +8,8 @@ object LynxNode {
 }
 
 case class LynxNode(id: Long, labels: Set[String], props: (String, CypherValue)*) extends Node[Long] with LynxElement {
-  val properties = props.toMap
+  private lazy val _properties = props.toMap
+  override def properties: CypherMap = _properties
   val withIds = props.toMap + ("_id" -> CypherValue(id))
   override type I = this.type
 
@@ -16,7 +17,8 @@ case class LynxNode(id: Long, labels: Set[String], props: (String, CypherValue)*
 }
 
 case class LynxRelationship(id: Long, startId: Long, endId: Long, relType: String, props: (String, CypherValue)*) extends Relationship[Long] with LynxElement {
-  val properties = props.toMap
+  private lazy val _properties = props.toMap
+  override def properties: CypherMap = _properties
   val withIds = props.toMap ++ Map("_id" -> CypherValue(id), "_from" -> CypherValue(startId), "_to" -> CypherValue(endId))
   override type I = this.type
 

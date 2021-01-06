@@ -9,40 +9,45 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>lynx-framework</artifactId>
-    <description>
-        lynx-framework was forked from Morpheus project: https://github.com/opencypher/morpheus.
-        Morphes defines a generic okapi module, a relational-backended module, and a spark-implementation module,
-        lynx-framework adopts okapi module, and modify relational-backended module.
-        Modifications include:
-        * remove ElementTable
-        * replace parameterized class with solid class
-    </description>
+    <artifactId>non-okapi</artifactId>
     <dependencies>
+        <dependency>
+            <groupId>org.grapheco</groupId>
+            <artifactId>commons</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.7</version>
+        </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.13.1</version>
         </dependency>
         <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <version>1.7.25</version>
+        </dependency>
+        <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-core</artifactId>
             <version>2.13.2</version>
         </dependency>
+        <!--
         <dependency>
             <groupId>org.grapheco</groupId>
             <artifactId>blob-extension</artifactId>
             <version>0.1-SNAPSHOT</version>
         </dependency>
+        -->
         <dependency>
             <groupId>org.opencypher</groupId>
-            <artifactId>okapi-api</artifactId>
-            <version>0.4.2</version>
-        </dependency>
-        <dependency>
-            <groupId>org.opencypher</groupId>
-            <artifactId>okapi-logical</artifactId>
-            <version>0.4.2</version>
+            <artifactId>front-end-9.0</artifactId>
+            <version>9.0.20190305</version>
         </dependency>
     </dependencies>
+
 </project>

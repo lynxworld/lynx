@@ -121,7 +121,7 @@ class LynxSession extends CypherSession with Logging {
     val ctx = createPlannerContext(parameters, maybeDrivingTable)
 
     val physicalPlan = _createPhysicalPlan(logicalPlan, ctx)
-    logger.debug(s"physical plan: \r\n${physicalPlan.pretty}")
+    //logger.debug(s"physical plan: \r\n${physicalPlan.pretty}")
 
     val optimizedPlan = _optimizePhysicalPlan(physicalPlan, ctx)
     logger.debug(s"Optimized physical plan: \r\n${optimizedPlan.pretty}")
@@ -134,7 +134,7 @@ class LynxSession extends CypherSession with Logging {
     val logicalPlannerContext = LogicalPlannerContext(graph.schema, inputFields, catalog.listSources, queryLocalCatalog)
     val logicalPlan = _createLogicalPlan(cypherQuery, logicalPlannerContext)
 
-    logger.debug(s"logical plan: \r\n${logicalPlan.pretty}")
+    //logger.debug(s"logical plan: \r\n${logicalPlan.pretty}")
 
     //Logical optimization
     val optimizedLogicalPlan = _optimizeLogicalPlan(logicalPlan, logicalPlannerContext)
@@ -193,6 +193,8 @@ class LynxSession extends CypherSession with Logging {
       val (stmt: Statement, extractedLiterals: Map[String, Any], semState: SemanticState) =
         _parser.process(query, inputFields)(CypherParser.defaultContext)
 
+      logger.debug(s"AST: ${stmt.asCanonicalStringVal}")
+
       val extractedParameters: CypherMap = extractedLiterals.mapValues(v => CypherValue(v))
       val allParameters = queryParameters ++ extractedParameters
 
@@ -225,7 +227,7 @@ class LynxSession extends CypherSession with Logging {
         LynxResult.empty
 
       case cq: CypherQuery =>
-        logger.debug(s"IR: \r\n${cq.pretty}")
+        //logger.debug(s"IR: \r\n${cq.pretty}")
         planCypherQuery(propertyGraph, cq, allParameters, inputFields, maybeRelationalRecords, queryLocalCatalog)
 
       case CreateGraphStatement(targetGraph, innerQueryIr) =>
