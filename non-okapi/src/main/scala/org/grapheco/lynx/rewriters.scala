@@ -31,6 +31,7 @@ case object LynxPreparatoryRewriting extends Phase[BaseContext, BaseState, BaseS
 
 case class normalizeReturnClauses(mkException: (String, InputPosition) => CypherException) extends Rewriter {
   def apply(that: AnyRef): AnyRef = instance.apply(that)
+
   private val clauseRewriter: (Clause => Seq[Clause]) = {
     case clause@Return(_, ri@ReturnItems(_, items), None, _, _, _) =>
       val aliasedItems = items.map({
