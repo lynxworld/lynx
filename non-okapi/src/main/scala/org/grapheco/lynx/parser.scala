@@ -8,10 +8,18 @@ import org.opencypher.v9_0.rewriting.rewriters.Forced
 import org.opencypher.v9_0.rewriting.{AstRewritingMonitor, RewriterStepSequencer}
 import org.opencypher.v9_0.util.{CypherException, InputPosition}
 
+import scala.collection.mutable
 import scala.reflect.ClassTag
 
 trait QueryParser {
   def parse(query: String): (Statement, Map[String, Any], SemanticState)
+}
+
+class CachedQueryParser(parser: QueryParser) extends QueryParser {
+  val cache = mutable.Map[String, (Statement, Map[String, Any], SemanticState)]()
+
+  override def parse(query: String): (Statement, Map[String, Any], SemanticState) =
+    cache.getOrElseUpdate(query, parser.parse(query))
 }
 
 class QueryParserImpl extends QueryParser {

@@ -7,11 +7,10 @@ trait LogicalPlanNode {
 }
 
 trait LogicalPlanner {
-  def plan(statement: Statement, map: Map[String, Any]): LogicalPlanNode
-
+  def plan(statement: Statement): LogicalPlanNode
 }
 
-class LogicalPlannerImpl extends LogicalPlanner {
+class LogicalPlannerImpl()(implicit runnerContext: CypherRunnerContext) extends LogicalPlanner {
   private def translateQueryPart(part: QueryPart): LogicalQueryPart = {
     part match {
       case SingleQuery(clauses: Seq[Clause]) =>
@@ -28,7 +27,7 @@ class LogicalPlannerImpl extends LogicalPlanner {
     }
   }
 
-  private def translate(node: ASTNode)(implicit map: Map[String, Any]): LogicalPlanNode = {
+  private def translate(node: ASTNode): LogicalPlanNode = {
     node match {
       case Query(periodicCommitHint: Option[PeriodicCommitHint], part: QueryPart) =>
         LogicalQuery(translateQueryPart(part))
@@ -38,7 +37,7 @@ class LogicalPlannerImpl extends LogicalPlanner {
     }
   }
 
-  override def plan(statement: Statement, map: Map[String, Any]): LogicalPlanNode = translate(statement)(map)
+  override def plan(statement: Statement): LogicalPlanNode = translate(statement)
 }
 
 case class LogicalQuery(part: LogicalQueryPart) extends LogicalPlanNode {
