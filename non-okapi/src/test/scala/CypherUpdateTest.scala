@@ -7,7 +7,6 @@ class CypherUpdateTest extends CypherQueryTest {
     val size1 = all_nodes.size
     val size2 = all_rels.size
     val rs = runOnDemoGraph("CREATE (n {name: 'bluejoe', age: 40})")
-    rs.show
     Assert.assertEquals(size1 + 1, all_nodes.size)
     Assert.assertEquals(size2, all_rels.size)
   }
@@ -17,7 +16,6 @@ class CypherUpdateTest extends CypherQueryTest {
     val size1 = all_nodes.size
     val size2 = all_rels.size
     val rs = runOnDemoGraph("CREATE (n {name: 'bluejoe', age: 40}) return n")
-    rs.show
     Assert.assertEquals(size1 + 1, all_nodes.size)
     Assert.assertEquals(size2, all_rels.size)
   }
@@ -27,7 +25,6 @@ class CypherUpdateTest extends CypherQueryTest {
     val size1 = all_nodes.size
     val size2 = all_rels.size
     val rs = runOnDemoGraph("CREATE (n:person {name: 'bluejoe', age: 40}),(m:person {name: 'alex', age: 30}),(n)-[:knows]->(m)")
-    rs.show
     Assert.assertEquals(size1 + 2, all_nodes.size)
     Assert.assertEquals(size2 + 1, all_rels.size)
 

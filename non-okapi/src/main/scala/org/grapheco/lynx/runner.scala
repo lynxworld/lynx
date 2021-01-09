@@ -35,8 +35,9 @@ class CypherRunner(graphProvider: GraphModel) extends LazyLogging {
       val schema = df.schema
       val columnNames = schema.map(_._1)
 
-      override def show(): Unit =
-        FormatUtils.printTable(columnNames, df.records.map(_.map(_.value)).toSeq)
+      override def show(limit: Int): Unit =
+        FormatUtils.printTable(columnNames,
+          df.records.take(limit).toSeq.map(_.map(_.value)))
 
       override def columns(): Seq[String] = columnNames
 
@@ -54,7 +55,7 @@ class CypherRunner(graphProvider: GraphModel) extends LazyLogging {
 case class PlanExecutionContext(queryParameters: Map[String, Any])
 
 trait CypherResult {
-  def show(): Unit
+  def show(limit: Int = 20): Unit
 
   def columns(): Seq[String]
 

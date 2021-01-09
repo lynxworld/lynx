@@ -17,8 +17,8 @@ object FormatUtils {
   }
 
   def printTable(columns: Seq[String], data: Seq[Seq[Any]], nullString: String = "(null)") = {
-    val formatedColumns: Seq[String] = columns.map(format(_, nullString));
-    val formatedData: Seq[Seq[String]] = data.map(_.map(format(_, nullString)));
+    val formatedColumns: Seq[String] = columns.map(format(_, nullString))
+    val formatedData: Seq[Seq[String]] = data.map(_.map(format(_, nullString)))
 
     val sb = new StringBuilder
     val numCols = formatedColumns.length
@@ -45,14 +45,14 @@ object FormatUtils {
     sb.append(sep)
 
     // data
-    formatedData.map {
+    formatedData.foreach {
       _.zipWithIndex.map {
         case (cell, i) ⇒
           StringUtils.rightPad(cell, colWidths(i))
       }.addString(sb, "|", "|", "|\n")
     }
 
-    sb.append(sep);
-    println(sb);
+    sb.append(sep)
+    println(sb)
   }
 }
