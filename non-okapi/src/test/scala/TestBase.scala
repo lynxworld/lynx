@@ -12,13 +12,17 @@ class TestBase {
   val node2 = TestNode(2, Set("person"), "name" -> CypherValue("alex"), "age" -> CypherValue(30))
   val node3 = TestNode(3, Set(), "name" -> CypherValue("simba"), "age" -> CypherValue(10))
   val all_nodes = ArrayBuffer[TestNode](node1, node2, node3)
-  val all_rels = ArrayBuffer[TestRelationship](TestRelationship(1, 1, 2, "knows"), TestRelationship(2, 2, 3, "knows"))
+  val all_rels = ArrayBuffer[TestRelationship](
+    TestRelationship(1, 1, 2, "knows"),
+    TestRelationship(2, 2, 3, "knows"),
+    TestRelationship(3, 1, 3, "like")
+  )
 
   private def nodeAt(id: Long): TestNode = {
     all_nodes.find(_.id0 == id).get
   }
 
-  val session = new CypherRunner(new GraphModel {
+  val runner = new CypherRunner(new GraphModel {
     override def createElements(nodes: Array[IRNode], rels: Array[IRRelation]): Unit = ???
 
     override def nodes(labels: Seq[String]): Iterator[CypherNode] = labels match {
@@ -57,9 +61,9 @@ class TestBase {
 
   def runOnDemoGraph(query: String, param: Map[String, Any] = Map.empty[String, Any]): CypherResult = {
     println(s"query: $query")
-    session.compile(query)
+    runner.compile(query)
     Profiler.timing {
-      val rs = session.cypher(query, param)
+      val rs = runner.cypher(query, param)
       rs.show()
       rs
     }
