@@ -4,14 +4,14 @@ import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.FormatUtils
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.SemanticState
-import org.opencypher.v9_0.expressions.{LabelName, SemanticDirection}
+import org.opencypher.v9_0.expressions.{LabelName}
 
-case class CypherRunnerContext(dataFrameOperator: DataFrameOperator, expressionEvaluator: ExpressionEvaluator, graphProvider: GraphModel)
+case class CypherRunnerContext(dataFrameOperator: DataFrameOperator, expressionEvaluator: ExpressionEvaluator, graphModel: GraphModel)
 
-class CypherRunner(graphProvider: GraphModel) extends LazyLogging {
-  protected val dataFrameOperator: DataFrameOperator = new DataFrameOperatorImpl()
+class CypherRunner(graphModel: GraphModel) extends LazyLogging {
   protected val expressionEvaluator: ExpressionEvaluator = new ExpressionEvaluatorImpl()
-  private implicit lazy val runnerContext = CypherRunnerContext(dataFrameOperator, expressionEvaluator, graphProvider)
+  protected val dataFrameOperator: DataFrameOperator = new DataFrameOperatorImpl(expressionEvaluator)
+  private implicit lazy val runnerContext = CypherRunnerContext(dataFrameOperator, expressionEvaluator, graphModel)
   protected val logicalPlanner: LogicalPlanner = new LogicalPlannerImpl()(runnerContext)
   protected val physicalPlanner: PhysicalPlanner = new PhysicalPlannerImpl()(runnerContext)
   protected val queryParser: QueryParser = new CachedQueryParser(new QueryParserImpl())
@@ -52,7 +52,9 @@ class CypherRunner(graphProvider: GraphModel) extends LazyLogging {
   }
 }
 
-case class PlanExecutionContext(queryParameters: Map[String, Any])
+case class PlanExecutionContext(queryParameters: Map[String, Any]) {
+  val expressionContext = ExpressionContext(queryParameters.map(x => x._1 -> CypherValue(x._2)))
+}
 
 trait CypherResult {
   def show(limit: Int = 20): Unit
@@ -71,13 +73,34 @@ trait PlanAware {
 }
 
 trait GraphModel {
-  def rels(types: Seq[String], labels1: Seq[LabelName], labels2: Seq[LabelName],
-           includeStartNodes: Boolean,
+  def rels(includeStartNodes: Boolean,
            includeEndNodes: Boolean): Iterator[(CypherRelationship, Option[CypherNode], Option[CypherNode])]
 
-  def createElements(nodes: Array[IRNode], rels: Array[IRRelation]): Unit
+  def rels(types: Seq[String], labels1: Seq[LabelName], labels2: Seq[LabelName],
+           includeStartNodes: Boolean,
+           includeEndNodes: Boolean): Iterator[(CypherRelationship, Option[CypherNode], Option[CypherNode])] = rels(includeStartNodes, includeEndNodes).filter(item => {
+    val (rel, _, _) = item
+    rel.relationType.isDefined &&
+      types.contains(rel.relationType.get) &&
+      (labels1.isEmpty || labels1.find(!nodeAt(rel.startNodeId).get.labels.contains(_)).isEmpty) &&
+      (labels2.isEmpty || labels2.find(!nodeAt(rel.endNodeId).get.labels.contains(_)).isEmpty)
+  }
+  )
 
-  def nodes(labels: Seq[String]): Iterator[CypherNode]
+  def createElements(nodes: Array[Node2Create], rels: Array[Relationship2Create]): Unit
+
+  def nodes(): Iterator[CypherNode]
+
+  def nodeAt(id: CypherId): Option[CypherNode]
+
+  def nodes(labels: Seq[String], exact: Boolean): Iterator[CypherNode] = nodes().filter(node =>
+    if (exact) {
+      node.labels.diff(labels).isEmpty
+    }
+    else {
+      labels.find(!node.labels.contains(_)).isEmpty
+    }
+  )
 }
 
 class LynxException(msg: String = null, cause: Throwable = null) extends RuntimeException(msg, cause)

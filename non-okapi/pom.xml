@@ -12,6 +12,11 @@
     <artifactId>non-okapi</artifactId>
     <dependencies>
         <dependency>
+            <groupId>org.opencypher</groupId>
+            <artifactId>okapi-ir</artifactId>
+            <version>0.4.2</version>
+        </dependency>
+        <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
             <version>3.7</version>
