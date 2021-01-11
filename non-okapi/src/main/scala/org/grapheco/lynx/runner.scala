@@ -4,26 +4,25 @@ import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.FormatUtils
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.SemanticState
-import org.opencypher.v9_0.expressions.{LabelName}
 
-case class CypherRunnerContext(dataFrameOperator: DataFrameOperator, expressionEvaluator: ExpressionEvaluator, graphModel: GraphModel)
+case class LynxRunnerContext(dataFrameOperator: DataFrameOperator, expressionEvaluator: ExpressionEvaluator, graphModel: GraphModel)
 
-class CypherRunner(graphModel: GraphModel) extends LazyLogging {
+class LynxRunner(graphModel: GraphModel) extends LazyLogging {
   protected val expressionEvaluator: ExpressionEvaluator = new ExpressionEvaluatorImpl()
   protected val dataFrameOperator: DataFrameOperator = new DataFrameOperatorImpl(expressionEvaluator)
-  private implicit lazy val runnerContext = CypherRunnerContext(dataFrameOperator, expressionEvaluator, graphModel)
+  private implicit lazy val runnerContext = LynxRunnerContext(dataFrameOperator, expressionEvaluator, graphModel)
   protected val logicalPlanner: LogicalPlanner = new LogicalPlannerImpl()(runnerContext)
   protected val physicalPlanner: PhysicalPlanner = new PhysicalPlannerImpl()(runnerContext)
   protected val queryParser: QueryParser = new CachedQueryParser(new QueryParserImpl())
 
   def compile(query: String): (Statement, Map[String, Any], SemanticState) = queryParser.parse(query)
 
-  def cypher(query: String, param: Map[String, Any]): CypherResult = {
+  def run(query: String, param: Map[String, Any]): LynxResult = {
     val (statement, param2, state) = queryParser.parse(query)
     logger.debug(s"AST tree: ${statement}")
 
     val logicalPlan = logicalPlanner.plan(statement)
-    logger.debug(s"logical plan: ${logicalPlanner}")
+    logger.debug(s"logical plan: ${logicalPlan}")
 
     val physicalPlan = physicalPlanner.plan(logicalPlan)
     logger.debug(s"physical plan: ${physicalPlan}")
@@ -31,7 +30,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
     val ctx = PlanExecutionContext(param ++ param2)
     val df = physicalPlan.execute(ctx)
 
-    new CypherResult() with PlanAware {
+    new LynxResult() with PlanAware {
       val schema = df.schema
       val columnNames = schema.map(_._1)
 
@@ -53,10 +52,10 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 }
 
 case class PlanExecutionContext(queryParameters: Map[String, Any]) {
-  val expressionContext = ExpressionContext(queryParameters.map(x => x._1 -> CypherValue(x._2)))
+  val expressionContext = ExpressionContext(queryParameters.map(x => x._1 -> LynxValue(x._2)))
 }
 
-trait CypherResult {
+trait LynxResult {
   def show(limit: Int = 20): Unit
 
   def columns(): Seq[String]
@@ -74,14 +73,14 @@ trait PlanAware {
 
 trait GraphModel {
   def rels(includeStartNodes: Boolean,
-           includeEndNodes: Boolean): Iterator[(CypherRelationship, Option[CypherNode], Option[CypherNode])]
+           includeEndNodes: Boolean): Iterator[(LynxRelationship, Option[LynxNode], Option[LynxNode])]
 
-  def rels(types: Seq[String], labels1: Seq[LabelName], labels2: Seq[LabelName],
+  def rels(types: Seq[String], labels1: Seq[String], labels2: Seq[String],
            includeStartNodes: Boolean,
-           includeEndNodes: Boolean): Iterator[(CypherRelationship, Option[CypherNode], Option[CypherNode])] = rels(includeStartNodes, includeEndNodes).filter(item => {
+           includeEndNodes: Boolean): Iterator[(LynxRelationship, Option[LynxNode], Option[LynxNode])] = rels(includeStartNodes, includeEndNodes).filter(item => {
     val (rel, _, _) = item
-    rel.relationType.isDefined &&
-      types.contains(rel.relationType.get) &&
+    (types.isEmpty ||
+      (rel.relationType.isDefined && types.contains(rel.relationType.get))) &&
       (labels1.isEmpty || labels1.find(!nodeAt(rel.startNodeId).get.labels.contains(_)).isEmpty) &&
       (labels2.isEmpty || labels2.find(!nodeAt(rel.endNodeId).get.labels.contains(_)).isEmpty)
   }
@@ -89,11 +88,11 @@ trait GraphModel {
 
   def createElements(nodes: Array[Node2Create], rels: Array[Relationship2Create]): Unit
 
-  def nodes(): Iterator[CypherNode]
+  def nodes(): Iterator[LynxNode]
 
-  def nodeAt(id: CypherId): Option[CypherNode]
+  def nodeAt(id: LynxId): Option[LynxNode]
 
-  def nodes(labels: Seq[String], exact: Boolean): Iterator[CypherNode] = nodes().filter(node =>
+  def nodes(labels: Seq[String], exact: Boolean): Iterator[LynxNode] = nodes().filter(node =>
     if (exact) {
       node.labels.diff(labels).isEmpty
     }
