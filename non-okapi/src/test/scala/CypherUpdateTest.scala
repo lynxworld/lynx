@@ -36,7 +36,7 @@ class CypherUpdateTest extends CypherQueryTest {
     Assert.assertEquals(CypherInteger(30), all_nodes(size1 + 1).properties("age"))
     Assert.assertEquals(Set("person"), all_nodes(size1 + 1).labels)
 
-    Assert.assertEquals("knows", all_rels(size2).relType)
+    Assert.assertEquals("knows", all_rels(size2).relationType.get)
     Assert.assertEquals(all_nodes(size1 + 1).id, all_rels(size2).startId)
   }
 }

@@ -1,5 +1,6 @@
 package org.grapheco.lynx
 
+import org.opencypher.okapi.ir.impl.parse.rewriter.OkapiLateRewriting
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.{SemanticErrorDef, SemanticFeature, SemanticState}
 import org.opencypher.v9_0.frontend.phases.{AstRewriting, BaseContains, BaseContext, BaseState, CompilationPhaseTracer, InitialState, InternalNotificationLogger, Monitors, Parsing, SemanticAnalysis, SyntaxDeprecationWarnings, Transformer, devNullLogger, _}
@@ -54,7 +55,7 @@ class QueryParserImpl extends QueryParser {
   protected val transformers: Transformer[BaseContext, BaseState, BaseState] =
     Parsing.adds(BaseContains[Statement]) andThen
       SyntaxDeprecationWarnings(V2) andThen
-      LynxPreparatoryRewriting andThen
+      OkapiPreparatoryRewriting andThen
       SemanticAnalysis(warn = true, SemanticFeature.Cypher10Support, SemanticFeature.MultipleGraphs, SemanticFeature.WithInitialQuerySignature)
         .adds(BaseContains[SemanticState]) andThen
       AstRewriting(RewriterStepSequencer.newPlain, Forced, getDegreeRewriting = false) andThen
@@ -62,7 +63,8 @@ class QueryParserImpl extends QueryParser {
       SemanticAnalysis(warn = false, SemanticFeature.Cypher10Support, SemanticFeature.MultipleGraphs, SemanticFeature.WithInitialQuerySignature) andThen
       Namespacer andThen
       CNFNormalizer andThen
-      LateAstRewriting
+      LateAstRewriting andThen
+      OkapiLateRewriting
 
   override def parse(query: String): (Statement, Map[String, Any], SemanticState) = {
     val startState = InitialState(query, None, null)
