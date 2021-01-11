@@ -1,4 +1,4 @@
-import org.grapheco.lynx.{CypherInteger, CypherString}
+import org.grapheco.lynx.{LynxInteger, LynxString}
 import org.junit.{Assert, Test}
 
 class CypherUpdateTest extends CypherQueryTest {
@@ -28,12 +28,12 @@ class CypherUpdateTest extends CypherQueryTest {
     Assert.assertEquals(size1 + 2, all_nodes.size)
     Assert.assertEquals(size2 + 1, all_rels.size)
 
-    Assert.assertEquals(CypherString("bluejoe"), all_nodes(size1).properties("name"))
-    Assert.assertEquals(CypherInteger(40), all_nodes(size1).properties("age"))
+    Assert.assertEquals(LynxString("bluejoe"), all_nodes(size1).properties("name"))
+    Assert.assertEquals(LynxInteger(40), all_nodes(size1).properties("age"))
     Assert.assertEquals(Set("person"), all_nodes(size1).labels)
 
-    Assert.assertEquals(CypherString("alex"), all_nodes(size1 + 1).properties("name"))
-    Assert.assertEquals(CypherInteger(30), all_nodes(size1 + 1).properties("age"))
+    Assert.assertEquals(LynxString("alex"), all_nodes(size1 + 1).properties("name"))
+    Assert.assertEquals(LynxInteger(30), all_nodes(size1 + 1).properties("age"))
     Assert.assertEquals(Set("person"), all_nodes(size1 + 1).labels)
 
     Assert.assertEquals("knows", all_rels(size2).relationType.get)

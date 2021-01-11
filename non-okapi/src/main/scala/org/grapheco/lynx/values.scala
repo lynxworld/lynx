@@ -2,78 +2,78 @@ package org.grapheco.lynx
 
 import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTInteger, CTNode, CTRelationship, CTString, CypherType}
 
-trait CypherValue {
+trait LynxValue {
   def value: Any
 
   def cypherType: CypherType
 }
 
-case class CypherInteger(v: Int) extends CypherValue {
+case class LynxInteger(v: Int) extends LynxValue {
   def value = v
 
   def cypherType = CTInteger
 }
 
-case class CypherString(v: String) extends CypherValue {
+case class LynxString(v: String) extends LynxValue {
   def value = v
 
   def cypherType = CTString
 }
 
-case class CypherBoolean(v: Boolean) extends CypherValue {
+case class LynxBoolean(v: Boolean) extends LynxValue {
   def value = v
 
   def cypherType = CTBoolean
 }
 
-object CypherNull extends CypherValue {
+object LynxNull extends LynxValue {
   override def value: Any = null
 
   override def cypherType: CypherType = CTAny
 }
 
-object CypherValue {
-  def apply(unknown: Any): CypherValue = {
+object LynxValue {
+  def apply(unknown: Any): LynxValue = {
     unknown match {
-      case null => CypherNull
-      case v: Boolean => CypherBoolean(v)
-      case v: Int => CypherInteger(v)
-      case v: Long => CypherInteger(v.toInt)
-      case v: String => CypherString(v)
-      case v: CypherValue => v
-      case _ => throw new UnrecognizedCypherValueException(unknown)
+      case null => LynxNull
+      case v: Boolean => LynxBoolean(v)
+      case v: Int => LynxInteger(v)
+      case v: Long => LynxInteger(v.toInt)
+      case v: String => LynxString(v)
+      case v: LynxValue => v
+      case _ => throw new InvalidValueException(unknown)
     }
   }
 }
 
-trait CypherId {
+trait LynxId {
   val value: Any
 }
 
-trait CypherNode extends CypherValue {
-  val id: CypherId
+trait LynxNode extends LynxValue {
+  val id: LynxId
 
   def value = this
 
   def labels: Seq[String]
 
-  def property(name: String): Option[CypherValue]
+  def property(name: String): Option[LynxValue]
 
   def cypherType = CTNode
 }
 
-trait CypherRelationship extends CypherValue {
-  val id: CypherId
-  val startNodeId: CypherId
-  val endNodeId: CypherId
+trait LynxRelationship extends LynxValue {
+  val id: LynxId
+  val startNodeId: LynxId
+  val endNodeId: LynxId
 
   def value = this
 
   def relationType: Option[String]
 
-  def property(name: String): Option[CypherValue]
+  def property(name: String): Option[LynxValue]
 
   def cypherType = CTRelationship
 }
 
-class UnrecognizedCypherValueException(unknown: Any) extends LynxException
+class InvalidValueException(unknown: Any) extends LynxException

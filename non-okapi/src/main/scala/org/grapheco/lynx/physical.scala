@@ -15,7 +15,7 @@ trait PhysicalPlanner {
   def plan(logicalPlan: LogicalPlanNode): PhysicalPlanNode
 }
 
-class PhysicalPlannerImpl()(implicit runnerContext: CypherRunnerContext) extends PhysicalPlanner {
+class PhysicalPlannerImpl()(implicit runnerContext: LynxRunnerContext) extends PhysicalPlanner {
   override def plan(logicalPlan: LogicalPlanNode): PhysicalPlanNode = {
     logicalPlan match {
       case LogicalCreate(c: Create, in: Option[LogicalQuerySource]) => PhysicalCreate(c, in.map(plan(_)))
@@ -28,11 +28,11 @@ class PhysicalPlannerImpl()(implicit runnerContext: CypherRunnerContext) extends
 }
 
 trait AbstractPhysicalPlanNode extends PhysicalPlanNode {
-  val runnerContext: CypherRunnerContext
+  val runnerContext: LynxRunnerContext
   implicit val dataFrameOperator = runnerContext.dataFrameOperator
   implicit val expressionEvaluator = runnerContext.expressionEvaluator
 
-  def eval(expr: Expression)(implicit ec: ExpressionContext): CypherValue = expressionEvaluator.eval(expr)
+  def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue = expressionEvaluator.eval(expr)
 
   def createUnitDataFrame(items: Seq[ReturnItem], ctx: PlanExecutionContext): DataFrame = {
     implicit val ec = ctx.expressionContext
@@ -40,12 +40,12 @@ trait AbstractPhysicalPlanNode extends PhysicalPlanNode {
   }
 }
 
-case class PhysicalSingleQuery(in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
+case class PhysicalSingleQuery(in: Option[PhysicalPlanNode])(implicit val runnerContext: LynxRunnerContext) extends AbstractPhysicalPlanNode {
   override def execute(ctx: PlanExecutionContext): DataFrame =
     in.map(_.execute(ctx)).getOrElse(DataFrame.empty)
 }
 
-case class PhysicalCreate(c: Create, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
+case class PhysicalCreate(c: Create, in: Option[PhysicalPlanNode])(implicit val runnerContext: LynxRunnerContext) extends AbstractPhysicalPlanNode {
   override def execute(ctx: PlanExecutionContext): DataFrame = {
     //create
     val nodes = ArrayBuffer[(Option[LogicalVariable], Node2Create)]()
@@ -74,7 +74,7 @@ case class PhysicalCreate(c: Create, in: Option[PhysicalPlanNode])(implicit val 
             items.map({
               case (k, v) => k.name -> eval(v)
             })
-        }.getOrElse(Seq.empty[(String, CypherValue)]),
+        }.getOrElse(Seq.empty[(String, LynxValue)]),
           nodeRef(element),
           nodeRef(rightNode)
         )
@@ -87,27 +87,32 @@ case class PhysicalCreate(c: Create, in: Option[PhysicalPlanNode])(implicit val 
   }
 }
 
-case class Node2Create(labels: Seq[String], props: Seq[(String, CypherValue)]) {
+case class Node2Create(labels: Seq[String], props: Seq[(String, LynxValue)]) {
 
 }
 
-case class Relationship2Create(types: Seq[String], props: Seq[(String, CypherValue)], startNodeRef: NodeRef2Create, endNodeRef: NodeRef2Create) {
+case class Relationship2Create(types: Seq[String], props: Seq[(String, LynxValue)], startNodeRef: NodeRef2Create, endNodeRef: NodeRef2Create) {
 
 }
 
 sealed trait NodeRef2Create
 
-case class StoredNodeRef2Create(id: CypherId) extends NodeRef2Create
+case class StoredNodeRef2Create(id: LynxId) extends NodeRef2Create
 
 case class ContextualNodeRef2Create(node: Node2Create) extends NodeRef2Create
 
-case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
+case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val runnerContext: LynxRunnerContext) extends AbstractPhysicalPlanNode {
   override def execute(ctx: PlanExecutionContext): DataFrame = {
     //run match
     val Match(optional, Pattern(patternParts: Seq[PatternPart]), hints, where: Option[Where]) = m
-    patternParts match {
+    val df = patternParts match {
       case Seq(EveryPath(element: PatternElement)) =>
         patternMatch(element)(ctx)
+    }
+
+    where match {
+      case Some(Where(condition)) => df.filter(condition)(ctx.expressionContext)
+      case None => df
     }
   }
 
@@ -133,8 +138,8 @@ case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val ru
       rightNode@NodePattern(var2, labels2: Seq[LabelName], properties2: Option[Expression], baseNode2: Option[LogicalVariable])
       ) =>
         DataFrame((variable.map(_.name -> CTRelationship) ++ ((var1 ++ var2).map(_.name -> CTNode))).toSeq, () => {
-          val rels: Iterator[(CypherRelationship, Option[CypherNode], Option[CypherNode])] =
-            runnerContext.graphModel.rels(types.map(_.name), labels1, labels2, var1.isDefined, var2.isDefined)
+          val rels: Iterator[(LynxRelationship, Option[LynxNode], Option[LynxNode])] =
+            runnerContext.graphModel.rels(types.map(_.name), labels1.map(_.name), labels2.map(_.name), var1.isDefined, var2.isDefined)
           rels.flatMap {
             rel => {
               val (v0, v1, v2) = rel
@@ -156,7 +161,7 @@ case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val ru
   }
 }
 
-case class PhysicalWith(w: With, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
+case class PhysicalWith(w: With, in: Option[PhysicalPlanNode])(implicit val runnerContext: LynxRunnerContext) extends AbstractPhysicalPlanNode {
   override def execute(ctx: PlanExecutionContext): DataFrame = {
     (w, in) match {
       case (With(distinct, ReturnItems(includeExisting, items), orderBy, skip, limit: Option[Limit], where), None) =>
@@ -166,17 +171,15 @@ case class PhysicalWith(w: With, in: Option[PhysicalPlanNode])(implicit val runn
         val df0 = sin.execute(ctx)
         val df1 = df0.project(items.map(x => x.name -> x.expression))(ctx.expressionContext)
         val df2 = df1.select(items.map(item => item.name -> item.alias.map(_.name)))
-        if (distinct) {
-          df2.distinct
-        }
-        else {
-          df2
+        distinct match {
+          case true => df2.distinct
+          case false => df2
         }
     }
   }
 }
 
-case class PhysicalReturn(r: Return, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
+case class PhysicalReturn(r: Return, in: Option[PhysicalPlanNode])(implicit val runnerContext: LynxRunnerContext) extends AbstractPhysicalPlanNode {
   override def execute(ctx: PlanExecutionContext): DataFrame = {
     (r, in) match {
       case (Return(distinct, ReturnItems(includeExisting, items), orderBy, skip, limit, excludedNames), Some(sin)) =>

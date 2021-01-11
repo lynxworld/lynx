@@ -10,7 +10,7 @@ trait LogicalPlanner {
   def plan(statement: Statement): LogicalPlanNode
 }
 
-class LogicalPlannerImpl()(implicit runnerContext: CypherRunnerContext) extends LogicalPlanner {
+class LogicalPlannerImpl()(implicit runnerContext: LynxRunnerContext) extends LogicalPlanner {
   private def translateQueryPart(part: QueryPart): LogicalQueryPart = {
     part match {
       case SingleQuery(clauses: Seq[Clause]) =>

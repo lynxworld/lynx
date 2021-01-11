@@ -7,7 +7,7 @@ import org.opencypher.v9_0.util.symbols.{CTBoolean, CTFloat, CTInteger, CTString
 trait DataFrame {
   def schema: Seq[(String, CypherType)]
 
-  def records: Iterator[Seq[CypherValue]]
+  def records: Iterator[Seq[LynxValue]]
 }
 
 object DataFrame {
@@ -27,7 +27,7 @@ object DataFrame {
       case p@Property(_, _) => CTInteger
     }
 
-  def apply(schema0: Seq[(String, CypherType)], records0: () => Iterator[Seq[CypherValue]]) =
+  def apply(schema0: Seq[(String, CypherType)], records0: () => Iterator[Seq[LynxValue]]) =
     new DataFrame {
       override def schema = schema0
 
@@ -48,6 +48,8 @@ object DataFrame {
 
 trait DataFrameOperator {
   def select(df: DataFrame, columns: Seq[(String, Option[String])]): DataFrame
+
+  def filter(df: DataFrame, condition: Expression)(ctx: ExpressionContext): DataFrame
 
   def project(df: DataFrame, columns: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame
 
@@ -89,17 +91,32 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
       )
     )
   }
+
+  override def filter(df: DataFrame, condition: Expression)(ctx: ExpressionContext): DataFrame = {
+    val schema1 = df.schema
+
+    DataFrame(schema1,
+      () => df.records.filter(
+        record =>
+          expressionEvaluator.eval(condition)(ctx.withVars(schema1.map(_._1).zip(record).toMap)) match {
+            case LynxBoolean(b) => b
+            case LynxNull => false
+          }
+      ))
+  }
 }
 
 trait DataFrameOps {
   val srcFrame: DataFrame
-  val oprFrame: DataFrameOperator
+  val operator: DataFrameOperator
 
-  def select(columns: Seq[(String, Option[String])]): DataFrame = oprFrame.select(srcFrame, columns)
+  def select(columns: Seq[(String, Option[String])]): DataFrame = operator.select(srcFrame, columns)
 
-  def project(columns: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame = oprFrame.project(srcFrame, columns)(ctx)
+  def project(columns: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame = operator.project(srcFrame, columns)(ctx)
 
-  def distinct(): DataFrame = oprFrame.distinct(srcFrame)
+  def filter(condition: Expression)(ctx: ExpressionContext): DataFrame = operator.filter(srcFrame, condition)(ctx)
+
+  def distinct(): DataFrame = operator.distinct(srcFrame)
 }
 
 object DataFrameOps {
@@ -107,6 +124,6 @@ object DataFrameOps {
 
   def apply(ds: DataFrame)(dfo: DataFrameOperator): DataFrameOps = new DataFrameOps {
     override val srcFrame: DataFrame = ds
-    val oprFrame: DataFrameOperator = dfo
+    val operator: DataFrameOperator = dfo
   }
 }
