@@ -1,9 +1,9 @@
-package cn.pandadb.lynx.util
+package org.grapheco.lynx.util
 
 import java.text.SimpleDateFormat
 import java.util.Date
 
-import org.apache.commons.lang.StringUtils
+import org.apache.commons.lang3.StringUtils
 
 object FormatUtils {
   def format(x: Any, nullString: String = "(null)"): String = {
@@ -17,8 +17,8 @@ object FormatUtils {
   }
 
   def printTable(columns: Seq[String], data: Seq[Seq[Any]], nullString: String = "(null)") = {
-    val formatedColumns: Seq[String] = columns.map(format(_, nullString));
-    val formatedData: Seq[Seq[String]] = data.map(_.map(format(_, nullString)));
+    val formatedColumns: Seq[String] = columns.map(format(_, nullString))
+    val formatedData: Seq[Seq[String]] = data.map(_.map(format(_, nullString)))
 
     val sb = new StringBuilder
     val numCols = formatedColumns.length
@@ -45,7 +45,7 @@ object FormatUtils {
     sb.append(sep)
 
     // data
-    formatedData.map {
+    formatedData.foreach {
       _.zipWithIndex.map {
         case (cell, i) ⇒
           StringUtils.rightPad(cell, colWidths(i))
