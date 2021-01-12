@@ -48,28 +48,36 @@ case class PhysicalSingleQuery(in: Option[PhysicalPlanNode])(implicit val runner
 case class PhysicalCreate(c: Create, in: Option[PhysicalPlanNode])(implicit val runnerContext: LynxRunnerContext) extends AbstractPhysicalPlanNode {
   override def execute(ctx: PlanExecutionContext): DataFrame = {
     //create
-    val nodes = ArrayBuffer[(Option[LogicalVariable], Node2Create)]()
-    val rels = ArrayBuffer[Relationship2Create]()
+    val nodes = ArrayBuffer[(Option[LogicalVariable], NodeInput)]()
+    val rels = ArrayBuffer[(Option[LogicalVariable], RelationshipInput)]()
     implicit val ec = ctx.expressionContext
 
     c.pattern.patternParts.foreach {
       case EveryPath(NodePattern(variable: Option[LogicalVariable], labels, properties, _)) =>
-        nodes += variable -> Node2Create(labels.map(_.name), properties.map {
+        nodes += variable -> NodeInput(labels.map(_.name), properties.map {
           case MapExpression(items) =>
             items.map({
               case (k, v) => k.name -> eval(v)
             })
         }.getOrElse(Seq.empty))
 
-      case EveryPath(RelationshipChain(element, relationship, rightNode)) =>
-        def nodeRef(pe: PatternElement): NodeRef2Create = {
+      case EveryPath(RelationshipChain(element,
+      RelationshipPattern(
+      variable: Option[LogicalVariable],
+      types: Seq[RelTypeName],
+      length: Option[Option[Range]],
+      properties: Option[Expression],
+      direction: SemanticDirection,
+      legacyTypeSeparator: Boolean,
+      baseRel: Option[LogicalVariable]), rightNode)) =>
+        def nodeRef(pe: PatternElement): NodeInputRef = {
           pe match {
             case NodePattern(variable, _, _, _) =>
-              nodes.toMap.get(variable).map(ContextualNodeRef2Create(_)).getOrElse(throw new UnrecognizedVarException(variable))
+              nodes.toMap.get(variable).map(ContextualNodeInputRef(_)).getOrElse(throw new UnrecognizedVarException(variable))
           }
         }
 
-        rels += Relationship2Create(relationship.types.map(_.name), relationship.properties.map {
+        rels += variable -> RelationshipInput(types.map(_.name), properties.map {
           case MapExpression(items) =>
             items.map({
               case (k, v) => k.name -> eval(v)
@@ -82,24 +90,36 @@ case class PhysicalCreate(c: Create, in: Option[PhysicalPlanNode])(implicit val 
       case _ =>
     }
 
-    runnerContext.graphModel.createElements(nodes.map(_._2).toArray, rels.toArray)
-    DataFrame.empty
+    runnerContext.graphModel.createElements(
+      nodes.map(x => x._1.map(_.name) -> x._2).toArray,
+      rels.map(x => x._1.map(_.name) -> x._2).toArray,
+      (nodesCreated: Map[Option[String], LynxNode], relsCreated: Map[Option[String], LynxRelationship]) => {
+
+        val schema = nodesCreated.map(_._1).flatMap(_.toSeq).map(_ -> CTNode) ++
+          relsCreated.map(_._1).flatMap(_.toSeq).map(_ -> CTRelationship)
+
+        DataFrame(schema.toSeq, () => Iterator.single(nodesCreated.filter(_._1.isDefined).map(_._2).toSeq ++
+          relsCreated.filter(_._1.isDefined).map(_._2)))
+      })
   }
 }
 
-case class Node2Create(labels: Seq[String], props: Seq[(String, LynxValue)]) {
+case class NodeInput(labels: Seq[String], props: Seq[(String, LynxValue)]) {
 
 }
 
-case class Relationship2Create(types: Seq[String], props: Seq[(String, LynxValue)], startNodeRef: NodeRef2Create, endNodeRef: NodeRef2Create) {
+case class RelationshipInput(types: Seq[String],
+                             props: Seq[(String, LynxValue)],
+                             startNodeRef: NodeInputRef,
+                             endNodeRef: NodeInputRef) {
 
 }
 
-sealed trait NodeRef2Create
+sealed trait NodeInputRef
 
-case class StoredNodeRef2Create(id: LynxId) extends NodeRef2Create
+case class StoredNodeInputRef(id: LynxId) extends NodeInputRef
 
-case class ContextualNodeRef2Create(node: Node2Create) extends NodeRef2Create
+case class ContextualNodeInputRef(node: NodeInput) extends NodeInputRef
 
 case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val runnerContext: LynxRunnerContext) extends AbstractPhysicalPlanNode {
   override def execute(ctx: PlanExecutionContext): DataFrame = {
@@ -170,10 +190,17 @@ case class PhysicalWith(w: With, in: Option[PhysicalPlanNode])(implicit val runn
         //match (n) return n
         val df0 = sin.execute(ctx)
         val df1 = df0.project(items.map(x => x.name -> x.expression))(ctx.expressionContext)
-        val df2 = df1.select(items.map(item => item.name -> item.alias.map(_.name)))
+
+        val df2 = where match {
+          case Some(Where(condition)) => df1.filter(condition)(ctx.expressionContext)
+          case None => df1
+        }
+
+        val df3 = df2.select(items.map(item => item.name -> item.alias.map(_.name)))
+
         distinct match {
-          case true => df2.distinct
-          case false => df2
+          case true => df3.distinct
+          case false => df3
         }
     }
   }

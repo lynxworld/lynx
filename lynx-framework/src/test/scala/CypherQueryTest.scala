@@ -24,6 +24,15 @@ class CypherQueryTest extends TestBase {
   }
 
   @Test
+  def testQueryUnitWithParams(): Unit = {
+    var rs: LynxResult = null
+    rs = runOnDemoGraph("return $N", Map("N" -> 1))
+    Assert.assertEquals(Seq("$N"), rs.columns)
+    Assert.assertEquals(1, rs.records().size)
+    Assert.assertEquals(LynxValue(1), rs.records().toSeq.apply(0)("$N"))
+  }
+
+  @Test
   def testQueryUnitAsN(): Unit = {
     val rs = runOnDemoGraph("return 1 as N")
     Assert.assertEquals(Map("N" -> LynxValue(1)), rs.records.toSeq.apply(0))
@@ -43,6 +52,33 @@ class CypherQueryTest extends TestBase {
     Assert.assertEquals(3, rs.records.size)
     Assert.assertEquals(Seq(1.toLong, 2.toLong, 3.toLong), rs.records.toSeq.map(_.apply("n").asInstanceOf[LynxNode].id.value).toSeq)
 
+  }
+
+  @Test
+  def testMatchWithReturn(): Unit = {
+    val rs = runOnDemoGraph("match (n) with n.name as x, n.age as y return x,y")
+    Assert.assertEquals(3, rs.records.size)
+    Assert.assertEquals(LynxValue("bluejoe"), rs.records.toSeq.apply(0).apply("x"))
+    Assert.assertEquals(LynxValue(40), rs.records.toSeq.apply(0).apply("y"))
+    Assert.assertEquals(LynxValue("alex"), rs.records.toSeq.apply(1).apply("x"))
+    Assert.assertEquals(LynxValue(30), rs.records.toSeq.apply(1).apply("y"))
+    Assert.assertEquals(LynxValue("simba"), rs.records.toSeq.apply(2).apply("x"))
+    Assert.assertEquals(LynxValue(10), rs.records.toSeq.apply(2).apply("y"))
+  }
+
+  @Test
+  def testMatchWhereWithReturn(): Unit = {
+    var rs = runOnDemoGraph("match (n) where n.age>10 with n.name as x, n.age as y return x,y")
+    Assert.assertEquals(2, rs.records.size)
+    Assert.assertEquals(LynxValue("bluejoe"), rs.records.toSeq.apply(0).apply("x"))
+    Assert.assertEquals(LynxValue(40), rs.records.toSeq.apply(0).apply("y"))
+    Assert.assertEquals(LynxValue("alex"), rs.records.toSeq.apply(1).apply("x"))
+    Assert.assertEquals(LynxValue(30), rs.records.toSeq.apply(1).apply("y"))
+
+    rs = runOnDemoGraph("match (n) where n.age>10 with n.name as x, n.age as y where y<40 return x,y")
+    Assert.assertEquals(1, rs.records.size)
+    Assert.assertEquals(LynxValue("alex"), rs.records.toSeq.apply(0).apply("x"))
+    Assert.assertEquals(LynxValue(30), rs.records.toSeq.apply(0).apply("y"))
   }
 
   @Test
@@ -76,6 +112,24 @@ class CypherQueryTest extends TestBase {
     Assert.assertEquals(3, rs.records.size)
 
     rs = runOnDemoGraph("match ()<-[r]-() return r")
+    Assert.assertEquals(3, rs.records.size)
+  }
+
+  @Test
+  def testQueryAnonymous2ndPaths(): Unit = {
+    var rs = runOnDemoGraph("match ()-[r]-()-[s]-() return r,s")
+    Assert.assertEquals(6, rs.records.size)
+
+    rs = runOnDemoGraph("match ()-[r]->()-[s]-() return r,s")
+    Assert.assertEquals(3, rs.records.size)
+
+    rs = runOnDemoGraph("match (m)-[r]->(n)-[s]->(x) return r,s")
+    Assert.assertEquals(3, rs.records.size)
+  }
+
+  @Test
+  def testQueryAnonymousMultiplePaths(): Unit = {
+    var rs = runOnDemoGraph("match (m)-[r]->(n),(n)-[s]->(x) return r,s")
     Assert.assertEquals(3, rs.records.size)
   }
 
@@ -127,7 +181,11 @@ class CypherQueryTest extends TestBase {
 
   @Test
   def testQueryNodesWithFilter(): Unit = {
-    val rs = runOnDemoGraph("match (n) where n.name='bluejoe' return n")
+    var rs = runOnDemoGraph("match (n) where n.name='bluejoe' return n")
+    Assert.assertEquals(1, rs.records.size)
+    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
+
+    rs = runOnDemoGraph("match (n) where n.name=$name return n", Map("name" -> "bluejoe"))
     Assert.assertEquals(1, rs.records.size)
     Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
   }

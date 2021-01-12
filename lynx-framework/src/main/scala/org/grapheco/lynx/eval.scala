@@ -1,6 +1,6 @@
 package org.grapheco.lynx
 
-import org.opencypher.v9_0.expressions.{Equals, Expression, Literal, Parameter, Property, PropertyKeyName, Variable}
+import org.opencypher.v9_0.expressions._
 
 trait ExpressionEvaluator {
   def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue
@@ -19,15 +19,39 @@ class ExpressionEvaluatorImpl extends ExpressionEvaluator {
     expr match {
       case Equals(lhs, rhs) =>
         LynxValue(eval(lhs) == eval(rhs))
+
+      case GreaterThan(lhs, rhs) =>
+        (eval(lhs), eval(rhs)) match {
+          case (LynxNull, _) => LynxNull
+          case (_, LynxNull) => LynxNull
+          case (a: LynxNumber, b: LynxNumber) => LynxBoolean(a.number.doubleValue() > b.number.doubleValue())
+        }
+
+      case GreaterThanOrEqual(lhs, rhs) =>
+        (eval(lhs), eval(rhs)) match {
+          case (LynxNull, _) => LynxNull
+          case (_, LynxNull) => LynxNull
+          case (a: LynxNumber, b: LynxNumber) => LynxBoolean(a.number.doubleValue() >= b.number.doubleValue())
+        }
+
+      case LessThan(lhs, rhs) =>
+        eval(GreaterThan(rhs, lhs)(expr.position))
+
+      case LessThanOrEqual(lhs, rhs) =>
+        eval(GreaterThanOrEqual(rhs, lhs)(expr.position))
+
       case v: Literal =>
         LynxValue(v.value)
+
       case Variable(name) =>
         ec.vars(name)
+
       case Property(src, PropertyKeyName(name)) =>
         eval(src) match {
           case cn: LynxNode => cn.property(name).get
           case cr: LynxRelationship => cr.property(name).get
         }
+
       case Parameter(name, parameterType) =>
         LynxValue(ec.param(name))
     }

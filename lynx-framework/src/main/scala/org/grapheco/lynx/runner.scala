@@ -7,7 +7,7 @@ import org.opencypher.v9_0.ast.semantics.SemanticState
 
 case class LynxRunnerContext(dataFrameOperator: DataFrameOperator, expressionEvaluator: ExpressionEvaluator, graphModel: GraphModel)
 
-class LynxRunner(graphModel: GraphModel) extends LazyLogging {
+class CypherRunner(graphModel: GraphModel) extends LazyLogging {
   protected val expressionEvaluator: ExpressionEvaluator = new ExpressionEvaluatorImpl()
   protected val dataFrameOperator: DataFrameOperator = new DataFrameOperatorImpl(expressionEvaluator)
   private implicit lazy val runnerContext = LynxRunnerContext(dataFrameOperator, expressionEvaluator, graphModel)
@@ -86,7 +86,9 @@ trait GraphModel {
   }
   )
 
-  def createElements(nodes: Array[Node2Create], rels: Array[Relationship2Create]): Unit
+  def createElements[T](nodes: Array[(Option[String], NodeInput)],
+                     rels: Array[(Option[String], RelationshipInput)],
+                     onCreated: (Map[Option[String], LynxNode], Map[Option[String], LynxRelationship]) => T): T
 
   def nodes(): Iterator[LynxNode]
 
