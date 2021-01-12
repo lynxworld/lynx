@@ -1,6 +1,8 @@
 package org.grapheco.lynx
 
-import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTInteger, CTNode, CTRelationship, CTString, CypherType}
+import java.util.Date
+
+import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTDate, CTDateTime, CTFloat, CTInteger, CTList, CTMap, CTNode, CTRelationship, CTString, CypherType}
 
 trait LynxValue {
   def value: Any
@@ -8,10 +10,24 @@ trait LynxValue {
   def cypherType: CypherType
 }
 
-case class LynxInteger(v: Int) extends LynxValue {
+trait LynxNumber extends LynxValue {
+  def number: Number
+}
+
+case class LynxInteger(v: Int) extends LynxNumber {
   def value = v
 
+  def number: Number = v
+
   def cypherType = CTInteger
+}
+
+case class LynxDouble(v: Double) extends LynxNumber {
+  def value = v
+
+  def number: Number = v
+
+  def cypherType = CTFloat
 }
 
 case class LynxString(v: String) extends LynxValue {
@@ -26,6 +42,34 @@ case class LynxBoolean(v: Boolean) extends LynxValue {
   def cypherType = CTBoolean
 }
 
+trait LynxCompositeValue extends LynxValue
+
+case class LynxList(v: List[LynxValue]) extends LynxCompositeValue {
+  override def value = v
+
+  override def cypherType: CypherType = CTList(CTAny)
+}
+
+case class LynxMap(v: Map[String, LynxValue]) extends LynxCompositeValue {
+  override def value = v
+
+  override def cypherType: CypherType = CTMap
+}
+
+trait LynxTemporalValue extends LynxValue
+
+case class LynxDate(ms: Long) extends LynxTemporalValue {
+  def value = ms
+
+  def cypherType = CTDate
+}
+
+case class LynxDateTime(ms: Long) extends LynxTemporalValue {
+  def value = ms
+
+  def cypherType = CTDateTime
+}
+
 object LynxNull extends LynxValue {
   override def value: Any = null
 
@@ -36,11 +80,15 @@ object LynxValue {
   def apply(unknown: Any): LynxValue = {
     unknown match {
       case null => LynxNull
+      case v: LynxValue => v
+
       case v: Boolean => LynxBoolean(v)
       case v: Int => LynxInteger(v)
       case v: Long => LynxInteger(v.toInt)
       case v: String => LynxString(v)
-      case v: LynxValue => v
+      case v: Date => LynxDate(v.getTime)
+      case v: Iterable[Any] => LynxList(v.map(apply(_)).toList)
+      case v: Map[String, Any] => LynxMap(v.map(x => x._1 -> apply(x._2)))
       case _ => throw new InvalidValueException(unknown)
     }
   }

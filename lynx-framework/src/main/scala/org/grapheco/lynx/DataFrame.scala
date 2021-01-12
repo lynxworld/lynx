@@ -11,7 +11,7 @@ trait DataFrame {
 }
 
 object DataFrame {
-  def empty: DataFrame = null
+  def empty: DataFrame = DataFrame(Seq.empty, () => Iterator.empty)
 
   def typeOf(expr: Expression, varTypes: Map[String, CypherType]): CypherType =
     expr match {
@@ -113,6 +113,9 @@ trait DataFrameOps {
   def select(columns: Seq[(String, Option[String])]): DataFrame = operator.select(srcFrame, columns)
 
   def project(columns: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame = operator.project(srcFrame, columns)(ctx)
+
+  def filter(condition: Option[Expression])(ctx: ExpressionContext): DataFrame =
+    condition.map(operator.filter(srcFrame, _)(ctx)).getOrElse(srcFrame)
 
   def filter(condition: Expression)(ctx: ExpressionContext): DataFrame = operator.filter(srcFrame, condition)(ctx)
 

@@ -11,7 +11,6 @@ import org.opencypher.v9_0.util.{CypherException, InputPosition}
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
-import scala.tools.nsc.profile.Profiler
 
 trait QueryParser {
   def parse(query: String): (Statement, Map[String, Any], SemanticState)
