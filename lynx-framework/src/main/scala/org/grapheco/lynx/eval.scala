@@ -15,24 +15,52 @@ case class ExpressionContext(params: Map[String, LynxValue], vars: Map[String, L
 }
 
 class ExpressionEvaluatorImpl extends ExpressionEvaluator {
+  private def safeBinaryOp(lhs: Expression, rhs: Expression, op: (LynxValue, LynxValue) => LynxValue)(implicit ec: ExpressionContext): LynxValue = {
+    eval(lhs) match {
+      case LynxNull => LynxNull
+      case lvalue =>
+        (lvalue, eval(rhs)) match {
+          case (_, LynxNull) => LynxNull
+          case (lvalue, rvalue) => op(lvalue, rvalue)
+        }
+    }
+  }
+
   override def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue =
     expr match {
+      case Ors(exprs) =>
+        LynxBoolean(exprs.exists(eval(_) == LynxBoolean(true)))
+
+      case Ands(exprs) =>
+        LynxBoolean(exprs.forall(eval(_) == LynxBoolean(true)))
+
+      case Or(lhs, rhs) =>
+        LynxBoolean(Seq(lhs, rhs).exists(eval(_) == LynxBoolean(true)))
+
+      case And(lhs, rhs) =>
+        LynxBoolean(Seq(lhs, rhs).forall(eval(_) == LynxBoolean(true)))
+
+      case NotEquals(lhs, rhs) =>
+        safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
+          LynxValue(lvalue != rvalue))
+
       case Equals(lhs, rhs) =>
-        LynxValue(eval(lhs) == eval(rhs))
+        safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
+          LynxValue(lvalue == rvalue))
 
       case GreaterThan(lhs, rhs) =>
-        (eval(lhs), eval(rhs)) match {
-          case (LynxNull, _) => LynxNull
-          case (_, LynxNull) => LynxNull
-          case (a: LynxNumber, b: LynxNumber) => LynxBoolean(a.number.doubleValue() > b.number.doubleValue())
-        }
+        safeBinaryOp(lhs, rhs, (lvalue, rvalue) => {
+          (lvalue, rvalue) match {
+            case (a: LynxNumber, b: LynxNumber) => LynxBoolean(a.number.doubleValue() > b.number.doubleValue())
+          }
+        })
 
       case GreaterThanOrEqual(lhs, rhs) =>
-        (eval(lhs), eval(rhs)) match {
-          case (LynxNull, _) => LynxNull
-          case (_, LynxNull) => LynxNull
-          case (a: LynxNumber, b: LynxNumber) => LynxBoolean(a.number.doubleValue() >= b.number.doubleValue())
-        }
+        safeBinaryOp(lhs, rhs, (lvalue, rvalue) => {
+          (lvalue, rvalue) match {
+            case (a: LynxNumber, b: LynxNumber) => LynxBoolean(a.number.doubleValue() >= b.number.doubleValue())
+          }
+        })
 
       case LessThan(lhs, rhs) =>
         eval(GreaterThan(rhs, lhs)(expr.position))
@@ -48,6 +76,7 @@ class ExpressionEvaluatorImpl extends ExpressionEvaluator {
 
       case Property(src, PropertyKeyName(name)) =>
         eval(src) match {
+          case LynxNull => LynxNull
           case cn: LynxNode => cn.property(name).get
           case cr: LynxRelationship => cr.property(name).get
         }

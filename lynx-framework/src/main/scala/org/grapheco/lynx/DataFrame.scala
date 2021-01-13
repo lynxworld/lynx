@@ -5,7 +5,7 @@ import org.opencypher.v9_0.expressions.{BooleanLiteral, DoubleLiteral, Expressio
 import org.opencypher.v9_0.util.symbols.{CTBoolean, CTFloat, CTInteger, CTString, CypherType}
 
 trait DataFrame {
-  def schema: Seq[(String, CypherType)]
+  def schema: Seq[(String, LynxType)]
 
   def records: Iterator[Seq[LynxValue]]
 }
@@ -13,7 +13,7 @@ trait DataFrame {
 object DataFrame {
   def empty: DataFrame = DataFrame(Seq.empty, () => Iterator.empty)
 
-  def typeOf(expr: Expression, varTypes: Map[String, CypherType]): CypherType =
+  def typeOf(expr: Expression, varTypes: Map[String, LynxType]): LynxType =
     expr match {
       case Parameter(name, parameterType) => parameterType
 
@@ -27,7 +27,7 @@ object DataFrame {
       case p@Property(_, _) => CTInteger
     }
 
-  def apply(schema0: Seq[(String, CypherType)], records0: () => Iterator[Seq[LynxValue]]) =
+  def apply(schema0: Seq[(String, LynxType)], records0: () => Iterator[Seq[LynxValue]]) =
     new DataFrame {
       override def schema = schema0
 
@@ -52,6 +52,10 @@ trait DataFrameOperator {
   def filter(df: DataFrame, condition: Expression)(ctx: ExpressionContext): DataFrame
 
   def project(df: DataFrame, columns: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame
+
+  def skip(df: DataFrame, num: Int): DataFrame
+
+  def take(df: DataFrame, num: Int): DataFrame
 
   def distinct(df: DataFrame): DataFrame
 }
@@ -104,6 +108,10 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
           }
       ))
   }
+
+  override def skip(df: DataFrame, num: Int): DataFrame = DataFrame(df.schema, () => df.records.drop(num))
+
+  override def take(df: DataFrame, num: Int): DataFrame = DataFrame(df.schema, () => df.records.take(num))
 }
 
 trait DataFrameOps {
@@ -112,12 +120,16 @@ trait DataFrameOps {
 
   def select(columns: Seq[(String, Option[String])]): DataFrame = operator.select(srcFrame, columns)
 
-  def project(columns: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame = operator.project(srcFrame, columns)(ctx)
+  def project(columns: Seq[(String, Expression)])(implicit ctx: ExpressionContext): DataFrame = operator.project(srcFrame, columns)(ctx)
 
-  def filter(condition: Option[Expression])(ctx: ExpressionContext): DataFrame =
+  def filter(condition: Option[Expression])(implicit ctx: ExpressionContext): DataFrame =
     condition.map(operator.filter(srcFrame, _)(ctx)).getOrElse(srcFrame)
 
-  def filter(condition: Expression)(ctx: ExpressionContext): DataFrame = operator.filter(srcFrame, condition)(ctx)
+  def filter(condition: Expression)(implicit ctx: ExpressionContext): DataFrame = operator.filter(srcFrame, condition)(ctx)
+
+  def take(num: Int): DataFrame = operator.take(srcFrame, num)
+
+  def skip(num: Int): DataFrame = operator.skip(srcFrame, num)
 
   def distinct(): DataFrame = operator.distinct(srcFrame)
 }

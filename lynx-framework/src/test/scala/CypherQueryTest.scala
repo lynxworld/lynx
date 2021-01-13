@@ -55,6 +55,21 @@ class CypherQueryTest extends TestBase {
   }
 
   @Test
+  def testQueryWithLimit(): Unit = {
+    var rs = runOnDemoGraph("match (n) return n limit 2")
+    Assert.assertEquals(2, rs.records.size)
+
+    rs = runOnDemoGraph("match (n) return n limit 1")
+    Assert.assertEquals(1, rs.records.size)
+
+    rs = runOnDemoGraph("match (n) return n limit 3")
+    Assert.assertEquals(3, rs.records.size)
+
+    rs = runOnDemoGraph("match (n) return n limit 10")
+    Assert.assertEquals(3, rs.records.size)
+  }
+
+  @Test
   def testMatchWithReturn(): Unit = {
     val rs = runOnDemoGraph("match (n) with n.name as x, n.age as y return x,y")
     Assert.assertEquals(3, rs.records.size)
@@ -207,6 +222,27 @@ class CypherQueryTest extends TestBase {
 
     rs = runOnDemoGraph("match (n:nonexisting) return n")
     Assert.assertEquals(0, rs.records.size)
+  }
+
+  @Test
+  def testQueryNodeWithProperties(): Unit = {
+    var rs = runOnDemoGraph("match (n {name: 'bluejoe'}) return n")
+    Assert.assertEquals(1, rs.records.size)
+    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
+
+    rs = runOnDemoGraph("match (n {name: 'simba'}) return n")
+    Assert.assertEquals(1, rs.records.size)
+    Assert.assertEquals(3.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
+
+    rs = runOnDemoGraph("match (n {name: 'nonexisting'}) return n")
+    Assert.assertEquals(0, rs.records.size)
+
+    rs = runOnDemoGraph("match (n:nonexisting {name: 'bluejoe'}) return n")
+    Assert.assertEquals(0, rs.records.size)
+
+    rs = runOnDemoGraph("match (n:leader {name: 'bluejoe'}) return n")
+    Assert.assertEquals(1, rs.records.size)
+    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
   }
 
   @Test

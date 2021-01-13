@@ -5,6 +5,7 @@ import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOI
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.util.symbols.{CTNode, CTRelationship}
 import org.grapheco.lynx.DataFrameOps._
+
 import scala.collection.mutable.ArrayBuffer
 
 trait PhysicalPlanNode {
@@ -15,20 +16,21 @@ trait PhysicalPlanner {
   def plan(logicalPlan: LogicalPlanNode): PhysicalPlanNode
 }
 
-class PhysicalPlannerImpl()(implicit runnerContext: LynxRunnerContext) extends PhysicalPlanner {
+class PhysicalPlannerImpl()(implicit runnerContext: CypherRunnerContext) extends PhysicalPlanner {
   override def plan(logicalPlan: LogicalPlanNode): PhysicalPlanNode = {
     logicalPlan match {
-      case LogicalCreate(c: Create, in: Option[LogicalQuerySource]) => PhysicalCreate(c, in.map(plan(_)))
-      case LogicalMatch(m: Match, in: Option[LogicalQuerySource]) => PhysicalMatch(m, in.map(plan(_)))
-      case LogicalReturn(r: Return, in: Option[LogicalQuerySource]) => PhysicalReturn(r, in.map(plan(_)))
-      case LogicalWith(w: With, in: Option[LogicalQuerySource]) => PhysicalWith(w, in.map(plan(_)))
+      case LogicalProcedureCall(c: UnresolvedCall) => PhysicalProcedureCall(c)
+      case LogicalCreate(c: Create, in: Option[LogicalQueryClause]) => PhysicalCreate(c, in.map(plan(_)))
+      case LogicalMatch(m: Match, in: Option[LogicalQueryClause]) => PhysicalMatch(m, in.map(plan(_)))
+      case LogicalReturn(r: Return, in: Option[LogicalQueryClause]) => PhysicalReturn(r, in.map(plan(_)))
+      case LogicalWith(w: With, in: Option[LogicalQueryClause]) => PhysicalWith(w, in.map(plan(_)))
       case LogicalQuery(LogicalSingleQuery(in)) => PhysicalSingleQuery(in.map(plan(_)))
     }
   }
 }
 
 trait AbstractPhysicalPlanNode extends PhysicalPlanNode {
-  val runnerContext: LynxRunnerContext
+  val runnerContext: CypherRunnerContext
   implicit val dataFrameOperator = runnerContext.dataFrameOperator
   implicit val expressionEvaluator = runnerContext.expressionEvaluator
 
@@ -40,12 +42,59 @@ trait AbstractPhysicalPlanNode extends PhysicalPlanNode {
   }
 }
 
-case class PhysicalSingleQuery(in: Option[PhysicalPlanNode])(implicit val runnerContext: LynxRunnerContext) extends AbstractPhysicalPlanNode {
+case class PhysicalSingleQuery(in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
   override def execute(ctx: PlanExecutionContext): DataFrame =
     in.map(_.execute(ctx)).getOrElse(DataFrame.empty)
 }
 
-case class PhysicalCreate(c: Create, in: Option[PhysicalPlanNode])(implicit val runnerContext: LynxRunnerContext) extends AbstractPhysicalPlanNode {
+case class PhysicalProcedureCall(c: UnresolvedCall)(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
+
+  private def checkArgs(actual: Seq[LynxValue], expected: Seq[(String, LynxType)]) = {
+    if (actual.size != expected.size)
+      throw WrongNumberOfArgumentsException(expected.size, actual.size)
+
+    expected.zip(actual).foreach(x => {
+      val ((name, ctype), value) = x
+      if (value != LynxNull && value.cypherType != ctype)
+        throw WrongArgumentException(name, ctype, value)
+    })
+  }
+
+  override def execute(ctx: PlanExecutionContext): DataFrame = {
+    val UnresolvedCall(Namespace(parts: List[String]), ProcedureName(name: String), declaredArguments: Option[Seq[Expression]], declaredResult: Option[ProcedureResult]) = c
+
+    val df = runnerContext.graphModel.getProcedure(parts, name) match {
+      case Some(procedure) =>
+        val args = declaredArguments match {
+          case Some(args) => args.map(eval(_)(ctx.expressionContext))
+          case None => procedure.inputs.map(arg => ctx.expressionContext.params.getOrElse(arg._1, LynxNull))
+        }
+
+        checkArgs(args, procedure.inputs)
+        val records = procedure.call(args)
+
+        DataFrame(procedure.outputs, () => records.iterator)
+
+      case None => throw UnknownProcedureException(parts, name)
+    }
+
+    declaredResult match {
+      case Some(ProcedureResult(items: IndexedSeq[ProcedureResultItem], where: Option[Where])) =>
+        df.select(
+          items.map(
+            item => {
+              val ProcedureResultItem(output, Variable(varname)) = item
+              varname -> output.map(_.name)
+            }
+          )
+        ).filter(where.map(_.expression))(ctx.expressionContext)
+
+      case None => df
+    }
+  }
+}
+
+case class PhysicalCreate(c: Create, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
   override def execute(ctx: PlanExecutionContext): DataFrame = {
     //create
     val nodes = ArrayBuffer[(Option[LogicalVariable], NodeInput)]()
@@ -73,7 +122,7 @@ case class PhysicalCreate(c: Create, in: Option[PhysicalPlanNode])(implicit val 
         def nodeRef(pe: PatternElement): NodeInputRef = {
           pe match {
             case NodePattern(variable, _, _, _) =>
-              nodes.toMap.get(variable).map(ContextualNodeInputRef(_)).getOrElse(throw new UnrecognizedVarException(variable))
+              nodes.toMap.get(variable).map(ContextualNodeInputRef(_)).getOrElse(throw UnresolvableVarException(variable))
           }
         }
 
@@ -121,7 +170,7 @@ case class StoredNodeInputRef(id: LynxId) extends NodeInputRef
 
 case class ContextualNodeInputRef(node: NodeInput) extends NodeInputRef
 
-case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val runnerContext: LynxRunnerContext) extends AbstractPhysicalPlanNode {
+case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
   override def execute(ctx: PlanExecutionContext): DataFrame = {
     //run match
     val Match(optional, Pattern(patternParts: Seq[PatternPart]), hints, where: Option[Where]) = m
@@ -181,47 +230,124 @@ case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val ru
   }
 }
 
-case class PhysicalWith(w: With, in: Option[PhysicalPlanNode])(implicit val runnerContext: LynxRunnerContext) extends AbstractPhysicalPlanNode {
+trait DataFramePipe {
+  def map(df: DataFrame): DataFrame
+}
+
+trait DataFramePipeBuilder {
+  def build(): Iterable[DataFramePipe]
+}
+
+case class ProjectPipeBuilder(ri: ReturnItems)(implicit ctx: ExpressionContext, dfo: DataFrameOperator)
+  extends DataFramePipeBuilder {
+  def build(): Iterable[DataFramePipe] = Some(new DataFramePipe() {
+    override def map(df: DataFrame): DataFrame =
+      df.project(ri.items.map(x => x.name -> x.expression))
+  })
+}
+
+case class FilterPipeBuilder(where: Option[Where])(implicit ctx: ExpressionContext, dfo: DataFrameOperator)
+  extends DataFramePipeBuilder {
+  def build(): Iterable[DataFramePipe] = where.map(expr =>
+    new DataFramePipe() {
+      override def map(df: DataFrame): DataFrame =
+        df.filter(expr.expression)
+    })
+}
+
+case class LimitPipeBuilder(limit: Option[Limit])(implicit ctx: ExpressionContext, dfo: DataFrameOperator, evaluator: ExpressionEvaluator)
+  extends DataFramePipeBuilder {
+  def build(): Iterable[DataFramePipe] = limit.map(expr =>
+    new DataFramePipe() {
+      override def map(df: DataFrame): DataFrame =
+        df.take(evaluator.eval(expr.expression).value.asInstanceOf[Number].intValue())
+    })
+}
+
+case class SkipPipeBuilder(skip: Option[Skip])(implicit ctx: ExpressionContext, dfo: DataFrameOperator, evaluator: ExpressionEvaluator)
+  extends DataFramePipeBuilder {
+  def build(): Iterable[DataFramePipe] = skip.map(expr =>
+    new DataFramePipe() {
+      override def map(df: DataFrame): DataFrame =
+        df.skip(evaluator.eval(expr.expression).value.asInstanceOf[Number].intValue())
+    })
+}
+
+case class SelectPipeBuilder(ri: ReturnItems)(implicit ctx: ExpressionContext, dfo: DataFrameOperator)
+  extends DataFramePipeBuilder {
+  def build(): Iterable[DataFramePipe] = Some(
+    new DataFramePipe() {
+      override def map(df: DataFrame): DataFrame =
+        df.select(ri.items.map(item => item.name -> item.alias.map(_.name)))
+    })
+}
+
+case class DistinctPipeBuilder(distinct: Boolean)(implicit ctx: ExpressionContext, dfo: DataFrameOperator)
+  extends DataFramePipeBuilder {
+  def build(): Iterable[DataFramePipe] = distinct match {
+    case true => Some(new DataFramePipe() {
+      override def map(df: DataFrame): DataFrame =
+        df.distinct()
+    })
+    case false => None
+  }
+}
+
+object DataFramePipe {
+  def piping(start: DataFrame, builders: Seq[DataFramePipeBuilder]): DataFrame = {
+    builders.flatMap(_.build()).foldLeft(start) { (df, pipe) =>
+      pipe.map(df)
+    }
+  }
+}
+
+case class PhysicalWith(w: With, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
+
   override def execute(ctx: PlanExecutionContext): DataFrame = {
+    implicit val ec = ctx.expressionContext
     (w, in) match {
       case (With(distinct, ReturnItems(includeExisting, items), orderBy, skip, limit: Option[Limit], where), None) =>
         createUnitDataFrame(items, ctx)
-      case (With(distinct, ReturnItems(includeExisting, items), orderBy, skip, limit: Option[Limit], where), Some(sin)) =>
-        //match (n) return n
-        val df0 = sin.execute(ctx)
-        val df1 = df0.project(items.map(x => x.name -> x.expression))(ctx.expressionContext)
 
-        val df2 = where match {
-          case Some(Where(condition)) => df1.filter(condition)(ctx.expressionContext)
-          case None => df1
-        }
-
-        val df3 = df2.select(items.map(item => item.name -> item.alias.map(_.name)))
-
-        distinct match {
-          case true => df3.distinct
-          case false => df3
-        }
+      case (With(distinct, ri: ReturnItems, orderBy, skip: Option[Skip], limit: Option[Limit], where: Option[Where]), Some(sin)) =>
+        DataFramePipe.piping(
+          sin.execute(ctx),
+          Seq(
+            ProjectPipeBuilder(ri),
+            FilterPipeBuilder(where),
+            SkipPipeBuilder(skip),
+            LimitPipeBuilder(limit),
+            SelectPipeBuilder(ri),
+            DistinctPipeBuilder(distinct)
+          )
+        )
     }
   }
 }
 
-case class PhysicalReturn(r: Return, in: Option[PhysicalPlanNode])(implicit val runnerContext: LynxRunnerContext) extends AbstractPhysicalPlanNode {
+case class PhysicalReturn(r: Return, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
   override def execute(ctx: PlanExecutionContext): DataFrame = {
+    implicit val ec = ctx.expressionContext
     (r, in) match {
-      case (Return(distinct, ReturnItems(includeExisting, items), orderBy, skip, limit, excludedNames), Some(sin)) =>
-        //match (n) return n
-        val df0 = sin.execute(ctx)
-        val df1 = df0.project(items.map(x => x.name -> x.expression))(ctx.expressionContext)
-        val df2 = df1.select(items.map(item => item.name -> item.alias.map(_.name)))
-        if (distinct) {
-          df2.distinct
-        }
-        else {
-          df2
-        }
+      case (Return(distinct, ri: ReturnItems, orderBy, skip: Option[Skip], limit: Option[Limit], excludedNames), Some(sin)) =>
+        DataFramePipe.piping(
+          sin.execute(ctx),
+          Seq(
+            ProjectPipeBuilder(ri),
+            SkipPipeBuilder(skip),
+            LimitPipeBuilder(limit),
+            SelectPipeBuilder(ri),
+            DistinctPipeBuilder(distinct)
+          )
+        )
     }
   }
 }
 
-class UnrecognizedVarException(var0: Option[LogicalVariable]) extends LynxException
+case class UnresolvableVarException(var0: Option[LogicalVariable]) extends LynxException
+
+case class UnknownProcedureException(prefix: List[String], name: String) extends LynxException
+
+case class WrongNumberOfArgumentsException(sizeExpected: Int, sizeActual: Int) extends LynxException
+
+case class WrongArgumentException(argName: String, expectedType: LynxType, actualValue: LynxValue) extends LynxException
