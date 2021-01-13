@@ -1,6 +1,6 @@
 package org.grapheco.lynx
 
-import org.opencypher.v9_0.ast.{Clause, Create, Match, PeriodicCommitHint, Query, QueryPart, Return, SingleQuery, Statement, With}
+import org.opencypher.v9_0.ast.{Clause, Create, Match, PeriodicCommitHint, Query, QueryPart, Return, SingleQuery, Statement, UnresolvedCall, With}
 import org.opencypher.v9_0.util.ASTNode
 
 trait LogicalPlanNode {
@@ -10,13 +10,14 @@ trait LogicalPlanner {
   def plan(statement: Statement): LogicalPlanNode
 }
 
-class LogicalPlannerImpl()(implicit runnerContext: LynxRunnerContext) extends LogicalPlanner {
+class LogicalPlannerImpl()(implicit runnerContext: CypherRunnerContext) extends LogicalPlanner {
   private def translateQueryPart(part: QueryPart): LogicalQueryPart = {
     part match {
       case SingleQuery(clauses: Seq[Clause]) =>
         LogicalSingleQuery(
-          clauses.foldLeft[Option[LogicalQuerySource]](None) { (source, clause) =>
+          clauses.foldLeft[Option[LogicalQueryClause]](None) { (source, clause) =>
             clause match {
+              case c: UnresolvedCall => Some(LogicalProcedureCall(c))
               case r: Return => Some(LogicalReturn(r, source))
               case w: With => Some(LogicalWith(w, source))
               case m: Match => Some(LogicalMatch(m, source))
@@ -33,7 +34,7 @@ class LogicalPlannerImpl()(implicit runnerContext: LynxRunnerContext) extends Lo
         LogicalQuery(translateQueryPart(part))
 
       case _ =>
-        throw new RuntimeException(s"unknown element: $node")
+        throw UnknownASTNodeException(node)
     }
   }
 
@@ -46,17 +47,20 @@ case class LogicalQuery(part: LogicalQueryPart) extends LogicalPlanNode {
 
 trait LogicalQueryPart extends LogicalPlanNode
 
-case class LogicalSingleQuery(source: Option[LogicalQuerySource]) extends LogicalQueryPart {
+case class LogicalSingleQuery(source: Option[LogicalQueryClause]) extends LogicalQueryPart {
 
 }
 
-trait LogicalQuerySource extends LogicalPlanNode
+trait LogicalQueryClause extends LogicalPlanNode
 
-case class LogicalWith(w: With, in: Option[LogicalQuerySource]) extends LogicalQuerySource
+case class LogicalWith(w: With, in: Option[LogicalQueryClause]) extends LogicalQueryClause
 
-case class LogicalReturn(r: Return, in: Option[LogicalQuerySource]) extends LogicalQuerySource
+case class LogicalProcedureCall(c: UnresolvedCall) extends LogicalQueryClause
 
-case class LogicalMatch(m: Match, in: Option[LogicalQuerySource]) extends LogicalQuerySource
+case class LogicalReturn(r: Return, in: Option[LogicalQueryClause]) extends LogicalQueryClause
 
-case class LogicalCreate(c: Create, in: Option[LogicalQuerySource]) extends LogicalQuerySource
+case class LogicalMatch(m: Match, in: Option[LogicalQueryClause]) extends LogicalQueryClause
 
+case class LogicalCreate(c: Create, in: Option[LogicalQueryClause]) extends LogicalQueryClause
+
+case class UnknownASTNodeException(node: ASTNode) extends LynxException

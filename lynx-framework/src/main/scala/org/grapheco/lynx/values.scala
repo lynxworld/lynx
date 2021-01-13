@@ -7,7 +7,7 @@ import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTDate, CTDateTime, C
 trait LynxValue {
   def value: Any
 
-  def cypherType: CypherType
+  def cypherType: LynxType
 }
 
 trait LynxNumber extends LynxValue {
@@ -89,7 +89,7 @@ object LynxValue {
       case v: Date => LynxDate(v.getTime)
       case v: Iterable[Any] => LynxList(v.map(apply(_)).toList)
       case v: Map[String, Any] => LynxMap(v.map(x => x._1 -> apply(x._2)))
-      case _ => throw new InvalidValueException(unknown)
+      case _ => throw InvalidValueException(unknown)
     }
   }
 }
@@ -124,4 +124,4 @@ trait LynxRelationship extends LynxValue {
   def cypherType = CTRelationship
 }
 
-class InvalidValueException(unknown: Any) extends LynxException
+case class InvalidValueException(unknown: Any) extends LynxException

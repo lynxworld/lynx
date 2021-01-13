@@ -1,5 +1,6 @@
 import org.grapheco.lynx.util.Profiler
 import org.grapheco.lynx._
+import org.opencypher.v9_0.util.symbols.CTString
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -75,6 +76,18 @@ class TestBase {
             None
           })
       ).iterator
+    }
+
+    override def getProcedure(prefix: List[String], name: String): Option[CallableProcedure] = s"${prefix.mkString(".")}.${name}" match {
+      case "test.authors" => Some(new CallableProcedure {
+        override val inputs: Seq[(String, LynxType)] = Seq()
+        override val outputs: Seq[(String, LynxType)] = Seq("name" -> CTString)
+
+        override def call(args: Seq[LynxValue]): Iterable[Seq[LynxValue]] =
+          Seq(Seq(LynxValue("bluejoe")), Seq(LynxValue("lzx")), Seq(LynxValue("airzihao")))
+      })
+
+      case _ => None
     }
   })
 

@@ -5,12 +5,12 @@ import org.grapheco.lynx.util.FormatUtils
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.SemanticState
 
-case class LynxRunnerContext(dataFrameOperator: DataFrameOperator, expressionEvaluator: ExpressionEvaluator, graphModel: GraphModel)
+case class CypherRunnerContext(dataFrameOperator: DataFrameOperator, expressionEvaluator: ExpressionEvaluator, graphModel: GraphModel)
 
 class CypherRunner(graphModel: GraphModel) extends LazyLogging {
   protected val expressionEvaluator: ExpressionEvaluator = new ExpressionEvaluatorImpl()
   protected val dataFrameOperator: DataFrameOperator = new DataFrameOperatorImpl(expressionEvaluator)
-  private implicit lazy val runnerContext = LynxRunnerContext(dataFrameOperator, expressionEvaluator, graphModel)
+  private implicit lazy val runnerContext = CypherRunnerContext(dataFrameOperator, expressionEvaluator, graphModel)
   protected val logicalPlanner: LogicalPlanner = new LogicalPlannerImpl()(runnerContext)
   protected val physicalPlanner: PhysicalPlanner = new PhysicalPlannerImpl()(runnerContext)
   protected val queryParser: QueryParser = new CachedQueryParser(new QueryParserImpl())
@@ -71,7 +71,16 @@ trait PlanAware {
   def getPhysicalPlan(): PhysicalPlanNode
 }
 
+trait CallableProcedure {
+  val inputs: Seq[(String, LynxType)]
+  val outputs: Seq[(String, LynxType)]
+
+  def call(args: Seq[LynxValue]): Iterable[Seq[LynxValue]]
+}
+
 trait GraphModel {
+  def getProcedure(prefix: List[String], name: String): Option[CallableProcedure]
+
   def rels(includeStartNodes: Boolean,
            includeEndNodes: Boolean): Iterator[(LynxRelationship, Option[LynxNode], Option[LynxNode])]
 
@@ -87,8 +96,8 @@ trait GraphModel {
   )
 
   def createElements[T](nodes: Array[(Option[String], NodeInput)],
-                     rels: Array[(Option[String], RelationshipInput)],
-                     onCreated: (Map[Option[String], LynxNode], Map[Option[String], LynxRelationship]) => T): T
+                        rels: Array[(Option[String], RelationshipInput)],
+                        onCreated: (Map[Option[String], LynxNode], Map[Option[String], LynxRelationship]) => T): T
 
   def nodes(): Iterator[LynxNode]
 
@@ -104,6 +113,9 @@ trait GraphModel {
   )
 }
 
-class LynxException(msg: String = null, cause: Throwable = null) extends RuntimeException(msg, cause)
+class LynxException(msg: String = null, cause: Throwable = null) extends RuntimeException {
+  override def getMessage: String = msg
+  override def getCause: Throwable = cause
+}
 
-class ParsingException(msg: String) extends LynxException(msg)
+case class ParsingException(msg: String) extends LynxException(msg)

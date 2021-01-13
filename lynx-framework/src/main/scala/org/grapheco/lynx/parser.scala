@@ -45,7 +45,7 @@ class QueryParserImpl extends QueryParser {
       // TODO: Remove when frontend supports CLONE clause
       val filteredErrors = errors.filterNot(_.msg.contains("already declared"))
       if (filteredErrors.nonEmpty) {
-        throw new ParsingException(s"Errors during semantic checking: ${filteredErrors.mkString(", ")}")
+        throw ParsingException(s"Errors during semantic checking: ${filteredErrors.mkString(", ")}")
       }
     }
 
