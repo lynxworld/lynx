@@ -113,9 +113,9 @@ trait GraphModel {
   )
 }
 
-class LynxException(msg: String = null, cause: Throwable = null) extends RuntimeException {
-  override def getMessage: String = msg
-  override def getCause: Throwable = cause
+trait LynxException extends RuntimeException {
 }
 
-case class ParsingException(msg: String) extends LynxException(msg)
+case class ParsingException(msg: String) extends LynxException {
+  override def getMessage: String = msg
+}
