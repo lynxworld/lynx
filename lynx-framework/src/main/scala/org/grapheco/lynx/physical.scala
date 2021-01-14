@@ -187,6 +187,7 @@ case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val ru
 
   private def patternMatch(element: PatternElement)(ctx: PlanExecutionContext): DataFrame = {
     element match {
+      //match (m:label1)
       case NodePattern(
       Some(var0: LogicalVariable),
       labels: Seq[LabelName],
@@ -201,6 +202,7 @@ case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val ru
           nodes.map(Seq(_))
         })
 
+        //match (m:label1)-[r:type]->(n:label2)
       case RelationshipChain(
       leftNode@NodePattern(var1, labels1: Seq[LabelName], properties1: Option[Expression], baseNode1: Option[LogicalVariable]),
       RelationshipPattern(variable: Option[LogicalVariable], types: Seq[RelTypeName], length: Option[Option[Range]], properties: Option[Expression], direction: SemanticDirection, legacyTypeSeparator: Boolean, baseRel: Option[LogicalVariable]),
@@ -226,6 +228,37 @@ case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val ru
             }
           }
         })
+
+      //match ()-[]->()-...-[r:type]->(n:label2)
+        /*
+      case RelationshipChain(
+      leftChain,
+      RelationshipPattern(variable: Option[LogicalVariable], types: Seq[RelTypeName], length: Option[Option[Range]], properties: Option[Expression], direction: SemanticDirection, legacyTypeSeparator: Boolean, baseRel: Option[LogicalVariable]),
+      rightNode@NodePattern(var2, labels2: Seq[LabelName], properties2: Option[Expression], baseNode2: Option[LogicalVariable])
+      ) =>
+        val in = patternMatch(leftChain)
+        DataFrame((variable.map(_.name -> CTRelationship) ++ ((var1 ++ var2).map(_.name -> CTNode))).toSeq, () => {
+          val rels: Iterator[(LynxRelationship, Option[LynxNode], Option[LynxNode])] =
+            runnerContext.graphModel.rels(types.map(_.name), labels1.map(_.name), labels2.map(_.name), var1.isDefined, var2.isDefined)
+          rels.flatMap {
+            rel => {
+              val (v0, v1, v2) = rel
+              direction match {
+                case BOTH =>
+                  Iterator.apply(
+                    Seq(v0) ++ var1.map(_ => v1.get) ++ var2.map(_ => v2.get),
+                    Seq(v0) ++ var1.map(_ => v2.get) ++ var2.map(_ => v1.get)
+                  )
+                case INCOMING =>
+                  Iterator.single(Seq(v0) ++ var1.map(_ => v2.get) ++ var2.map(_ => v1.get))
+                case OUTGOING =>
+                  Iterator.single(Seq(v0) ++ var1.map(_ => v1.get) ++ var2.map(_ => v2.get))
+              }
+            }
+          }
+        })
+
+         */
     }
   }
 }

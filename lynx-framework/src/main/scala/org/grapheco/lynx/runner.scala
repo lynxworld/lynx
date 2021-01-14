@@ -79,7 +79,7 @@ trait CallableProcedure {
 }
 
 trait GraphModel {
-  def getProcedure(prefix: List[String], name: String): Option[CallableProcedure]
+  def getProcedure(prefix: List[String], name: String): Option[CallableProcedure] = None
 
   def rels(includeStartNodes: Boolean,
            includeEndNodes: Boolean): Iterator[(LynxRelationship, Option[LynxNode], Option[LynxNode])]
