@@ -9,7 +9,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>non-okapi</artifactId>
+    <artifactId>lynx-framework</artifactId>
     <dependencies>
         <dependency>
             <groupId>org.opencypher</groupId>
