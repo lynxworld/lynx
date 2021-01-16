@@ -4,6 +4,8 @@ import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.FormatUtils
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.SemanticState
+import org.opencypher.v9_0.expressions.SemanticDirection
+import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
 
 case class CypherRunnerContext(dataFrameOperator: DataFrameOperator, expressionEvaluator: ExpressionEvaluator, graphModel: GraphModel)
 
@@ -78,22 +80,75 @@ trait CallableProcedure {
   def call(args: Seq[LynxValue]): Iterable[Seq[LynxValue]]
 }
 
+case class NodeFilter(labels: Seq[String], properties: Map[String, LynxValue]) {
+  def matches(node: LynxNode): Boolean = (labels, node.labels) match {
+    case (Seq(), _) => true
+    case (_, nodeLabels) => labels.forall(nodeLabels.contains(_))
+  }
+}
+
+case class RelationshipFilter(types: Seq[String], properties: Map[String, LynxValue]) {
+  def matches(rel: LynxRelationship): Boolean = (types, rel.relationType) match {
+    case (Seq(), _) => true
+    case (_, None) => false
+    case (_, Some(relationType)) => types.contains(relationType)
+  }
+}
+
+case class PathTriple(startNode: LynxNode, rel: LynxRelationship, endNode: LynxNode) {
+  def toSeq(direction: SemanticDirection) = direction match {
+    case INCOMING => Seq(endNode, rel, startNode)
+    case _ => Seq(startNode, rel, endNode)
+  }
+
+  def inverse = PathTriple(endNode, rel, startNode)
+}
+
 trait GraphModel {
   def getProcedure(prefix: List[String], name: String): Option[CallableProcedure] = None
 
-  def rels(includeStartNodes: Boolean,
-           includeEndNodes: Boolean): Iterator[(LynxRelationship, Option[LynxNode], Option[LynxNode])]
+  def relationships(): Iterator[PathTriple]
 
-  def rels(types: Seq[String], labels1: Seq[String], labels2: Seq[String],
-           includeStartNodes: Boolean,
-           includeEndNodes: Boolean): Iterator[(LynxRelationship, Option[LynxNode], Option[LynxNode])] = rels(includeStartNodes, includeEndNodes).filter(item => {
-    val (rel, _, _) = item
-    (types.isEmpty ||
-      (rel.relationType.isDefined && types.contains(rel.relationType.get))) &&
-      (labels1.isEmpty || labels1.find(!nodeAt(rel.startNodeId).get.labels.contains(_)).isEmpty) &&
-      (labels2.isEmpty || labels2.find(!nodeAt(rel.endNodeId).get.labels.contains(_)).isEmpty)
+  def relationships(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {
+    val rels = direction match {
+      case BOTH => relationships().flatMap(item =>
+        Seq(item, item.inverse))
+      case _ => relationships()
+    }
+
+    rels.filter(
+      item => {
+        val PathTriple(startNode, rel, endNode) = item
+        relationshipFilter.matches(rel) && (
+          direction match {
+            case INCOMING => endNodeFilter.matches(startNode) && startNodeFilter.matches(endNode)
+            case OUTGOING => startNodeFilter.matches(startNode) && endNodeFilter.matches(endNode)
+            case BOTH => (startNodeFilter.matches(startNode) && endNodeFilter.matches(endNode)) ||
+              (endNodeFilter.matches(startNode) && startNodeFilter.matches(endNode))
+          })
+      }
+    )
   }
-  )
+
+  def relationships(nodeId: LynxId, direction: SemanticDirection): Iterator[PathTriple] = {
+    val rels = relationships()
+    rels.filter { item =>
+      val PathTriple(startNode, rel, endNode) = item
+      direction match {
+        case INCOMING => endNode.id == nodeId
+        case OUTGOING => startNode.id == nodeId
+        case BOTH => startNode.id == nodeId || endNode.id == nodeId
+      }
+    }
+  }
+
+  def relationships(nodeId: LynxId, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] =
+    relationships(nodeId, direction).filter(
+      item => {
+        val PathTriple(_, rel, endNode) = item
+        relationshipFilter.matches(rel) && endNodeFilter.matches(endNode)
+      }
+    )
 
   def createElements[T](nodes: Array[(Option[String], NodeInput)],
                         rels: Array[(Option[String], RelationshipInput)],
@@ -101,16 +156,7 @@ trait GraphModel {
 
   def nodes(): Iterator[LynxNode]
 
-  def nodeAt(id: LynxId): Option[LynxNode]
-
-  def nodes(labels: Seq[String], exact: Boolean): Iterator[LynxNode] = nodes().filter(node =>
-    if (exact) {
-      node.labels.diff(labels).isEmpty
-    }
-    else {
-      labels.find(!node.labels.contains(_)).isEmpty
-    }
-  )
+  def nodes(nodeFilter: NodeFilter): Iterator[LynxNode] = nodes().filter(nodeFilter.matches(_))
 }
 
 trait LynxException extends RuntimeException {

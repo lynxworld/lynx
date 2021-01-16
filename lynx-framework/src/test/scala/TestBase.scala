@@ -1,5 +1,7 @@
 import org.grapheco.lynx.util.Profiler
 import org.grapheco.lynx._
+import org.junit.{Assert, Test}
+import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
 import org.opencypher.v9_0.util.symbols.CTString
 
 import scala.collection.mutable.ArrayBuffer
@@ -7,17 +9,19 @@ import scala.collection.mutable.ArrayBuffer
 class TestBase {
   Profiler.enableTiming = true
 
+  //(bluejoe)-[:KNOWS]->(alex)-[:KNOWS]->(CNIC)
+  //(bluejoe)-[]-(CNIC)
   val node1 = TestNode(1, Seq("person", "leader"), "name" -> LynxValue("bluejoe"), "age" -> LynxValue(40))
   val node2 = TestNode(2, Seq("person"), "name" -> LynxValue("alex"), "age" -> LynxValue(30))
-  val node3 = TestNode(3, Seq(), "name" -> LynxValue("simba"), "age" -> LynxValue(10))
+  val node3 = TestNode(3, Seq(), "name" -> LynxValue("CNIC"), "age" -> LynxValue(10))
   val all_nodes = ArrayBuffer[TestNode](node1, node2, node3)
   val all_rels = ArrayBuffer[TestRelationship](
-    TestRelationship(1, 1, 2, Some("knows")),
-    TestRelationship(2, 2, 3, Some("knows")),
+    TestRelationship(1, 1, 2, Some("KNOWS")),
+    TestRelationship(2, 2, 3, Some("KNOWS")),
     TestRelationship(3, 1, 3, None)
   )
 
-  val runner = new CypherRunner(new GraphModel {
+  val model = new GraphModel {
     override def createElements[T](
                                     nodes1: Array[(Option[String], NodeInput)],
                                     rels1: Array[(Option[String], RelationshipInput)],
@@ -47,36 +51,16 @@ class TestBase {
       onCreated(nodesMap.map(_._2), relsMap.toMap)
     }
 
-    override def nodeAt(id: LynxId): Option[LynxNode] = {
-      nodeAt(id.value.asInstanceOf[Long])
-    }
-
     def nodeAt(id: Long): Option[LynxNode] = {
       all_nodes.find(_.longId == id)
     }
 
     override def nodes(): Iterator[LynxNode] = all_nodes.iterator
 
-    override def rels(
-                       includeStartNodes: Boolean,
-                       includeEndNodes: Boolean
-                     ): Iterator[(LynxRelationship, Option[LynxNode], Option[LynxNode])] = {
+    override def relationships(): Iterator[PathTriple] =
       all_rels.map(rel =>
-        (rel,
-          if (includeStartNodes) {
-            nodeAt(rel.startId)
-          }
-          else {
-            None
-          },
-          if (includeEndNodes) {
-            nodeAt(rel.endId)
-          }
-          else {
-            None
-          })
+        PathTriple(nodeAt(rel.startId).get, rel, nodeAt(rel.endId).get)
       ).iterator
-    }
 
     override def getProcedure(prefix: List[String], name: String): Option[CallableProcedure] = s"${prefix.mkString(".")}.${name}" match {
       case "test.authors" => Some(new CallableProcedure {
@@ -89,9 +73,11 @@ class TestBase {
 
       case _ => None
     }
-  })
+  }
 
-  def runOnDemoGraph(query: String, param: Map[String, Any] = Map.empty[String, Any]): LynxResult = {
+  val runner = new CypherRunner(model)
+
+  protected def runOnDemoGraph(query: String, param: Map[String, Any] = Map.empty[String, Any]): LynxResult = {
     println(s"query: $query")
     runner.compile(query)
     Profiler.timing {
@@ -101,6 +87,29 @@ class TestBase {
     }
   }
 
+  @Test
+  def testGraphModel(): Unit = {
+    var rs = model.relationships(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), OUTGOING)
+    Assert.assertEquals(3, rs.size)
+    rs.foreach {
+      item =>
+        val PathTriple(startNode, rel, endNode) = item
+        Assert.assertEquals(rel.startNodeId, startNode.id)
+        Assert.assertEquals(rel.endNodeId, endNode.id)
+    }
+
+    rs = model.relationships(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), INCOMING)
+    Assert.assertEquals(3, rs.size)
+    rs.foreach {
+      item =>
+        val PathTriple(startNode, rel, endNode) = item
+        Assert.assertEquals(rel.startNodeId, endNode.id)
+        Assert.assertEquals(rel.endNodeId, startNode.id)
+    }
+
+    rs = model.relationships(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), BOTH)
+    Assert.assertEquals(6, rs.size)
+  }
 }
 
 case class TestLynxId(value: Long) extends LynxId {

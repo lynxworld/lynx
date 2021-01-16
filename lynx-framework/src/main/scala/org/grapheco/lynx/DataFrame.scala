@@ -57,6 +57,8 @@ trait DataFrameOperator {
 
   def take(df: DataFrame, num: Int): DataFrame
 
+  def join(a: DataFrame, b: DataFrame): DataFrame
+
   def distinct(df: DataFrame): DataFrame
 }
 
@@ -112,6 +114,49 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
   override def skip(df: DataFrame, num: Int): DataFrame = DataFrame(df.schema, () => df.records.drop(num))
 
   override def take(df: DataFrame, num: Int): DataFrame = DataFrame(df.schema, () => df.records.take(num))
+
+  override def join(a: DataFrame, b: DataFrame): DataFrame = {
+    val colsa = a.schema.map(_._1).zipWithIndex.toMap
+    val colsb = b.schema.map(_._1).zipWithIndex.toMap
+    //["m", "n"]
+    val joinCols = a.schema.map(_._1).filter(colsb.contains(_))
+    val (smallTable, largeTable, smallColumns, largeColumns) =
+      if (a.records.size < b.records.size) {
+        (a, b, colsa, colsb)
+      }
+      else {
+        (b, a, colsb, colsa)
+      }
+
+    //{1->"m", 2->"n"}
+    val largeColumns2 = (largeColumns -- joinCols).map(_.swap)
+    val joinedSchema = smallTable.schema ++ (largeTable.schema.filter(x => !joinCols.contains(x._1)))
+
+    DataFrame(joinedSchema, () => {
+      val smallMap: Map[Seq[LynxValue], Iterable[(Seq[LynxValue], Seq[LynxValue])]] =
+        smallTable.records.map {
+          row => {
+            val value = joinCols.map(joinCol => row(smallColumns(joinCol)))
+            value -> row
+          }
+        }.toIterable.groupBy(_._1)
+
+      val joinedRecords = largeTable.records.flatMap {
+        row => {
+          val value: Seq[LynxValue] = joinCols.map(joinCol => row(largeColumns(joinCol)))
+          smallMap.getOrElse(value, Seq()).map(x => x._2 ++ largeColumns2.map(x => row(x._1)))
+        }
+      }
+
+      joinedRecords.filter(
+        item => {
+          //(m)-[r]-(n)-[p]-(t), r!=p
+          val relIds = item.filter(_.isInstanceOf[LynxRelationship]).map(_.asInstanceOf[LynxRelationship].id)
+          relIds.size == relIds.toSet.size
+        }
+      )
+    })
+  }
 }
 
 trait DataFrameOps {
@@ -121,6 +166,8 @@ trait DataFrameOps {
   def select(columns: Seq[(String, Option[String])]): DataFrame = operator.select(srcFrame, columns)
 
   def project(columns: Seq[(String, Expression)])(implicit ctx: ExpressionContext): DataFrame = operator.project(srcFrame, columns)(ctx)
+
+  def join(b: DataFrame): DataFrame = operator.join(srcFrame, b)
 
   def filter(condition: Option[Expression])(implicit ctx: ExpressionContext): DataFrame =
     condition.map(operator.filter(srcFrame, _)(ctx)).getOrElse(srcFrame)

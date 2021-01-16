@@ -77,7 +77,7 @@ class CypherQueryTest extends TestBase {
     Assert.assertEquals(LynxValue(40), rs.records.toSeq.apply(0).apply("y"))
     Assert.assertEquals(LynxValue("alex"), rs.records.toSeq.apply(1).apply("x"))
     Assert.assertEquals(LynxValue(30), rs.records.toSeq.apply(1).apply("y"))
-    Assert.assertEquals(LynxValue("simba"), rs.records.toSeq.apply(2).apply("x"))
+    Assert.assertEquals(LynxValue("CNIC"), rs.records.toSeq.apply(2).apply("x"))
     Assert.assertEquals(LynxValue(10), rs.records.toSeq.apply(2).apply("y"))
   }
 
@@ -116,10 +116,13 @@ class CypherQueryTest extends TestBase {
         Assert.assertEquals(map("r").asInstanceOf[LynxRelationship].startNodeId, map("n").asInstanceOf[LynxNode].id)
         Assert.assertEquals(map("r").asInstanceOf[LynxRelationship].endNodeId, map("m").asInstanceOf[LynxNode].id)
     }
+
+    rs = runOnDemoGraph("match (m)<-[r]->(n) return m,r,n")
+    Assert.assertEquals(6, rs.records.size)
   }
 
   @Test
-  def testQueryAnonymousRelations(): Unit = {
+  def testQueryPathTriple(): Unit = {
     var rs = runOnDemoGraph("match ()-[r]-() return r")
     Assert.assertEquals(6, rs.records.size)
 
@@ -131,21 +134,44 @@ class CypherQueryTest extends TestBase {
   }
 
   @Test
-  def testQueryAnonymous2ndPaths(): Unit = {
+  def testQuerySingleLongPath(): Unit = {
     var rs = runOnDemoGraph("match ()-[r]-()-[s]-() return r,s")
     Assert.assertEquals(6, rs.records.size)
 
     rs = runOnDemoGraph("match ()-[r]->()-[s]-() return r,s")
     Assert.assertEquals(3, rs.records.size)
 
+    //(bluejoe)-[:KNOWS]->(alex)-[:KNOWS]->(CNIC)
     rs = runOnDemoGraph("match (m)-[r]->(n)-[s]->(x) return r,s")
-    Assert.assertEquals(3, rs.records.size)
+    Assert.assertEquals(1, rs.records.size)
+
+    //(bluejoe)-[:KNOWS]->(alex)-[:KNOWS]->(CNIC)
+    rs = runOnDemoGraph("match (m)-[r]->(n)-[s]->(x)<-[]-(m) return r,s")
+    Assert.assertEquals(1, rs.records.size)
   }
 
   @Test
-  def testQueryAnonymousMultiplePaths(): Unit = {
-    var rs = runOnDemoGraph("match (m)-[r]->(n),(n)-[s]->(x) return r,s")
+  def testQueryMultiplePaths(): Unit = {
+    var rs = runOnDemoGraph("match ()-[r]-(n),(n)-[s]-() return r,s")
+    Assert.assertEquals(6, rs.records.size)
+
+    rs = runOnDemoGraph("match ()-[r]->(n),(n)-[s]-() return r,s")
     Assert.assertEquals(3, rs.records.size)
+
+    rs = runOnDemoGraph("match (m)-[r]->(n),(n)-[s]->(x) return r,s")
+    Assert.assertEquals(1, rs.records.size)
+  }
+
+  @Test
+  def testQueryMultipleMatchs(): Unit = {
+    var rs = runOnDemoGraph("match ()-[r]-(n) match (n)-[s]-() return r,s")
+    Assert.assertEquals(6, rs.records.size)
+
+    rs = runOnDemoGraph("match ()-[r]->(n) match (n)-[s]-() return r,s")
+    Assert.assertEquals(3, rs.records.size)
+
+    rs = runOnDemoGraph("match (m)-[r]->(n) match (n)-[s]->(x) return r,s")
+    Assert.assertEquals(1, rs.records.size)
   }
 
   @Test
@@ -172,7 +198,7 @@ class CypherQueryTest extends TestBase {
   def testQueryNodeProperty(): Unit = {
     var rs = runOnDemoGraph("match (n) return 1,1+2,2>1,n,n.name")
     Assert.assertEquals(3, rs.records.size)
-    Assert.assertEquals(Seq("bluejoe", "alex", "simba"),
+    Assert.assertEquals(Seq("bluejoe", "alex", "CNIC"),
       rs.records().toSeq.map(_.apply("n.name").asInstanceOf[LynxString].value).toSeq)
     Assert.assertEquals(LynxValue("bluejoe"), rs.records.toSeq.apply(0).apply("n.name"))
     Assert.assertEquals(LynxValue(1), rs.records().toSeq.apply(0)("1"))
@@ -181,7 +207,7 @@ class CypherQueryTest extends TestBase {
 
     rs = runOnDemoGraph("match (n) return 1,1+2,2>1 as v0,n,n.name as name")
     Assert.assertEquals(3, rs.records.size)
-    Assert.assertEquals(Seq("bluejoe", "alex", "simba"),
+    Assert.assertEquals(Seq("bluejoe", "alex", "CNIC"),
       rs.records().toSeq.map(_.apply("name").asInstanceOf[LynxString].value).toSeq)
     Assert.assertEquals(LynxValue("bluejoe"), rs.records.toSeq.apply(0).apply("name"))
     Assert.assertEquals(LynxValue(true), rs.records().toSeq.apply(0)("v0"))
@@ -230,7 +256,7 @@ class CypherQueryTest extends TestBase {
     Assert.assertEquals(1, rs.records.size)
     Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
 
-    rs = runOnDemoGraph("match (n {name: 'simba'}) return n")
+    rs = runOnDemoGraph("match (n {name: 'CNIC'}) return n")
     Assert.assertEquals(1, rs.records.size)
     Assert.assertEquals(3.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
 
@@ -247,17 +273,17 @@ class CypherQueryTest extends TestBase {
 
   @Test
   def testQueryPathWithRelationType(): Unit = {
-    var rs = runOnDemoGraph("match ()-[r:knows]-() return r")
+    var rs = runOnDemoGraph("match ()-[r:KNOWS]-() return r")
     Assert.assertEquals(4, rs.records.size)
     Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("r").asInstanceOf[LynxRelationship].id.value)
     Assert.assertEquals(1.toLong, rs.records.toSeq.apply(1).apply("r").asInstanceOf[LynxRelationship].id.value)
     Assert.assertEquals(2.toLong, rs.records.toSeq.apply(2).apply("r").asInstanceOf[LynxRelationship].id.value)
     Assert.assertEquals(2.toLong, rs.records.toSeq.apply(3).apply("r").asInstanceOf[LynxRelationship].id.value)
 
-    rs = runOnDemoGraph("match ()-[r:nonexisting]-() return r")
+    rs = runOnDemoGraph("match ()-[r:NON_EXISTING]-() return r")
     Assert.assertEquals(0, rs.records.size)
 
-    rs = runOnDemoGraph("match (n)-[r:knows]-(m) return n,r,m")
+    rs = runOnDemoGraph("match (n)-[r:KNOWS]-(m) return n,r,m")
     Assert.assertEquals(4, rs.records.size)
     Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("r").asInstanceOf[LynxRelationship].id.value)
     Assert.assertEquals(1.toLong, rs.records.toSeq.apply(1).apply("r").asInstanceOf[LynxRelationship].id.value)
@@ -272,19 +298,19 @@ class CypherQueryTest extends TestBase {
     Assert.assertEquals(3.toLong, rs.records.toSeq.apply(3).apply("n").asInstanceOf[LynxNode].id.value)
     Assert.assertEquals(2.toLong, rs.records.toSeq.apply(3).apply("m").asInstanceOf[LynxNode].id.value)
 
-    rs = runOnDemoGraph("match (n:person)-[r:knows]->(m) return n,r,m")
+    rs = runOnDemoGraph("match (n:person)-[r:KNOWS]->(m) return n,r,m")
     Assert.assertEquals(2, rs.records.size)
     Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
     Assert.assertEquals(2.toLong, rs.records.toSeq.apply(0).apply("m").asInstanceOf[LynxNode].id.value)
     Assert.assertEquals(2.toLong, rs.records.toSeq.apply(1).apply("n").asInstanceOf[LynxNode].id.value)
     Assert.assertEquals(3.toLong, rs.records.toSeq.apply(1).apply("m").asInstanceOf[LynxNode].id.value)
 
-    rs = runOnDemoGraph("match (n)-[r:knows]->(m:person) return n,r,m")
+    rs = runOnDemoGraph("match (n)-[r:KNOWS]->(m:person) return n,r,m")
     Assert.assertEquals(1, rs.records.size)
     Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
     Assert.assertEquals(2.toLong, rs.records.toSeq.apply(0).apply("m").asInstanceOf[LynxNode].id.value)
 
-    rs = runOnDemoGraph("match (n:leader)-[r:knows]->(m) return n,r,m")
+    rs = runOnDemoGraph("match (n:leader)-[r:KNOWS]->(m) return n,r,m")
     Assert.assertEquals(1, rs.records.size)
     Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
     Assert.assertEquals(2.toLong, rs.records.toSeq.apply(0).apply("m").asInstanceOf[LynxNode].id.value)
@@ -308,5 +334,45 @@ class CypherQueryTest extends TestBase {
     Assert.assertEquals(1, rs.records.size)
     Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
     Assert.assertEquals(2.toLong, rs.records.toSeq.apply(0).apply("m").asInstanceOf[LynxNode].id.value)
+  }
+
+  @Test
+  def testQueryPathWithNodeProperties(): Unit = {
+    var rs = runOnDemoGraph("match (n {name:'bluejoe'})-[r]->(m) return n,r,m")
+    Assert.assertEquals(2, rs.records.size)
+    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
+    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("r").asInstanceOf[LynxRelationship].id.value)
+    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(0).apply("m").asInstanceOf[LynxNode].id.value)
+    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(1).apply("n").asInstanceOf[LynxNode].id.value)
+    Assert.assertEquals(3.toLong, rs.records.toSeq.apply(1).apply("r").asInstanceOf[LynxRelationship].id.value)
+    Assert.assertEquals(3.toLong, rs.records.toSeq.apply(1).apply("m").asInstanceOf[LynxNode].id.value)
+
+    rs = runOnDemoGraph("match (n:person {name:'bluejoe'})-[r]->(m:person) return n,r,m")
+    Assert.assertEquals(1, rs.records.size)
+    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
+    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(0).apply("m").asInstanceOf[LynxNode].id.value)
+  }
+
+  @Test
+  def testQueryPathMN(): Unit = {
+    var rs = runOnDemoGraph("match (m {name:'bluejoe'})-->(n) return m,n")
+    Assert.assertEquals(2, rs.records.size)
+    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("m").asInstanceOf[LynxNode].id.value)
+    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
+    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(1).apply("m").asInstanceOf[LynxNode].id.value)
+    Assert.assertEquals(3.toLong, rs.records.toSeq.apply(1).apply("n").asInstanceOf[LynxNode].id.value)
+
+    rs = runOnDemoGraph("match (m:person)-->(n:person) return m,n")
+    Assert.assertEquals(1, rs.records.size)
+    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("m").asInstanceOf[LynxNode].id.value)
+    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
+
+    rs = runOnDemoGraph("match (m:person)--(n:person) return m,n")
+    Assert.assertEquals(2, rs.records.size)
+    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("m").asInstanceOf[LynxNode].id.value)
+    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
+
+    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(1).apply("m").asInstanceOf[LynxNode].id.value)
+    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(1).apply("n").asInstanceOf[LynxNode].id.value)
   }
 }

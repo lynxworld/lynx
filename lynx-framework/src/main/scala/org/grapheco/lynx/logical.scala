@@ -16,6 +16,7 @@ class LogicalPlannerImpl()(implicit runnerContext: CypherRunnerContext) extends 
       case SingleQuery(clauses: Seq[Clause]) =>
         LogicalSingleQuery(
           clauses.foldLeft[Option[LogicalQueryClause]](None) { (source, clause) =>
+            //TODO: multiple match
             clause match {
               case c: UnresolvedCall => Some(LogicalProcedureCall(c))
               case r: Return => Some(LogicalReturn(r, source))
