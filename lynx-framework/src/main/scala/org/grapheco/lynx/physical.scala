@@ -1,7 +1,6 @@
 package org.grapheco.lynx
 
 import org.opencypher.v9_0.ast._
-import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.util.symbols.{CTNode, CTRelationship}
 import org.grapheco.lynx.DataFrameOps._
@@ -172,12 +171,17 @@ case class ContextualNodeInputRef(node: NodeInput) extends NodeInputRef
 
 case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
   override def execute(ctx: PlanExecutionContext): DataFrame = {
+    in match {
+      case None => executeMatch(m)(ctx)
+      case Some(sin) => sin.execute(ctx).join(executeMatch(m)(ctx))
+    }
+  }
+
+  private def executeMatch(m: Match)(implicit ctx: PlanExecutionContext): DataFrame = {
     //run match
     val Match(optional, Pattern(patternParts: Seq[PatternPart]), hints, where: Option[Where]) = m
-    val df = patternParts match {
-      case Seq(EveryPath(element: PatternElement)) =>
-        patternMatch(element)(ctx)
-    }
+    val dfs = patternParts.map(matchPatternPart(_)(ctx))
+    val df = (dfs.drop(1)).foldLeft(dfs.head)(_.join(_))
 
     where match {
       case Some(Where(condition)) => df.filter(condition)(ctx.expressionContext)
@@ -185,7 +189,14 @@ case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val ru
     }
   }
 
-  private def patternMatch(element: PatternElement)(ctx: PlanExecutionContext): DataFrame = {
+  private def matchPatternPart(patternPart: PatternPart)(implicit ctx: PlanExecutionContext): DataFrame = {
+    patternPart match {
+      case EveryPath(element: PatternElement) => matchPattern(element)
+    }
+  }
+
+  private def matchPattern(element: PatternElement)(implicit ctx: PlanExecutionContext): DataFrame = {
+    implicit val ec = ctx.expressionContext
     element match {
       //match (m:label1)
       case NodePattern(
@@ -197,68 +208,58 @@ case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val ru
           val nodes = if (labels.isEmpty)
             runnerContext.graphModel.nodes()
           else
-            runnerContext.graphModel.nodes(labels.map(_.name), false)
+            runnerContext.graphModel.nodes(NodeFilter(labels.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)))
 
           nodes.map(Seq(_))
         })
 
-        //match (m:label1)-[r:type]->(n:label2)
+      //match (m:label1)-[r:type]->(n:label2)
       case RelationshipChain(
       leftNode@NodePattern(var1, labels1: Seq[LabelName], properties1: Option[Expression], baseNode1: Option[LogicalVariable]),
       RelationshipPattern(variable: Option[LogicalVariable], types: Seq[RelTypeName], length: Option[Option[Range]], properties: Option[Expression], direction: SemanticDirection, legacyTypeSeparator: Boolean, baseRel: Option[LogicalVariable]),
       rightNode@NodePattern(var2, labels2: Seq[LabelName], properties2: Option[Expression], baseNode2: Option[LogicalVariable])
       ) =>
-        DataFrame((variable.map(_.name -> CTRelationship) ++ ((var1 ++ var2).map(_.name -> CTNode))).toSeq, () => {
-          val rels: Iterator[(LynxRelationship, Option[LynxNode], Option[LynxNode])] =
-            runnerContext.graphModel.rels(types.map(_.name), labels1.map(_.name), labels2.map(_.name), var1.isDefined, var2.isDefined)
-          rels.flatMap {
-            rel => {
-              val (v0, v1, v2) = rel
-              direction match {
-                case BOTH =>
-                  Iterator.apply(
-                    Seq(v0) ++ var1.map(_ => v1.get) ++ var2.map(_ => v2.get),
-                    Seq(v0) ++ var1.map(_ => v2.get) ++ var2.map(_ => v1.get)
-                  )
-                case INCOMING =>
-                  Iterator.single(Seq(v0) ++ var1.map(_ => v2.get) ++ var2.map(_ => v1.get))
-                case OUTGOING =>
-                  Iterator.single(Seq(v0) ++ var1.map(_ => v1.get) ++ var2.map(_ => v2.get))
-              }
-            }
-          }
+        DataFrame(Seq(
+          var1.map(_.name).getOrElse(s"__NODE_${var1.hashCode}") -> CTNode,
+          variable.map(_.name).getOrElse(s"__RELATIONSHIP_${variable.hashCode}") -> CTRelationship,
+          var2.map(_.name).getOrElse(s"__NODE_${var2.hashCode}") -> CTNode
+        ), () => {
+          runnerContext.graphModel.relationships(
+            NodeFilter(labels1.map(_.name), properties1.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+            RelationshipFilter(types.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+            NodeFilter(labels2.map(_.name), properties2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+            direction).map(_.toSeq(direction))
         })
 
       //match ()-[]->()-...-[r:type]->(n:label2)
-        /*
       case RelationshipChain(
       leftChain,
       RelationshipPattern(variable: Option[LogicalVariable], types: Seq[RelTypeName], length: Option[Option[Range]], properties: Option[Expression], direction: SemanticDirection, legacyTypeSeparator: Boolean, baseRel: Option[LogicalVariable]),
       rightNode@NodePattern(var2, labels2: Seq[LabelName], properties2: Option[Expression], baseNode2: Option[LogicalVariable])
       ) =>
-        val in = patternMatch(leftChain)
-        DataFrame((variable.map(_.name -> CTRelationship) ++ ((var1 ++ var2).map(_.name -> CTNode))).toSeq, () => {
-          val rels: Iterator[(LynxRelationship, Option[LynxNode], Option[LynxNode])] =
-            runnerContext.graphModel.rels(types.map(_.name), labels1.map(_.name), labels2.map(_.name), var1.isDefined, var2.isDefined)
-          rels.flatMap {
-            rel => {
-              val (v0, v1, v2) = rel
-              direction match {
-                case BOTH =>
-                  Iterator.apply(
-                    Seq(v0) ++ var1.map(_ => v1.get) ++ var2.map(_ => v2.get),
-                    Seq(v0) ++ var1.map(_ => v2.get) ++ var2.map(_ => v1.get)
-                  )
-                case INCOMING =>
-                  Iterator.single(Seq(v0) ++ var1.map(_ => v2.get) ++ var2.map(_ => v1.get))
-                case OUTGOING =>
-                  Iterator.single(Seq(v0) ++ var1.map(_ => v1.get) ++ var2.map(_ => v2.get))
-              }
-            }
+        val in = matchPattern(leftChain)
+
+        DataFrame(in.schema ++ Seq(
+          variable.map(_.name).getOrElse(s"__RELATIONSHIP_${variable.hashCode}") -> CTRelationship,
+          var2.map(_.name).getOrElse(s"__NODE_${var2.hashCode}") -> CTNode,
+        ), () => {
+          in.records.flatMap {
+            record0 =>
+              val len = record0.size
+              runnerContext.graphModel.relationships(
+                record0.last.asInstanceOf[LynxNode].id,
+                RelationshipFilter(types.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+                NodeFilter(labels2.map(_.name), properties2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+                direction
+              ).map(record0 ++ _.toSeq(direction)).filter(
+                item => {
+                  //(m)-[r]-(n)-[p]-(t), r!=p
+                  val relIds = item.filter(_.isInstanceOf[LynxRelationship]).map(_.asInstanceOf[LynxRelationship].id)
+                  relIds.size == relIds.toSet.size
+                }
+              )
           }
         })
-
-         */
     }
   }
 }

@@ -46,7 +46,7 @@ class CypherCreateTest extends TestBase {
   def testCreateNodesPath(): Unit = {
     val size1 = all_nodes.size
     val size2 = all_rels.size
-    val rs = runOnDemoGraph("CREATE (a:person {name: 'BaoChai'}), (b:person {name: 'BaoYu'}), (c:person {name: 'DaiYu'}), (a)-[:love]->(b)-[:love]->(c) return a,b,c")
+    val rs = runOnDemoGraph("CREATE (a:person {name: 'BaoChai'}), (b:person {name: 'BaoYu'}), (c:person {name: 'DaiYu'}), (a)-[:LOVES]->(b)-[:LOVES]->(c) return a,b,c")
     Assert.assertEquals(size1 + 2, all_nodes.size)
     Assert.assertEquals(size2 + 2, all_rels.size)
 
@@ -54,20 +54,31 @@ class CypherCreateTest extends TestBase {
     Assert.assertEquals(LynxString("BaoYu"), all_nodes(size1 + 1).properties("name"))
     Assert.assertEquals(LynxString("DaiYu"), all_nodes(size1 + 2).properties("name"))
 
-    Assert.assertEquals("love", all_rels(size2).relationType.get)
+    Assert.assertEquals("LOVES", all_rels(size2).relationType.get)
     Assert.assertEquals(all_nodes(size1).id.value, all_rels(size2).startId)
     Assert.assertEquals(all_nodes(size1 + 1).id.value, all_rels(size2).endId)
 
-    Assert.assertEquals("love", all_rels(size2 + 1).relationType.get)
+    Assert.assertEquals("LOVES", all_rels(size2 + 1).relationType.get)
     Assert.assertEquals(all_nodes(size1 + 1).id.value, all_rels(size2 + 1).startId)
     Assert.assertEquals(all_nodes(size1 + 2).id.value, all_rels(size2 + 1).endId)
   }
 
   @Test
-  def testMatchAndCreateNodesRelation(): Unit = {
+  def testMatchAndCreateRelation(): Unit = {
+     var rs = runOnDemoGraph("match (m:person {name:'bluejoe'}) (n {name:'CNIC'}) CREATE (m)-[r:WORKS_FOR]->(n) return m,r,n")
+    Assert.assertEquals(3, all_nodes.size)
+    Assert.assertEquals(4, all_rels.size)
+
+    Assert.assertEquals("WORKS_FOR", all_rels(3).relationType.get)
+    Assert.assertEquals(1.toLong, all_rels(3).startId)
+    Assert.assertEquals(3.toLong, all_rels(3).endId)
+  }
+
+  @Test
+  def testMatchToCreateNodesAndRelations(): Unit = {
     val size1 = all_nodes.size
     val size2 = all_rels.size
-    val rs = runOnDemoGraph("match (m:person) CREATE (n {name: 'God', age: 10000}), (n)-[r:loves]->(m) return n,r,m")
+    var rs = runOnDemoGraph("match (m:person) CREATE (n {name: 'God', age: 10000}), (n)-[r:LOVES]->(m) return n,r,m")
     Assert.assertEquals(size1 + 1, all_nodes.size)
     Assert.assertEquals(size2 + 2, all_rels.size)
 
@@ -75,10 +86,10 @@ class CypherCreateTest extends TestBase {
     Assert.assertEquals(LynxInteger(10000), all_nodes(size1).properties("age"))
     Assert.assertEquals(Seq("person"), all_nodes(size1).labels)
 
-    Assert.assertEquals("loves", all_rels(size2).relationType.get)
+    Assert.assertEquals("LOVES", all_rels(size2).relationType.get)
     Assert.assertEquals(size1.toLong, all_rels(size2).startId)
     Assert.assertEquals(1.toLong, all_rels(size2).endId)
-    Assert.assertEquals("loves", all_rels(size2 + 1).relationType.get)
+    Assert.assertEquals("LOVES", all_rels(size2 + 1).relationType.get)
     Assert.assertEquals(size1.toLong, all_rels(size2 + 1).startId)
     Assert.assertEquals(2.toLong, all_rels(size2 + 1).endId)
   }

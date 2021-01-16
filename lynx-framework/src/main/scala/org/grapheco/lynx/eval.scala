@@ -68,6 +68,12 @@ class ExpressionEvaluatorImpl extends ExpressionEvaluator {
       case LessThanOrEqual(lhs, rhs) =>
         eval(GreaterThanOrEqual(rhs, lhs)(expr.position))
 
+      case Not(in) =>
+        eval(in) match {
+          case LynxNull => LynxNull
+          case LynxBoolean(b) => LynxBoolean(!b)
+        }
+
       case v: Literal =>
         LynxValue(v.value)
 
