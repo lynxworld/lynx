@@ -95,13 +95,8 @@ case class RelationshipFilter(types: Seq[String], properties: Map[String, LynxVa
   }
 }
 
-case class PathTriple(startNode: LynxNode, rel: LynxRelationship, endNode: LynxNode) {
-  def toSeq(direction: SemanticDirection) = direction match {
-    case INCOMING => Seq(endNode, rel, startNode)
-    case _ => Seq(startNode, rel, endNode)
-  }
-
-  def inverse = PathTriple(endNode, rel, startNode)
+case class PathTriple(startNode: LynxNode, storedRelation: LynxRelationship, endNode: LynxNode, reverse: Boolean = false) {
+  def revert = PathTriple(endNode, storedRelation, startNode, !reverse)
 }
 
 trait GraphModel {
@@ -109,46 +104,60 @@ trait GraphModel {
 
   def relationships(): Iterator[PathTriple]
 
-  def relationships(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {
+  def paths(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {
     val rels = direction match {
       case BOTH => relationships().flatMap(item =>
-        Seq(item, item.inverse))
-      case _ => relationships()
+        Seq(item, item.revert))
+      case INCOMING => relationships().map(_.revert)
+      case OUTGOING => relationships()
     }
 
-    rels.filter(
-      item => {
-        val PathTriple(startNode, rel, endNode) = item
-        relationshipFilter.matches(rel) && (
-          direction match {
-            case INCOMING => endNodeFilter.matches(startNode) && startNodeFilter.matches(endNode)
-            case OUTGOING => startNodeFilter.matches(startNode) && endNodeFilter.matches(endNode)
-            case BOTH => (startNodeFilter.matches(startNode) && endNodeFilter.matches(endNode)) ||
-              (endNodeFilter.matches(startNode) && startNodeFilter.matches(endNode))
-          })
-      }
-    )
-  }
-
-  def relationships(nodeId: LynxId, direction: SemanticDirection): Iterator[PathTriple] = {
-    val rels = relationships()
-    rels.filter { item =>
-      val PathTriple(startNode, rel, endNode) = item
-      direction match {
-        case INCOMING => endNode.id == nodeId
-        case OUTGOING => startNode.id == nodeId
-        case BOTH => startNode.id == nodeId || endNode.id == nodeId
-      }
+    rels.filter {
+      case PathTriple(startNode, rel, endNode, _) =>
+        relationshipFilter.matches(rel) && startNodeFilter.matches(startNode) && endNodeFilter.matches(endNode)
     }
   }
 
-  def relationships(nodeId: LynxId, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] =
-    relationships(nodeId, direction).filter(
+  def paths(nodeId: LynxId, direction: SemanticDirection): Iterator[PathTriple] = {
+    val rels = direction match {
+      case BOTH => relationships().flatMap(item =>
+        Seq(item, item.revert))
+      case INCOMING => relationships().map(_.revert)
+      case OUTGOING => relationships()
+    }
+
+    rels.filter(_.startNode.id == nodeId)
+  }
+
+  def paths(nodeId: LynxId, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {
+    paths(nodeId, direction).filter(
       item => {
-        val PathTriple(_, rel, endNode) = item
+        val PathTriple(_, rel, endNode, _) = item
         relationshipFilter.matches(rel) && endNodeFilter.matches(endNode)
       }
     )
+  }
+
+  def paths(nodeFilter: NodeFilter, expandFilters: (RelationshipFilter, NodeFilter, SemanticDirection)*): Iterator[Seq[PathTriple]] = {
+    expandFilters.drop(1).foldLeft {
+      val (relationshipFilter, endNodeFilter, direction) = expandFilters.head
+      paths(nodeFilter, relationshipFilter, endNodeFilter, direction).map(Seq(_))
+    } {
+      (in: Iterator[Seq[PathTriple]], newFilter) =>
+        in.flatMap {
+          record0: Seq[PathTriple] =>
+            val (relationshipFilter, endNodeFilter, direction) = newFilter
+            paths(record0.last.endNode.id, relationshipFilter, endNodeFilter, direction).map(
+              record0 :+ _).filter(
+              item => {
+                //(m)-[r]-(n)-[p]-(t), r!=p
+                val relIds = item.filter(_.isInstanceOf[LynxRelationship]).map(_.asInstanceOf[LynxRelationship].id)
+                relIds.size == relIds.toSet.size
+              }
+            )
+        }
+    }
+  }
 
   def createElements[T](nodes: Array[(Option[String], NodeInput)],
                         rels: Array[(Option[String], RelationshipInput)],

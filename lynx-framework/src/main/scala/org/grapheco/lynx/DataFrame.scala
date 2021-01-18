@@ -49,7 +49,7 @@ object DataFrame {
 trait DataFrameOperator {
   def select(df: DataFrame, columns: Seq[(String, Option[String])]): DataFrame
 
-  def filter(df: DataFrame, condition: Expression)(ctx: ExpressionContext): DataFrame
+  def filter(df: DataFrame, predicate: Seq[LynxValue] => Boolean)(ctx: ExpressionContext): DataFrame
 
   def project(df: DataFrame, columns: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame
 
@@ -98,17 +98,10 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
     )
   }
 
-  override def filter(df: DataFrame, condition: Expression)(ctx: ExpressionContext): DataFrame = {
-    val schema1 = df.schema
-
-    DataFrame(schema1,
-      () => df.records.filter(
-        record =>
-          expressionEvaluator.eval(condition)(ctx.withVars(schema1.map(_._1).zip(record).toMap)) match {
-            case LynxBoolean(b) => b
-            case LynxNull => false
-          }
-      ))
+  override def filter(df: DataFrame, predicate: (Seq[LynxValue]) => Boolean)(ctx: ExpressionContext): DataFrame = {
+    DataFrame(df.schema,
+      () => df.records.filter(predicate(_))
+    )
   }
 
   override def skip(df: DataFrame, num: Int): DataFrame = DataFrame(df.schema, () => df.records.drop(num))
@@ -169,10 +162,7 @@ trait DataFrameOps {
 
   def join(b: DataFrame): DataFrame = operator.join(srcFrame, b)
 
-  def filter(condition: Option[Expression])(implicit ctx: ExpressionContext): DataFrame =
-    condition.map(operator.filter(srcFrame, _)(ctx)).getOrElse(srcFrame)
-
-  def filter(condition: Expression)(implicit ctx: ExpressionContext): DataFrame = operator.filter(srcFrame, condition)(ctx)
+  def filter(predicate: Seq[LynxValue] => Boolean)(ctx: ExpressionContext): DataFrame = operator.filter(srcFrame, predicate)(ctx)
 
   def take(num: Int): DataFrame = operator.take(srcFrame, num)
 
