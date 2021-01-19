@@ -1,4 +1,5 @@
-import org.grapheco.lynx.{LynxResult, LynxValue, ParsingException, UnknownProcedureException, WrongNumberOfArgumentsException}
+package org.grapheco.lynx
+
 import org.junit.function.ThrowingRunnable
 import org.junit.{Assert, Test}
 

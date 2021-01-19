@@ -1,12 +1,14 @@
+package org.grapheco.lynx
+
+import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.Profiler
-import org.grapheco.lynx._
 import org.junit.{Assert, Test}
 import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
 import org.opencypher.v9_0.util.symbols.CTString
 
 import scala.collection.mutable.ArrayBuffer
 
-class TestBase {
+class TestBase extends LazyLogging {
   Profiler.enableTiming = true
 
   //(bluejoe)-[:KNOWS]->(alex)-[:KNOWS]->(CNIC)
@@ -21,34 +23,38 @@ class TestBase {
     TestRelationship(3, 1, 3, None)
   )
 
+  val NODE_SIZE = all_nodes.size
+  val REL_SIZE = all_rels.size
+
   val model = new GraphModel {
     override def createElements[T](
-                                    nodes1: Array[(Option[String], NodeInput)],
-                                    rels1: Array[(Option[String], RelationshipInput)],
-                                    onCreated: (Map[Option[String], LynxNode], Map[Option[String], LynxRelationship]) => T): T = {
-      val nodesMap: Map[NodeInput, (Option[String], TestNode)] = nodes1.map(x => {
+      nodesInput: Seq[(String, NodeInput)],
+      relsInput: Seq[(String, RelationshipInput)],
+      onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T): T = {
+      val nodesMap: Seq[(String, TestNode)] = nodesInput.map(x => {
         val (varname, input) = x
         val id = all_nodes.size + 1
-        input -> (varname, TestNode(id, input.labels, input.props: _*))
-      }).toMap
+        varname -> TestNode(id, input.labels, input.props: _*)
+      })
 
       def nodeId(ref: NodeInputRef): Long = {
         ref match {
           case StoredNodeInputRef(id) => id.value.asInstanceOf[Long]
-          case ContextualNodeInputRef(node) => nodesMap(node)._2.longId
+          case ContextualNodeInputRef(varname) => nodesMap.find(_._1 == varname).get._2.longId
         }
       }
 
-      val relsMap: Array[(Option[String], TestRelationship)] = rels1.map(x => {
+      val relsMap: Seq[(String, TestRelationship)] = relsInput.map(x => {
         val (varname, input) = x
         varname -> TestRelationship(all_rels.size + 1, nodeId(input.startNodeRef), nodeId(input.endNodeRef), input.types.headOption)
       }
       )
 
-      all_nodes ++= nodesMap.map(_._2._2)
+      logger.debug(s"created nodes: ${nodesMap}, rels: ${relsMap}")
+      all_nodes ++= nodesMap.map(_._2)
       all_rels ++= relsMap.map(_._2)
 
-      onCreated(nodesMap.map(_._2), relsMap.toMap)
+      onCreated(nodesMap, relsMap)
     }
 
     def nodeAt(id: Long): Option[LynxNode] = {
@@ -81,34 +87,11 @@ class TestBase {
     println(s"query: $query")
     runner.compile(query)
     Profiler.timing {
-      val rs = runner.run(query, param)
+      //call cache() only for test
+      val rs = runner.run(query, param).cache()
       rs.show()
       rs
     }
-  }
-
-  @Test
-  def testGraphModel(): Unit = {
-    var rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), OUTGOING)
-    Assert.assertEquals(3, rs.size)
-    rs.foreach {
-      item =>
-        val PathTriple(startNode, rel, endNode, _) = item
-        Assert.assertEquals(rel.startNodeId, startNode.id)
-        Assert.assertEquals(rel.endNodeId, endNode.id)
-    }
-
-    rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), INCOMING)
-    Assert.assertEquals(3, rs.size)
-    rs.foreach {
-      item =>
-        val PathTriple(startNode, rel, endNode, _) = item
-        Assert.assertEquals(rel.startNodeId, endNode.id)
-        Assert.assertEquals(rel.endNodeId, startNode.id)
-    }
-
-    rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), BOTH)
-    Assert.assertEquals(6, rs.size)
   }
 }
 

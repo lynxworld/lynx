@@ -1,10 +1,11 @@
 package org.grapheco.lynx
 
 import org.opencypher.v9_0.ast._
-import org.opencypher.v9_0.expressions.{RelationshipChain, _}
+import org.opencypher.v9_0.expressions.{NodePattern, RelationshipChain, _}
 import org.opencypher.v9_0.util.symbols.{CTNode, CTRelationship}
 import org.grapheco.lynx.DataFrameOps._
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 trait PhysicalPlanNode {
@@ -91,62 +92,138 @@ case class PhysicalProcedureCall(c: UnresolvedCall)(implicit val runnerContext: 
   }
 }
 
+trait CreateElement
+
+case class CreateNode(varName: String, labels3: Seq[LabelName], properties3: Option[Expression]) extends CreateElement
+
+case class CreateRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) extends CreateElement
+
 case class PhysicalCreate(c: Create, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
   override def execute(ctx: PlanExecutionContext): DataFrame = {
-    //create
-    val nodes = ArrayBuffer[(Option[LogicalVariable], NodeInput)]()
-    val rels = ArrayBuffer[(Option[LogicalVariable], RelationshipInput)]()
     implicit val ec = ctx.expressionContext
+    val df = in.map(_.execute(ctx)).getOrElse(DataFrame.unit(Seq.empty))
+    var definedVars = df.schema.map(_._1).toSet
+    val (schemaLocal, ops) = c.pattern.patternParts.foldLeft((Seq.empty[(String, LynxType)], Seq.empty[CreateElement])) {
+      (result, part) =>
+        val (schema1, ops1) = result
+        part match {
+          case EveryPath(element) =>
+            element match {
+              //create (n)
+              case NodePattern(var1: Option[LogicalVariable], labels1, properties1, _) =>
+                val leftNodeName = var1.map(_.name).getOrElse(s"__NODE_${element.hashCode}")
+                (schema1 :+ (leftNodeName -> CTNode)) ->
+                  (ops1 :+ CreateNode(leftNodeName, labels1, properties1))
 
-    c.pattern.patternParts.foreach {
-      case EveryPath(NodePattern(variable: Option[LogicalVariable], labels, properties, _)) =>
-        nodes += variable -> NodeInput(labels.map(_.name), properties.map {
-          case MapExpression(items) =>
-            items.map({
-              case (k, v) => k.name -> eval(v)
-            })
-        }.getOrElse(Seq.empty))
-
-      case EveryPath(RelationshipChain(element,
-      RelationshipPattern(
-      variable: Option[LogicalVariable],
-      types: Seq[RelTypeName],
-      length: Option[Option[Range]],
-      properties: Option[Expression],
-      direction: SemanticDirection,
-      legacyTypeSeparator: Boolean,
-      baseRel: Option[LogicalVariable]), rightNode)) =>
-        def nodeRef(pe: PatternElement): NodeInputRef = {
-          pe match {
-            case NodePattern(variable, _, _, _) =>
-              nodes.toMap.get(variable).map(ContextualNodeInputRef(_)).getOrElse(throw UnresolvableVarException(variable))
-          }
+              //create (m)-[r]-(n)
+              case chain: RelationshipChain =>
+                val (_, schema2, ops2) = build(chain, definedVars)
+                (schema1 ++ schema2) -> (ops1 ++ ops2)
+            }
         }
-
-        rels += variable -> RelationshipInput(types.map(_.name), properties.map {
-          case MapExpression(items) =>
-            items.map({
-              case (k, v) => k.name -> eval(v)
-            })
-        }.getOrElse(Seq.empty[(String, LynxValue)]),
-          nodeRef(element),
-          nodeRef(rightNode)
-        )
-
-      case _ =>
     }
 
-    runnerContext.graphModel.createElements(
-      nodes.map(x => x._1.map(_.name) -> x._2).toArray,
-      rels.map(x => x._1.map(_.name) -> x._2).toArray,
-      (nodesCreated: Map[Option[String], LynxNode], relsCreated: Map[Option[String], LynxRelationship]) => {
 
-        val schema = nodesCreated.map(_._1).flatMap(_.toSeq).map(_ -> CTNode) ++
-          relsCreated.map(_._1).flatMap(_.toSeq).map(_ -> CTRelationship)
+    DataFrame(df.schema ++ schemaLocal, () =>
+      df.records.map {
+        record =>
+          val ctxMap = df.schema.zip(record).map(x => x._1._1 -> x._2).toMap
+          val nodesInput = ArrayBuffer[(String, NodeInput)]()
+          val relsInput = ArrayBuffer[(String, RelationshipInput)]()
 
-        DataFrame(schema.toSeq, () => Iterator.single(nodesCreated.filter(_._1.isDefined).map(_._2).toSeq ++
-          relsCreated.filter(_._1.isDefined).map(_._2)))
-      })
+          ops.foreach(_ match {
+            case CreateNode(varName: String, labels: Seq[LabelName], properties: Option[Expression]) =>
+              if (!ctxMap.contains(varName) && nodesInput.find(_._1 == varName).isEmpty) {
+                nodesInput += varName -> NodeInput(labels.map(_.name), properties.map {
+                  case MapExpression(items) =>
+                    items.map({
+                      case (k, v) => k.name -> eval(v)(ec.withVars(ctxMap))
+                    })
+                }.getOrElse(Seq.empty))
+              }
+
+            case CreateRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) =>
+
+              def nodeInputRef(varname: String): NodeInputRef = {
+                ctxMap.get(varname).map(
+                  x =>
+                    StoredNodeInputRef(x.asInstanceOf[LynxNode].id)
+                ).getOrElse(
+                  ContextualNodeInputRef(varname)
+                )
+              }
+
+              relsInput += varName -> RelationshipInput(types.map(_.name), properties.map {
+                case MapExpression(items) =>
+                  items.map({
+                    case (k, v) => k.name -> eval(v)(ec.withVars(ctxMap))
+                  })
+              }.getOrElse(Seq.empty[(String, LynxValue)]), nodeInputRef(varNameLeftNode), nodeInputRef(varNameRightNode))
+          })
+
+          record ++ runnerContext.graphModel.createElements(
+            nodesInput,
+            relsInput,
+            (nodesCreated: Seq[(String, LynxNode)], relsCreated: Seq[(String, LynxRelationship)]) => {
+              val created = nodesCreated.toMap ++ relsCreated
+              schemaLocal.map(x => created(x._1))
+            })
+      }
+    )
+  }
+
+  //returns (varLastNode, schema, ops)
+  private def build(chain: RelationshipChain, definedVars: Set[String]): (String, Seq[(String, LynxType)], Seq[CreateElement]) = {
+    val RelationshipChain(
+    left,
+    rp@RelationshipPattern(var2: Option[LogicalVariable], types: Seq[RelTypeName], length: Option[Option[Range]], properties2: Option[Expression], direction: SemanticDirection, legacyTypeSeparator: Boolean, baseRel: Option[LogicalVariable]),
+    rnp@NodePattern(var3, labels3: Seq[LabelName], properties3: Option[Expression], _)
+    ) = chain
+
+    val varRelation = var2.map(_.name).getOrElse(s"__RELATIONSHIP_${rp.hashCode}")
+    val varRightNode = var3.map(_.name).getOrElse(s"__NODE_${rnp.hashCode}")
+
+    val schemaLocal = ArrayBuffer[(String, LynxType)]()
+    val opsLocal = ArrayBuffer[CreateElement]()
+    left match {
+      //create (m)-[r]-(n), left=n
+      case NodePattern(var1: Option[LogicalVariable], labels1, properties1, _) =>
+        val varLeftNode = var1.map(_.name).getOrElse(s"__NODE_${left.hashCode}")
+        if (!definedVars.contains(varLeftNode)) {
+          schemaLocal += varLeftNode -> CTNode
+          opsLocal += CreateNode(varLeftNode, labels1, properties1)
+        }
+
+        if (!definedVars.contains(varRightNode)) {
+          schemaLocal += varRightNode -> CTNode
+          opsLocal += CreateNode(varRightNode, labels3, properties3)
+        }
+
+        schemaLocal += varRelation -> CTRelationship
+        opsLocal += CreateRelationship(varRelation, types, properties2, varLeftNode, varRightNode)
+
+        (varRightNode, schemaLocal, opsLocal)
+
+      //create (m)-[p]-(t)-[r]-(n), leftChain=(m)-[p]-(t)
+      case leftChain: RelationshipChain =>
+        //build (m)-[p]-(t)
+        val (varLastNode, schema, ops) = build(leftChain, definedVars)
+        (
+          varRightNode,
+          schema ++ Seq(varRelation -> CTRelationship) ++ (if (!definedVars.contains(varRightNode)) {
+            Seq(varRightNode -> CTNode)
+          } else {
+            Seq.empty
+          }),
+          ops ++ (if (!definedVars.contains(varRightNode)) {
+            Seq(CreateNode(varRightNode, labels3, properties3))
+          } else {
+            Seq.empty
+          }) ++ Seq(
+            CreateRelationship(varRelation, types, properties2, varLastNode, varRightNode)
+          )
+        )
+    }
   }
 }
 
@@ -165,7 +242,7 @@ sealed trait NodeInputRef
 
 case class StoredNodeInputRef(id: LynxId) extends NodeInputRef
 
-case class ContextualNodeInputRef(node: NodeInput) extends NodeInputRef
+case class ContextualNodeInputRef(varname: String) extends NodeInputRef
 
 case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
   override def execute(ctx: PlanExecutionContext): DataFrame = {
@@ -191,8 +268,39 @@ case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val ru
     }
   }
 
+  private def build(chain: RelationshipChain)(implicit ec: ExpressionContext): (Seq[(String, LynxType)], NodeFilter, Seq[(RelationshipFilter, NodeFilter, SemanticDirection)]) = {
+    val RelationshipChain(
+    left,
+    rp@RelationshipPattern(variable: Option[LogicalVariable], types: Seq[RelTypeName], length: Option[Option[Range]], properties: Option[Expression], direction: SemanticDirection, legacyTypeSeparator: Boolean, baseRel: Option[LogicalVariable]),
+    rnp@NodePattern(var2, labels2: Seq[LabelName], properties2: Option[Expression], baseNode2: Option[LogicalVariable])
+    ) = chain
+
+    val schema0 = Seq(variable.map(_.name).getOrElse(s"__RELATIONSHIP_${rp.hashCode}") -> CTRelationship,
+      var2.map(_.name).getOrElse(s"__NODE_${rnp.hashCode}") -> CTNode)
+
+    val filters0 = (
+      RelationshipFilter(types.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+      NodeFilter(labels2.map(_.name), properties2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+      direction)
+
+    left match {
+      case NodePattern(var1, labels1: Seq[LabelName], properties1: Option[Expression], baseNode1: Option[LogicalVariable]) =>
+        (
+          Seq(var1.map(_.name).getOrElse(s"__NODE_${left.hashCode}") -> CTNode) ++ schema0,
+          NodeFilter(labels1.map(_.name), properties1.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+          Seq(filters0)
+        )
+
+      case leftChain: RelationshipChain =>
+        val (schema, startNodeFilter, chainFilters) = build(leftChain)
+        (schema ++ schema0, startNodeFilter, chainFilters :+ filters0)
+    }
+  }
+
   private def matchPattern(element: PatternElement)(implicit ctx: PlanExecutionContext): DataFrame = {
     implicit val ec = ctx.expressionContext
+    //build schema & filter chain
+
     element match {
       //match (m:label1)
       case NodePattern(
@@ -211,37 +319,7 @@ case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val ru
 
       //match ()-[]->()-...-[r:type]->(n:label2)
       case chain: RelationshipChain =>
-
-        //build schema & filter chain
-        def build(chain: RelationshipChain, schema: Seq[(String, LynxType)], filters: Seq[(RelationshipFilter, NodeFilter, SemanticDirection)]): (Seq[(String, LynxType)], NodeFilter, Seq[(RelationshipFilter, NodeFilter, SemanticDirection)]) = {
-          val RelationshipChain(
-          left,
-          RelationshipPattern(variable: Option[LogicalVariable], types: Seq[RelTypeName], length: Option[Option[Range]], properties: Option[Expression], direction: SemanticDirection, legacyTypeSeparator: Boolean, baseRel: Option[LogicalVariable]),
-          NodePattern(var2, labels2: Seq[LabelName], properties2: Option[Expression], baseNode2: Option[LogicalVariable])
-          ) = chain
-
-          val schema0 = Seq(variable.map(_.name).getOrElse(s"__RELATIONSHIP_${variable.hashCode}") -> CTRelationship,
-            var2.map(_.name).getOrElse(s"__NODE_${var2.hashCode}") -> CTNode)
-
-          val filters0 = (
-            RelationshipFilter(types.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-            NodeFilter(labels2.map(_.name), properties2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-            direction)
-
-          left match {
-            case NodePattern(var1, labels1: Seq[LabelName], properties1: Option[Expression], baseNode1: Option[LogicalVariable]) =>
-              (
-                Seq(var1.map(_.name).getOrElse(s"__NODE_${var1.hashCode}") -> CTNode) ++ schema0 ++ schema,
-                NodeFilter(labels1.map(_.name), properties1.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-                filters0 +: filters
-              )
-
-            case leftChain: RelationshipChain =>
-              build(leftChain, schema0 ++ schema, filters0 +: filters)
-          }
-        }
-
-        val (schema, startNodeFilter, chainFilters) = build(chain, Seq.empty, Seq.empty)
+        val (schema, startNodeFilter, chainFilters) = build(chain)
 
         DataFrame(schema, () => {
           runnerContext.graphModel.paths(startNodeFilter, chainFilters: _*).map(

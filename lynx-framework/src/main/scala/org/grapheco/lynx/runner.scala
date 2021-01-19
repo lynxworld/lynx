@@ -49,6 +49,23 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
       override def getLogicalPlan(): LogicalPlanNode = logicalPlan
 
       override def getPhysicalPlan(): PhysicalPlanNode = physicalPlan
+
+      override def cache(): LynxResult = {
+        val source = this
+        val cached = df.records.toSeq
+
+        new LynxResult {
+          override def show(limit: Int): Unit = FormatUtils.printTable(columnNames,
+            cached.take(limit).toSeq.map(_.map(_.value)))
+
+          override def cache(): LynxResult = this
+
+          override def columns(): Seq[String] = columnNames
+
+          override def records(): Iterator[Map[String, Any]] = cached.map(columnNames.zip(_).toMap).iterator
+
+        }
+      }
     }
   }
 }
@@ -59,6 +76,8 @@ case class PlanExecutionContext(queryParameters: Map[String, Any]) {
 
 trait LynxResult {
   def show(limit: Int = 20): Unit
+
+  def cache(): LynxResult
 
   def columns(): Seq[String]
 
@@ -159,9 +178,10 @@ trait GraphModel {
     }
   }
 
-  def createElements[T](nodes: Array[(Option[String], NodeInput)],
-                        rels: Array[(Option[String], RelationshipInput)],
-                        onCreated: (Map[Option[String], LynxNode], Map[Option[String], LynxRelationship]) => T): T
+  def createElements[T](
+    nodesInput: Seq[(String, NodeInput)],
+    relsInput: Seq[(String, RelationshipInput)],
+    onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T): T
 
   def nodes(): Iterator[LynxNode]
 

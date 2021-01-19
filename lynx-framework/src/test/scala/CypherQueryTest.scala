@@ -1,4 +1,5 @@
-import org.grapheco.lynx._
+package org.grapheco.lynx
+
 import org.junit.{Assert, Test}
 
 class CypherQueryTest extends TestBase {
@@ -79,6 +80,15 @@ class CypherQueryTest extends TestBase {
     Assert.assertEquals(LynxValue(30), rs.records.toSeq.apply(1).apply("y"))
     Assert.assertEquals(LynxValue("CNIC"), rs.records.toSeq.apply(2).apply("x"))
     Assert.assertEquals(LynxValue(10), rs.records.toSeq.apply(2).apply("y"))
+  }
+
+  @Test
+  def testMatchWithReturnEval(): Unit = {
+    val rs = runOnDemoGraph("match (n) return n.name,n.age+1")
+    Assert.assertEquals(3, rs.records.size)
+    Assert.assertEquals(LynxValue(41), rs.records.toSeq.apply(0).apply("n.age+1"))
+    Assert.assertEquals(LynxValue(31), rs.records.toSeq.apply(1).apply("n.age+1"))
+    Assert.assertEquals(LynxValue(11), rs.records.toSeq.apply(2).apply("n.age+1"))
   }
 
   @Test

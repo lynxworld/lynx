@@ -2,7 +2,7 @@ package org.grapheco.lynx
 
 import org.grapheco.lynx.DataFrame.typeOf
 import org.opencypher.v9_0.expressions.{BooleanLiteral, DoubleLiteral, Expression, IntegerLiteral, Parameter, Property, StringLiteral, True, Variable}
-import org.opencypher.v9_0.util.symbols.{CTBoolean, CTFloat, CTInteger, CTString, CypherType}
+import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTString, CypherType}
 
 trait DataFrame {
   def schema: Seq[(String, LynxType)]
@@ -24,7 +24,7 @@ object DataFrame {
       case _: DoubleLiteral => CTFloat
 
       case Variable(name) => varTypes(name)
-      case p@Property(_, _) => CTInteger
+      case _ => CTAny
     }
 
   def apply(schema0: Seq[(String, LynxType)], records0: () => Iterator[Seq[LynxValue]]) =
