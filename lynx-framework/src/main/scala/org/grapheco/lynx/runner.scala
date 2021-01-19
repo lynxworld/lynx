@@ -24,10 +24,10 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
     logger.debug(s"AST tree: ${statement}")
 
     val logicalPlan = logicalPlanner.plan(statement)
-    logger.debug(s"logical plan: ${logicalPlan}")
+    logger.debug(s"logical plan: \r\n${logicalPlan.pretty}")
 
     val physicalPlan = physicalPlanner.plan(logicalPlan)
-    logger.debug(s"physical plan: ${physicalPlan}")
+    logger.debug(s"physical plan: \r\n${physicalPlan.pretty}")
 
     val ctx = PlanExecutionContext(param ++ param2)
     val df = physicalPlan.execute(ctx)

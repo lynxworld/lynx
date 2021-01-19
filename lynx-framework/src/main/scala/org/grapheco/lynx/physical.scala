@@ -4,11 +4,9 @@ import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions.{NodePattern, RelationshipChain, _}
 import org.opencypher.v9_0.util.symbols.{CTNode, CTRelationship}
 import org.grapheco.lynx.DataFrameOps._
-
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-trait PhysicalPlanNode {
+trait PhysicalPlanNode extends TreeNode {
   def execute(ctx: PlanExecutionContext): DataFrame
 }
 
@@ -43,6 +41,8 @@ trait AbstractPhysicalPlanNode extends PhysicalPlanNode {
 }
 
 case class PhysicalSingleQuery(in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
+  override val children: Seq[TreeNode] = in.toSeq
+
   override def execute(ctx: PlanExecutionContext): DataFrame =
     in.map(_.execute(ctx)).getOrElse(DataFrame.empty)
 }
@@ -99,10 +99,12 @@ case class CreateNode(varName: String, labels3: Seq[LabelName], properties3: Opt
 case class CreateRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) extends CreateElement
 
 case class PhysicalCreate(c: Create, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
+  override val children: Seq[TreeNode] = in.toSeq
+
   override def execute(ctx: PlanExecutionContext): DataFrame = {
     implicit val ec = ctx.expressionContext
     val df = in.map(_.execute(ctx)).getOrElse(DataFrame.unit(Seq.empty))
-    var definedVars = df.schema.map(_._1).toSet
+    val definedVars = df.schema.map(_._1).toSet
     val (schemaLocal, ops) = c.pattern.patternParts.foldLeft((Seq.empty[(String, LynxType)], Seq.empty[CreateElement])) {
       (result, part) =>
         val (schema1, ops1) = result
@@ -122,7 +124,6 @@ case class PhysicalCreate(c: Create, in: Option[PhysicalPlanNode])(implicit val 
             }
         }
     }
-
 
     DataFrame(df.schema ++ schemaLocal, () =>
       df.records.map {
@@ -245,6 +246,8 @@ case class StoredNodeInputRef(id: LynxId) extends NodeInputRef
 case class ContextualNodeInputRef(varname: String) extends NodeInputRef
 
 case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
+  override val children: Seq[TreeNode] = in.toSeq
+
   override def execute(ctx: PlanExecutionContext): DataFrame = {
     in match {
       case None => executeMatch(m)(ctx)
@@ -416,6 +419,7 @@ object DataFramePipe {
 }
 
 case class PhysicalWith(w: With, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
+  override val children: Seq[TreeNode] = in.toSeq
 
   override def execute(ctx: PlanExecutionContext): DataFrame = {
     implicit val ec = ctx.expressionContext
@@ -440,6 +444,8 @@ case class PhysicalWith(w: With, in: Option[PhysicalPlanNode])(implicit val runn
 }
 
 case class PhysicalReturn(r: Return, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
+  override val children: Seq[TreeNode] = in.toSeq
+
   override def execute(ctx: PlanExecutionContext): DataFrame = {
     implicit val ec = ctx.expressionContext
     (r, in) match {
