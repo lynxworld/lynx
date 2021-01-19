@@ -28,6 +28,19 @@ class ExpressionEvaluatorImpl extends ExpressionEvaluator {
 
   override def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue =
     expr match {
+      case Add(lhs, rhs) =>
+        safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
+          (lvalue, rvalue) match {
+            case (a: LynxNumber, b: LynxNumber) => a + b
+            case (a: LynxString, b: LynxString) => LynxString(a.v + b.v)
+          })
+
+      case Subtract(lhs, rhs) =>
+        safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
+          (lvalue, rvalue) match {
+            case (a: LynxNumber, b: LynxNumber) => a - b
+          })
+
       case Ors(exprs) =>
         LynxBoolean(exprs.exists(eval(_) == LynxBoolean(true)))
 

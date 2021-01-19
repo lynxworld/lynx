@@ -12,12 +12,30 @@ trait LynxValue {
 
 trait LynxNumber extends LynxValue {
   def number: Number
+
+  def +(that: LynxNumber): LynxNumber
+
+  def -(that: LynxNumber): LynxNumber
 }
 
 case class LynxInteger(v: Int) extends LynxNumber {
   def value = v
 
   def number: Number = v
+
+  def +(that: LynxNumber): LynxNumber = {
+    that match {
+      case LynxInteger(v2) => LynxInteger(v + v2)
+      case LynxDouble(v2) => LynxDouble(v + v2)
+    }
+  }
+
+  def -(that: LynxNumber): LynxNumber = {
+    that match {
+      case LynxInteger(v2) => LynxInteger(v - v2)
+      case LynxDouble(v2) => LynxDouble(v - v2)
+    }
+  }
 
   def cypherType = CTInteger
 }
@@ -28,6 +46,20 @@ case class LynxDouble(v: Double) extends LynxNumber {
   def number: Number = v
 
   def cypherType = CTFloat
+
+  def +(that: LynxNumber): LynxNumber = {
+    that match {
+      case LynxInteger(v2) => LynxDouble(v + v2)
+      case LynxDouble(v2) => LynxDouble(v + v2)
+    }
+  }
+
+  def -(that: LynxNumber): LynxNumber = {
+    that match {
+      case LynxInteger(v2) => LynxDouble(v - v2)
+      case LynxDouble(v2) => LynxDouble(v - v2)
+    }
+  }
 }
 
 case class LynxString(v: String) extends LynxValue {
