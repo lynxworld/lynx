@@ -2,38 +2,6 @@ package org.grapheco.lynx
 
 import org.opencypher.v9_0.ast.{Clause, Create, Match, PeriodicCommitHint, Query, QueryPart, Return, SingleQuery, Statement, UnresolvedCall, With}
 import org.opencypher.v9_0.util.ASTNode
-import scala.annotation.tailrec
-import scala.collection.mutable.ArrayBuffer
-
-trait TreeNode {
-
-  val children: Seq[TreeNode] = Seq.empty
-
-  def pretty: String = {
-    val lines = new ArrayBuffer[String]
-
-    @tailrec
-    def recTreeToString(toPrint: List[TreeNode], prefix: String, stack: List[List[TreeNode]]): Unit = {
-      toPrint match {
-        case Nil =>
-          stack match {
-            case Nil =>
-            case top :: remainingStack =>
-              recTreeToString(top, prefix.dropRight(4), remainingStack)
-          }
-        case last :: Nil =>
-          lines += s"$prefix╙──${last.toString}"
-          recTreeToString(last.children.toList, s"$prefix    ", Nil :: stack)
-        case next :: siblings =>
-          lines += s"$prefix╟──${next.toString}"
-          recTreeToString(next.children.toList, s"$prefix║   ", siblings :: stack)
-      }
-    }
-
-    recTreeToString(List(this), "", Nil)
-    lines.mkString("\n")
-  }
-}
 
 trait LogicalPlanNode extends TreeNode {
 }

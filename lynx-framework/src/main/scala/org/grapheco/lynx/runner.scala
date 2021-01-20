@@ -7,6 +7,9 @@ import org.opencypher.v9_0.ast.semantics.SemanticState
 import org.opencypher.v9_0.expressions.SemanticDirection
 import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
 
+import scala.annotation.tailrec
+import scala.collection.mutable.ArrayBuffer
+
 case class CypherRunnerContext(dataFrameOperator: DataFrameOperator, expressionEvaluator: ExpressionEvaluator, graphModel: GraphModel)
 
 class CypherRunner(graphModel: GraphModel) extends LazyLogging {
@@ -186,6 +189,36 @@ trait GraphModel {
   def nodes(): Iterator[LynxNode]
 
   def nodes(nodeFilter: NodeFilter): Iterator[LynxNode] = nodes().filter(nodeFilter.matches(_))
+}
+
+trait TreeNode {
+
+  val children: Seq[TreeNode] = Seq.empty
+
+  def pretty: String = {
+    val lines = new ArrayBuffer[String]
+
+    @tailrec
+    def recTreeToString(toPrint: List[TreeNode], prefix: String, stack: List[List[TreeNode]]): Unit = {
+      toPrint match {
+        case Nil =>
+          stack match {
+            case Nil =>
+            case top :: remainingStack =>
+              recTreeToString(top, prefix.dropRight(4), remainingStack)
+          }
+        case last :: Nil =>
+          lines += s"$prefix╙──${last.toString}"
+          recTreeToString(last.children.toList, s"$prefix    ", Nil :: stack)
+        case next :: siblings =>
+          lines += s"$prefix╟──${next.toString}"
+          recTreeToString(next.children.toList, s"$prefix║   ", siblings :: stack)
+      }
+    }
+
+    recTreeToString(List(this), "", Nil)
+    lines.mkString("\n")
+  }
 }
 
 trait LynxException extends RuntimeException {
