@@ -385,4 +385,11 @@ class CypherQueryTest extends TestBase {
     Assert.assertEquals(2.toLong, rs.records.toSeq.apply(1).apply("m").asInstanceOf[LynxNode].id.value)
     Assert.assertEquals(1.toLong, rs.records.toSeq.apply(1).apply("n").asInstanceOf[LynxNode].id.value)
   }
+  @Test
+  def testQueryOrderby(): Unit = {
+    //var rs = runOnDemoGraph("match (n) return n.age  order by n.age")
+    var rs = runOnDemoGraph("match (n) return n.age  limit 1")
+  }
+
+
 }
