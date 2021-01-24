@@ -405,11 +405,20 @@ case class OrderByPipeBuilder(orderBy: Option[OrderBy])(implicit ctx: Expression
   override def build(): Iterable[DataFramePipe] = Some(
     new DataFramePipe {
       override def map(df: DataFrame): DataFrame = {
-        val sortItems = orderBy match {
+        orderBy match {
+          case None => df
+          case Some(value) =>
+            val sortItem:Seq[(String ,Boolean)] = value.sortItems.map {
+              case AscSortItem(expression) => (expression.asInstanceOf[Variable].name, true)
+              case DescSortItem(expression) => (expression.asInstanceOf[Variable].name, false)
+            }
+            df.orderBy(Some(sortItem))
+        }
+     /*   val sortItems = orderBy match {
           case None => None
           case Some(orderBy) => None//orderBy.sortItems.map()
         }
-        df.orderBy(sortItems)
+        df.orderBy(sortItems)*/
       }
     })
 }
