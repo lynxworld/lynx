@@ -4,6 +4,7 @@ import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions.{NodePattern, RelationshipChain, _}
 import org.opencypher.v9_0.util.symbols.{CTNode, CTRelationship}
 import org.grapheco.lynx.DataFrameOps._
+
 import scala.collection.mutable.ArrayBuffer
 
 trait PhysicalPlanNode extends TreeNode {
@@ -399,6 +400,20 @@ case class SelectPipeBuilder(columns: Seq[(String, Option[String])])(implicit ct
     })
 }
 
+case class OrderByPipeBuilder(orderBy: Option[OrderBy])(implicit ctx: ExpressionContext, dfo: DataFrameOperator, evaluator: ExpressionEvaluator)
+  extends DataFramePipeBuilder{
+  override def build(): Iterable[DataFramePipe] = Some(
+    new DataFramePipe {
+      override def map(df: DataFrame): DataFrame = {
+        val sortItems = orderBy match {
+          case None => None
+          case Some(orderBy) => None//orderBy.sortItems.map()
+        }
+        df.orderBy(sortItems)
+      }
+    })
+}
+
 case class DistinctPipeBuilder(distinct: Boolean)(implicit ctx: ExpressionContext, dfo: DataFrameOperator)
   extends DataFramePipeBuilder {
   def build(): Iterable[DataFramePipe] = distinct match {
@@ -427,7 +442,7 @@ case class PhysicalWith(w: With, in: Option[PhysicalPlanNode])(implicit val runn
       case (With(distinct, ReturnItems(includeExisting, items), orderBy, skip, limit: Option[Limit], where), None) =>
         createUnitDataFrame(items, ctx)
 
-      case (With(distinct, ri: ReturnItems, orderBy, skip: Option[Skip], limit: Option[Limit], where: Option[Where]), Some(sin)) =>
+      case (With(distinct, ri: ReturnItems, orderBy: Option[OrderBy], skip: Option[Skip], limit: Option[Limit], where: Option[Where]), Some(sin)) =>
         DataFramePipe.piping(
           sin.execute(ctx),
           Seq(
@@ -436,7 +451,8 @@ case class PhysicalWith(w: With, in: Option[PhysicalPlanNode])(implicit val runn
             SkipPipeBuilder(skip),
             LimitPipeBuilder(limit),
             SelectPipeBuilder(ri),
-            DistinctPipeBuilder(distinct)
+            DistinctPipeBuilder(distinct),
+            OrderByPipeBuilder(orderBy)
           )
         )
     }
@@ -449,7 +465,7 @@ case class PhysicalReturn(r: Return, in: Option[PhysicalPlanNode])(implicit val 
   override def execute(ctx: PlanExecutionContext): DataFrame = {
     implicit val ec = ctx.expressionContext
     (r, in) match {
-      case (Return(distinct, ri: ReturnItems, orderBy, skip: Option[Skip], limit: Option[Limit], excludedNames), Some(sin)) =>
+      case (Return(distinct, ri: ReturnItems, orderBy: Option[OrderBy], skip: Option[Skip], limit: Option[Limit], excludedNames), Some(sin)) =>
         DataFramePipe.piping(
           sin.execute(ctx),
           Seq(
@@ -457,7 +473,8 @@ case class PhysicalReturn(r: Return, in: Option[PhysicalPlanNode])(implicit val 
             SkipPipeBuilder(skip),
             LimitPipeBuilder(limit),
             SelectPipeBuilder(ri),
-            DistinctPipeBuilder(distinct)
+            DistinctPipeBuilder(distinct),
+            OrderByPipeBuilder(orderBy)
           )
         )
     }

@@ -60,10 +60,44 @@ trait DataFrameOperator {
   def join(a: DataFrame, b: DataFrame): DataFrame
 
   def distinct(df: DataFrame): DataFrame
+
+  def orderBy(df: DataFrame, sortItems: Option[Seq[(String, Boolean)]]): DataFrame
 }
 
 class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends DataFrameOperator {
   def distinct(df: DataFrame): DataFrame = DataFrame(df.schema, () => df.records.toSeq.distinct.iterator)
+
+  def linSort(a:Seq[LynxValue], b:Seq[LynxValue])(implicit sitem: Seq[(Int, Boolean)]): Boolean = {
+    val sd =sitem.foldLeft((true, true)){
+      (f, s) => {
+        f match {
+          case (true, true) => {
+            s._2 match{
+              case true => (a(s._1) <= b(s._1), a(s._1)==b(s._1))
+              case false => (a(s._1) >= b(s._1), a(s._1)==b(s._1))
+            }
+          }
+          case (true, false) => (true, false)
+          case (false, true) => (false, true)
+          case (false, false) => (false, false)
+        }
+      }
+    }
+    sd._1
+  }
+
+  override def orderBy(df: DataFrame, sortItems: Option[Seq[(String, Boolean)]]): DataFrame = {
+    DataFrame(df.schema, () => {
+      val schema1: Map[String, (CypherType, Int)] = df.schema.zipWithIndex.map(x => x._1._1 -> (x._1._2, x._2)).toMap
+      val sitem:Seq[(Int, Boolean)] = sortItems match {
+        case None => schema1.map(s => s._2._2 -> true).toSeq
+        case Some(value) => value.map(tup => schema1(tup._1)._2-> tup._2)
+
+      }
+
+      df.records.toSeq.sortWith(linSort(_,_)(sitem)).toIterator
+    })
+  }
 
   override def select(df: DataFrame, columns: Seq[(String, Option[String])]): DataFrame = {
     val schema1: Map[String, (CypherType, Int)] = df.schema.zipWithIndex.map(x => x._1._1 -> (x._1._2, x._2)).toMap
@@ -169,6 +203,8 @@ trait DataFrameOps {
   def skip(num: Int): DataFrame = operator.skip(srcFrame, num)
 
   def distinct(): DataFrame = operator.distinct(srcFrame)
+
+  def orderBy(sortItems: Option[Seq[(String, Boolean)]]): DataFrame = operator.orderBy(srcFrame, sortItems)
 }
 
 object DataFrameOps {
