@@ -140,6 +140,7 @@ object LynxValue {
       case v: Date => LynxDate(v.getTime)
       case v: Iterable[Any] => LynxList(v.map(apply(_)).toList)
       case v: Map[String, Any] => LynxMap(v.map(x => x._1 -> apply(x._2)))
+      case v: Array[Any] => LynxList(v.map(apply(_)).toList)
       case _ => throw InvalidValueException(unknown)
     }
   }
