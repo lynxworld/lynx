@@ -23,10 +23,10 @@ object FormatUtils {
     val sb = new StringBuilder
     val numCols = formatedColumns.length
 
-    // Initialise the width of each column to a minimum value of '3'
+    //width>=3
     val colWidths = Array.fill(numCols)(3)
 
-    // Compute the width of each column
+    //width of each column
     for (row ← formatedData :+ formatedColumns) {
       for ((cell, i) ← row.zipWithIndex) {
         colWidths(i) = math.max(colWidths(i), cell.length)
@@ -34,25 +34,26 @@ object FormatUtils {
     }
 
     // Create SeparateLine
-    val sep: String = colWidths.map("-" * _).addString(sb, "+", "+", "+\n").toString()
+    colWidths.map("═" * _).addString(sb, "╔", "╤", "╗\n")
 
     // column names
     formatedColumns.zipWithIndex.map {
       case (cell, i) ⇒
         StringUtils.rightPad(cell, colWidths(i))
-    }.addString(sb, "|", "|", "|\n")
+    }.addString(sb, "║", "│", "║\n")
 
-    sb.append(sep)
+    colWidths.map("═" * _).addString(sb, "╠", "╪", "╣\n")
 
     // data
     formatedData.foreach {
       _.zipWithIndex.map {
         case (cell, i) ⇒
           StringUtils.rightPad(cell, colWidths(i))
-      }.addString(sb, "|", "|", "|\n")
+      }.addString(sb, "║", "│", "║\n")
     }
 
-    sb.append(sep)
+    colWidths.map("═" * _).addString(sb, "╚", "╧", "╝\n")
+
     println(sb)
   }
 }

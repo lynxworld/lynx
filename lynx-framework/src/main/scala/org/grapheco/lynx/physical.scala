@@ -11,18 +11,18 @@ trait PhysicalPlanNode extends TreeNode {
 }
 
 trait PhysicalPlanner {
-  def plan(logicalPlan: LogicalPlanNode): PhysicalPlanNode
+  def plan(logicalPlan: LPTNode): PhysicalPlanNode
 }
 
 class PhysicalPlannerImpl()(implicit runnerContext: CypherRunnerContext) extends PhysicalPlanner {
-  override def plan(logicalPlan: LogicalPlanNode): PhysicalPlanNode = {
+  override def plan(logicalPlan: LPTNode): PhysicalPlanNode = {
     logicalPlan match {
-      case LogicalProcedureCall(c: UnresolvedCall) => PhysicalProcedureCall(c)
-      case LogicalCreate(c: Create, in: Option[LogicalQueryClause]) => PhysicalCreate(c, in.map(plan(_)))
-      case LogicalMatch(m: Match, in: Option[LogicalQueryClause]) => PhysicalMatch(m, in.map(plan(_)))
-      case LogicalReturn(r: Return, in: Option[LogicalQueryClause]) => PhysicalReturn(r, in.map(plan(_)))
-      case LogicalWith(w: With, in: Option[LogicalQueryClause]) => PhysicalWith(w, in.map(plan(_)))
-      case LogicalQuery(LogicalSingleQuery(in)) => PhysicalSingleQuery(in.map(plan(_)))
+      case LPTProcedureCall(c: UnresolvedCall) => PhysicalProcedureCall(c)
+      //case LogicalCreate(c: Create, in: Option[PhysicalPlanNode]) => PhysicalCreate(c, in.map(plan(_)))
+      //case LogicalMatch(m: Match, in: Option[LogicalQueryClause]) => PhysicalMatch(m, in.map(plan(_)))
+      //case LogicalReturn(r: Return, in: Option[LogicalQueryClause]) => PhysicalReturn(r, in.map(plan(_)))
+      //case LogicalWith(w: With, in: Option[LogicalQueryClause]) => PhysicalWith(w, in.map(plan(_)))
+      //case LogicalQuery(LogicalSingleQuery(in)) => PhysicalSingleQuery(in.map(plan(_)))
     }
   }
 }
