@@ -391,6 +391,11 @@ class CypherQueryTest extends TestBase {
     var rs = runOnDemoGraph("match (n:test) return n.age,n.name  order by n.age desc, n.name")
    // var rs = runOnDemoGraph("match (n) return n.age  limit 1")
   }
+  @Test
+  def testQueryCaseWhen(): Unit = {
+    var rs1 = runOnDemoGraph("create (n1:test{age:9,name:'CodeBaby'}),(n2:test{age:10,name:'BlueJoy'}),(n3:test{age:18,name:'OldWang'})")
+    var rs = runOnDemoGraph("match (n:test) WITH n.age as age, CASE WHEN n.age < 10 THEN 'Child' WHEN n.age <16 THEN 'Teenager' ELSE 'Adult' END AS hood,n.name as name RETURN age,name,hood order by age desc,name")
+  }
 
 
 }
