@@ -49,7 +49,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 
       override def getASTStatement(): (Statement, Map[String, Any]) = (statement, param2)
 
-      override def getLogicalPlan(): LogicalPlanNode = logicalPlan
+      override def getLogicalPlan(): LPTNode = logicalPlan
 
       override def getPhysicalPlan(): PhysicalPlanNode = physicalPlan
 
@@ -73,6 +73,9 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
   }
 }
 
+case class LogicalPlannerContext() {
+}
+
 case class PlanExecutionContext(queryParameters: Map[String, Any]) {
   val expressionContext = ExpressionContext(queryParameters.map(x => x._1 -> LynxValue(x._2)))
 }
@@ -90,7 +93,7 @@ trait LynxResult {
 trait PlanAware {
   def getASTStatement(): (Statement, Map[String, Any])
 
-  def getLogicalPlan(): LogicalPlanNode
+  def getLogicalPlan(): LPTNode
 
   def getPhysicalPlan(): PhysicalPlanNode
 }
