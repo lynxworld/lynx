@@ -137,6 +137,8 @@ object LynxValue {
       case v: Int => LynxInteger(v)
       case v: Long => LynxInteger(v.toInt)
       case v: String => LynxString(v)
+      case v: Double => LynxDouble(v)
+      case v: Float => LynxDouble(v)
       case v: Date => LynxDate(v.getTime)
       case v: Iterable[Any] => LynxList(v.map(apply(_)).toList)
       case v: Map[String, Any] => LynxMap(v.map(x => x._1 -> apply(x._2)))

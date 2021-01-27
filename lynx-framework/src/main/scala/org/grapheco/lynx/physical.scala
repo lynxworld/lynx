@@ -314,7 +314,7 @@ case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val ru
       baseNode: Option[LogicalVariable]) =>
         DataFrame(Seq(var0.name -> CTNode), () => {
           val nodes = if (labels.isEmpty)
-            runnerContext.graphModel.nodes()
+            runnerContext.graphModel.nodes(NodeFilter(labels.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)))
           else
             runnerContext.graphModel.nodes(NodeFilter(labels.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)))
 
