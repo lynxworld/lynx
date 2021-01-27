@@ -101,8 +101,8 @@ trait CallableProcedure {
 
 case class NodeFilter(labels: Seq[String], properties: Map[String, LynxValue]) {
   def matches(node: LynxNode): Boolean = (labels, node.labels) match {
-    case (Seq(), _) => true
-    case (_, nodeLabels) => labels.forall(nodeLabels.contains(_))
+    case (Seq(), _) => properties.forall(p => node.property(p._1).orNull.equals(p._2))
+    case (_, nodeLabels) => labels.forall(nodeLabels.contains(_)) && properties.forall(p => node.property(p._1).orNull.equals(p._2))
   }
 }
 

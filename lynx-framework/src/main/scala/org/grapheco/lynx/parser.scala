@@ -5,7 +5,7 @@ import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.{SemanticErrorDef, SemanticFeature, SemanticState}
 import org.opencypher.v9_0.frontend.phases.{AstRewriting, BaseContains, BaseContext, BaseState, CompilationPhaseTracer, InitialState, InternalNotificationLogger, Monitors, Parsing, SemanticAnalysis, SyntaxDeprecationWarnings, Transformer, devNullLogger, _}
 import org.opencypher.v9_0.rewriting.Deprecations.V2
-import org.opencypher.v9_0.rewriting.rewriters.Forced
+import org.opencypher.v9_0.rewriting.rewriters.{Forced, Never}
 import org.opencypher.v9_0.rewriting.{AstRewritingMonitor, RewriterStepSequencer}
 import org.opencypher.v9_0.util.{CypherException, InputPosition}
 
@@ -58,7 +58,7 @@ class QueryParserImpl extends QueryParser {
       OkapiPreparatoryRewriting andThen
       SemanticAnalysis(warn = true, SemanticFeature.Cypher10Support, SemanticFeature.MultipleGraphs, SemanticFeature.WithInitialQuerySignature)
         .adds(BaseContains[SemanticState]) andThen
-      AstRewriting(RewriterStepSequencer.newPlain, Forced, getDegreeRewriting = false) andThen
+      AstRewriting(RewriterStepSequencer.newPlain, Never, getDegreeRewriting = false) andThen
       isolateAggregation andThen
       SemanticAnalysis(warn = false, SemanticFeature.Cypher10Support, SemanticFeature.MultipleGraphs, SemanticFeature.WithInitialQuerySignature) andThen
       Namespacer andThen
