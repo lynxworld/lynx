@@ -263,6 +263,8 @@ case class PPTProject(ri: ReturnItemsDef)(implicit val in: PPTNode, val runnerCo
     val df = in.execute(ctx)
     df.project(ri.items.map(x => x.name -> x.expression))(ctx.expressionContext)
   }
+
+  def withReturnItems(items: Seq[ReturnItem]) = PPTProject(ReturnItems(ri.includeExisting, items)(ri.position))(in, runnerContext)
 }
 
 case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])(implicit val runnerContext: CypherRunnerContext) extends AbstractPPTNode {
