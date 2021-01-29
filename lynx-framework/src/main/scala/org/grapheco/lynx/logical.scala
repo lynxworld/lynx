@@ -1,7 +1,9 @@
 package org.grapheco.lynx
 
-import org.opencypher.v9_0.ast.{Clause, Create, Match, PeriodicCommitHint, Query, QueryPart, Return, SingleQuery, Statement, UnresolvedCall, With}
+import org.opencypher.v9_0.ast.{Clause, Create, CreateIndex, CreateUniquePropertyConstraint, Match, PeriodicCommitHint, Query, QueryPart, Return, SingleQuery, Statement, UnresolvedCall, With}
+import org.opencypher.v9_0.expressions.{LabelName, Property, PropertyKeyName, Variable}
 import org.opencypher.v9_0.util.ASTNode
+
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
@@ -65,6 +67,12 @@ class LogicalPlannerImpl()(implicit runnerContext: CypherRunnerContext) extends 
       case Query(periodicCommitHint: Option[PeriodicCommitHint], part: QueryPart) =>
         LogicalQuery(translateQueryPart(part))
 
+      case CreateUniquePropertyConstraint(Variable(v1),LabelName(l),List(Property(Variable(v2),PropertyKeyName(p)))) =>
+        throw UnknownASTNodeException(node)
+
+      case CreateIndex(labelName, properties) =>
+        LogicalIndex(labelName, properties)
+
       case _ =>
         throw UnknownASTNodeException(node)
     }
@@ -76,6 +84,8 @@ class LogicalPlannerImpl()(implicit runnerContext: CypherRunnerContext) extends 
 case class LogicalQuery(part: LogicalQueryPart) extends LogicalPlanNode {
   override val children: Seq[TreeNode] = Seq(part)
 }
+
+case class LogicalIndex(labelName: LabelName, properties: List[PropertyKeyName]) extends LogicalPlanNode
 
 trait LogicalQueryPart extends LogicalPlanNode
 

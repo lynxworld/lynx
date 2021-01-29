@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.FormatUtils
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.SemanticState
-import org.opencypher.v9_0.expressions.SemanticDirection
+import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, SemanticDirection}
 import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
 
 case class CypherRunnerContext(dataFrameOperator: DataFrameOperator, expressionEvaluator: ExpressionEvaluator, graphModel: GraphModel)
@@ -182,6 +182,8 @@ trait GraphModel {
     nodesInput: Seq[(String, NodeInput)],
     relsInput: Seq[(String, RelationshipInput)],
     onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T): T
+
+  def createIndex(labelName: LabelName, properties: List[PropertyKeyName]): Unit
 
   def nodes(): Iterator[LynxNode]
 

@@ -24,6 +24,7 @@ class PhysicalPlannerImpl()(implicit runnerContext: CypherRunnerContext) extends
       case LogicalReturn(r: Return, in: Option[LogicalQueryClause]) => PhysicalReturn(r, in.map(plan(_)))
       case LogicalWith(w: With, in: Option[LogicalQueryClause]) => PhysicalWith(w, in.map(plan(_)))
       case LogicalQuery(LogicalSingleQuery(in)) => PhysicalSingleQuery(in.map(plan(_)))
+      case LogicalIndex(labelName: LabelName, properties: List[PropertyKeyName]) => PhysicalIndexCreate(labelName, properties)
     }
   }
 }
@@ -91,6 +92,15 @@ case class PhysicalProcedureCall(c: UnresolvedCall)(implicit val runnerContext: 
       case None => df
     }
   }
+}
+
+case class PhysicalIndexCreate(labelName: LabelName, properties: List[PropertyKeyName])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
+
+  override def execute(ctx: PlanExecutionContext): DataFrame = {
+    runnerContext.graphModel.createIndex(labelName, properties)
+    DataFrame.empty
+  }
+
 }
 
 trait CreateElement
