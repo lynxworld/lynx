@@ -182,6 +182,9 @@ class CypherQueryTest extends TestBase {
 
     rs = runOnDemoGraph("match (m)-[r]->(n) match (n)-[s]->(x) return r,s")
     Assert.assertEquals(1, rs.records.size)
+
+    rs = runOnDemoGraph("match (m)-[r]->(n) where m.age>18 match (n)-[s]->(x) where x.age<35 return r,s")
+    Assert.assertEquals(1, rs.records.size)
   }
 
   @Test

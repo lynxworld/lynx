@@ -18,6 +18,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
   private implicit lazy val runnerContext = CypherRunnerContext(dataFrameOperator, expressionEvaluator, graphModel)
   protected val logicalPlanner: LogicalPlanner = new LogicalPlannerImpl()(runnerContext)
   protected val physicalPlanner: PhysicalPlanner = new PhysicalPlannerImpl()(runnerContext)
+  protected val physicalPlanOptimizer: PhysicalPlanOptimizer = new PhysicalPlanOptimizerImpl()
   protected val queryParser: QueryParser = new CachedQueryParser(new QueryParserImpl())
 
   def compile(query: String): (Statement, Map[String, Any], SemanticState) = queryParser.parse(query)
@@ -32,8 +33,11 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
     val physicalPlan = physicalPlanner.plan(logicalPlan)
     logger.debug(s"physical plan: \r\n${physicalPlan.pretty}")
 
-    val ctx = PlanExecutionContext(param ++ param2)
-    val df = physicalPlan.execute(ctx)
+    val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan)
+    logger.debug(s"optimized physical plan: \r\n${optimizedPhysicalPlan.pretty}")
+
+    val ctx = ExecutionContext(param ++ param2)
+    val df = optimizedPhysicalPlan.execute(ctx)
 
     new LynxResult() with PlanAware {
       val schema = df.schema
@@ -51,7 +55,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 
       override def getLogicalPlan(): LPTNode = logicalPlan
 
-      override def getPhysicalPlan(): PhysicalPlanNode = physicalPlan
+      override def getPhysicalPlan(): PPTNode = physicalPlan
 
       override def cache(): LynxResult = {
         val source = this
@@ -76,7 +80,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 case class LogicalPlannerContext() {
 }
 
-case class PlanExecutionContext(queryParameters: Map[String, Any]) {
+case class ExecutionContext(queryParameters: Map[String, Any]) {
   val expressionContext = ExpressionContext(queryParameters.map(x => x._1 -> LynxValue(x._2)))
 }
 
@@ -95,7 +99,7 @@ trait PlanAware {
 
   def getLogicalPlan(): LPTNode
 
-  def getPhysicalPlan(): PhysicalPlanNode
+  def getPhysicalPlan(): PPTNode
 }
 
 trait CallableProcedure {
@@ -143,7 +147,7 @@ trait GraphModel {
     }
   }
 
-  def paths(nodeId: LynxId, direction: SemanticDirection): Iterator[PathTriple] = {
+  def expand(nodeId: LynxId, direction: SemanticDirection): Iterator[PathTriple] = {
     val rels = direction match {
       case BOTH => relationships().flatMap(item =>
         Seq(item, item.revert))
@@ -154,34 +158,13 @@ trait GraphModel {
     rels.filter(_.startNode.id == nodeId)
   }
 
-  def paths(nodeId: LynxId, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {
-    paths(nodeId, direction).filter(
+  def expand(nodeId: LynxId, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {
+    expand(nodeId, direction).filter(
       item => {
         val PathTriple(_, rel, endNode, _) = item
         relationshipFilter.matches(rel) && endNodeFilter.matches(endNode)
       }
     )
-  }
-
-  def paths(nodeFilter: NodeFilter, expandFilters: (RelationshipFilter, NodeFilter, SemanticDirection)*): Iterator[Seq[PathTriple]] = {
-    expandFilters.drop(1).foldLeft {
-      val (relationshipFilter, endNodeFilter, direction) = expandFilters.head
-      paths(nodeFilter, relationshipFilter, endNodeFilter, direction).map(Seq(_))
-    } {
-      (in: Iterator[Seq[PathTriple]], newFilter) =>
-        in.flatMap {
-          record0: Seq[PathTriple] =>
-            val (relationshipFilter, endNodeFilter, direction) = newFilter
-            paths(record0.last.endNode.id, relationshipFilter, endNodeFilter, direction).map(
-              record0 :+ _).filter(
-              item => {
-                //(m)-[r]-(n)-[p]-(t), r!=p
-                val relIds = item.filter(_.isInstanceOf[LynxRelationship]).map(_.asInstanceOf[LynxRelationship].id)
-                relIds.size == relIds.toSet.size
-              }
-            )
-        }
-    }
   }
 
   def createElements[T](
@@ -195,8 +178,8 @@ trait GraphModel {
 }
 
 trait TreeNode {
-
-  val children: Seq[TreeNode] = Seq.empty
+  type SerialType <: TreeNode
+  val children: Seq[SerialType] = Seq.empty
 
   def pretty: String = {
     val lines = new ArrayBuffer[String]
