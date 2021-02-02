@@ -49,7 +49,7 @@ class PhysicalPlannerImpl(runnerContext: CypherRunnerContext) extends PhysicalPl
     logicalPlan match {
       case LPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]]) =>
         PPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])
-      case lc@LPTCreate(c: Create) => PPTCreate(c)(lc.in.map(plan(_)), plannerContext)
+      case lc@LPTCreate(c: Create) => PPTCreateTranslator(c).translate(lc.in.map(plan(_)))(plannerContext)
       case ls@LPTSelect(columns: Seq[(String, Option[String])]) => PPTSelect(columns)(plan(ls.in), plannerContext)
       case lp@LPTProject(ri) => PPTProject(ri)(plan(lp.in), plannerContext)
       case lc@LPTCreateUnit(items) => PPTCreateUnit(items)(plannerContext)
@@ -398,12 +398,8 @@ case class CreateNode(varName: String, labels3: Seq[LabelName], properties3: Opt
 
 case class CreateRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) extends CreateElement
 
-case class PPTCreate(c: Create)(implicit val in: Option[PPTNode], val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
-  override val children: Seq[PPTNode] = in.toSeq
-
-  override def withChildren(children0: Seq[PPTNode]): PPTCreate = PPTCreate(c)(children0.headOption, plannerContext)
-
-  override val schema: Seq[(String, LynxType)] = {
+case class PPTCreateTranslator(c: Create) extends PPTNodeTranslator {
+  def translate(in: Option[PPTNode])(implicit plannerContext: PhysicalPlannerContext): PPTNode = {
     val definedVars = in.map(_.schema.map(_._1)).getOrElse(Seq.empty).toSet
     val (schemaLocal, ops) = c.pattern.patternParts.foldLeft((Seq.empty[(String, LynxType)], Seq.empty[CreateElement])) {
       (result, part) =>
@@ -425,79 +421,7 @@ case class PPTCreate(c: Create)(implicit val in: Option[PPTNode], val plannerCon
         }
     }
 
-    in.map(_.schema).getOrElse(Seq.empty) ++ schemaLocal
-  }
-
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
-    implicit val ec = ctx.expressionContext
-    val df = in.map(_.execute(ctx)).getOrElse(createUnitDataFrame(Seq.empty))
-    val definedVars = df.schema.map(_._1).toSet
-    val (schemaLocal, ops) = c.pattern.patternParts.foldLeft((Seq.empty[(String, LynxType)], Seq.empty[CreateElement])) {
-      (result, part) =>
-        val (schema1, ops1) = result
-        part match {
-          case EveryPath(element) =>
-            element match {
-              //create (n)
-              case NodePattern(var1: Option[LogicalVariable], labels1, properties1, _) =>
-                val leftNodeName = var1.map(_.name).getOrElse(s"__NODE_${element.hashCode}")
-                (schema1 :+ (leftNodeName -> CTNode)) ->
-                  (ops1 :+ CreateNode(leftNodeName, labels1, properties1))
-
-              //create (m)-[r]-(n)
-              case chain: RelationshipChain =>
-                val (_, schema2, ops2) = build(chain, definedVars)
-                (schema1 ++ schema2) -> (ops1 ++ ops2)
-            }
-        }
-    }
-
-    DataFrame(df.schema ++ schemaLocal, () =>
-      df.records.map {
-        record =>
-          val ctxMap = df.schema.zip(record).map(x => x._1._1 -> x._2).toMap
-          val nodesInput = ArrayBuffer[(String, NodeInput)]()
-          val relsInput = ArrayBuffer[(String, RelationshipInput)]()
-
-          ops.foreach(_ match {
-            case CreateNode(varName: String, labels: Seq[LabelName], properties: Option[Expression]) =>
-              if (!ctxMap.contains(varName) && nodesInput.find(_._1 == varName).isEmpty) {
-                nodesInput += varName -> NodeInput(labels.map(_.name), properties.map {
-                  case MapExpression(items) =>
-                    items.map({
-                      case (k, v) => k.name -> eval(v)(ec.withVars(ctxMap))
-                    })
-                }.getOrElse(Seq.empty))
-              }
-
-            case CreateRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) =>
-
-              def nodeInputRef(varname: String): NodeInputRef = {
-                ctxMap.get(varname).map(
-                  x =>
-                    StoredNodeInputRef(x.asInstanceOf[LynxNode].id)
-                ).getOrElse(
-                  ContextualNodeInputRef(varname)
-                )
-              }
-
-              relsInput += varName -> RelationshipInput(types.map(_.name), properties.map {
-                case MapExpression(items) =>
-                  items.map({
-                    case (k, v) => k.name -> eval(v)(ec.withVars(ctxMap))
-                  })
-              }.getOrElse(Seq.empty[(String, LynxValue)]), nodeInputRef(varNameLeftNode), nodeInputRef(varNameRightNode))
-          })
-
-          record ++ graphModel.createElements(
-            nodesInput,
-            relsInput,
-            (nodesCreated: Seq[(String, LynxNode)], relsCreated: Seq[(String, LynxRelationship)]) => {
-              val created = nodesCreated.toMap ++ relsCreated
-              schemaLocal.map(x => created(x._1))
-            })
-      }
-    )
+    PPTCreate(schemaLocal, ops)(in, plannerContext)
   }
 
   //returns (varLastNode, schema, ops)
@@ -552,6 +476,66 @@ case class PPTCreate(c: Create)(implicit val in: Option[PPTNode], val plannerCon
           )
         )
     }
+  }
+}
+
+case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[CreateElement])(implicit val in: Option[PPTNode], val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = in.toSeq
+
+  override def withChildren(children0: Seq[PPTNode]): PPTCreate = PPTCreate(schemaLocal, ops)(children0.headOption, plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = in.map(_.schema).getOrElse(Seq.empty) ++ schemaLocal
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    implicit val ec = ctx.expressionContext
+    val df = in.map(_.execute(ctx)).getOrElse(createUnitDataFrame(Seq.empty))
+
+    DataFrame(schema, () =>
+      df.records.map {
+        record =>
+          val ctxMap = df.schema.zip(record).map(x => x._1._1 -> x._2).toMap
+          val nodesInput = ArrayBuffer[(String, NodeInput)]()
+          val relsInput = ArrayBuffer[(String, RelationshipInput)]()
+
+          ops.foreach(_ match {
+            case CreateNode(varName: String, labels: Seq[LabelName], properties: Option[Expression]) =>
+              if (!ctxMap.contains(varName) && nodesInput.find(_._1 == varName).isEmpty) {
+                nodesInput += varName -> NodeInput(labels.map(_.name), properties.map {
+                  case MapExpression(items) =>
+                    items.map({
+                      case (k, v) => k.name -> eval(v)(ec.withVars(ctxMap))
+                    })
+                }.getOrElse(Seq.empty))
+              }
+
+            case CreateRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) =>
+
+              def nodeInputRef(varname: String): NodeInputRef = {
+                ctxMap.get(varname).map(
+                  x =>
+                    StoredNodeInputRef(x.asInstanceOf[LynxNode].id)
+                ).getOrElse(
+                  ContextualNodeInputRef(varname)
+                )
+              }
+
+              relsInput += varName -> RelationshipInput(types.map(_.name), properties.map {
+                case MapExpression(items) =>
+                  items.map({
+                    case (k, v) => k.name -> eval(v)(ec.withVars(ctxMap))
+                  })
+              }.getOrElse(Seq.empty[(String, LynxValue)]), nodeInputRef(varNameLeftNode), nodeInputRef(varNameRightNode))
+          })
+
+          record ++ graphModel.createElements(
+            nodesInput,
+            relsInput,
+            (nodesCreated: Seq[(String, LynxNode)], relsCreated: Seq[(String, LynxRelationship)]) => {
+              val created = nodesCreated.toMap ++ relsCreated
+              schemaLocal.map(x => created(x._1))
+            })
+      }
+    )
   }
 }
 
