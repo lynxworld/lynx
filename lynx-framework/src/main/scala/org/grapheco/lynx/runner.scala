@@ -16,10 +16,10 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
   protected val expressionEvaluator: ExpressionEvaluator = new ExpressionEvaluatorImpl()
   protected val dataFrameOperator: DataFrameOperator = new DataFrameOperatorImpl(expressionEvaluator)
   private implicit lazy val runnerContext = CypherRunnerContext(dataFrameOperator, expressionEvaluator, graphModel)
-  protected val logicalPlanner: LogicalPlanner = new LogicalPlannerImpl()(runnerContext)
-  protected val physicalPlanner: PhysicalPlanner = new PhysicalPlannerImpl()(runnerContext)
-  protected val physicalPlanOptimizer: PhysicalPlanOptimizer = new PhysicalPlanOptimizerImpl()
-  protected val queryParser: QueryParser = new CachedQueryParser(new QueryParserImpl())
+  protected val logicalPlanner: LogicalPlanner = new LogicalPlannerImpl(runnerContext)
+  protected val physicalPlanner: PhysicalPlanner = new PhysicalPlannerImpl(runnerContext)
+  protected val physicalPlanOptimizer: PhysicalPlanOptimizer = new PhysicalPlanOptimizerImpl(runnerContext)
+  protected val queryParser: QueryParser = new CachedQueryParser(new QueryParserImpl(runnerContext))
 
   def compile(query: String): (Statement, Map[String, Any], SemanticState) = queryParser.parse(query)
 
@@ -27,10 +27,11 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
     val (statement, param2, state) = queryParser.parse(query)
     logger.debug(s"AST tree: ${statement}")
 
-    val logicalPlan = logicalPlanner.plan(statement)
+    val logicalPlan = logicalPlanner.plan(statement, LogicalPlannerContext())
     logger.debug(s"logical plan: \r\n${logicalPlan.pretty}")
 
-    val physicalPlan = physicalPlanner.plan(logicalPlan)
+    val physicalPlannerContext = PhysicalPlannerContext(param ++ param2, runnerContext)
+    val physicalPlan = physicalPlanner.plan(logicalPlan)(physicalPlannerContext)
     logger.debug(s"physical plan: \r\n${physicalPlan.pretty}")
 
     val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan)
@@ -78,6 +79,14 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 }
 
 case class LogicalPlannerContext() {
+}
+
+object PhysicalPlannerContext {
+  def apply(queryParameters: Map[String, Any], runnerContext: CypherRunnerContext): PhysicalPlannerContext =
+    new PhysicalPlannerContext(queryParameters.map(x => x._1 -> LynxValue(x._2).cypherType).toSeq, runnerContext)
+}
+
+case class PhysicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runnerContext: CypherRunnerContext) {
 }
 
 case class ExecutionContext(queryParameters: Map[String, Any]) {

@@ -23,7 +23,7 @@ class CachedQueryParser(parser: QueryParser) extends QueryParser {
     cache.getOrElseUpdate(query, parser.parse(query))
 }
 
-class QueryParserImpl extends QueryParser {
+class QueryParserImpl(runnerContext: CypherRunnerContext) extends QueryParser {
   val context = new BaseContext() {
     override def tracer: CompilationPhaseTracer = CompilationPhaseTracer.NO_TRACING
 

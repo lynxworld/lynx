@@ -1,6 +1,5 @@
 package org.grapheco.lynx
 
-import org.grapheco.lynx.DataFrame.typeOf
 import org.opencypher.v9_0.expressions.{BooleanLiteral, DoubleLiteral, Expression, IntegerLiteral, Parameter, Property, StringLiteral, True, Variable}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTString, CypherType}
 
@@ -13,20 +12,6 @@ trait DataFrame {
 object DataFrame {
   def empty: DataFrame = DataFrame(Seq.empty, () => Iterator.empty)
 
-  def typeOf(expr: Expression, varTypes: Map[String, LynxType]): LynxType =
-    expr match {
-      case Parameter(name, parameterType) => parameterType
-
-      //literal
-      case _: BooleanLiteral => CTBoolean
-      case _: StringLiteral => CTString
-      case _: IntegerLiteral => CTInteger
-      case _: DoubleLiteral => CTFloat
-
-      case Variable(name) => varTypes(name)
-      case _ => CTAny
-    }
-
   def apply(schema0: Seq[(String, LynxType)], records0: () => Iterator[Seq[LynxValue]]) =
     new DataFrame {
       override def schema = schema0
@@ -36,7 +21,7 @@ object DataFrame {
 
   def unit(columns: Seq[(String, Expression)])(implicit expressionEvaluator: ExpressionEvaluator, ctx: ExpressionContext): DataFrame = {
     val schema = columns.map(col =>
-      col._1 -> typeOf(col._2, Map.empty)
+      col._1 -> expressionEvaluator.typeOf(col._2, Map.empty)
     )
 
     DataFrame(schema, () => Iterator.single(
@@ -84,7 +69,7 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
     val schema1 = df.schema
 
     val schema2 = columns.map(col =>
-      col._1 -> typeOf(col._2, schema1.toMap)
+      col._1 -> expressionEvaluator.typeOf(col._2, schema1.toMap)
     )
 
     DataFrame(schema2,
