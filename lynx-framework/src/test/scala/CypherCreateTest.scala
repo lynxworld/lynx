@@ -12,6 +12,11 @@ class CypherCreateTest extends TestBase {
     rs = runOnDemoGraph("CREATE (n)")
     Assert.assertEquals(NODE_SIZE + 2, all_nodes.size)
     Assert.assertEquals(REL_SIZE, all_rels.size)
+
+    //should invoke CREATE even if result not retrieved
+    runner.run("CREATE (n)", Map.empty)
+    Assert.assertEquals(NODE_SIZE + 3, all_nodes.size)
+    Assert.assertEquals(REL_SIZE, all_rels.size)
   }
 
   @Test
@@ -22,6 +27,11 @@ class CypherCreateTest extends TestBase {
 
     rs = runOnDemoGraph("CREATE (n),(m)")
     Assert.assertEquals(NODE_SIZE + 4, all_nodes.size)
+    Assert.assertEquals(REL_SIZE, all_rels.size)
+
+    //should invoke CREATE even if result not retrieved
+    runner.run("CREATE (n),(m)", Map.empty)
+    Assert.assertEquals(NODE_SIZE + 6, all_nodes.size)
     Assert.assertEquals(REL_SIZE, all_rels.size)
   }
 
