@@ -11,7 +11,7 @@ trait LPTNode extends TreeNode {
 }
 
 trait LogicalPlanner {
-  def plan(statement: Statement): LPTNode
+  def plan(statement: Statement, plannerContext: LogicalPlannerContext): LPTNode
 }
 
 //translates an ASTNode into a LPTNode, `in` as input operator
@@ -28,7 +28,7 @@ case class PipedTranslators(items: Seq[LPTNodeTranslator]) extends LPTNodeTransl
   }
 }
 
-class LogicalPlannerImpl()(implicit runnerContext: CypherRunnerContext) extends LogicalPlanner {
+class LogicalPlannerImpl(runnerContext: CypherRunnerContext) extends LogicalPlanner {
   private def translate(node: ASTNode)(implicit lpc: LogicalPlannerContext): LPTNode = {
     node match {
       case Query(periodicCommitHint: Option[PeriodicCommitHint], part: QueryPart) =>
@@ -39,9 +39,8 @@ class LogicalPlannerImpl()(implicit runnerContext: CypherRunnerContext) extends 
     }
   }
 
-  override def plan(statement: Statement): LPTNode = {
-    val lpc = LogicalPlannerContext()
-    translate(statement)(lpc)
+  override def plan(statement: Statement, plannerContext: LogicalPlannerContext): LPTNode = {
+    translate(statement)(plannerContext)
   }
 }
 

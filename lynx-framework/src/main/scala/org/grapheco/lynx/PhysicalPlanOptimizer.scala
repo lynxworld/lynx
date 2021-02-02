@@ -1,6 +1,6 @@
 package org.grapheco.lynx
 
-import org.opencypher.v9_0.ast.{AliasedReturnItem, ReturnItemsDef}
+import org.opencypher.v9_0.ast.{AliasedReturnItem}
 
 trait PhysicalPlanOptimizer {
   def optimize(plan: PPTNode): PPTNode
@@ -10,15 +10,15 @@ trait PhysicalPlanOptimizerRule {
   def apply(plan: PPTNode): PPTNode
 
   def optimizeBottomUp(node: PPTNode, ops: PartialFunction[PPTNode, PPTNode]*): PPTNode = {
-    val childrenOptimized1 = node.withChildren(node.children.map(x => optimizeBottomUp(x, ops: _*)))
-    ops.foldLeft(childrenOptimized1) {
+    val childrenOptimized = node.withChildren(node.children.map(child => optimizeBottomUp(child, ops: _*)))
+    ops.foldLeft(childrenOptimized) {
       (optimized, op) =>
         op.lift(optimized).getOrElse(optimized)
     }
   }
 }
 
-class PhysicalPlanOptimizerImpl extends PhysicalPlanOptimizer {
+class PhysicalPlanOptimizerImpl(runnerContext: CypherRunnerContext) extends PhysicalPlanOptimizer {
   val rules = Seq[PhysicalPlanOptimizerRule](
     RemoveNullProject,
   )
@@ -29,6 +29,7 @@ class PhysicalPlanOptimizerImpl extends PhysicalPlanOptimizer {
 }
 
 object RemoveNullProject extends PhysicalPlanOptimizerRule {
+
   override def apply(plan: PPTNode): PPTNode = optimizeBottomUp(plan,
     {
       case pnode: PPTNode =>
