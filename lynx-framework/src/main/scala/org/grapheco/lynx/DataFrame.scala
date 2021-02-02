@@ -19,6 +19,9 @@ object DataFrame {
       override def records = records0()
     }
 
+  def cached(schema0: Seq[(String, LynxType)], records: Seq[Seq[LynxValue]]) =
+    apply(schema0, () => records.iterator)
+
   def unit(columns: Seq[(String, Expression)])(implicit expressionEvaluator: ExpressionEvaluator, ctx: ExpressionContext): DataFrame = {
     val schema = columns.map(col =>
       col._1 -> expressionEvaluator.typeOf(col._2, Map.empty)

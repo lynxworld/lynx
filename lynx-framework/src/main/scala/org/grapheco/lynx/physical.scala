@@ -489,53 +489,51 @@ case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[CreateElemen
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     implicit val ec = ctx.expressionContext
     val df = in.map(_.execute(ctx)).getOrElse(createUnitDataFrame(Seq.empty))
+    //DataFrame should be generated first
+    DataFrame.cached(schema, df.records.map {
+      record =>
+        val ctxMap = df.schema.zip(record).map(x => x._1._1 -> x._2).toMap
+        val nodesInput = ArrayBuffer[(String, NodeInput)]()
+        val relsInput = ArrayBuffer[(String, RelationshipInput)]()
 
-    DataFrame(schema, () =>
-      df.records.map {
-        record =>
-          val ctxMap = df.schema.zip(record).map(x => x._1._1 -> x._2).toMap
-          val nodesInput = ArrayBuffer[(String, NodeInput)]()
-          val relsInput = ArrayBuffer[(String, RelationshipInput)]()
-
-          ops.foreach(_ match {
-            case CreateNode(varName: String, labels: Seq[LabelName], properties: Option[Expression]) =>
-              if (!ctxMap.contains(varName) && nodesInput.find(_._1 == varName).isEmpty) {
-                nodesInput += varName -> NodeInput(labels.map(_.name), properties.map {
-                  case MapExpression(items) =>
-                    items.map({
-                      case (k, v) => k.name -> eval(v)(ec.withVars(ctxMap))
-                    })
-                }.getOrElse(Seq.empty))
-              }
-
-            case CreateRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) =>
-
-              def nodeInputRef(varname: String): NodeInputRef = {
-                ctxMap.get(varname).map(
-                  x =>
-                    StoredNodeInputRef(x.asInstanceOf[LynxNode].id)
-                ).getOrElse(
-                  ContextualNodeInputRef(varname)
-                )
-              }
-
-              relsInput += varName -> RelationshipInput(types.map(_.name), properties.map {
+        ops.foreach(_ match {
+          case CreateNode(varName: String, labels: Seq[LabelName], properties: Option[Expression]) =>
+            if (!ctxMap.contains(varName) && nodesInput.find(_._1 == varName).isEmpty) {
+              nodesInput += varName -> NodeInput(labels.map(_.name), properties.map {
                 case MapExpression(items) =>
                   items.map({
                     case (k, v) => k.name -> eval(v)(ec.withVars(ctxMap))
                   })
-              }.getOrElse(Seq.empty[(String, LynxValue)]), nodeInputRef(varNameLeftNode), nodeInputRef(varNameRightNode))
-          })
+              }.getOrElse(Seq.empty))
+            }
 
-          record ++ graphModel.createElements(
-            nodesInput,
-            relsInput,
-            (nodesCreated: Seq[(String, LynxNode)], relsCreated: Seq[(String, LynxRelationship)]) => {
-              val created = nodesCreated.toMap ++ relsCreated
-              schemaLocal.map(x => created(x._1))
-            })
-      }
-    )
+          case CreateRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) =>
+
+            def nodeInputRef(varname: String): NodeInputRef = {
+              ctxMap.get(varname).map(
+                x =>
+                  StoredNodeInputRef(x.asInstanceOf[LynxNode].id)
+              ).getOrElse(
+                ContextualNodeInputRef(varname)
+              )
+            }
+
+            relsInput += varName -> RelationshipInput(types.map(_.name), properties.map {
+              case MapExpression(items) =>
+                items.map({
+                  case (k, v) => k.name -> eval(v)(ec.withVars(ctxMap))
+                })
+            }.getOrElse(Seq.empty[(String, LynxValue)]), nodeInputRef(varNameLeftNode), nodeInputRef(varNameRightNode))
+        })
+
+        record ++ graphModel.createElements(
+          nodesInput,
+          relsInput,
+          (nodesCreated: Seq[(String, LynxNode)], relsCreated: Seq[(String, LynxRelationship)]) => {
+            val created = nodesCreated.toMap ++ relsCreated
+            schemaLocal.map(x => created(x._1))
+          })
+    }.toSeq)
   }
 }
 
