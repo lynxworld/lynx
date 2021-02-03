@@ -5,6 +5,7 @@ import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, C
 
 trait ExpressionEvaluator {
   def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue
+
   def typeOf(expr: Expression, definedVarTypes: Map[String, LynxType]): LynxType
 }
 
@@ -44,6 +45,14 @@ class ExpressionEvaluatorImpl extends ExpressionEvaluator {
 
   override def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue =
     expr match {
+      case HasLabels(expression, labels) =>
+        eval(expression) match {
+          case node: LynxNode => {
+            val labelsNode = node.labels
+            LynxBoolean(labels.forall(label => labelsNode.contains(label.name)))
+          }
+        }
+
       case Add(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
           (lvalue, rvalue) match {

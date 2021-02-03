@@ -175,7 +175,10 @@ case class LPTCreateUnit(items: Seq[ReturnItem]) extends LPTNode {
 
 case class LPTProjectTranslator(ri: ReturnItemsDef) extends LPTNodeTranslator {
   def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
-    LPTProject(ri)(in.get)
+    in match {
+      case Some(sin) => LPTProject(ri)(sin)
+      case None => LPTProject(ri)(LPTCreateUnit(ri.items))
+    }
   }
 }
 
