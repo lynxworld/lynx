@@ -185,6 +185,8 @@ trait GraphModel {
 
   def createIndex(labelName: LabelName, properties: List[PropertyKeyName]): Unit
 
+  def getIndexes(): Array[(LabelName, List[PropertyKeyName])]
+
   def nodes(): Iterator[LynxNode]
 
   def nodes(nodeFilter: NodeFilter): Iterator[LynxNode] = nodes().filter(nodeFilter.matches(_))

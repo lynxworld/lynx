@@ -193,4 +193,12 @@ class CypherCreateTest extends TestBase {
     Assert.assertEquals((NODE_SIZE + 2).toLong, all_rels(REL_SIZE + 1).startId)
     Assert.assertEquals(2.toLong, all_rels(REL_SIZE + 1).endId)
   }
+
+  @Test
+  def testCreateIndex(): Unit = {
+    runOnDemoGraph("CREATE (n:person {name: 'God', age: 10000}), (m:place {name: 'heaven'}), (n)-[r:livesIn]->(m) return n,r,m")
+    runOnDemoGraph("CREATE INDEX ON :person(name)")
+    runOnDemoGraph("CREATE INDEX ON :person(name, age)")
+  }
+
 }
