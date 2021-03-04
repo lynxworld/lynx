@@ -1,9 +1,12 @@
 package org.grapheco.lynx
 
 import org.opencypher.v9_0.expressions._
+import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTString}
 
 trait ExpressionEvaluator {
   def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue
+
+  def typeOf(expr: Expression, definedVarTypes: Map[String, LynxType]): LynxType
 }
 
 case class ExpressionContext(params: Map[String, LynxValue], vars: Map[String, LynxValue] = Map.empty) {
@@ -26,8 +29,30 @@ class ExpressionEvaluatorImpl extends ExpressionEvaluator {
     }
   }
 
+  override def typeOf(expr: Expression, definedVarTypes: Map[String, LynxType]): LynxType =
+    expr match {
+      case Parameter(name, parameterType) => parameterType
+
+      //literal
+      case _: BooleanLiteral => CTBoolean
+      case _: StringLiteral => CTString
+      case _: IntegerLiteral => CTInteger
+      case _: DoubleLiteral => CTFloat
+
+      case Variable(name) => definedVarTypes(name)
+      case _ => CTAny
+    }
+
   override def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue =
     expr match {
+      case HasLabels(expression, labels) =>
+        eval(expression) match {
+          case node: LynxNode => {
+            val labelsNode = node.labels
+            LynxBoolean(labels.forall(label => labelsNode.contains(label.name)))
+          }
+        }
+
       case Add(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
           (lvalue, rvalue) match {
