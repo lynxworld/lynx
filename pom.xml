@@ -7,10 +7,9 @@
     <groupId>org.grapheco</groupId>
     <artifactId>lynx</artifactId>
     <packaging>pom</packaging>
-    <version>0.2-SNAPSHOT</version>
+    <version>0.3-SNAPSHOT</version>
     <modules>
         <module>lynx-framework</module>
-        <module>blob-extension</module>
     </modules>
     <properties/>
     <dependencies>

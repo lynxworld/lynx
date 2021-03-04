@@ -3,53 +3,350 @@ package org.grapheco.lynx
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions.{NodePattern, RelationshipChain, _}
 import org.opencypher.v9_0.util.symbols.{CTNode, CTRelationship}
-import org.grapheco.lynx.DataFrameOps._
 
 import scala.collection.mutable.ArrayBuffer
 
-trait PhysicalPlanNode extends TreeNode {
-  def execute(ctx: PlanExecutionContext): DataFrame
+trait PPTNode extends TreeNode {
+  override type SerialType = PPTNode
+  override val children: Seq[PPTNode] = Seq.empty
+  val schema: Seq[(String, LynxType)]
+
+  def execute(implicit ctx: ExecutionContext): DataFrame
+
+  def withChildren(children0: Seq[PPTNode]): PPTNode
+}
+
+trait PPTNodeTranslator {
+  def translate(in: Option[PPTNode])(implicit ppc: PhysicalPlannerContext): PPTNode
+}
+
+trait AbstractPPTNode extends PPTNode {
+
+  val plannerContext: PhysicalPlannerContext
+
+  implicit def ops(ds: DataFrame): DataFrameOps = DataFrameOps(ds)(plannerContext.runnerContext.dataFrameOperator)
+
+  val graphModel = plannerContext.runnerContext.graphModel
+
+  def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue = plannerContext.runnerContext.expressionEvaluator.eval(expr)
+
+  def typeOf(expr: Expression): LynxType = plannerContext.runnerContext.expressionEvaluator.typeOf(expr, plannerContext.parameterTypes.toMap)
+
+  def typeOf(expr: Expression, definedVarTypes: Map[String, LynxType]): LynxType = plannerContext.runnerContext.expressionEvaluator.typeOf(expr, definedVarTypes)
+
+  def createUnitDataFrame(items: Seq[ReturnItem])(implicit ctx: ExecutionContext): DataFrame = {
+    DataFrame.unit(items.map(item => item.name -> item.expression))(plannerContext.runnerContext.expressionEvaluator, ctx.expressionContext)
+  }
 }
 
 trait PhysicalPlanner {
-  def plan(logicalPlan: LogicalPlanNode): PhysicalPlanNode
+  def plan(logicalPlan: LPTNode)(implicit plannerContext: PhysicalPlannerContext): PPTNode
 }
 
-class PhysicalPlannerImpl()(implicit runnerContext: CypherRunnerContext) extends PhysicalPlanner {
-  override def plan(logicalPlan: LogicalPlanNode): PhysicalPlanNode = {
+class PhysicalPlannerImpl(runnerContext: CypherRunnerContext) extends PhysicalPlanner {
+  override def plan(logicalPlan: LPTNode)(implicit plannerContext: PhysicalPlannerContext): PPTNode = {
+    implicit val runnerContext: CypherRunnerContext = plannerContext.runnerContext
     logicalPlan match {
-      case LogicalProcedureCall(c: UnresolvedCall) => PhysicalProcedureCall(c)
-      case LogicalCreate(c: Create, in: Option[LogicalQueryClause]) => PhysicalCreate(c, in.map(plan(_)))
-      case LogicalMatch(m: Match, in: Option[LogicalQueryClause]) => PhysicalMatch(m, in.map(plan(_)))
-      case LogicalReturn(r: Return, in: Option[LogicalQueryClause]) => PhysicalReturn(r, in.map(plan(_)))
-      case LogicalWith(w: With, in: Option[LogicalQueryClause]) => PhysicalWith(w, in.map(plan(_)))
-      case LogicalQuery(LogicalSingleQuery(in)) => PhysicalSingleQuery(in.map(plan(_)))
-      case LogicalIndex(labelName: LabelName, properties: List[PropertyKeyName]) => PhysicalIndexCreate(labelName, properties)
+      case LPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]]) =>
+        PPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])
+      case lc@LPTCreate(c: Create) => PPTCreateTranslator(c).translate(lc.in.map(plan(_)))(plannerContext)
+      case ls@LPTSelect(columns: Seq[(String, Option[String])]) => PPTSelect(columns)(plan(ls.in), plannerContext)
+      case lp@LPTProject(ri) => PPTProject(ri)(plan(lp.in), plannerContext)
+      case lc@LPTCreateUnit(items) => PPTCreateUnit(items)(plannerContext)
+      case lf@LPTFilter(expr) => PPTFilter(expr)(plan(lf.in), plannerContext)
+      case ld@LPTDistinct() => PPTDistinct()(plan(ld.in), plannerContext)
+      case ll@LPTLimit(expr) => PPTLimit(expr)(plan(ll.in), plannerContext)
+      case ll@LPTSkip(expr) => PPTSkip(expr)(plan(ll.in), plannerContext)
+      case lj@LPTJoin() => PPTJoin()(plan(lj.a), plan(lj.b), plannerContext)
+      case patternMatch: LPTPatternMatch => PPTPatternMatchTranslator(patternMatch)(plannerContext).translate(None)
     }
   }
 }
 
-trait AbstractPhysicalPlanNode extends PhysicalPlanNode {
-  val runnerContext: CypherRunnerContext
-  implicit val dataFrameOperator = runnerContext.dataFrameOperator
-  implicit val expressionEvaluator = runnerContext.expressionEvaluator
+case class PPTPatternMatchTranslator(patternMatch: LPTPatternMatch)(implicit val plannerContext: PhysicalPlannerContext) extends PPTNodeTranslator {
+  private def planPatternMatch(pm: LPTPatternMatch)(implicit ppc: PhysicalPlannerContext): PPTNode = {
+    val LPTPatternMatch(headNode: NodePattern, chain: Seq[(RelationshipPattern, NodePattern)]) = pm
+    chain.toList match {
+      //match (m)
+      case Nil => PPTNodeScan(headNode)(ppc)
+      //match (m)-[r]-(n)
+      case List(Tuple2(rel, rightNode)) => PPTRelationshipScan(rel, headNode, rightNode)(ppc)
+      //match (m)-[r]-(n)-...-[p]-(z)
+      case _ =>
+        val (lastRelationship, lastNode) = chain.last
+        val dropped = chain.dropRight(1)
+        val part = planPatternMatch(LPTPatternMatch(headNode, dropped))(ppc)
+        PPTExpandPath(lastRelationship, lastNode)(part, plannerContext)
+    }
+  }
 
-  def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue = expressionEvaluator.eval(expr)
-
-  def createUnitDataFrame(items: Seq[ReturnItem], ctx: PlanExecutionContext): DataFrame = {
-    implicit val ec = ctx.expressionContext
-    DataFrame.unit(items.map(item => item.name -> item.expression))
+  override def translate(in: Option[PPTNode])(implicit ppc: PhysicalPlannerContext): PPTNode = {
+    planPatternMatch(patternMatch)(ppc)
   }
 }
 
-case class PhysicalSingleQuery(in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
-  override val children: Seq[TreeNode] = in.toSeq
+case class PPTJoin()(a: PPTNode, b: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = Seq(a, b)
 
-  override def execute(ctx: PlanExecutionContext): DataFrame =
-    in.map(_.execute(ctx)).getOrElse(DataFrame.empty)
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val df1 = a.execute(ctx)
+    val df2 = b.execute(ctx)
+
+    df1.join(df2)
+  }
+
+  override def withChildren(children0: Seq[PPTNode]): PPTJoin = PPTJoin()(children0.head, children0(1), plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = (a.schema ++ b.schema).distinct
 }
 
-case class PhysicalProcedureCall(c: UnresolvedCall)(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
+case class PPTDistinct()(implicit in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = Seq(in)
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val df = in.execute(ctx)
+    df.distinct()
+  }
+
+  override def withChildren(children0: Seq[PPTNode]): PPTDistinct = PPTDistinct()(children0.head, plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = in.schema
+}
+
+case class PPTLimit(expr: Expression)(implicit in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = Seq(in)
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val df = in.execute(ctx)
+    implicit val ec = ctx.expressionContext
+    df.take(eval(expr).value.asInstanceOf[Number].intValue())
+  }
+
+  override def withChildren(children0: Seq[PPTNode]): PPTLimit = PPTLimit(expr)(children0.head, plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = in.schema
+}
+
+case class PPTSkip(expr: Expression)(implicit in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = Seq(in)
+
+  override val schema: Seq[(String, LynxType)] = in.schema
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val df = in.execute(ctx)
+    implicit val ec = ctx.expressionContext
+    df.skip(eval(expr).value.asInstanceOf[Number].intValue())
+  }
+
+  override def withChildren(children0: Seq[PPTNode]): PPTSkip = PPTSkip(expr)(children0.head, plannerContext)
+}
+
+case class PPTFilter(expr: Expression)(implicit in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = Seq(in)
+
+  override val schema: Seq[(String, LynxType)] = in.schema
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val df = in.execute(ctx)
+    val ec = ctx.expressionContext
+    df.filter {
+      (record: Seq[LynxValue]) =>
+        eval(expr)(ec.withVars(df.schema.map(_._1).zip(record).toMap)) match {
+          case LynxBoolean(b) => b
+          case LynxNull => false
+        }
+    }(ec)
+  }
+
+  override def withChildren(children0: Seq[PPTNode]): PPTFilter = PPTFilter(expr)(children0.head, plannerContext)
+}
+
+case class PPTExpandPath(rel: RelationshipPattern, rightNode: NodePattern)(implicit in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = Seq(in)
+
+  override def withChildren(children0: Seq[PPTNode]): PPTExpandPath = PPTExpandPath(rel, rightNode)(children0.head, plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = {
+    val RelationshipPattern(
+    variable: Option[LogicalVariable],
+    types: Seq[RelTypeName],
+    length: Option[Option[Range]],
+    properties: Option[Expression],
+    direction: SemanticDirection,
+    legacyTypeSeparator: Boolean,
+    baseRel: Option[LogicalVariable]) = rel
+    val NodePattern(var2, labels2: Seq[LabelName], properties2: Option[Expression], baseNode2: Option[LogicalVariable]) = rightNode
+    val schema0 = Seq(variable.map(_.name).getOrElse(s"__RELATIONSHIP_${rel.hashCode}") -> CTRelationship,
+      var2.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode)
+    in.schema ++ schema0
+  }
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val df = in.execute(ctx)
+    val RelationshipPattern(
+    variable: Option[LogicalVariable],
+    types: Seq[RelTypeName],
+    length: Option[Option[Range]],
+    properties: Option[Expression],
+    direction: SemanticDirection,
+    legacyTypeSeparator: Boolean,
+    baseRel: Option[LogicalVariable]) = rel
+    val NodePattern(var2, labels2: Seq[LabelName], properties2: Option[Expression], baseNode2: Option[LogicalVariable]) = rightNode
+
+    val schema0 = Seq(variable.map(_.name).getOrElse(s"__RELATIONSHIP_${rel.hashCode}") -> CTRelationship,
+      var2.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode)
+
+    implicit val ec = ctx.expressionContext
+
+    DataFrame(df.schema ++ schema0, () => {
+      df.records.flatMap {
+        record0 =>
+          graphModel.expand(
+            record0.last.asInstanceOf[LynxNode].id,
+            RelationshipFilter(types.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+            NodeFilter(labels2.map(_.name), properties2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+            direction).map(triple =>
+            record0 ++ Seq(triple.storedRelation, triple.endNode)).filter(
+            item => {
+              //(m)-[r]-(n)-[p]-(t), r!=p
+              val relIds = item.filter(_.isInstanceOf[LynxRelationship]).map(_.asInstanceOf[LynxRelationship].id)
+              relIds.size == relIds.toSet.size
+            }
+          )
+      }
+    })
+  }
+}
+
+case class PPTNodeScan(pattern: NodePattern)(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override def withChildren(children0: Seq[PPTNode]): PPTNodeScan = PPTNodeScan(pattern)(plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = {
+    val NodePattern(
+    Some(var0: LogicalVariable),
+    labels: Seq[LabelName],
+    properties: Option[Expression],
+    baseNode: Option[LogicalVariable]) = pattern
+    Seq(var0.name -> CTNode)
+  }
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val NodePattern(
+    Some(var0: LogicalVariable),
+    labels: Seq[LabelName],
+    properties: Option[Expression],
+    baseNode: Option[LogicalVariable]) = pattern
+
+    implicit val ec = ctx.expressionContext
+
+    DataFrame(Seq(var0.name -> CTNode), () => {
+      val nodes = if (labels.isEmpty)
+        graphModel.nodes()
+      else
+        graphModel.nodes(NodeFilter(labels.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)))
+
+      nodes.map(Seq(_))
+    })
+  }
+}
+
+case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, rightNode: NodePattern)(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override def withChildren(children0: Seq[PPTNode]): PPTRelationshipScan = PPTRelationshipScan(rel, leftNode, rightNode)(plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = {
+    val RelationshipPattern(
+    var2: Option[LogicalVariable],
+    types: Seq[RelTypeName],
+    length: Option[Option[Range]],
+    props2: Option[Expression],
+    direction: SemanticDirection,
+    legacyTypeSeparator: Boolean,
+    baseRel: Option[LogicalVariable]) = rel
+    val NodePattern(var1, labels1: Seq[LabelName], props1: Option[Expression], baseNode1: Option[LogicalVariable]) = leftNode
+    val NodePattern(var3, labels3: Seq[LabelName], props3: Option[Expression], baseNode3: Option[LogicalVariable]) = rightNode
+
+    Seq(
+      var1.map(_.name).getOrElse(s"__NODE_${leftNode.hashCode}") -> CTNode,
+      var2.map(_.name).getOrElse(s"__RELATIONSHIP_${rel.hashCode}") -> CTRelationship,
+      var3.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode
+    )
+  }
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val RelationshipPattern(
+    var2: Option[LogicalVariable],
+    types: Seq[RelTypeName],
+    length: Option[Option[Range]],
+    props2: Option[Expression],
+    direction: SemanticDirection,
+    legacyTypeSeparator: Boolean,
+    baseRel: Option[LogicalVariable]) = rel
+    val NodePattern(var1, labels1: Seq[LabelName], props1: Option[Expression], baseNode1: Option[LogicalVariable]) = leftNode
+    val NodePattern(var3, labels3: Seq[LabelName], props3: Option[Expression], baseNode3: Option[LogicalVariable]) = rightNode
+
+    implicit val ec = ctx.expressionContext
+
+    val schema = Seq(
+      var1.map(_.name).getOrElse(s"__NODE_${leftNode.hashCode}") -> CTNode,
+      var2.map(_.name).getOrElse(s"__RELATIONSHIP_${rel.hashCode}") -> CTRelationship,
+      var3.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode)
+
+    DataFrame(schema, () => {
+      graphModel.paths(
+        NodeFilter(labels1.map(_.name), props1.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+        RelationshipFilter(types.map(_.name), props2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+        NodeFilter(labels3.map(_.name), props3.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+        direction).map(
+        triple =>
+          Seq(triple.startNode, triple.storedRelation, triple.endNode)
+      )
+    })
+  }
+}
+
+case class PPTCreateUnit(items: Seq[ReturnItem])(val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override def withChildren(children0: Seq[PPTNode]): PPTCreateUnit = PPTCreateUnit(items)(plannerContext)
+
+  override val schema: Seq[(String, LynxType)] =
+    items.map(item => item.name -> typeOf(item.expression))
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    createUnitDataFrame(items)
+  }
+}
+
+case class PPTSelect(columns: Seq[(String, Option[String])])(implicit in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = Seq(in)
+
+  override def withChildren(children0: Seq[PPTNode]): PPTSelect = PPTSelect(columns)(children0.head, plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = columns.map(x => x._2.getOrElse(x._1)).map(x => x -> in.schema.find(_._1 == x).get._2)
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val df = in.execute(ctx)
+    df.select(columns)
+  }
+}
+
+case class PPTProject(ri: ReturnItemsDef)(implicit val in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = Seq(in)
+
+  override def withChildren(children0: Seq[PPTNode]): PPTProject = PPTProject(ri)(children0.head, plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = ri.items.map(x => x.name -> x.expression).map { col =>
+    col._1 -> typeOf(col._2, in.schema.toMap)
+  }
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val df = in.execute(ctx)
+    df.project(ri.items.map(x => x.name -> x.expression))(ctx.expressionContext)
+  }
+
+  def withReturnItems(items: Seq[ReturnItem]) = PPTProject(ReturnItems(ri.includeExisting, items)(ri.position))(in, plannerContext)
+}
+
+case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override def withChildren(children0: Seq[PPTNode]): PPTProcedureCall = PPTProcedureCall(procedureNamespace, procedureName, declaredArguments)(plannerContext)
 
   private def checkArgs(actual: Seq[LynxValue], expected: Seq[(String, LynxType)]) = {
     if (actual.size != expected.size)
@@ -62,10 +359,23 @@ case class PhysicalProcedureCall(c: UnresolvedCall)(implicit val runnerContext: 
     })
   }
 
-  override def execute(ctx: PlanExecutionContext): DataFrame = {
-    val UnresolvedCall(Namespace(parts: List[String]), ProcedureName(name: String), declaredArguments: Option[Seq[Expression]], declaredResult: Option[ProcedureResult]) = c
+  override val schema: Seq[(String, LynxType)] = {
+    val Namespace(parts: List[String]) = procedureNamespace
+    val ProcedureName(name: String) = procedureName
 
-    val df = runnerContext.graphModel.getProcedure(parts, name) match {
+    graphModel.getProcedure(parts, name) match {
+      case Some(procedure) =>
+        procedure.outputs
+
+      case None => throw UnknownProcedureException(parts, name)
+    }
+  }
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val Namespace(parts: List[String]) = procedureNamespace
+    val ProcedureName(name: String) = procedureName
+
+    graphModel.getProcedure(parts, name) match {
       case Some(procedure) =>
         val args = declaredArguments match {
           case Some(args) => args.map(eval(_)(ctx.expressionContext))
@@ -79,28 +389,7 @@ case class PhysicalProcedureCall(c: UnresolvedCall)(implicit val runnerContext: 
 
       case None => throw UnknownProcedureException(parts, name)
     }
-
-    declaredResult match {
-      case Some(ProcedureResult(items: IndexedSeq[ProcedureResultItem], where: Option[Where])) =>
-        implicit val ec = ctx.expressionContext
-        DataFramePipe.piping(df, Seq(SelectPipeBuilder(items.map(
-          item => {
-            val ProcedureResultItem(output, Variable(varname)) = item
-            varname -> output.map(_.name)
-          }
-        )), FilterPipeBuilder(where)))
-      case None => df
-    }
   }
-}
-
-case class PhysicalIndexCreate(labelName: LabelName, properties: List[PropertyKeyName])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
-
-  override def execute(ctx: PlanExecutionContext): DataFrame = {
-    runnerContext.graphModel.createIndex(labelName, properties)
-    DataFrame.empty
-  }
-
 }
 
 trait CreateElement
@@ -109,13 +398,9 @@ case class CreateNode(varName: String, labels3: Seq[LabelName], properties3: Opt
 
 case class CreateRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) extends CreateElement
 
-case class PhysicalCreate(c: Create, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
-  override val children: Seq[TreeNode] = in.toSeq
-
-  override def execute(ctx: PlanExecutionContext): DataFrame = {
-    implicit val ec = ctx.expressionContext
-    val df = in.map(_.execute(ctx)).getOrElse(DataFrame.unit(Seq.empty))
-    val definedVars = df.schema.map(_._1).toSet
+case class PPTCreateTranslator(c: Create) extends PPTNodeTranslator {
+  def translate(in: Option[PPTNode])(implicit plannerContext: PhysicalPlannerContext): PPTNode = {
+    val definedVars = in.map(_.schema.map(_._1)).getOrElse(Seq.empty).toSet
     val (schemaLocal, ops) = c.pattern.patternParts.foldLeft((Seq.empty[(String, LynxType)], Seq.empty[CreateElement])) {
       (result, part) =>
         val (schema1, ops1) = result
@@ -136,52 +421,7 @@ case class PhysicalCreate(c: Create, in: Option[PhysicalPlanNode])(implicit val 
         }
     }
 
-    DataFrame(df.schema ++ schemaLocal, () =>
-      df.records.map {
-        record =>
-          val ctxMap = df.schema.zip(record).map(x => x._1._1 -> x._2).toMap
-          val nodesInput = ArrayBuffer[(String, NodeInput)]()
-          val relsInput = ArrayBuffer[(String, RelationshipInput)]()
-
-          ops.foreach(_ match {
-            case CreateNode(varName: String, labels: Seq[LabelName], properties: Option[Expression]) =>
-              if (!ctxMap.contains(varName) && nodesInput.find(_._1 == varName).isEmpty) {
-                nodesInput += varName -> NodeInput(labels.map(_.name), properties.map {
-                  case MapExpression(items) =>
-                    items.map({
-                      case (k, v) => k.name -> eval(v)(ec.withVars(ctxMap))
-                    })
-                }.getOrElse(Seq.empty))
-              }
-
-            case CreateRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) =>
-
-              def nodeInputRef(varname: String): NodeInputRef = {
-                ctxMap.get(varname).map(
-                  x =>
-                    StoredNodeInputRef(x.asInstanceOf[LynxNode].id)
-                ).getOrElse(
-                  ContextualNodeInputRef(varname)
-                )
-              }
-
-              relsInput += varName -> RelationshipInput(types.map(_.name), properties.map {
-                case MapExpression(items) =>
-                  items.map({
-                    case (k, v) => k.name -> eval(v)(ec.withVars(ctxMap))
-                  })
-              }.getOrElse(Seq.empty[(String, LynxValue)]), nodeInputRef(varNameLeftNode), nodeInputRef(varNameRightNode))
-          })
-
-          record ++ runnerContext.graphModel.createElements(
-            nodesInput,
-            relsInput,
-            (nodesCreated: Seq[(String, LynxNode)], relsCreated: Seq[(String, LynxRelationship)]) => {
-              val created = nodesCreated.toMap ++ relsCreated
-              schemaLocal.map(x => created(x._1))
-            })
-      }
-    )
+    PPTCreate(schemaLocal, ops)(in, plannerContext)
   }
 
   //returns (varLastNode, schema, ops)
@@ -239,14 +479,69 @@ case class PhysicalCreate(c: Create, in: Option[PhysicalPlanNode])(implicit val 
   }
 }
 
+case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[CreateElement])(implicit val in: Option[PPTNode], val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = in.toSeq
+
+  override def withChildren(children0: Seq[PPTNode]): PPTCreate = PPTCreate(schemaLocal, ops)(children0.headOption, plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = in.map(_.schema).getOrElse(Seq.empty) ++ schemaLocal
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    implicit val ec = ctx.expressionContext
+    val df = in.map(_.execute(ctx)).getOrElse(createUnitDataFrame(Seq.empty))
+    //DataFrame should be generated first
+    DataFrame.cached(schema, df.records.map {
+      record =>
+        val ctxMap = df.schema.zip(record).map(x => x._1._1 -> x._2).toMap
+        val nodesInput = ArrayBuffer[(String, NodeInput)]()
+        val relsInput = ArrayBuffer[(String, RelationshipInput)]()
+
+        ops.foreach(_ match {
+          case CreateNode(varName: String, labels: Seq[LabelName], properties: Option[Expression]) =>
+            if (!ctxMap.contains(varName) && nodesInput.find(_._1 == varName).isEmpty) {
+              nodesInput += varName -> NodeInput(labels.map(_.name), properties.map {
+                case MapExpression(items) =>
+                  items.map({
+                    case (k, v) => k.name -> eval(v)(ec.withVars(ctxMap))
+                  })
+              }.getOrElse(Seq.empty))
+            }
+
+          case CreateRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) =>
+
+            def nodeInputRef(varname: String): NodeInputRef = {
+              ctxMap.get(varname).map(
+                x =>
+                  StoredNodeInputRef(x.asInstanceOf[LynxNode].id)
+              ).getOrElse(
+                ContextualNodeInputRef(varname)
+              )
+            }
+
+            relsInput += varName -> RelationshipInput(types.map(_.name), properties.map {
+              case MapExpression(items) =>
+                items.map({
+                  case (k, v) => k.name -> eval(v)(ec.withVars(ctxMap))
+                })
+            }.getOrElse(Seq.empty[(String, LynxValue)]), nodeInputRef(varNameLeftNode), nodeInputRef(varNameRightNode))
+        })
+
+        record ++ graphModel.createElements(
+          nodesInput,
+          relsInput,
+          (nodesCreated: Seq[(String, LynxNode)], relsCreated: Seq[(String, LynxRelationship)]) => {
+            val created = nodesCreated.toMap ++ relsCreated
+            schemaLocal.map(x => created(x._1))
+          })
+    }.toSeq)
+  }
+}
+
 case class NodeInput(labels: Seq[String], props: Seq[(String, LynxValue)]) {
 
 }
 
-case class RelationshipInput(types: Seq[String],
-                             props: Seq[(String, LynxValue)],
-                             startNodeRef: NodeInputRef,
-                             endNodeRef: NodeInputRef) {
+case class RelationshipInput(types: Seq[String], props: Seq[(String, LynxValue)], startNodeRef: NodeInputRef, endNodeRef: NodeInputRef) {
 
 }
 
@@ -255,250 +550,6 @@ sealed trait NodeInputRef
 case class StoredNodeInputRef(id: LynxId) extends NodeInputRef
 
 case class ContextualNodeInputRef(varname: String) extends NodeInputRef
-
-case class PhysicalMatch(m: Match, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
-  override val children: Seq[TreeNode] = in.toSeq
-
-  override def execute(ctx: PlanExecutionContext): DataFrame = {
-    in match {
-      case None => executeMatch(m)(ctx)
-      case Some(sin) => sin.execute(ctx).join(executeMatch(m)(ctx))
-    }
-  }
-
-  private def executeMatch(m: Match)(implicit ctx: PlanExecutionContext): DataFrame = {
-    //run match
-    val Match(optional, Pattern(patternParts: Seq[PatternPart]), hints, where: Option[Where]) = m
-    val dfs = patternParts.map(matchPatternPart(_)(ctx))
-    val df = (dfs.drop(1)).foldLeft(dfs.head)(_.join(_))
-
-    implicit val ec = ctx.expressionContext
-    DataFramePipe.piping(df, Seq(FilterPipeBuilder(where)))
-  }
-
-  private def matchPatternPart(patternPart: PatternPart)(implicit ctx: PlanExecutionContext): DataFrame = {
-    patternPart match {
-      case EveryPath(element: PatternElement) => matchPattern(element)
-    }
-  }
-
-  private def build(chain: RelationshipChain)(implicit ec: ExpressionContext): (Seq[(String, LynxType)], NodeFilter, Seq[(RelationshipFilter, NodeFilter, SemanticDirection)]) = {
-    val RelationshipChain(
-    left,
-    rp@RelationshipPattern(variable: Option[LogicalVariable], types: Seq[RelTypeName], length: Option[Option[Range]], properties: Option[Expression], direction: SemanticDirection, legacyTypeSeparator: Boolean, baseRel: Option[LogicalVariable]),
-    rnp@NodePattern(var2, labels2: Seq[LabelName], properties2: Option[Expression], baseNode2: Option[LogicalVariable])
-    ) = chain
-
-    val schema0 = Seq(variable.map(_.name).getOrElse(s"__RELATIONSHIP_${rp.hashCode}") -> CTRelationship,
-      var2.map(_.name).getOrElse(s"__NODE_${rnp.hashCode}") -> CTNode)
-
-    val filters0 = (
-      RelationshipFilter(types.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-      NodeFilter(labels2.map(_.name), properties2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-      direction)
-
-    left match {
-      case NodePattern(var1, labels1: Seq[LabelName], properties1: Option[Expression], baseNode1: Option[LogicalVariable]) =>
-        (
-          Seq(var1.map(_.name).getOrElse(s"__NODE_${left.hashCode}") -> CTNode) ++ schema0,
-          NodeFilter(labels1.map(_.name), properties1.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-          Seq(filters0)
-        )
-
-      case leftChain: RelationshipChain =>
-        val (schema, startNodeFilter, chainFilters) = build(leftChain)
-        (schema ++ schema0, startNodeFilter, chainFilters :+ filters0)
-    }
-  }
-
-  private def matchPattern(element: PatternElement)(implicit ctx: PlanExecutionContext): DataFrame = {
-    implicit val ec = ctx.expressionContext
-    //build schema & filter chain
-
-    element match {
-      //match (m:label1)
-      case NodePattern(
-      Some(var0: LogicalVariable),
-      labels: Seq[LabelName],
-      properties: Option[Expression],
-      baseNode: Option[LogicalVariable]) =>
-        DataFrame(Seq(var0.name -> CTNode), () => {
-          val nodes = if (labels.isEmpty)
-            runnerContext.graphModel.nodes(NodeFilter(labels.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)))
-          else
-            runnerContext.graphModel.nodes(NodeFilter(labels.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)))
-
-          nodes.map(Seq(_))
-        })
-
-      //match ()-[]->()-...-[r:type]->(n:label2)
-      case chain: RelationshipChain =>
-        val (schema, startNodeFilter, chainFilters) = build(chain)
-
-        DataFrame(schema, () => {
-          runnerContext.graphModel.paths(startNodeFilter, chainFilters: _*).map(
-            triples =>
-              triples.foldLeft(Seq[LynxValue](triples.head.startNode)) {
-                (seq, triple) =>
-                  seq ++ Seq(triple.storedRelation, triple.endNode)
-              }
-          )
-        })
-    }
-  }
-}
-
-trait DataFramePipe {
-  def map(df: DataFrame): DataFrame
-}
-
-trait DataFramePipeBuilder {
-  def build(): Iterable[DataFramePipe]
-}
-
-case class ProjectPipeBuilder(ri: ReturnItems)(implicit ctx: ExpressionContext, dfo: DataFrameOperator)
-  extends DataFramePipeBuilder {
-  def build(): Iterable[DataFramePipe] = Some(new DataFramePipe() {
-    override def map(df: DataFrame): DataFrame =
-      df.project(ri.items.map(x => x.name -> x.expression))
-  })
-}
-
-case class FilterPipeBuilder(where: Option[Where])(implicit ctx: ExpressionContext, dfo: DataFrameOperator, evaluator: ExpressionEvaluator)
-  extends DataFramePipeBuilder {
-  def build(): Iterable[DataFramePipe] = where.map(expr =>
-    new DataFramePipe() {
-      override def map(df: DataFrame): DataFrame =
-        df.filter {
-          (record: Seq[LynxValue]) =>
-            evaluator.eval(expr.expression)(ctx.withVars(df.schema.map(_._1).zip(record).toMap)) match {
-              case LynxBoolean(b) => b
-              case LynxNull => false
-            }
-        }(ctx)
-    })
-}
-
-case class LimitPipeBuilder(limit: Option[Limit])(implicit ctx: ExpressionContext, dfo: DataFrameOperator, evaluator: ExpressionEvaluator)
-  extends DataFramePipeBuilder {
-  def build(): Iterable[DataFramePipe] = limit.map(expr =>
-    new DataFramePipe() {
-      override def map(df: DataFrame): DataFrame =
-        df.take(evaluator.eval(expr.expression).value.asInstanceOf[Number].intValue())
-    })
-}
-
-case class SkipPipeBuilder(skip: Option[Skip])(implicit ctx: ExpressionContext, dfo: DataFrameOperator, evaluator: ExpressionEvaluator)
-  extends DataFramePipeBuilder {
-  def build(): Iterable[DataFramePipe] = skip.map(expr =>
-    new DataFramePipe() {
-      override def map(df: DataFrame): DataFrame =
-        df.skip(evaluator.eval(expr.expression).value.asInstanceOf[Number].intValue())
-    })
-}
-
-object SelectPipeBuilder {
-  def apply(ri: ReturnItems)(implicit ctx: ExpressionContext, dfo: DataFrameOperator): SelectPipeBuilder = SelectPipeBuilder(ri.items.map(item => item.name -> item.alias.map(_.name)))
-}
-
-case class SelectPipeBuilder(columns: Seq[(String, Option[String])])(implicit ctx: ExpressionContext, dfo: DataFrameOperator)
-  extends DataFramePipeBuilder {
-  def build(): Iterable[DataFramePipe] = Some(
-    new DataFramePipe() {
-      override def map(df: DataFrame): DataFrame =
-        df.select(columns)
-    })
-}
-
-case class OrderByPipeBuilder(orderBy: Option[OrderBy])(implicit ctx: ExpressionContext, dfo: DataFrameOperator, evaluator: ExpressionEvaluator)
-  extends DataFramePipeBuilder{
-  override def build(): Iterable[DataFramePipe] = Some(
-    new DataFramePipe {
-      override def map(df: DataFrame): DataFrame = {
-        orderBy match {
-          case None => df
-          case Some(value) =>
-            val sortItem:Seq[(String ,Boolean)] = value.sortItems.map {
-              case AscSortItem(expression) => (expression.asInstanceOf[Variable].name, true)
-              case DescSortItem(expression) => (expression.asInstanceOf[Variable].name, false)
-            }
-            df.orderBy(Some(sortItem))
-        }
-     /*   val sortItems = orderBy match {
-          case None => None
-          case Some(orderBy) => None//orderBy.sortItems.map()
-        }
-        df.orderBy(sortItems)*/
-      }
-    })
-}
-
-case class DistinctPipeBuilder(distinct: Boolean)(implicit ctx: ExpressionContext, dfo: DataFrameOperator)
-  extends DataFramePipeBuilder {
-  def build(): Iterable[DataFramePipe] = distinct match {
-    case true => Some(new DataFramePipe() {
-      override def map(df: DataFrame): DataFrame =
-        df.distinct()
-    })
-    case false => None
-  }
-}
-
-object DataFramePipe {
-  def piping(start: DataFrame, builders: Seq[DataFramePipeBuilder]): DataFrame = {
-    builders.flatMap(_.build()).foldLeft(start) { (df, pipe) =>
-      pipe.map(df)
-    }
-  }
-}
-
-case class PhysicalWith(w: With, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
-  override val children: Seq[TreeNode] = in.toSeq
-
-  override def execute(ctx: PlanExecutionContext): DataFrame = {
-    implicit val ec = ctx.expressionContext
-    (w, in) match {
-      case (With(distinct, ReturnItems(includeExisting, items), orderBy, skip, limit: Option[Limit], where), None) =>
-        createUnitDataFrame(items, ctx)
-
-      case (With(distinct, ri: ReturnItems, orderBy: Option[OrderBy], skip: Option[Skip], limit: Option[Limit], where: Option[Where]), Some(sin)) =>
-        DataFramePipe.piping(
-          sin.execute(ctx),
-          Seq(
-            ProjectPipeBuilder(ri),
-            FilterPipeBuilder(where),
-            SkipPipeBuilder(skip),
-            LimitPipeBuilder(limit),
-            SelectPipeBuilder(ri),
-            DistinctPipeBuilder(distinct),
-            OrderByPipeBuilder(orderBy)
-          )
-        )
-    }
-  }
-}
-
-case class PhysicalReturn(r: Return, in: Option[PhysicalPlanNode])(implicit val runnerContext: CypherRunnerContext) extends AbstractPhysicalPlanNode {
-  override val children: Seq[TreeNode] = in.toSeq
-
-  override def execute(ctx: PlanExecutionContext): DataFrame = {
-    implicit val ec = ctx.expressionContext
-    (r, in) match {
-      case (Return(distinct, ri: ReturnItems, orderBy: Option[OrderBy], skip: Option[Skip], limit: Option[Limit], excludedNames), Some(sin)) =>
-        DataFramePipe.piping(
-          sin.execute(ctx),
-          Seq(
-            ProjectPipeBuilder(ri),
-            SkipPipeBuilder(skip),
-            LimitPipeBuilder(limit),
-            SelectPipeBuilder(ri),
-            DistinctPipeBuilder(distinct),
-            OrderByPipeBuilder(orderBy)
-          )
-        )
-    }
-  }
-}
 
 case class UnresolvableVarException(var0: Option[LogicalVariable]) extends LynxException
 

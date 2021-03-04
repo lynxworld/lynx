@@ -5,7 +5,7 @@
     <parent>
         <artifactId>lynx</artifactId>
         <groupId>org.grapheco</groupId>
-        <version>0.2-SNAPSHOT</version>
+        <version>0.3-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -13,11 +13,6 @@
 
     <artifactId>lynx-framework</artifactId>
     <dependencies>
-        <dependency>
-            <groupId>org.opencypher</groupId>
-            <artifactId>okapi-ir</artifactId>
-            <version>0.4.2</version>
-        </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
@@ -40,13 +35,6 @@
             <artifactId>slf4j-log4j12</artifactId>
             <version>1.6.0</version>
         </dependency>
-        <!--
-        <dependency>
-            <groupId>org.grapheco</groupId>
-            <artifactId>blob-extension</artifactId>
-            <version>0.1-SNAPSHOT</version>
-        </dependency>
-        -->
         <dependency>
             <groupId>org.opencypher</groupId>
             <artifactId>front-end-9.0</artifactId>
