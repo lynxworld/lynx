@@ -2,8 +2,7 @@ package org.grapheco.lynx
 
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.Profiler
-import org.junit.{Assert, Test}
-import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
+import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName}
 import org.opencypher.v9_0.util.symbols.CTString
 
 import scala.collection.mutable.ArrayBuffer
@@ -22,6 +21,7 @@ class TestBase extends LazyLogging {
     TestRelationship(2, 2, 3, Some("KNOWS")),
     TestRelationship(3, 1, 3, None)
   )
+  val allIndex = ArrayBuffer[(LabelName, List[PropertyKeyName])]()
 
   val NODE_SIZE = all_nodes.size
   val REL_SIZE = all_rels.size
@@ -78,6 +78,14 @@ class TestBase extends LazyLogging {
       })
 
       case _ => None
+    }
+
+    override def createIndex(labelName: LabelName, properties: List[PropertyKeyName]): Unit = {
+      allIndex += Tuple2(labelName, properties)
+    }
+
+    override def getIndexes(): Array[(LabelName, List[PropertyKeyName])] = {
+      allIndex.toArray
     }
   }
 

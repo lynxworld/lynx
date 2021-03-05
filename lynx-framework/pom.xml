@@ -9,6 +9,8 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
+    <!--mvn clean deploy -Dmaven.test.skip=true-->
+
     <artifactId>lynx-framework</artifactId>
     <dependencies>
         <dependency>
