@@ -127,5 +127,10 @@ class ExpressionEvaluatorImpl extends ExpressionEvaluator {
 
       case Parameter(name, parameterType) =>
         LynxValue(ec.param(name))
+      case CaseExpression(expression, alternatives, default) => {
+        val expr = alternatives.find(alt=>eval(alt._1).value.asInstanceOf[Boolean]).map(_._2).getOrElse(default.get)
+        eval(expr)
+      }
+      case MapExpression(items) => LynxMap(items.map(it => it._1.name->eval(it._2)).toMap)
     }
 }

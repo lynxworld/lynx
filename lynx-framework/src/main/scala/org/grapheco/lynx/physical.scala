@@ -2,7 +2,7 @@ package org.grapheco.lynx
 
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions.{NodePattern, RelationshipChain, _}
-import org.opencypher.v9_0.util.symbols.{CTNode, CTRelationship}
+import org.opencypher.v9_0.util.symbols.{CTAny, CTNode, CTRelationship}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -59,6 +59,7 @@ class PhysicalPlannerImpl(runnerContext: CypherRunnerContext) extends PhysicalPl
       case ll@LPTSkip(expr) => PPTSkip(expr)(plan(ll.in), plannerContext)
       case lj@LPTJoin() => PPTJoin()(plan(lj.a), plan(lj.b), plannerContext)
       case patternMatch: LPTPatternMatch => PPTPatternMatchTranslator(patternMatch)(plannerContext).translate(None)
+      case li@LPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName]) => PPTCreateIndex(labelName, properties)(plannerContext)
     }
   }
 }
@@ -389,6 +390,20 @@ case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: Proced
 
       case None => throw UnknownProcedureException(parts, name)
     }
+  }
+}
+
+case class PPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName])(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    graphModel.createIndex(labelName, properties)
+    DataFrame.empty
+  }
+
+  override def withChildren(children0: Seq[PPTNode]): PPTNode = this
+
+  override val schema: Seq[(String, LynxType)] = {
+    Seq("CreateIndex" -> CTAny)
   }
 }
 

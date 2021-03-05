@@ -2,6 +2,8 @@ package org.grapheco.lynx
 
 import org.opencypher.v9_0.ast.{Clause, Create, Limit, Match, OrderBy, PeriodicCommitHint, ProcedureResult, ProcedureResultItem, Query, QueryPart, Return, ReturnItem, ReturnItems, ReturnItemsDef, SingleQuery, Skip, Statement, UnresolvedCall, Where, With}
 import org.opencypher.v9_0.expressions.{EveryPath, Expression, LabelName, LogicalVariable, Namespace, NodePattern, Pattern, PatternElement, PatternPart, ProcedureName, RelationshipChain, RelationshipPattern, Variable}
+import org.opencypher.v9_0.ast.{Clause, Create, CreateIndex, CreateUniquePropertyConstraint, Match, PeriodicCommitHint, Query, QueryPart, Return, SingleQuery, Statement, UnresolvedCall, With}
+import org.opencypher.v9_0.expressions.{LabelName, Property, PropertyKeyName, Variable}
 import org.opencypher.v9_0.util.ASTNode
 
 //logical plan tree node (operator)
@@ -33,6 +35,12 @@ class LogicalPlannerImpl(runnerContext: CypherRunnerContext) extends LogicalPlan
     node match {
       case Query(periodicCommitHint: Option[PeriodicCommitHint], part: QueryPart) =>
         LPTQueryPartTranslator(part).translate(None)
+
+      case CreateUniquePropertyConstraint(Variable(v1),LabelName(l),List(Property(Variable(v2),PropertyKeyName(p)))) =>
+        throw UnknownASTNodeException(node)
+
+      case CreateIndex(labelName, properties) =>
+        LPTCreateIndex(labelName, properties)
 
       case _ =>
         throw UnknownASTNodeException(node)
@@ -200,6 +208,9 @@ case class LPTDistinctTranslator(distinct: Boolean) extends LPTNodeTranslator {
   }
 }
 
+case class LPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName]) extends LPTNode
+
+trait LogicalQueryPart extends LPTNode
 case class LPTSkipTranslator(skip: Option[Skip]) extends LPTNodeTranslator {
   def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
     skip match {

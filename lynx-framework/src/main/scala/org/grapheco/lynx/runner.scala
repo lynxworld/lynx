@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.FormatUtils
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.SemanticState
-import org.opencypher.v9_0.expressions.SemanticDirection
+import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, SemanticDirection}
 import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
 
 import scala.annotation.tailrec
@@ -120,8 +120,8 @@ trait CallableProcedure {
 
 case class NodeFilter(labels: Seq[String], properties: Map[String, LynxValue]) {
   def matches(node: LynxNode): Boolean = (labels, node.labels) match {
-    case (Seq(), _) => true
-    case (_, nodeLabels) => labels.forall(nodeLabels.contains(_))
+    case (Seq(), _) => properties.forall(p => node.property(p._1).orNull.equals(p._2))
+    case (_, nodeLabels) => labels.forall(nodeLabels.contains(_)) && properties.forall(p => node.property(p._1).orNull.equals(p._2))
   }
 }
 
@@ -180,6 +180,10 @@ trait GraphModel {
     nodesInput: Seq[(String, NodeInput)],
     relsInput: Seq[(String, RelationshipInput)],
     onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T): T
+
+  def createIndex(labelName: LabelName, properties: List[PropertyKeyName]): Unit
+
+  def getIndexes(): Array[(LabelName, List[PropertyKeyName])]
 
   def nodes(): Iterator[LynxNode]
 
