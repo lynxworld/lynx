@@ -17,7 +17,7 @@ case class ExpressionContext(params: Map[String, LynxValue], vars: Map[String, L
   def withVars(vars0: Map[String, LynxValue]): ExpressionContext = ExpressionContext(params, vars0)
 }
 
-class ExpressionEvaluatorImpl extends ExpressionEvaluator {
+class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluator {
   private def safeBinaryOp(lhs: Expression, rhs: Expression, op: (LynxValue, LynxValue) => LynxValue)(implicit ec: ExpressionContext): LynxValue = {
     eval(lhs) match {
       case LynxNull => LynxNull
@@ -52,6 +52,10 @@ class ExpressionEvaluatorImpl extends ExpressionEvaluator {
             LynxBoolean(labels.forall(label => labelsNode.contains(label.name)))
           }
         }
+
+
+      case f:FunctionInvocation => LynxFunction(f.namespace.parts, f.name, f.args.map(eval)).execute(graphModel)
+
 
       case Add(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
