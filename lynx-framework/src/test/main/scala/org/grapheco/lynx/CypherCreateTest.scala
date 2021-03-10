@@ -211,4 +211,29 @@ class CypherCreateTest extends TestBase {
     runOnDemoGraph("CREATE INDEX ON :person(name, age)")
   }
 
+
+  @Test
+  def testCreateDate(): Unit ={
+    runOnDemoGraph("CREATE (n:Person {name:'node_Date1',born:date('2018-04-05')}) return n")
+  }
+
+  @Test
+  def testFunction(): Unit ={
+    runOnDemoGraph("return toInterger('345')")
+  }
+
+  @Test
+  def testFunction23(): Unit ={
+    runOnDemoGraph("return 2,toInterger('345'), date('2018-05-06')")
+  }
+
+  @Test
+  def testFunction2(): Unit ={
+    runOnDemoGraph("match (n) return n")
+  }
+
+
+
+
+
 }

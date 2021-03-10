@@ -1,9 +1,11 @@
 package org.grapheco.lynx
 
+import java.text.SimpleDateFormat
+
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.Profiler
 import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName}
-import org.opencypher.v9_0.util.symbols.CTString
+import org.opencypher.v9_0.util.symbols.{CTDate, CTString, CTInteger}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -75,6 +77,21 @@ class TestBase extends LazyLogging {
 
         override def call(args: Seq[LynxValue]): Iterable[Seq[LynxValue]] =
           Seq(Seq(LynxValue("bluejoe")), Seq(LynxValue("lzx")), Seq(LynxValue("airzihao")))
+      })
+
+      case ".date" => Some(new CallableProcedure {
+        override val inputs: Seq[(String, LynxType)] = Seq()
+        override val outputs: Seq[(String, LynxType)] = Seq("date" -> CTDate)
+
+        override def call(args: Seq[LynxValue]): Iterable[Seq[LynxValue]] =
+          Iterable(Seq(LynxDate(new SimpleDateFormat("yyyy-MM-dd").parse(args.head.asInstanceOf[LynxString].value).getTime )))
+      })
+      case ".toInterger" => Some(new CallableProcedure {
+        override val inputs: Seq[(String, LynxType)] = Seq()
+        override val outputs: Seq[(String, LynxType)] = Seq("haha" -> CTInteger)
+
+        override def call(args: Seq[LynxValue]): Iterable[Seq[LynxValue]] =
+          Iterable(Seq(LynxInteger(args.head.value.toString.toInt)))
       })
 
       case _ => None
