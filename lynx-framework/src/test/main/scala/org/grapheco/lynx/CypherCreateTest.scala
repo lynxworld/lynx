@@ -232,6 +232,11 @@ class CypherCreateTest extends TestBase {
     runOnDemoGraph("match (n) return n")
   }
 
+  @Test
+  def testmatch(): Unit ={
+    runOnDemoGraph("match (n{name:'alex'}) return n")
+  }
+
 
 
 
