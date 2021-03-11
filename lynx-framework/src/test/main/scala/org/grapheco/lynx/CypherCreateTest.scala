@@ -229,7 +229,7 @@ class CypherCreateTest extends TestBase {
 
   @Test
   def testFunction2(): Unit ={
-    runOnDemoGraph("match (n) return n")
+    runOnDemoGraph("match (n) return count(n)")
   }
 
   @Test
@@ -237,6 +237,10 @@ class CypherCreateTest extends TestBase {
     runOnDemoGraph("match (n{name:'alex'}) return n")
   }
 
+  @Test
+  def testmatchxing(): Unit ={
+    runOnDemoGraph("match data =()-[:KNOWS*1..]->() return data")
+  }
 
 
 
