@@ -54,7 +54,7 @@ class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluato
         }
 
 
-      case f:FunctionInvocation => LynxFunction(f.namespace.parts, f.name, f.args.map(eval)).execute(graphModel)
+      case f:FunctionInvocation => LynxFunction.getValue(f.namespace.parts, f.functionName.name, f.args.map(eval), graphModel)
 
 
       case Add(lhs, rhs) =>
