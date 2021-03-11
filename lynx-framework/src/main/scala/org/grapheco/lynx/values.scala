@@ -127,20 +127,13 @@ object LynxNull extends LynxValue {
   override def cypherType: CypherType = CTAny
 }
 
-case class LynxFunction(parts: List[String], functionName: String, args: IndexedSeq[LynxValue]) extends LynxTemporalValue{
-
-  def execute(graphModel: GraphModel): LynxValue ={
+object LynxFunction{
+  def getValue(parts: List[String], functionName: String, args: IndexedSeq[LynxValue], graphModel: GraphModel): LynxValue ={
    // val parts: List[String] = parts
     val name: String = functionName
 
     graphModel.getProcedure(parts, name) match {
       case Some(procedure) =>
-        /*  val args = declaredArguments match {
-            case Some(args) => args.map(eval(_)(ctx.expressionContext))
-            case None => procedure.inputs.map(arg => ctx.expressionContext.params.getOrElse(arg._1, LynxNull))
-          }
-  */
-        // checkArgs(args, procedure.inputs)
         val records = procedure.call(args)
         records.head.head
 
@@ -148,14 +141,6 @@ case class LynxFunction(parts: List[String], functionName: String, args: Indexed
     }
   }
 
-  def getValue()(implicit graphModel: GraphModel): LynxValue ={
-    execute(graphModel)
-  }
-
-
-  override def value: Any = ???
-
-  override def cypherType: LynxType = ???
 }
 
 object LynxValue {
