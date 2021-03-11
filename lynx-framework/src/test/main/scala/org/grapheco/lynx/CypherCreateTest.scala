@@ -239,7 +239,7 @@ class CypherCreateTest extends TestBase {
 
   @Test
   def testmatchxing(): Unit ={
-    runOnDemoGraph("match data =()-[:KNOWS*1..]->() return data")
+    runOnDemoGraph("match data =(:leader)-[:KNOWS*10..20]->() return data")
   }
 
 

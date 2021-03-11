@@ -55,7 +55,7 @@ class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluato
       case NilPathStep => LynxList(List.empty)
       case f: NodePathStep =>   LynxList( List(eval(f.node), evalStep(f.next)))
       case m: MultiRelationshipPathStep =>   LynxList(List(eval(m.rel), eval(m.toNode.get), evalStep(m.next)))
-      case s: SingleRelationshipPathStep => LynxList(s.dependencies.map(eval).toList)
+      case s: SingleRelationshipPathStep => LynxList(s.dependencies.map(eval).toList ++ List(eval(s.toNode.get)))
     }
 
 
