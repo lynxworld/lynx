@@ -241,9 +241,11 @@ case class PPTNodeScan(pattern: NodePattern)(implicit val plannerContext: Physic
     implicit val ec = ctx.expressionContext
 
     DataFrame(Seq(var0.name -> CTNode), () => {
-      val nodes = if (labels.isEmpty)
-        graphModel.nodes()
-      else
+      val nodes = if (labels.isEmpty) {
+        graphModel.nodes(NodeFilter(Seq.empty, properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)))
+
+
+      } else
         graphModel.nodes(NodeFilter(labels.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)))
 
       nodes.map(Seq(_))
