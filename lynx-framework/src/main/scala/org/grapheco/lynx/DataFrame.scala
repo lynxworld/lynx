@@ -12,11 +12,21 @@ trait DataFrame {
   def records: Iterator[Seq[LynxValue]]
 }
 
-trait DataFramArray extends DataFrame{
-  def schema: Seq[(String, LynxType)]
+trait DataFrameArray extends DataFrame{
 
-  def records: Iterator[Seq[LynxValue]]
-  def dataMap: Map[Seq[(String, LynxType)], Iterator[Seq[LynxValue]]]
+  def dataFrameArray: Array[DataFrame]
+}
+
+object DataFrameArray{
+  def empty: DataFrameArray = DataFrameArray(Array.empty[DataFrame])
+
+  def apply(dataFrameArray: Array[DataFrame]): DataFrameArray = new DataFrameArray() {
+    override def dataFrameArray: Array[DataFrame] = dataFrameArray
+
+    override def schema: Seq[(String, LynxType)] = dataFrameArray.head.schema
+
+    override def records: Iterator[Seq[LynxValue]] = dataFrameArray.head.records
+  }
 }
 
 object DataFrame {
