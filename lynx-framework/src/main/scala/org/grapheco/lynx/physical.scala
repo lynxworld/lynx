@@ -56,6 +56,7 @@ class PhysicalPlannerImpl(runnerContext: CypherRunnerContext) extends PhysicalPl
       case lf@LPTFilter(expr) => PPTFilter(expr)(plan(lf.in), plannerContext)
       case ld@LPTDistinct() => PPTDistinct()(plan(ld.in), plannerContext)
       case ll@LPTLimit(expr) => PPTLimit(expr)(plan(ll.in), plannerContext)
+      case lo@LPTOrderBy(sortItem) => PPTOrderBy(sortItem)(plan(lo.in), plannerContext)
       case ll@LPTSkip(expr) => PPTSkip(expr)(plan(ll.in), plannerContext)
       case lj@LPTJoin() => PPTJoin()(plan(lj.a), plan(lj.b), plannerContext)
       case patternMatch: LPTPatternMatch => PPTPatternMatchTranslator(patternMatch)(plannerContext).translate(None)
@@ -112,6 +113,23 @@ case class PPTDistinct()(implicit in: PPTNode, val plannerContext: PhysicalPlann
   override def withChildren(children0: Seq[PPTNode]): PPTDistinct = PPTDistinct()(children0.head, plannerContext)
 
   override val schema: Seq[(String, LynxType)] = in.schema
+}
+
+case class PPTOrderBy(sortItem: Seq[SortItem])(implicit in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode{
+  override val schema: Seq[(String, LynxType)] = in.schema
+  override val children: Seq[PPTNode] = Seq(in)
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val df = in.execute(ctx)
+    implicit val ec = ctx.expressionContext
+    val sortItems:Seq[(String ,Boolean)] = sortItem.map {
+      case AscSortItem(expression) => (expression.asInstanceOf[Variable].name, true)
+      case DescSortItem(expression) => (expression.asInstanceOf[Variable].name, false)
+    }
+    df.orderBy(Some(sortItems))
+  }
+
+  override def withChildren(children0: Seq[PPTNode]): PPTNode = PPTOrderBy(sortItem)(children0.head, plannerContext)
 }
 
 case class PPTLimit(expr: Expression)(implicit in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {

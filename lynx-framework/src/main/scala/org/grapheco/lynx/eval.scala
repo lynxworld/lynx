@@ -114,6 +114,7 @@ class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluato
         case "max" => ExpandType.CTMax
         case "min" => ExpandType.CTMin
         case "avg" => ExpandType.CTAvg
+        case _ => CTAny
       }
 
 
