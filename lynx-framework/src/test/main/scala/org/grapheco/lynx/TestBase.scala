@@ -94,6 +94,21 @@ class TestBase extends LazyLogging {
           Iterable(Seq(LynxInteger(args.head.value.toString.toInt)))
       })
 
+      case ".count" => Some(new CallableProcedure {
+        override val inputs: Seq[(String, LynxType)] = Seq()
+        override val outputs: Seq[(String, LynxType)] = Seq("haha" -> CTInteger)
+
+        override def call(args: Seq[LynxValue]): Iterable[Seq[LynxValue]] =
+          Iterable(Seq(LynxInteger(args.size)))
+      })
+      case ".sum" => Some(new CallableProcedure {
+        override val inputs: Seq[(String, LynxType)] = Seq()
+        override val outputs: Seq[(String, LynxType)] = Seq("haha" -> CTInteger)
+
+        override def call(args: Seq[LynxValue]): Iterable[Seq[LynxValue]] =
+          Iterable(Seq(LynxInteger(args.size)))
+      })
+
       case _ => None
     }
 

@@ -3,6 +3,9 @@ package org.grapheco.lynx
 import org.opencypher.v9_0.expressions.{BooleanLiteral, DoubleLiteral, Expression, IntegerLiteral, Parameter, Property, StringLiteral, True, Variable}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTString, CypherType}
 
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
+
 trait DataFrame {
   def schema: Seq[(String, LynxType)]
 
@@ -102,14 +105,99 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
     )
   }
 
+  def groupby(df: DataFrame): DataFrame ={
+
+    val flagOfAggre: Boolean = df.schema.exists(x => x._2.isInstanceOf[AggregationType])
+    val flagOfCountStar: Boolean = df.schema.exists(x => x._2.isInstanceOf[CountStarType])
+
+    var gBy:  mutable.IndexedSeq[(Int, CypherType)] = mutable.IndexedSeq[(Int, CypherType)]()
+    var aggre: mutable.IndexedSeq[(Int, CypherType)] = mutable.IndexedSeq[(Int, CypherType)]()
+
+
+    if (flagOfAggre){
+      if (flagOfCountStar) DataFrame(df.schema, () => Iterator(Seq(LynxInteger(df.records.size))))
+      else {
+        df.schema.foreach(s => {
+          s._2 match {
+            case avgType: AvgType => aggre = aggre ++ Seq(df.schema.indexOf(s) ->s._2)
+            case maxType: MaxType => aggre = aggre ++ Seq(df.schema.indexOf(s) ->s._2)
+            case minType: MinType => aggre = aggre ++ Seq(df.schema.indexOf(s) ->s._2)
+            case sumType: SumType => aggre = aggre ++ Seq(df.schema.indexOf(s) ->s._2)
+            case countType: CountType => aggre = aggre ++ Seq(df.schema.indexOf(s) ->s._2)
+            case _ => gBy = gBy ++ Seq(df.schema.indexOf(s) ->s._2)
+          }
+        })
+
+      /*  if(gBy.isEmpty) DataFrame(df.schema, () => df.records.reduce((a,b) => aggre.map(agg => {
+          agg._2 match {
+            case avgType: AvgType => LynxDouble(a(agg._1).value.asInstanceOf[Float]/df.records.size + b(agg._1).value.asInstanceOf[Float]/df.records.size)
+            case maxType: MaxType => if(a(agg._1) >= b(agg._1)) a(agg._1) else b(agg._1)
+            case minType: MinType => if(a(agg._1) <= b(agg._1)) a(agg._1) else b(agg._1)
+            case sumType: SumType => a(agg._1).asInstanceOf[LynxNumber] + b(agg._1).asInstanceOf[LynxNumber]
+            case countType: CountType => LynxInteger(2)
+          }
+        }).seq))*/
+        def singlel(a: Seq[LynxValue], aggre: mutable.IndexedSeq[(Int, CypherType)]): Seq[LynxValue] ={
+          a.map(s => {
+            val idex = a.indexOf(s)
+            aggre.toMap.get(idex) match {
+              case None => LynxNull
+              case Some(value) => value match {
+                case avgType: AvgType => s
+                case maxType: MaxType => s
+                case minType: MinType => s
+                case sumType: SumType => s
+                case countType: CountType => LynxInteger(1)
+              }
+            }
+          }).filter(!_.equals(LynxNull))
+        }
+        def combine(a: Seq[LynxValue], b: Seq[LynxValue], aggre: mutable.IndexedSeq[(Int, CypherType)], size: Int): Seq[LynxValue] = {
+          a.map(s => {
+            val idex = a.indexOf(s)
+            aggre.toMap.get(idex) match {
+              case None => LynxNull
+              case Some(value) => value match {
+                case avgType: AvgType => LynxDouble(s.value.asInstanceOf[Float] / size + b(idex).value.asInstanceOf[Float] / size)
+                case maxType: MaxType => if (s >= b(idex)) s else b(idex)
+                case minType: MinType => if (s <= b(idex)) s else b(idex)
+                case sumType: SumType => s.asInstanceOf[LynxNumber] + b(idex).asInstanceOf[LynxNumber]
+                case countType: CountType => LynxInteger(size)
+              }
+            }
+          }).filter(!_.equals(LynxNull))
+
+        }
+        if(gBy.isEmpty) DataFrame(df.schema, ()=> Iterator(df.records.reduce((a,b) => combine(a,b, aggre, df.records.size))))
+
+        else{
+          DataFrame(df.schema,
+            () =>df.records.toList.groupBy(r => gBy.map(_._1).toSeq.map(r(_))).mapValues(l =>
+              if (l.size ==1){
+                singlel(l.head, aggre)
+              }
+                else {
+                  l.reduce((a, b) => combine(a, b, aggre, l.size))
+                }
+            ).map(x => x._1 ++ x._2).toIterator)
+        }
+
+
+      }
+    }
+    else df
+
+  }
   override def project(df: DataFrame, columns: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame = {
     val schema1 = df.schema
+
+
 
     val schema2 = columns.map(col =>
       col._1 -> expressionEvaluator.typeOf(col._2, schema1.toMap)
     )
 
-    DataFrame(schema2,
+    val dfn:DataFrame = DataFrame(schema2,
       () => df.records.map(
         record => {
           columns.map(col => {
@@ -118,6 +206,7 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
         }
       )
     )
+    groupby(dfn)
   }
 
   override def filter(df: DataFrame, predicate: (Seq[LynxValue]) => Boolean)(ctx: ExpressionContext): DataFrame = {

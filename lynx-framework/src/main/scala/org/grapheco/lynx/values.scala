@@ -21,6 +21,7 @@ trait LynxNumber extends LynxValue {
   def +(that: LynxNumber): LynxNumber
 
   def -(that: LynxNumber): LynxNumber
+
 }
 
 case class LynxInteger(v: Int) extends LynxNumber {
