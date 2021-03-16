@@ -12,6 +12,13 @@ trait DataFrame {
   def records: Iterator[Seq[LynxValue]]
 }
 
+trait DataFramArray extends DataFrame{
+  def schema: Seq[(String, LynxType)]
+
+  def records: Iterator[Seq[LynxValue]]
+  def dataMap: Map[Seq[(String, LynxType)], Iterator[Seq[LynxValue]]]
+}
+
 object DataFrame {
   def empty: DataFrame = DataFrame(Seq.empty, () => Iterator.empty)
 
