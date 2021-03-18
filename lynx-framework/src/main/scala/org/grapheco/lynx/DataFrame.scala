@@ -235,7 +235,9 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
           df.records.size match {
             case 1 => singlel(df.records.toList.head, aggre)
             case 0 => zero()
-            case _ => df.records.toList.reduce((a,b) => combine(a,b, aggre, df.records.size))
+            case _ =>
+              val dfs = df.records.size
+              df.records.toList.reduce((a,b) => combine(a,b, aggre, dfs))
           }
         ))
 
