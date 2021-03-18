@@ -1,5 +1,6 @@
 package org.grapheco.lynx
 
+import org.opencypher.v9_0.ast.SortItem
 import org.opencypher.v9_0.expressions.{BooleanLiteral, DoubleLiteral, Expression, IntegerLiteral, Parameter, Property, StringLiteral, True, Variable}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTString, CypherType}
 
@@ -70,6 +71,8 @@ trait DataFrameOperator {
   def distinct(df: DataFrame): DataFrame
 
   def orderBy(df: DataFrame, sortItems: Option[Seq[(String, Boolean)]]): DataFrame
+
+  def orderBy2(df: DataFrame, sortItem: Seq[(Expression, Boolean)]): DataFrame
 }
 
 class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends DataFrameOperator {
@@ -94,6 +97,11 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
     sd._1
   }
 
+  override def orderBy2(df: DataFrame, sortItem: Seq[(Expression, Boolean)]): DataFrame = {
+    val si = sortItem
+    val kl = si
+    df
+  }
   override def orderBy(df: DataFrame, sortItems: Option[Seq[(String, Boolean)]]): DataFrame = {
     DataFrame(df.schema, () => {
       val schema1: Map[String, (CypherType, Int)] = df.schema.zipWithIndex.map(x => x._1._1 -> (x._1._2, x._2)).toMap
@@ -169,33 +177,53 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
             }
           }).filter(!_.equals(LynxNull))
         }
+        def zero(): Seq[LynxValue] ={
+          df.schema.map(s => {
+            s._2 match {
+              case avgType: AvgType => LynxNull
+              case maxType: MaxType => LynxNull
+              case minType: MinType => LynxNull
+              case sumType: SumType => LynxNull
+              case countType: CountType => LynxInteger(0)
+              case _ => LynxNull
+            }
+          })
+        }
+
+
         def combine(a: Seq[LynxValue], b: Seq[LynxValue], aggre: mutable.IndexedSeq[(Int, CypherType)], size: Int): Seq[LynxValue] = {
           a.map(s => {
-            val idex = a.indexOf(s)
-            aggre.toMap.get(idex) match {
-              case None => LynxNull
-              case Some(value) => value match {
-                case avgType: AvgType => LynxDouble(s.value.asInstanceOf[Float] / size + b(idex).value.asInstanceOf[Float] / size)
-                case maxType: MaxType => if (s >= b(idex)) s else b(idex)
-                case minType: MinType => if (s <= b(idex)) s else b(idex)
-                case sumType: SumType => s.asInstanceOf[LynxNumber] + b(idex).asInstanceOf[LynxNumber]
-                case countType: CountType => LynxInteger(size)
+              val idex = a.indexOf(s)
+              aggre.toMap.get(idex) match {
+                case None => LynxNull
+                case Some(value) => value match {
+                  case avgType: AvgType => LynxDouble(s.value.asInstanceOf[Float] / size + b(idex).value.asInstanceOf[Float] / size)
+                  case maxType: MaxType => if (s >= b(idex)) s else b(idex)
+                  case minType: MinType => if (s <= b(idex)) s else b(idex)
+                  case sumType: SumType => s.asInstanceOf[LynxNumber] + b(idex).asInstanceOf[LynxNumber]
+                  case countType: CountType => LynxInteger(size)
+                }
               }
-            }
-          }).filter(!_.equals(LynxNull))
+            }).filter(!_.equals(LynxNull))
 
         }
-        if(gBy.isEmpty) DataFrame(df.schema, ()=> Iterator(df.records.reduce((a,b) => combine(a,b, aggre, df.records.size))))
+        if(gBy.isEmpty) DataFrame(df.schema, ()=> Iterator(
+          df.records.size match {
+            case 1 => singlel(df.records.toList.head, aggre)
+            case 0 => zero()
+            case _ => df.records.toList.reduce((a,b) => combine(a,b, aggre, df.records.size))
+          }
+        ))
 
         else{
           DataFrame(df.schema,
             () =>df.records.toList.groupBy(r => gBy.map(_._1).toSeq.map(r(_))).mapValues(l =>
-              if (l.size ==1){
-                singlel(l.head, aggre)
-              }
-                else {
-                  l.reduce((a, b) => combine(a, b, aggre, l.size))
-                }
+                  l.size match {
+                    case 1 => singlel(l.head, aggre)
+                    case 0 => zero()
+                    case _ => l.reduce((a, b) => combine(a, b, aggre, l.size))
+                  }
+
             ).map(x => x._1 ++ x._2).toIterator)
         }
 
@@ -278,6 +306,8 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
       )
     })
   }
+
+
 }
 
 trait DataFrameOps {
@@ -299,6 +329,8 @@ trait DataFrameOps {
   def distinct(): DataFrame = operator.distinct(srcFrame)
 
   def orderBy(sortItems: Option[Seq[(String, Boolean)]]): DataFrame = operator.orderBy(srcFrame, sortItems)
+
+  def orderBy2(sortItem: Seq[(Expression, Boolean)]): DataFrame = operator.orderBy2(srcFrame, sortItem)
 }
 
 object DataFrameOps {
