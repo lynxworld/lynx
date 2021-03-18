@@ -391,7 +391,7 @@ class CypherQueryTest extends TestBase {
   @Test
   def testQueryOrderby(): Unit = {
     var rs1 = runOnDemoGraph("create (n1:test{age:10,name:5}),(n2:test{age:10,name:4}),(n3:test{age:11,name:3})")
-    var rs = runOnDemoGraph("match (n:test) return  count(n.name)")
+    var rs = runOnDemoGraph("match (n) return  count(n.name),count(n.age)")
    // var rs = runOnDemoGraph("match (n) return n.age  limit 1")
   }
   @Test
