@@ -225,7 +225,7 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
                   case maxType: MaxType => if (s >= b(idex)) s else b(idex)
                   case minType: MinType => if (s <= b(idex)) s else b(idex)
                   case sumType: SumType => s.asInstanceOf[LynxNumber] + b(idex).asInstanceOf[LynxNumber]
-                  case countType: CountType => LynxInteger(size)
+                  case countType: CountType => s.asInstanceOf[LynxNumber] + b(idex).asInstanceOf[LynxNumber]//LynxInteger(size)
                 }
               }
             }).filter(!_.equals(LynxNull))
