@@ -72,7 +72,7 @@ trait DataFrameOperator {
 
   def orderBy(df: DataFrame, sortItems: Option[Seq[(String, Boolean)]]): DataFrame
 
-  def orderBy2(df: DataFrame, sortItem: Seq[(Expression, Boolean)]): DataFrame
+  def orderBy2(df: DataFrame, sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame
 }
 
 class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends DataFrameOperator {
@@ -97,10 +97,34 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
     sd._1
   }
 
-  override def orderBy2(df: DataFrame, sortItem: Seq[(Expression, Boolean)]): DataFrame = {
-    val si = sortItem
-    val kl = si
-    df
+  def linSort2(a:Seq[LynxValue], b:Seq[LynxValue])(implicit sitem: Seq[(Expression, Boolean)], schema1: Map[String, (CypherType, Int)], ctx: ExpressionContext): Boolean = {
+    val sd =sitem.foldLeft((true, true)){
+      (f, s) => {
+        f match {
+          case (true, true) => {
+
+            //expressionEvaluator.eval(s._1)
+            //(ctx.withVars(schema1.map(_._1).zip(record).toMap))
+            val ev1 = expressionEvaluator.eval(s._1)(ctx.withVars(schema1.map(_._1).zip(a).toMap))
+            val ev2 = expressionEvaluator.eval(s._1)(ctx.withVars(schema1.map(_._1).zip(b).toMap))
+            s._2 match{
+              case true => (ev1 <= ev2, ev1==ev2)
+              case false => (ev1 >= ev2, ev1==ev2)
+            }
+          }
+          case (true, false) => (true, false)
+          case (false, true) => (false, true)
+          case (false, false) => (false, false)
+        }
+      }
+    }
+    sd._1
+  }
+
+  override def orderBy2(df: DataFrame, sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame = {
+    val schema1: Map[String, (CypherType, Int)] = df.schema.zipWithIndex.map(x => x._1._1 -> (x._1._2, x._2)).toMap
+    DataFrame(df.schema, () => df.records.toSeq.sortWith(linSort2(_,_)(sortItem, schema1, ctx)).toIterator)
+
   }
   override def orderBy(df: DataFrame, sortItems: Option[Seq[(String, Boolean)]]): DataFrame = {
     DataFrame(df.schema, () => {
@@ -330,7 +354,7 @@ trait DataFrameOps {
 
   def orderBy(sortItems: Option[Seq[(String, Boolean)]]): DataFrame = operator.orderBy(srcFrame, sortItems)
 
-  def orderBy2(sortItem: Seq[(Expression, Boolean)]): DataFrame = operator.orderBy2(srcFrame, sortItem)
+  def orderBy2(sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame = operator.orderBy2(srcFrame, sortItem)(ctx)
 }
 
 object DataFrameOps {
