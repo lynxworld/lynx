@@ -122,11 +122,15 @@ case class PPTOrderBy(sortItem: Seq[SortItem])(implicit in: PPTNode, val planner
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
     implicit val ec = ctx.expressionContext
-    val sortItems:Seq[(String ,Boolean)] = sortItem.map {
+/*    val sortItems:Seq[(String ,Boolean)] = sortItem.map {
       case AscSortItem(expression) => (expression.asInstanceOf[Variable].name, true)
       case DescSortItem(expression) => (expression.asInstanceOf[Variable].name, false)
+    }*/
+    val sortItems2: Seq[(Expression, Boolean)] = sortItem.map {
+      case AscSortItem(expression) => (expression, true)
+      case DescSortItem(expression) => (expression, false)
     }
-    df.orderBy(Some(sortItems))
+    df.orderBy2(sortItems2)
   }
 
   override def withChildren(children0: Seq[PPTNode]): PPTNode = PPTOrderBy(sortItem)(children0.head, plannerContext)
