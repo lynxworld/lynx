@@ -13,22 +13,6 @@ trait DataFrame {
   def records: Iterator[Seq[LynxValue]]
 }
 
-trait DataFrameArray extends DataFrame{
-
-  def dataFrameArray: Array[DataFrame]
-}
-
-object DataFrameArray{
-  def empty: DataFrameArray = DataFrameArray(Array.empty[DataFrame])
-
-  def apply(dataFrameArray: Array[DataFrame]): DataFrameArray = new DataFrameArray() {
-    override def dataFrameArray: Array[DataFrame] = dataFrameArray
-
-    override def schema: Seq[(String, LynxType)] = dataFrameArray.head.schema
-
-    override def records: Iterator[Seq[LynxValue]] = dataFrameArray.head.records
-  }
-}
 
 object DataFrame {
   def empty: DataFrame = DataFrame(Seq.empty, () => Iterator.empty)
@@ -70,34 +54,15 @@ trait DataFrameOperator {
 
   def distinct(df: DataFrame): DataFrame
 
-  def orderBy(df: DataFrame, sortItems: Option[Seq[(String, Boolean)]]): DataFrame
+  //def orderBy(df: DataFrame, sortItems: Option[Seq[(String, Boolean)]]): DataFrame
 
-  def orderBy2(df: DataFrame, sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame
+  def orderBy(df: DataFrame, sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame
 }
 
 class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends DataFrameOperator {
   def distinct(df: DataFrame): DataFrame = DataFrame(df.schema, () => df.records.toSeq.distinct.iterator)
 
-  def linSort(a:Seq[LynxValue], b:Seq[LynxValue])(implicit sitem: Seq[(Int, Boolean)]): Boolean = {
-    val sd =sitem.foldLeft((true, true)){
-      (f, s) => {
-        f match {
-          case (true, true) => {
-            s._2 match{
-              case true => (a(s._1) <= b(s._1), a(s._1)==b(s._1))
-              case false => (a(s._1) >= b(s._1), a(s._1)==b(s._1))
-            }
-          }
-          case (true, false) => (true, false)
-          case (false, true) => (false, true)
-          case (false, false) => (false, false)
-        }
-      }
-    }
-    sd._1
-  }
-
-  def linSort2(a:Seq[LynxValue], b:Seq[LynxValue])(implicit sitem: Seq[(Expression, Boolean)], schema1: Map[String, (CypherType, Int)], ctx: ExpressionContext): Boolean = {
+  private def sortByItem(a:Seq[LynxValue], b:Seq[LynxValue])(implicit sitem: Seq[(Expression, Boolean)], schema1: Map[String, (CypherType, Int)], ctx: ExpressionContext): Boolean = {
     val sd =sitem.foldLeft((true, true)){
       (f, s) => {
         f match {
@@ -121,23 +86,12 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
     sd._1
   }
 
-  override def orderBy2(df: DataFrame, sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame = {
+  override def orderBy(df: DataFrame, sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame = {
     val schema1: Map[String, (CypherType, Int)] = df.schema.zipWithIndex.map(x => x._1._1 -> (x._1._2, x._2)).toMap
-    DataFrame(df.schema, () => df.records.toSeq.sortWith(linSort2(_,_)(sortItem, schema1, ctx)).toIterator)
+    DataFrame(df.schema, () => df.records.toSeq.sortWith(sortByItem(_,_)(sortItem, schema1, ctx)).toIterator)
 
   }
-  override def orderBy(df: DataFrame, sortItems: Option[Seq[(String, Boolean)]]): DataFrame = {
-    DataFrame(df.schema, () => {
-      val schema1: Map[String, (CypherType, Int)] = df.schema.zipWithIndex.map(x => x._1._1 -> (x._1._2, x._2)).toMap
-      val sitem:Seq[(Int, Boolean)] = sortItems match {
-        case None => schema1.map(s => s._2._2 -> true).toSeq
-        case Some(value) => value.map(tup => schema1(tup._1)._2-> tup._2)
 
-      }
-
-      df.records.toSeq.sortWith(linSort(_,_)(sitem)).toIterator
-    })
-  }
 
   override def select(df: DataFrame, columns: Seq[(String, Option[String])]): DataFrame = {
     val schema1: Map[String, (CypherType, Int)] = df.schema.zipWithIndex.map(x => x._1._1 -> (x._1._2, x._2)).toMap
@@ -154,7 +108,7 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
     )
   }
 
-  def groupby(df: DataFrame): DataFrame ={
+  private def groupby(df: DataFrame): DataFrame ={
 
     val flagOfAggre: Boolean = df.schema.exists(x => x._2.isInstanceOf[AggregationType])
     val flagOfCountStar: Boolean = df.schema.exists(x => x._2.isInstanceOf[CountStarType])
@@ -177,15 +131,6 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
           }
         })
 
-      /*  if(gBy.isEmpty) DataFrame(df.schema, () => df.records.reduce((a,b) => aggre.map(agg => {
-          agg._2 match {
-            case avgType: AvgType => LynxDouble(a(agg._1).value.asInstanceOf[Float]/df.records.size + b(agg._1).value.asInstanceOf[Float]/df.records.size)
-            case maxType: MaxType => if(a(agg._1) >= b(agg._1)) a(agg._1) else b(agg._1)
-            case minType: MinType => if(a(agg._1) <= b(agg._1)) a(agg._1) else b(agg._1)
-            case sumType: SumType => a(agg._1).asInstanceOf[LynxNumber] + b(agg._1).asInstanceOf[LynxNumber]
-            case countType: CountType => LynxInteger(2)
-          }
-        }).seq))*/
         def singlel(a: Seq[LynxValue], aggre: mutable.IndexedSeq[(Int, CypherType)]): Seq[LynxValue] ={
           a.map(s => {
             val idex = a.indexOf(s)
@@ -354,9 +299,8 @@ trait DataFrameOps {
 
   def distinct(): DataFrame = operator.distinct(srcFrame)
 
-  def orderBy(sortItems: Option[Seq[(String, Boolean)]]): DataFrame = operator.orderBy(srcFrame, sortItems)
 
-  def orderBy2(sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame = operator.orderBy2(srcFrame, sortItem)(ctx)
+  def orderBy(sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame = operator.orderBy(srcFrame, sortItem)(ctx)
 }
 
 object DataFrameOps {

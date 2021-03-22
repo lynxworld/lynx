@@ -130,7 +130,7 @@ case class PPTOrderBy(sortItem: Seq[SortItem])(implicit in: PPTNode, val planner
       case AscSortItem(expression) => (expression, true)
       case DescSortItem(expression) => (expression, false)
     }
-    df.orderBy2(sortItems2)(ec)
+    df.orderBy(sortItems2)(ec)
   }
 
   override def withChildren(children0: Seq[PPTNode]): PPTNode = PPTOrderBy(sortItem)(children0.head, plannerContext)

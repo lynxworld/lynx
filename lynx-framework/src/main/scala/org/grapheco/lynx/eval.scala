@@ -124,12 +124,6 @@ class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluato
 
 
   def evalStep(step: PathStep)(implicit ec: ExpressionContext): LynxValue ={
-/*    step match {
-      case NilPathStep => LynxNull
-      case f: NodePathStep => LynxList(List(eval(f.node),evalStep(f.next)))
-      case m: MultiRelationshipPathStep => LynxList(List(eval(m.rel), eval(m.toNode.get), evalStep(m.next)))
-      case s: SingleRelationshipPathStep => LynxList(List(eval(s.rel), evalStep(s.next)))
-    }*/
     step match {
       case NilPathStep => LynxList(List.empty)
       case f: NodePathStep =>   LynxList( List(eval(f.node), evalStep(f.next)))
@@ -152,15 +146,7 @@ class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluato
 
 
       case pe: PathExpression => {
-
         evalStep(pe.step)
-        //LynxList(pe.step.dependencies.map(eval).toList)
-      /*  pe.step match {
-          case NilPathStep => LynxNull
-          case f: NodePathStep => LynxList(List(eval(f.node)) ++ f.dependencies.map(eval).toList)
-          case m: MultiRelationshipPathStep => LynxList(List(eval(m.rel)) ++ m.dependencies.map(eval).toList)
-          case s: SingleRelationshipPathStep => LynxList(s.dependencies.map(eval).toList)
-        }*/
       }
       case f: FunctionInvocation =>
         f.functionName.name.toLowerCase match {
