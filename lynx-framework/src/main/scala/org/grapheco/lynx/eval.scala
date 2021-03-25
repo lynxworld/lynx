@@ -148,15 +148,14 @@ class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluato
       case pe: PathExpression => {
         evalStep(pe.step)
       }
-      case f: FunctionInvocation =>
-        f.functionName.name.toLowerCase match {
-          case "sum" => eval(f.args.head)
-          case "max" => eval(f.args.head)
-          case "min" => eval(f.args.head)
-          case "count" => LynxInteger(1)
-          case _ =>LynxFunction.getValue(f.namespace.parts, f.functionName.name, f.args.map(eval), graphModel)
-        }
 
+      case FunctionInvocation(namespace, functionName, distinct, args) => functionName.name.toLowerCase match {
+        case "sum" => eval(args.head)
+        case "max" => eval(args.head)
+        case "min" => eval(args.head)
+        case "count" => LynxInteger(1)
+        case _ =>LynxFunction.getValue(namespace.parts, functionName.name, args.map(eval), graphModel)
+      }
 
       case CountStar() => LynxInteger(ec.vars.size)
 
