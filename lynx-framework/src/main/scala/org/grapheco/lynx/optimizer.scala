@@ -1,13 +1,13 @@
 package org.grapheco.lynx
 
-import org.opencypher.v9_0.ast.{AliasedReturnItem}
+import org.opencypher.v9_0.ast.AliasedReturnItem
 
 trait PhysicalPlanOptimizer {
-  def optimize(plan: PPTNode): PPTNode
+  def optimize(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode
 }
 
 trait PhysicalPlanOptimizerRule {
-  def apply(plan: PPTNode): PPTNode
+  def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode
 
   def optimizeBottomUp(node: PPTNode, ops: PartialFunction[PPTNode, PPTNode]*): PPTNode = {
     val childrenOptimized = node.withChildren(node.children.map(child => optimizeBottomUp(child, ops: _*)))
@@ -23,14 +23,14 @@ class PhysicalPlanOptimizerImpl(runnerContext: CypherRunnerContext) extends Phys
     RemoveNullProject,
   )
 
-  def optimize(plan: PPTNode): PPTNode = {
-    rules.foldLeft(plan)((optimized, rule) => rule.apply(optimized))
+  def optimize(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = {
+    rules.foldLeft(plan)((optimized, rule) => rule.apply(optimized, ppc))
   }
 }
 
 object RemoveNullProject extends PhysicalPlanOptimizerRule {
 
-  override def apply(plan: PPTNode): PPTNode = optimizeBottomUp(plan,
+  override def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = optimizeBottomUp(plan,
     {
       case pnode: PPTNode =>
         pnode.children match {

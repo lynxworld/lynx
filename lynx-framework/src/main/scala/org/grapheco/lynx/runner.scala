@@ -34,7 +34,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
     val physicalPlan = physicalPlanner.plan(logicalPlan)(physicalPlannerContext)
     logger.debug(s"physical plan: \r\n${physicalPlan.pretty}")
 
-    val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan)
+    val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan, physicalPlannerContext)
     logger.debug(s"optimized physical plan: \r\n${optimizedPhysicalPlan.pretty}")
 
     val ctx = ExecutionContext(param ++ param2)
