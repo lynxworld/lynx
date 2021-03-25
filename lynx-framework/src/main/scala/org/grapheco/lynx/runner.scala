@@ -13,7 +13,7 @@ import scala.collection.mutable.ArrayBuffer
 case class CypherRunnerContext(dataFrameOperator: DataFrameOperator, expressionEvaluator: ExpressionEvaluator, graphModel: GraphModel)
 
 class CypherRunner(graphModel: GraphModel) extends LazyLogging {
-  protected val expressionEvaluator: ExpressionEvaluator = new ExpressionEvaluatorImpl()
+  protected val expressionEvaluator: ExpressionEvaluator = new ExpressionEvaluatorImpl(graphModel)
   protected val dataFrameOperator: DataFrameOperator = new DataFrameOperatorImpl(expressionEvaluator)
   private implicit lazy val runnerContext = CypherRunnerContext(dataFrameOperator, expressionEvaluator, graphModel)
   protected val logicalPlanner: LogicalPlanner = new LogicalPlannerImpl(runnerContext)

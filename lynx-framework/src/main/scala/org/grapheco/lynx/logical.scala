@@ -1,8 +1,7 @@
 package org.grapheco.lynx
 
-import org.opencypher.v9_0.ast.{Clause, Create, Limit, Match, OrderBy, PeriodicCommitHint, ProcedureResult, ProcedureResultItem, Query, QueryPart, Return, ReturnItem, ReturnItems, ReturnItemsDef, SingleQuery, Skip, Statement, UnresolvedCall, Where, With}
+import org.opencypher.v9_0.ast.{Clause, Create, CreateIndex, CreateUniquePropertyConstraint, Limit, Match, OrderBy, PeriodicCommitHint, ProcedureResult, ProcedureResultItem, Query, QueryPart, Return, ReturnItem, ReturnItems, ReturnItemsDef, SingleQuery, Skip, SortItem, Statement, UnresolvedCall, Where, With}
 import org.opencypher.v9_0.expressions.{EveryPath, Expression, LabelName, LogicalVariable, Namespace, NodePattern, Pattern, PatternElement, PatternPart, ProcedureName, RelationshipChain, RelationshipPattern, Variable}
-import org.opencypher.v9_0.ast.{Clause, Create, CreateIndex, CreateUniquePropertyConstraint, Match, PeriodicCommitHint, Query, QueryPart, Return, SingleQuery, Statement, UnresolvedCall, With}
 import org.opencypher.v9_0.expressions.{LabelName, Property, PropertyKeyName, Variable}
 import org.opencypher.v9_0.util.ASTNode
 
@@ -113,12 +112,27 @@ case class LPTReturnTranslator(r: Return) extends LPTNodeTranslator {
         LPTProjectTranslator(ri),
         LPTSkipTranslator(skip),
         LPTLimitTranslator(limit),
+        LPTOrderByTranslator(orderBy),
         LPTSelectTranslator(ri),
         LPTDistinctTranslator(distinct)
       )).translate(in)
   }
 }
 
+
+case class LPTOrderByTranslator(orderBy: Option[OrderBy]) extends LPTNodeTranslator{
+  override def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
+    orderBy match {
+      case None => in.get
+      case Some(value) => LPTOrderBy(value.sortItems)(in.get)
+    }
+  }
+
+}
+
+case class LPTOrderBy(sortItem: Seq[SortItem])(val in: LPTNode) extends LPTNode{
+  override val children: Seq[LPTNode] = Seq(in)
+}
 object LPTSelectTranslator {
   def apply(ri: ReturnItemsDef): LPTSelectTranslator = LPTSelectTranslator(ri.items.map(item => item.name -> item.alias.map(_.name)))
 }
@@ -171,6 +185,7 @@ case class LPTWithTranslator(w: With) extends LPTNodeTranslator {
             LPTWhereTranslator(where),
             LPTSkipTranslator(skip),
             LPTLimitTranslator(limit),
+            LPTOrderByTranslator(orderBy),
             LPTSelectTranslator(ri),
             LPTDistinctTranslator(distinct)
           )).translate(in)

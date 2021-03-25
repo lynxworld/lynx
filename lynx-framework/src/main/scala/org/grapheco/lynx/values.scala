@@ -21,6 +21,7 @@ trait LynxNumber extends LynxValue {
   def +(that: LynxNumber): LynxNumber
 
   def -(that: LynxNumber): LynxNumber
+
 }
 
 case class LynxInteger(v: Int) extends LynxNumber {
@@ -125,6 +126,22 @@ object LynxNull extends LynxValue {
   override def value: Any = null
 
   override def cypherType: CypherType = CTAny
+}
+
+object LynxFunction{
+  def getValue(parts: List[String], functionName: String, args: IndexedSeq[LynxValue], graphModel: GraphModel): LynxValue ={
+   // val parts: List[String] = parts
+    val name: String = functionName
+
+    graphModel.getProcedure(parts, name) match {
+      case Some(procedure) =>
+        val records = procedure.call(args)
+        records.head.head
+
+      case None => throw UnknownProcedureException(parts, name)
+    }
+  }
+
 }
 
 object LynxValue {
