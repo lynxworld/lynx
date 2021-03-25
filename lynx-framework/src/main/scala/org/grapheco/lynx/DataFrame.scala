@@ -110,14 +110,14 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
 
   private def groupby(df: DataFrame): DataFrame ={
 
-    val flagOfAggre: Boolean = df.schema.exists(x => x._2.isInstanceOf[AggregationType])
+    val flagOfAggregation: Boolean = df.schema.exists(x => x._2.isInstanceOf[AggregationType])
     val flagOfCountStar: Boolean = df.schema.exists(x => x._2.isInstanceOf[CountStarType])
 
     var gBy:  mutable.IndexedSeq[(Int, CypherType)] = mutable.IndexedSeq[(Int, CypherType)]()
     var aggre: mutable.IndexedSeq[(Int, CypherType)] = mutable.IndexedSeq[(Int, CypherType)]()
 
 
-    if (flagOfAggre){
+    if (flagOfAggregation){
       if (flagOfCountStar) DataFrame(df.schema, () => Iterator(Seq(LynxInteger(df.records.size))))
       else {
         df.schema.foreach(s => {
@@ -131,7 +131,7 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
           }
         })
 
-        def singlel(a: Seq[LynxValue], aggre: mutable.IndexedSeq[(Int, CypherType)]): Seq[LynxValue] ={
+        def single(a: Seq[LynxValue], aggre: mutable.IndexedSeq[(Int, CypherType)]): Seq[LynxValue] ={
           a.map(s => {
             val idex = a.indexOf(s)
             aggre.toMap.get(idex) match {
@@ -178,7 +178,7 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
         }
         if(gBy.isEmpty) DataFrame(df.schema, ()=> Iterator(
           df.records.size match {
-            case 1 => singlel(df.records.toList.head, aggre)
+            case 1 => single(df.records.toList.head, aggre)
             case 0 => zero()
             case _ =>
               val dfs = df.records.size
@@ -190,7 +190,7 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
           DataFrame(df.schema,
             () =>df.records.toList.groupBy(r => gBy.map(_._1).toSeq.map(r(_))).mapValues(l =>
                   l.size match {
-                    case 1 => singlel(l.head, aggre)
+                    case 1 => single(l.head, aggre)
                     case 0 => zero()
                     case _ => l.reduce((a, b) => combine(a, b, aggre, l.size))
                   }
