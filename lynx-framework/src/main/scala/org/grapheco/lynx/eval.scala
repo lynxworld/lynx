@@ -6,11 +6,12 @@ import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, C
 
 
 //codebaby add CTType of aggreFunction
-trait AggregationType{
+trait AggregationType {
 
 }
 
 sealed abstract class CountStarType extends CypherType with AggregationType
+
 object CountStarType {
   val instance = new CountStarType() {
     val parentType = CTAny
@@ -18,7 +19,9 @@ object CountStarType {
     override val toNeoTypeString = "CountStar()"
   }
 }
+
 sealed abstract class CountType extends CypherType with AggregationType
+
 object CountType {
   val instance = new CountType() {
     val parentType = CTAny
@@ -28,6 +31,7 @@ object CountType {
 }
 
 sealed abstract class SumType extends CypherType with AggregationType
+
 object SumType {
   val instance = new SumType() {
     val parentType = CTAny
@@ -35,7 +39,9 @@ object SumType {
     override val toNeoTypeString = "Sum()"
   }
 }
+
 sealed abstract class MaxType extends CypherType with AggregationType
+
 object MaxType {
   val instance = new MaxType() {
     val parentType = CTAny
@@ -45,6 +51,7 @@ object MaxType {
 }
 
 sealed abstract class MinType extends CypherType with AggregationType
+
 object MinType {
   val instance = new MinType() {
     val parentType = CTAny
@@ -52,7 +59,9 @@ object MinType {
     override val toNeoTypeString = "Min()"
   }
 }
+
 sealed abstract class AvgType extends CypherType with AggregationType
+
 object AvgType {
   val instance = new AvgType() {
     val parentType = CTAny
@@ -61,7 +70,7 @@ object AvgType {
   }
 }
 
-object ExpandType{
+object ExpandType {
   val CTCountStar: CountStarType = CountStarType.instance
   val CTCount: CountType = CountType.instance
   val CTSum: SumType = SumType.instance
@@ -69,6 +78,7 @@ object ExpandType{
   val CTMin: MinType = MinType.instance
   val CTAvg: AvgType = AvgType.instance
 }
+
 //codebaby add CTType of aggreFunction
 
 
@@ -108,7 +118,7 @@ class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluato
       case _: IntegerLiteral => CTInteger
       case _: DoubleLiteral => CTFloat
       case CountStar() => ExpandType.CTCountStar
-      case FunctionInvocation(namespace, functionName, distinct, args) => functionName.name.toLowerCase match{
+      case FunctionInvocation(namespace, functionName, distinct, args) => functionName.name.toLowerCase match {
         case "count" => ExpandType.CTCount
         case "sum" => ExpandType.CTSum
         case "max" => ExpandType.CTMax
@@ -123,11 +133,11 @@ class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluato
     }
 
 
-  def evalStep(step: PathStep)(implicit ec: ExpressionContext): LynxValue ={
+  def evalStep(step: PathStep)(implicit ec: ExpressionContext): LynxValue = {
     step match {
       case NilPathStep => LynxList(List.empty)
-      case f: NodePathStep =>   LynxList( List(eval(f.node), evalStep(f.next)))
-      case m: MultiRelationshipPathStep =>   LynxList(List(eval(m.rel), eval(m.toNode.get), evalStep(m.next)))
+      case f: NodePathStep => LynxList(List(eval(f.node), evalStep(f.next)))
+      case m: MultiRelationshipPathStep => LynxList(List(eval(m.rel), eval(m.toNode.get), evalStep(m.next)))
       case s: SingleRelationshipPathStep => LynxList(s.dependencies.map(eval).toList ++ List(eval(s.toNode.get)))
     }
 
@@ -154,7 +164,7 @@ class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluato
         case "max" => eval(args.head)
         case "min" => eval(args.head)
         case "count" => LynxInteger(1)
-        case _ =>LynxFunction.getValue(parts, name, args.map(eval), graphModel)
+        case _ => LynxFunction.getValue(parts, name, args.map(eval), graphModel)
       }
 
       case CountStar() => LynxInteger(ec.vars.size)
@@ -235,9 +245,9 @@ class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluato
       case Parameter(name, parameterType) =>
         LynxValue(ec.param(name))
       case CaseExpression(expression, alternatives, default) => {
-        val expr = alternatives.find(alt=>eval(alt._1).value.asInstanceOf[Boolean]).map(_._2).getOrElse(default.get)
+        val expr = alternatives.find(alt => eval(alt._1).value.asInstanceOf[Boolean]).map(_._2).getOrElse(default.get)
         eval(expr)
       }
-      case MapExpression(items) => LynxMap(items.map(it => it._1.name->eval(it._2)).toMap)
+      case MapExpression(items) => LynxMap(items.map(it => it._1.name -> eval(it._2)).toMap)
     }
 }
