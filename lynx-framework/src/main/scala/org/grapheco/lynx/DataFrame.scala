@@ -54,12 +54,10 @@ trait DataFrameOperator {
 
   def distinct(df: DataFrame): DataFrame
 
-  //def orderBy(df: DataFrame, sortItems: Option[Seq[(String, Boolean)]]): DataFrame
-
   def orderBy(df: DataFrame, sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame
 }
 
-class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends DataFrameOperator {
+class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends DataFrameOperator {
   def distinct(df: DataFrame): DataFrame = DataFrame(df.schema, () => df.records.toSeq.distinct.iterator)
 
   private def sortByItem(a:Seq[LynxValue], b:Seq[LynxValue])(implicit sitem: Seq[(Expression, Boolean)], schema1: Map[String, (CypherType, Int)], ctx: ExpressionContext): Boolean = {
@@ -108,7 +106,7 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
     )
   }
 
-  private def groupby(df: DataFrame): DataFrame ={
+  private def groupBy(df: DataFrame): DataFrame ={
 
     val flagOfAggregation: Boolean = df.schema.exists(x => x._2.isInstanceOf[AggregationType])
     val flagOfCountStar: Boolean = df.schema.exists(x => x._2.isInstanceOf[CountStarType])
@@ -222,7 +220,7 @@ class DataFrameOperatorImpl(expressionEvaluator: ExpressionEvaluator) extends Da
         }
       )
     )
-    groupby(dfn)
+    groupBy(dfn)
   }
 
   override def filter(df: DataFrame, predicate: (Seq[LynxValue]) => Boolean)(ctx: ExpressionContext): DataFrame = {
