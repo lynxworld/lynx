@@ -79,25 +79,22 @@ object ExpandType {
   val CTAvg: AvgType = AvgType.instance
 }
 
-//codebaby add CTType of aggreFunction
-
-
 trait ExpressionEvaluator {
   def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue
 
   def typeOf(expr: Expression, definedVarTypes: Map[String, LynxType]): LynxType
 }
 
-case class ExpressionContext(params: Map[String, LynxValue], vars: Map[String, LynxValue] = Map.empty) {
+case class ExpressionContext(executionContext: ExecutionContext, params: Map[String, LynxValue], vars: Map[String, LynxValue] = Map.empty) {
   def param(name: String): LynxValue = params(name)
 
   def var0(name: String): LynxValue = vars(name)
 
-  def withVars(vars0: Map[String, LynxValue]): ExpressionContext = ExpressionContext(params, vars0)
+  def withVars(vars0: Map[String, LynxValue]): ExpressionContext = ExpressionContext(executionContext, params, vars0)
 }
 
-class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluator {
-  private def safeBinaryOp(lhs: Expression, rhs: Expression, op: (LynxValue, LynxValue) => LynxValue)(implicit ec: ExpressionContext): LynxValue = {
+class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, procedures: ProcedureRegistry) extends ExpressionEvaluator {
+  protected def safeBinaryOp(lhs: Expression, rhs: Expression, op: (LynxValue, LynxValue) => LynxValue)(implicit ec: ExpressionContext): LynxValue = {
     eval(lhs) match {
       case LynxNull => LynxNull
       case lvalue =>
@@ -140,8 +137,6 @@ class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluato
       case m: MultiRelationshipPathStep => LynxList(List(eval(m.rel), eval(m.toNode.get), evalStep(m.next)))
       case s: SingleRelationshipPathStep => LynxList(s.dependencies.map(eval).toList ++ List(eval(s.toNode.get)))
     }
-
-
   }
 
   override def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue =
@@ -154,18 +149,19 @@ class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluato
           }
         }
 
-
       case pe: PathExpression => {
         evalStep(pe.step)
       }
 
-      case FunctionInvocation(Namespace(parts), FunctionName(name), distinct, args) => name.toLowerCase match {
-        case "sum" => eval(args.head)
-        case "max" => eval(args.head)
-        case "min" => eval(args.head)
-        case "count" => LynxInteger(1)
-        case _ => LynxFunction.getValue(parts, name, args.map(eval), graphModel)
-      }
+      case FunctionInvocation(Namespace(parts), FunctionName(name), distinct, args) =>
+        procedures.getProcedure(parts, name) match {
+          case Some(procedure) =>
+            val args1 = args.map(eval(_))
+            procedure.checkArguments((parts :+ name).mkString("."),args1)
+            procedure.call(args1, ec.executionContext).head.head
+
+          case None => throw UnknownProcedureException(parts, name)
+        }
 
       case CountStar() => LynxInteger(ec.vars.size)
 
@@ -197,11 +193,11 @@ class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluato
 
       case NotEquals(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
-          LynxValue(lvalue != rvalue))
+          types.wrap(lvalue != rvalue))
 
       case Equals(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
-          LynxValue(lvalue == rvalue))
+          types.wrap(lvalue == rvalue))
 
       case GreaterThan(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) => {
@@ -230,7 +226,7 @@ class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluato
         }
 
       case v: Literal =>
-        LynxValue(v.value)
+        types.wrap(v.value)
 
       case Variable(name) =>
         ec.vars(name)
@@ -243,11 +239,13 @@ class ExpressionEvaluatorImpl(graphModel: GraphModel) extends ExpressionEvaluato
         }
 
       case Parameter(name, parameterType) =>
-        LynxValue(ec.param(name))
+        types.wrap(ec.param(name))
+
       case CaseExpression(expression, alternatives, default) => {
         val expr = alternatives.find(alt => eval(alt._1).value.asInstanceOf[Boolean]).map(_._2).getOrElse(default.get)
         eval(expr)
       }
+
       case MapExpression(items) => LynxMap(items.map(it => it._1.name -> eval(it._2)).toMap)
     }
 }

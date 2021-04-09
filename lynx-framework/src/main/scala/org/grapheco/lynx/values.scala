@@ -9,10 +9,13 @@ trait LynxValue {
 
   def cypherType: LynxType
 
-  def > (lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
-  def >= (lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
-  def < (lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
-  def <= (lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
+  def >(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
+
+  def >=(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
+
+  def <(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
+
+  def <=(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
 }
 
 trait LynxNumber extends LynxValue {
@@ -44,9 +47,13 @@ case class LynxInteger(v: Int) extends LynxNumber {
   }
 
   override def >(lynxValue: LynxValue): Boolean = this.value > lynxValue.asInstanceOf[LynxInteger].value
+
   override def >=(lynxValue: LynxValue): Boolean = this.value >= lynxValue.asInstanceOf[LynxInteger].value
+
   override def <(lynxValue: LynxValue): Boolean = this.value < lynxValue.asInstanceOf[LynxInteger].value
+
   override def <=(lynxValue: LynxValue): Boolean = this.value <= lynxValue.asInstanceOf[LynxInteger].value
+
   def cypherType = CTInteger
 }
 
@@ -72,8 +79,11 @@ case class LynxDouble(v: Double) extends LynxNumber {
   }
 
   override def >(lynxValue: LynxValue): Boolean = this.value > lynxValue.asInstanceOf[LynxDouble].value
+
   override def >=(lynxValue: LynxValue): Boolean = this.value >= lynxValue.asInstanceOf[LynxDouble].value
+
   override def <(lynxValue: LynxValue): Boolean = this.value < lynxValue.asInstanceOf[LynxDouble].value
+
   override def <=(lynxValue: LynxValue): Boolean = this.value <= lynxValue.asInstanceOf[LynxDouble].value
 }
 
@@ -83,8 +93,11 @@ case class LynxString(v: String) extends LynxValue {
   def cypherType = CTString
 
   override def >(lynxValue: LynxValue): Boolean = this.value > lynxValue.asInstanceOf[LynxString].value
+
   override def >=(lynxValue: LynxValue): Boolean = this.value >= lynxValue.asInstanceOf[LynxString].value
+
   override def <(lynxValue: LynxValue): Boolean = this.value < lynxValue.asInstanceOf[LynxString].value
+
   override def <=(lynxValue: LynxValue): Boolean = this.value <= lynxValue.asInstanceOf[LynxString].value
 }
 
@@ -128,43 +141,6 @@ object LynxNull extends LynxValue {
   override def cypherType: CypherType = CTAny
 }
 
-object LynxFunction{
-  def getValue(parts: List[String], functionName: String, args: IndexedSeq[LynxValue], graphModel: GraphModel): LynxValue ={
-   // val parts: List[String] = parts
-    val name: String = functionName
-
-    graphModel.getProcedure(parts, name) match {
-      case Some(procedure) =>
-        val records = procedure.call(args)
-        records.head.head
-
-      case None => throw UnknownProcedureException(parts, name)
-    }
-  }
-
-}
-
-object LynxValue {
-  def apply(unknown: Any): LynxValue = {
-    unknown match {
-      case null => LynxNull
-      case v: LynxValue => v
-
-      case v: Boolean => LynxBoolean(v)
-      case v: Int => LynxInteger(v)
-      case v: Long => LynxInteger(v.toInt)
-      case v: String => LynxString(v)
-      case v: Double => LynxDouble(v)
-      case v: Float => LynxDouble(v)
-      case v: Date => LynxDate(v.getTime)
-      case v: Iterable[Any] => LynxList(v.map(apply(_)).toList)
-      case v: Map[String, Any] => LynxMap(v.map(x => x._1 -> apply(x._2)))
-      case v: Array[Any] => LynxList(v.map(apply(_)).toList)
-      case _ => throw InvalidValueException(unknown)
-    }
-  }
-}
-
 trait LynxId {
   val value: Any
 }
@@ -193,6 +169,24 @@ trait LynxRelationship extends LynxValue {
   def property(name: String): Option[LynxValue]
 
   def cypherType = CTRelationship
+}
+
+object LynxValue {
+  def apply(value: Any): LynxValue = value match {
+    case null => LynxNull
+    case v: LynxValue => v
+    case v: Boolean => LynxBoolean(v)
+    case v: Int => LynxInteger(v)
+    case v: Long => LynxInteger(v.toInt)
+    case v: String => LynxString(v)
+    case v: Double => LynxDouble(v)
+    case v: Float => LynxDouble(v)
+    case v: Date => LynxDate(v.getTime)
+    case v: Iterable[Any] => LynxList(v.map(LynxValue(_)).toList)
+    case v: Map[String, Any] => LynxMap(v.map(x => x._1 -> LynxValue(x._2)))
+    case v: Array[Any] => LynxList(v.map(LynxValue(_)).toList)
+    case _ => throw InvalidValueException(value)
+  }
 }
 
 case class InvalidValueException(unknown: Any) extends LynxException

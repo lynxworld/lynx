@@ -18,7 +18,7 @@ trait PhysicalPlanOptimizerRule {
   }
 }
 
-class PhysicalPlanOptimizerImpl(runnerContext: CypherRunnerContext) extends PhysicalPlanOptimizer {
+class DefaultPhysicalPlanOptimizer(runnerContext: CypherRunnerContext) extends PhysicalPlanOptimizer {
   val rules = Seq[PhysicalPlanOptimizerRule](
     RemoveNullProject,
   )

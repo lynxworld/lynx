@@ -29,7 +29,7 @@ case class PipedTranslators(items: Seq[LPTNodeTranslator]) extends LPTNodeTransl
   }
 }
 
-class LogicalPlannerImpl(runnerContext: CypherRunnerContext) extends LogicalPlanner {
+class DefaultLogicalPlanner(runnerContext: CypherRunnerContext) extends LogicalPlanner {
   private def translate(node: ASTNode)(implicit lpc: LogicalPlannerContext): LPTNode = {
     node match {
       case Query(periodicCommitHint: Option[PeriodicCommitHint], part: QueryPart) =>
