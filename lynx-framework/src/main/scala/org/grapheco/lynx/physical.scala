@@ -26,16 +26,19 @@ trait AbstractPPTNode extends PPTNode {
 
   implicit def ops(ds: DataFrame): DataFrameOps = DataFrameOps(ds)(plannerContext.runnerContext.dataFrameOperator)
 
+  val typeSystem = plannerContext.runnerContext.typeSystem
   val graphModel = plannerContext.runnerContext.graphModel
+  val expressionEvaluator = plannerContext.runnerContext.expressionEvaluator
+  val procedureRegistry = plannerContext.runnerContext.procedureRegistry
 
-  def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue = plannerContext.runnerContext.expressionEvaluator.eval(expr)
+  def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue = expressionEvaluator.eval(expr)
 
   def typeOf(expr: Expression): LynxType = plannerContext.runnerContext.expressionEvaluator.typeOf(expr, plannerContext.parameterTypes.toMap)
 
-  def typeOf(expr: Expression, definedVarTypes: Map[String, LynxType]): LynxType = plannerContext.runnerContext.expressionEvaluator.typeOf(expr, definedVarTypes)
+  def typeOf(expr: Expression, definedVarTypes: Map[String, LynxType]): LynxType = expressionEvaluator.typeOf(expr, definedVarTypes)
 
   def createUnitDataFrame(items: Seq[ReturnItem])(implicit ctx: ExecutionContext): DataFrame = {
-    DataFrame.unit(items.map(item => item.name -> item.expression))(plannerContext.runnerContext.expressionEvaluator, ctx.expressionContext)
+    DataFrame.unit(items.map(item => item.name -> item.expression))(expressionEvaluator, ctx.expressionContext)
   }
 }
 
@@ -43,7 +46,7 @@ trait PhysicalPlanner {
   def plan(logicalPlan: LPTNode)(implicit plannerContext: PhysicalPlannerContext): PPTNode
 }
 
-class PhysicalPlannerImpl(runnerContext: CypherRunnerContext) extends PhysicalPlanner {
+class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends PhysicalPlanner {
   override def plan(logicalPlan: LPTNode)(implicit plannerContext: PhysicalPlannerContext): PPTNode = {
     implicit val runnerContext: CypherRunnerContext = plannerContext.runnerContext
     logicalPlan match {
@@ -115,17 +118,17 @@ case class PPTDistinct()(implicit in: PPTNode, val plannerContext: PhysicalPlann
   override val schema: Seq[(String, LynxType)] = in.schema
 }
 
-case class PPTOrderBy(sortItem: Seq[SortItem])(implicit in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode{
+case class PPTOrderBy(sortItem: Seq[SortItem])(implicit in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override val schema: Seq[(String, LynxType)] = in.schema
   override val children: Seq[PPTNode] = Seq(in)
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
     implicit val ec = ctx.expressionContext
-/*    val sortItems:Seq[(String ,Boolean)] = sortItem.map {
-      case AscSortItem(expression) => (expression.asInstanceOf[Variable].name, true)
-      case DescSortItem(expression) => (expression.asInstanceOf[Variable].name, false)
-    }*/
+    /*    val sortItems:Seq[(String ,Boolean)] = sortItem.map {
+          case AscSortItem(expression) => (expression.asInstanceOf[Variable].name, true)
+          case DescSortItem(expression) => (expression.asInstanceOf[Variable].name, false)
+        }*/
     val sortItems2: Seq[(Expression, Boolean)] = sortItem.map {
       case AscSortItem(expression) => (expression, true)
       case DescSortItem(expression) => (expression, false)
@@ -373,22 +376,11 @@ case class PPTProject(ri: ReturnItemsDef)(implicit val in: PPTNode, val plannerC
 case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override def withChildren(children0: Seq[PPTNode]): PPTProcedureCall = PPTProcedureCall(procedureNamespace, procedureName, declaredArguments)(plannerContext)
 
-  private def checkArgs(actual: Seq[LynxValue], expected: Seq[(String, LynxType)]) = {
-    if (actual.size != expected.size)
-      throw WrongNumberOfArgumentsException(expected.size, actual.size)
-
-    expected.zip(actual).foreach(x => {
-      val ((name, ctype), value) = x
-      if (value != LynxNull && value.cypherType != ctype)
-        throw WrongArgumentException(name, ctype, value)
-    })
-  }
-
   override val schema: Seq[(String, LynxType)] = {
     val Namespace(parts: List[String]) = procedureNamespace
     val ProcedureName(name: String) = procedureName
 
-    graphModel.getProcedure(parts, name) match {
+    procedureRegistry.getProcedure(parts, name) match {
       case Some(procedure) =>
         procedure.outputs
 
@@ -400,17 +392,15 @@ case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: Proced
     val Namespace(parts: List[String]) = procedureNamespace
     val ProcedureName(name: String) = procedureName
 
-    graphModel.getProcedure(parts, name) match {
+    procedureRegistry.getProcedure(parts, name) match {
       case Some(procedure) =>
         val args = declaredArguments match {
           case Some(args) => args.map(eval(_)(ctx.expressionContext))
           case None => procedure.inputs.map(arg => ctx.expressionContext.params.getOrElse(arg._1, LynxNull))
         }
 
-        checkArgs(args, procedure.inputs)
-        val records = procedure.call(args)
-
-        DataFrame(procedure.outputs, () => records.iterator)
+        procedure.checkArguments((parts :+ name).mkString("."), args)
+        DataFrame(procedure.outputs, () => procedure.call(args, ctx).iterator)
 
       case None => throw UnknownProcedureException(parts, name)
     }
@@ -591,9 +581,3 @@ case class StoredNodeInputRef(id: LynxId) extends NodeInputRef
 case class ContextualNodeInputRef(varname: String) extends NodeInputRef
 
 case class UnresolvableVarException(var0: Option[LogicalVariable]) extends LynxException
-
-case class UnknownProcedureException(prefix: List[String], name: String) extends LynxException
-
-case class WrongNumberOfArgumentsException(sizeExpected: Int, sizeActual: Int) extends LynxException
-
-case class WrongArgumentException(argName: String, expectedType: LynxType, actualValue: LynxValue) extends LynxException

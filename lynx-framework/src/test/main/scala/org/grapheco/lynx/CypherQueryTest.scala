@@ -389,7 +389,7 @@ class CypherQueryTest extends TestBase {
     Assert.assertEquals(1.toLong, rs.records.toSeq.apply(1).apply("n").asInstanceOf[LynxNode].id.value)
   }
   @Test
-  def testQueryOrderby(): Unit = {
+  def testQueryOrderBy(): Unit = {
     var rs1 = runOnDemoGraph("create (n1:test{age:10,name:5}),(n2:test{age:10,name:4}),(n3:test{age:11,name:3})")
     var rs2 = runOnDemoGraph("match (n:test) return n.age,n.name  order by n.age desc, n.name")
     var rs3 = runOnDemoGraph("match (n) return  count(n.name),count(n.age)")
@@ -401,5 +401,28 @@ class CypherQueryTest extends TestBase {
     var rs = runOnDemoGraph("match (n:test) WITH n.age as age, CASE WHEN n.age < 10 THEN 'Child' WHEN n.age <16 THEN 'Teenager' ELSE 'Adult' END AS hood,n.name as name RETURN age,name,hood order by age desc,name")
   }
 
+  @Test
+  def testFunction(): Unit ={
+    runOnDemoGraph("return toInterger('345')")
+  }
 
+  @Test
+  def testFunction23(): Unit ={
+    runOnDemoGraph("return 2,toInterger('345'), date('2018-05-06')")
+  }
+
+  @Test
+  def testmatch(): Unit ={
+    runOnDemoGraph("match (n{name:'alex'}) return n")
+  }
+
+  @Test
+  def testmatchxing(): Unit ={
+    runOnDemoGraph("match data =(:leader)-[:KNOWS*3..2]->() return data")
+  }
+
+  @Test
+  def testmatchxing2(): Unit ={
+    runOnDemoGraph("match (n:leader)-[:KNOWS*3..2]->() return n")
+  }
 }
