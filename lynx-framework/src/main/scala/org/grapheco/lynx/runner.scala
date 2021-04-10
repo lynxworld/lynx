@@ -121,16 +121,36 @@ trait CallableProcedure {
 
   def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]]
 
+  def signature(procedureName: String) = s"$procedureName(${inputs.map(x => Seq(x._1, x._2).mkString(":")).mkString(",")})"
+
   def checkArguments(procedureName: String, actual: Seq[LynxValue]) = {
     if (actual.size != inputs.size)
       throw WrongNumberOfArgumentsException(s"$procedureName(${inputs.map(x => Seq(x._1, x._2).mkString(":")).mkString(",")})", inputs.size, actual.size)
 
     inputs.zip(actual).foreach(x => {
       val ((name, ctype), value) = x
-      if (value != LynxNull && (ctype == CTAny || value.cypherType != ctype))
+      if (value != LynxNull && (ctype != CTAny && value.cypherType != ctype))
         throw WrongArgumentException(name, ctype, value)
     })
   }
+}
+
+trait CallableAggregationProcedure extends CallableProcedure {
+
+  val outputName: String
+  val outputValueType: LynxType
+
+  final override val inputs: Seq[(String, LynxType)] = Seq("values" -> CTAny)
+  final override val outputs: Seq[(String, LynxType)] = Seq(outputName -> outputValueType)
+
+  final override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] = {
+    collect(args.head)
+    None
+  }
+
+  def collect(value: LynxValue): Unit
+
+  def value(): LynxValue
 }
 
 case class NodeFilter(labels: Seq[String], properties: Map[String, LynxValue]) {

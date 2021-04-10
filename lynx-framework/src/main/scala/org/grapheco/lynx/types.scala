@@ -8,7 +8,7 @@ import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, C
 import scala.collection.mutable
 
 trait TypeSystem {
-  def typeOf(clazz: Class[Any]): LynxType
+  def typeOf(clazz: Class[_]): LynxType
 
   def wrap(value: Any): LynxValue
 }
@@ -21,7 +21,7 @@ class DefaultTypeSystem extends TypeSystem {
     classOf[DoubleLiteral] -> CTInteger
   )
 
-  override def typeOf(clazz: Class[Any]): CypherType = mapTypes.getOrElse(clazz, CTAny)
+  override def typeOf(clazz: Class[_]): CypherType = mapTypes.getOrElse(clazz, CTAny)
 
   override def wrap(value: Any): LynxValue = value match {
     case null => LynxNull

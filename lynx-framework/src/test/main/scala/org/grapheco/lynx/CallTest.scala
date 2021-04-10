@@ -29,4 +29,20 @@ class CallTest extends TestBase {
       }
     })
   }
+
+  @Test
+  def testCount(): Unit = {
+    val rs = runOnDemoGraph("match (n) return  count(n.name),count(n.age),count(n.nonexist),count(1),count(1+1)").records().next()
+    Assert.assertEquals(LynxValue(3), rs("count(n.name)"))
+    Assert.assertEquals(LynxValue(3), rs("count(n.age)"))
+    Assert.assertEquals(LynxValue(0), rs("count(n.nonexist)"))
+    Assert.assertEquals(LynxValue(3), rs("count(1)"))
+    Assert.assertEquals(LynxValue(3), rs("count(1+1)"))
+  }
+
+  @Test
+  def testSum(): Unit = {
+    runOnDemoGraph("match (n) return  sum(n.name)")
+    var rs = runOnDemoGraph("match (n) return  sum(n.age),sum(n.nonexist),sum(1),sum(1+1)").records().next()
+  }
 }

@@ -388,13 +388,14 @@ class CypherQueryTest extends TestBase {
     Assert.assertEquals(2.toLong, rs.records.toSeq.apply(1).apply("m").asInstanceOf[LynxNode].id.value)
     Assert.assertEquals(1.toLong, rs.records.toSeq.apply(1).apply("n").asInstanceOf[LynxNode].id.value)
   }
+
   @Test
   def testQueryOrderBy(): Unit = {
     var rs1 = runOnDemoGraph("create (n1:test{age:10,name:5}),(n2:test{age:10,name:4}),(n3:test{age:11,name:3})")
     var rs2 = runOnDemoGraph("match (n:test) return n.age,n.name  order by n.age desc, n.name")
-    var rs3 = runOnDemoGraph("match (n) return  count(n.name),count(n.age)")
-   // var rs = runOnDemoGraph("match (n) return n.age  limit 1")
+    var rs3 = runOnDemoGraph("match (n) return  count(n.name),count(n.age),count(n.nonexist),count(1),count(1+1)")
   }
+
   @Test
   def testQueryCaseWhen(): Unit = {
     var rs1 = runOnDemoGraph("create (n1:test{age:9,name:'CodeBaby'}),(n2:test{age:10,name:'BlueJoy'}),(n3:test{age:18,name:'OldWang'})")
@@ -403,6 +404,7 @@ class CypherQueryTest extends TestBase {
 
   @Test
   def testFunction(): Unit ={
+    runOnDemoGraph("return lynx()")
     runOnDemoGraph("return toInterger('345')")
   }
 

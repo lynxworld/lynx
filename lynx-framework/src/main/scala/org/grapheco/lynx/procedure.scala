@@ -31,25 +31,27 @@ class DefaultProcedureRegistry(types: TypeSystem, classes: Class[_]*) extends Pr
               pan.name()
             }
 
-          argName -> types.typeOf(par.getType.asInstanceOf[Class[Any]])
+          argName -> types.typeOf(par.getType)
         })
 
-        register(an.name(), inputs, Seq.empty, (args) => types.wrap(met.invoke(host, args)))
+        //TODO: N-tuples
+        val outputs = Seq("value" -> types.typeOf(met.getReturnType))
+        register(an.name(), inputs, outputs, (args) => types.wrap(met.invoke(host, args: _*)))
       }
     })
   }
 
   def register(name: String, procedure: CallableProcedure): Unit = {
     procedures(name) = procedure
-    logger.debug(s"registered procedure: $name")
+    logger.debug(s"registered procedure: ${procedure.signature(name)}")
   }
 
-  def register(name: String, inputs0: Seq[(String, LynxType)], outputs0: Seq[(String, LynxType)], call0: (Seq[LynxType]) => LynxValue): Unit = {
+  def register(name: String, inputs0: Seq[(String, LynxType)], outputs0: Seq[(String, LynxType)], call0: (Seq[LynxValue]) => LynxValue): Unit = {
     register(name, new CallableProcedure() {
       override val inputs: Seq[(String, LynxType)] = inputs0
       override val outputs: Seq[(String, LynxType)] = outputs0
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] = ???
+      override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] = Some(Seq(call0(args)))
     })
   }
 

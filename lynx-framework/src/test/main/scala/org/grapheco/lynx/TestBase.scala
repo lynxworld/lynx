@@ -70,25 +70,6 @@ class TestBase extends LazyLogging {
         PathTriple(nodeAt(rel.startId).get, rel, nodeAt(rel.endId).get)
       ).iterator
 
-    def getProcedure(prefix: List[String], name: String): Option[CallableProcedure] = s"${prefix.mkString(".")}.${name}" match {
-      case ".count" => Some(new CallableProcedure {
-        override val inputs: Seq[(String, LynxType)] = Seq()
-        override val outputs: Seq[(String, LynxType)] = Seq("haha" -> CTInteger)
-
-        override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] =
-          Iterable(Seq(LynxInteger(args.size)))
-      })
-      case ".sum" => Some(new CallableProcedure {
-        override val inputs: Seq[(String, LynxType)] = Seq()
-        override val outputs: Seq[(String, LynxType)] = Seq("haha" -> CTInteger)
-
-        override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] =
-          Iterable(Seq(LynxInteger(args.size)))
-      })
-
-      case _ => None
-    }
-
     override def createIndex(labelName: LabelName, properties: List[PropertyKeyName]): Unit = {
       allIndex += Tuple2(labelName, properties)
     }
@@ -131,7 +112,11 @@ class TestBase extends LazyLogging {
       override val outputs: Seq[(String, LynxType)] = Seq("count" -> CTInteger)
 
       override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] =
-        Iterable(Seq(LynxInteger(args.size)))
+        Iterable(Seq(LynxInteger(if (args.head == LynxNull) {
+          0
+        } else {
+          1
+        })))
     })
   }
 
