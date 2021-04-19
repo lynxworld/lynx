@@ -5,7 +5,7 @@ import java.text.SimpleDateFormat
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.Profiler
 import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName}
-import org.opencypher.v9_0.util.symbols.{CTDate, CTString, CTInteger}
+import org.opencypher.v9_0.util.symbols.{CTAny, CTDate, CTInteger, CTList, CTString}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -70,48 +70,6 @@ class TestBase extends LazyLogging {
         PathTriple(nodeAt(rel.startId).get, rel, nodeAt(rel.endId).get)
       ).iterator
 
-    override def getProcedure(prefix: List[String], name: String): Option[CallableProcedure] = s"${prefix.mkString(".")}.${name}" match {
-      case "test.authors" => Some(new CallableProcedure {
-        override val inputs: Seq[(String, LynxType)] = Seq()
-        override val outputs: Seq[(String, LynxType)] = Seq("name" -> CTString)
-
-        override def call(args: Seq[LynxValue]): Iterable[Seq[LynxValue]] =
-          Seq(Seq(LynxValue("bluejoe")), Seq(LynxValue("lzx")), Seq(LynxValue("airzihao")))
-      })
-
-      case ".date" => Some(new CallableProcedure {
-        override val inputs: Seq[(String, LynxType)] = Seq()
-        override val outputs: Seq[(String, LynxType)] = Seq("date" -> CTDate)
-
-        override def call(args: Seq[LynxValue]): Iterable[Seq[LynxValue]] =
-          Iterable(Seq(LynxDate(new SimpleDateFormat("yyyy-MM-dd").parse(args.head.asInstanceOf[LynxString].value).getTime )))
-      })
-      case ".toInterger" => Some(new CallableProcedure {
-        override val inputs: Seq[(String, LynxType)] = Seq()
-        override val outputs: Seq[(String, LynxType)] = Seq("haha" -> CTInteger)
-
-        override def call(args: Seq[LynxValue]): Iterable[Seq[LynxValue]] =
-          Iterable(Seq(LynxInteger(args.head.value.toString.toInt)))
-      })
-
-      case ".count" => Some(new CallableProcedure {
-        override val inputs: Seq[(String, LynxType)] = Seq()
-        override val outputs: Seq[(String, LynxType)] = Seq("haha" -> CTInteger)
-
-        override def call(args: Seq[LynxValue]): Iterable[Seq[LynxValue]] =
-          Iterable(Seq(LynxInteger(args.size)))
-      })
-      case ".sum" => Some(new CallableProcedure {
-        override val inputs: Seq[(String, LynxType)] = Seq()
-        override val outputs: Seq[(String, LynxType)] = Seq("haha" -> CTInteger)
-
-        override def call(args: Seq[LynxValue]): Iterable[Seq[LynxValue]] =
-          Iterable(Seq(LynxInteger(args.size)))
-      })
-
-      case _ => None
-    }
-
     override def createIndex(labelName: LabelName, properties: List[PropertyKeyName]): Unit = {
       allIndex += Tuple2(labelName, properties)
     }
@@ -121,7 +79,46 @@ class TestBase extends LazyLogging {
     }
   }
 
-  val runner = new CypherRunner(model)
+  val runner = new CypherRunner(model) {
+    val myfun = new DefaultProcedureRegistry(types, classOf[DefaultFunctions])
+    override lazy val procedures: ProcedureRegistry = myfun
+
+    myfun.register("test.authors", new CallableProcedure {
+      override val inputs: Seq[(String, LynxType)] = Seq()
+      override val outputs: Seq[(String, LynxType)] = Seq("name" -> CTString)
+
+      override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] =
+        Seq(Seq(LynxValue("bluejoe")), Seq(LynxValue("lzx")), Seq(LynxValue("airzihao")))
+    })
+
+    myfun.register("toInterger", new CallableProcedure {
+      override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
+      override val outputs: Seq[(String, LynxType)] = Seq("number" -> CTInteger)
+
+      override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] =
+        Iterable(Seq(LynxInteger(args.head.value.toString.toInt)))
+    })
+
+    myfun.register("date", new CallableProcedure {
+      override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
+      override val outputs: Seq[(String, LynxType)] = Seq("date" -> CTDate)
+
+      override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] =
+        Iterable(Seq(LynxDate(new SimpleDateFormat("yyyy-MM-dd").parse(args.head.asInstanceOf[LynxString].value).getTime)))
+    })
+
+    myfun.register("count", new CallableProcedure {
+      override val inputs: Seq[(String, LynxType)] = Seq("values" -> CTAny)
+      override val outputs: Seq[(String, LynxType)] = Seq("count" -> CTInteger)
+
+      override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] =
+        Iterable(Seq(LynxInteger(if (args.head == LynxNull) {
+          0
+        } else {
+          1
+        })))
+    })
+  }
 
   protected def runOnDemoGraph(query: String, param: Map[String, Any] = Map.empty[String, Any]): LynxResult = {
     println(s"query: $query")

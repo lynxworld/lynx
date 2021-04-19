@@ -6,20 +6,23 @@ import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.SemanticState
 import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, SemanticDirection}
 import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
+import org.opencypher.v9_0.util.symbols.CTAny
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
-case class CypherRunnerContext(dataFrameOperator: DataFrameOperator, expressionEvaluator: ExpressionEvaluator, graphModel: GraphModel)
+case class CypherRunnerContext(typeSystem: TypeSystem, procedureRegistry: ProcedureRegistry, dataFrameOperator: DataFrameOperator, expressionEvaluator: ExpressionEvaluator, graphModel: GraphModel)
 
 class CypherRunner(graphModel: GraphModel) extends LazyLogging {
-  protected val expressionEvaluator: ExpressionEvaluator = new ExpressionEvaluatorImpl(graphModel)
-  protected val dataFrameOperator: DataFrameOperator = new DataFrameOperatorImpl(expressionEvaluator)
-  private implicit lazy val runnerContext = CypherRunnerContext(dataFrameOperator, expressionEvaluator, graphModel)
-  protected val logicalPlanner: LogicalPlanner = new LogicalPlannerImpl(runnerContext)
-  protected val physicalPlanner: PhysicalPlanner = new PhysicalPlannerImpl(runnerContext)
-  protected val physicalPlanOptimizer: PhysicalPlanOptimizer = new PhysicalPlanOptimizerImpl(runnerContext)
-  protected val queryParser: QueryParser = new CachedQueryParser(new QueryParserImpl(runnerContext))
+  protected lazy val types: TypeSystem = new DefaultTypeSystem()
+  protected lazy val procedures: ProcedureRegistry = new DefaultProcedureRegistry(types, classOf[DefaultFunctions])
+  protected lazy val expressionEvaluator: ExpressionEvaluator = new DefaultExpressionEvaluator(graphModel, types, procedures)
+  protected lazy val dataFrameOperator: DataFrameOperator = new DefaultDataFrameOperator(expressionEvaluator)
+  private implicit lazy val runnerContext = CypherRunnerContext(types, procedures, dataFrameOperator, expressionEvaluator, graphModel)
+  protected lazy val logicalPlanner: LogicalPlanner = new DefaultLogicalPlanner(runnerContext)
+  protected lazy val physicalPlanner: PhysicalPlanner = new DefaultPhysicalPlanner(runnerContext)
+  protected lazy val physicalPlanOptimizer: PhysicalPlanOptimizer = new DefaultPhysicalPlanOptimizer(runnerContext)
+  protected lazy val queryParser: QueryParser = new CachedQueryParser(new DefaultQueryParser(runnerContext))
 
   def compile(query: String): (Statement, Map[String, Any], SemanticState) = queryParser.parse(query)
 
@@ -34,10 +37,10 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
     val physicalPlan = physicalPlanner.plan(logicalPlan)(physicalPlannerContext)
     logger.debug(s"physical plan: \r\n${physicalPlan.pretty}")
 
-    val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan)
+    val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan, physicalPlannerContext)
     logger.debug(s"optimized physical plan: \r\n${optimizedPhysicalPlan.pretty}")
 
-    val ctx = ExecutionContext(param ++ param2)
+    val ctx = ExecutionContext(physicalPlannerContext, statement, param ++ param2)
     val df = optimizedPhysicalPlan.execute(ctx)
 
     new LynxResult() with PlanAware {
@@ -83,14 +86,15 @@ case class LogicalPlannerContext() {
 
 object PhysicalPlannerContext {
   def apply(queryParameters: Map[String, Any], runnerContext: CypherRunnerContext): PhysicalPlannerContext =
-    new PhysicalPlannerContext(queryParameters.map(x => x._1 -> LynxValue(x._2).cypherType).toSeq, runnerContext)
+    new PhysicalPlannerContext(queryParameters.map(x => x._1 -> runnerContext.typeSystem.wrap(x._2).cypherType).toSeq, runnerContext)
 }
 
 case class PhysicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runnerContext: CypherRunnerContext) {
 }
 
-case class ExecutionContext(queryParameters: Map[String, Any]) {
-  val expressionContext = ExpressionContext(queryParameters.map(x => x._1 -> LynxValue(x._2)))
+//TODO: context.context??
+case class ExecutionContext(physicalPlannerContext: PhysicalPlannerContext, statement: Statement, queryParameters: Map[String, Any]) {
+  val expressionContext = ExpressionContext(this, queryParameters.map(x => x._1 -> physicalPlannerContext.runnerContext.typeSystem.wrap(x._2)))
 }
 
 trait LynxResult {
@@ -115,7 +119,38 @@ trait CallableProcedure {
   val inputs: Seq[(String, LynxType)]
   val outputs: Seq[(String, LynxType)]
 
-  def call(args: Seq[LynxValue]): Iterable[Seq[LynxValue]]
+  def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]]
+
+  def signature(procedureName: String) = s"$procedureName(${inputs.map(x => Seq(x._1, x._2).mkString(":")).mkString(",")})"
+
+  def checkArguments(procedureName: String, actual: Seq[LynxValue]) = {
+    if (actual.size != inputs.size)
+      throw WrongNumberOfArgumentsException(s"$procedureName(${inputs.map(x => Seq(x._1, x._2).mkString(":")).mkString(",")})", inputs.size, actual.size)
+
+    inputs.zip(actual).foreach(x => {
+      val ((name, ctype), value) = x
+      if (value != LynxNull && (ctype != CTAny && value.cypherType != ctype))
+        throw WrongArgumentException(name, ctype, value)
+    })
+  }
+}
+
+trait CallableAggregationProcedure extends CallableProcedure {
+
+  val outputName: String
+  val outputValueType: LynxType
+
+  final override val inputs: Seq[(String, LynxType)] = Seq("values" -> CTAny)
+  final override val outputs: Seq[(String, LynxType)] = Seq(outputName -> outputValueType)
+
+  final override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] = {
+    collect(args.head)
+    None
+  }
+
+  def collect(value: LynxValue): Unit
+
+  def value(): LynxValue
 }
 
 case class NodeFilter(labels: Seq[String], properties: Map[String, LynxValue]) {
@@ -138,8 +173,6 @@ case class PathTriple(startNode: LynxNode, storedRelation: LynxRelationship, end
 }
 
 trait GraphModel {
-  def getProcedure(prefix: List[String], name: String): Option[CallableProcedure] = None
-
   def relationships(): Iterator[PathTriple]
 
   def paths(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {

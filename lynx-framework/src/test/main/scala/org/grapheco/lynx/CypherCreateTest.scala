@@ -78,7 +78,7 @@ class CypherCreateTest extends TestBase {
     val rs = runOnDemoGraph("CREATE (n {name: 'God', age: 10000})")
     Assert.assertEquals(NODE_SIZE + 1, all_nodes.size)
     Assert.assertEquals(REL_SIZE, all_rels.size)
-    Assert.assertEquals(LynxValue("God"), all_nodes.apply(NODE_SIZE).property("name").get)
+    Assert.assertEquals(LynxString("God"), all_nodes.apply(NODE_SIZE).property("name").get)
   }
 
   @Test
@@ -219,86 +219,4 @@ class CypherCreateTest extends TestBase {
   def testCreateDate(): Unit ={
     runOnDemoGraph("CREATE (n:Person {name:'node_Date1',born:date('2018-04-05')}) return n")
   }
-
-  @Test
-  def testFunction(): Unit ={
-    runOnDemoGraph("return toInterger('345')")
-  }
-
-  @Test
-  def testFunction23(): Unit ={
-    runOnDemoGraph("return 2,toInterger('345'), date('2018-05-06')")
-  }
-
-  @Test
-  def testFunction2(): Unit ={
-    runOnDemoGraph("match (n) return group by  ")
-  }
-
-
-  @Test
-  def testSeq(): Unit ={
-    var sq: mutable.IndexedSeq[(Int, String)] = mutable.IndexedSeq[(Int, String)]()
-
-    sq = sq ++ Seq(1 -> "1")
-    sq = sq ++ Seq(2 -> "2")
-    sq = sq ++ Seq(3 -> "3")
-    sq = sq ++ Seq(1 -> "5")
-
-    println(sq.toMap.get(1))
-
-  }
-
-  @Test
-  def testGroupBy(): Unit ={
-    val arr:List[(Int, Int, Int)] =List((1,2,3),(3,4,5),(2,4,6),(1,2,1));
-/*    val res = arr.groupBy(_._1).mapValues{
-      l =>
-        val r = l.reduce((a,b) => (0, a._2 + b._2, a._3 + b._3))
-        (r._2, r._3 * 1.0 / l.size)
-    }*/
-    val col = List[Int](0,1)
-    val res = arr.groupBy(r => col.map(r.productElement))
-      .mapValues(l => l
-        .map(a => (a._2, a._3 * 1.0 / l.size))
-        .reduce((a,b) => (a._1 + b._1, a._2 + b._2)))
-/*    val res = arr.foldLeft(Map(0->(0, 0))){
-      (f,s) => {
-        //println(f)
-        //val res1 = (f(s._1)._2 +1, f(s._1)._2 + s._3*1.0/arr.size)
-
-       f.updated(s._1, (f(s._1)._2 +1, f(s._1)._2 + s._3/arr.size))
-       // f.
-        //(f._1 + s._1, f._2+1, f._3 + s._3*1.0/arr.size)
-      }
-    }*/
-
-    println(res)
-    println(arr.size)
-  }
-
-  @Test
-  def testAff(): Unit ={
-    val arr =List((1,2,3),(3,4,5),(2,4,6),(1,2,1))
-   // arr.groupBy(_._1).aggregate().c
-  }
-
-  @Test
-  def testmatch(): Unit ={
-    runOnDemoGraph("match (n{name:'alex'}) return n")
-  }
-
-  @Test
-  def testmatchxing(): Unit ={
-    runOnDemoGraph("match data =(:leader)-[:KNOWS*3..2]->() return data")
-  }
-
-  @Test
-  def testmatchxing2(): Unit ={
-    runOnDemoGraph("match (n:leader)-[:KNOWS*3..2]->() return n")
-  }
-
-
-
-
 }

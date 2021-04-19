@@ -12,27 +12,6 @@
         <module>lynx-framework</module>
     </modules>
     <properties/>
-    <dependencies>
-        <!--
-        <dependency>
-            <groupId>org.opencypher</groupId>
-            <artifactId>okapi-api</artifactId>
-            <version>0.4.2</version>
-        </dependency>
-        <dependency>
-            <groupId>org.opencypher</groupId>
-            <artifactId>okapi-logical</artifactId>
-            <version>0.4.2</version>
-        </dependency>
-        -->
-        <!--
-        <dependency>
-            <groupId>org.opencypher</groupId>
-            <artifactId>okapi-relational</artifactId>
-            <version>0.4.2</version>
-        </dependency>
-        -->
-    </dependencies>
 
     <distributionManagement>
         <snapshotRepository>
