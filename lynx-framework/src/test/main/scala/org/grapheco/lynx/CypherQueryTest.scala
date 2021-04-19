@@ -404,27 +404,20 @@ class CypherQueryTest extends TestBase {
 
   @Test
   def testFunction(): Unit ={
-    runOnDemoGraph("return lynx()")
-    runOnDemoGraph("return toInterger('345')")
+    val res1 = runOnDemoGraph("return lynx()")
+    println(res1.records.toSeq.apply(0).apply("lynx()").asInstanceOf[LynxString].value)
+    Assert.assertEquals(res1.records.toSeq.apply(0).apply("lynx()").asInstanceOf[LynxString].value, "lynx-0.3")
+    val res2 = runOnDemoGraph("return toInterger('345')")
+    Assert.assertEquals(res2.records.toSeq.apply(0).apply("toInterger('345')").asInstanceOf[LynxInteger].value, 345)
+
   }
 
   @Test
   def testFunction23(): Unit ={
-    runOnDemoGraph("return 2,toInterger('345'), date('2018-05-06')")
+    val res = runOnDemoGraph("return 2,toInterger('345'), date('2018-05-06')")
+    Assert.assertEquals(res.records.toSeq.apply(0).apply("2").asInstanceOf[LynxInteger].value, 2)
+    Assert.assertEquals(res.records.toSeq.apply(0).apply("toInterger('345')").asInstanceOf[LynxInteger].value, 345)
+    Assert.assertEquals(res.records.toSeq.apply(0).apply("date('2018-05-06')").asInstanceOf[LynxDate].value, 1525536000000L)
   }
 
-  @Test
-  def testmatch(): Unit ={
-    runOnDemoGraph("match (n{name:'alex'}) return n")
-  }
-
-  @Test
-  def testmatchxing(): Unit ={
-    runOnDemoGraph("match data =(:leader)-[:KNOWS*3..2]->() return data")
-  }
-
-  @Test
-  def testmatchxing2(): Unit ={
-    runOnDemoGraph("match (n:leader)-[:KNOWS*3..2]->() return n")
-  }
 }
