@@ -420,4 +420,22 @@ class CypherQueryTest extends TestBase {
     Assert.assertEquals(res.records.toSeq.apply(0).apply("date('2018-05-06')").asInstanceOf[LynxDate].value, 1525536000000L)
   }
 
+  @Test
+  def testmatchxing(): Unit ={
+    val res = runOnDemoGraph("match data =(:leader)-[:KNOWS*1..1]->() return data")
+    Assert.assertEquals(1,res.records().size)
+  }
+
+  @Test
+  def testmatchxing2(): Unit ={
+    val res = runOnDemoGraph("match data =(n:leader)-[:KNOWS*3..2]->() return n")
+    Assert.assertNotEquals(1,res.records().size)
+  }
+
+  @Test
+  def testmatchxing3(): Unit ={
+    val res = runOnDemoGraph("match data =(n)-[:KNOWS*1..2]->() return data")
+    Assert.assertEquals(3,res.records().size)
+  }
+
 }

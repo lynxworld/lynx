@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.FormatUtils
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.SemanticState
-import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, SemanticDirection}
+import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, SemanticDirection, UnsignedIntegerLiteral}
 import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
 import org.opencypher.v9_0.util.symbols.CTAny
 
@@ -172,6 +172,10 @@ case class PathTriple(startNode: LynxNode, storedRelation: LynxRelationship, end
   def revert = PathTriple(endNode, storedRelation, startNode, !reverse)
 }
 
+case class PathTriples(startNode: LynxNode, storedRelation: LynxPath, endNode: LynxNode, reverse: Boolean = false){
+  def revert = PathTriples(endNode, storedRelation, startNode, !reverse)
+}
+
 trait GraphModel {
   def relationships(): Iterator[PathTriple]
 
@@ -189,6 +193,62 @@ trait GraphModel {
     }
   }
 
+  def stepForward(phLin: Iterator[LynxPath], startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[LynxPath] ={
+    phLin.flatMap(p => expand(p.endNode.id, relationshipFilter, endNodeFilter, direction).map(trip => LynxPath(p.nodes++Seq(trip.endNode), p.relationships ++ Seq(trip.storedRelation))))
+  }
+  def pathSteps(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, steps: Long): Iterator[LynxPath] ={
+    steps match {
+      case 1 => paths(startNodeFilter, relationshipFilter, endNodeFilter, direction).map(trip => LynxPath(Seq(trip.startNode, trip.endNode), Seq(trip.storedRelation)))
+      case _ => stepForward(pathSteps(startNodeFilter,relationshipFilter,endNodeFilter,direction, steps-1), startNodeFilter, relationshipFilter, endNodeFilter, direction)
+    }
+  }
+
+  def pathStepsAllin(phLin:Iterator[LynxPath], startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, lower: Long, upper: Long): Iterator[LynxPath] = {
+  /*  lower == upper match {
+      case true => phLin
+      case false =>
+        val stepMore = stepForward(phLin,startNodeFilter, relationshipFilter, endNodeFilter,direction)
+        phLin++pathStepsAllin(stepMore,startNodeFilter,relationshipFilter,endNodeFilter,direction,lower+1, upper)
+    }*/
+    var newLin = pathSteps(startNodeFilter,relationshipFilter,endNodeFilter,direction, defaultMinStep)
+    var step = lower
+    while(step < upper){
+      val stepMore = stepForward(phLin,startNodeFilter, relationshipFilter, endNodeFilter,direction)
+      newLin = newLin ++ stepMore
+      step = step + 1
+    }
+    newLin
+  }
+
+  def defaultMaxStep: Long = 1000
+  def defaultMinStep: Long = 1
+  def pathsWithRange(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, lower: Option[UnsignedIntegerLiteral], upper: Option[UnsignedIntegerLiteral]): Iterator[LynxPath] = {
+    (lower, upper) match {
+      case (None, None) =>
+        val paths = pathSteps(startNodeFilter,relationshipFilter,endNodeFilter,direction, defaultMinStep)
+        pathStepsAllin(paths,startNodeFilter,relationshipFilter,endNodeFilter,direction,defaultMinStep,defaultMaxStep)
+      case (None, Some(value)) =>
+        val paths = pathSteps(startNodeFilter,relationshipFilter,endNodeFilter,direction, defaultMinStep)
+        pathStepsAllin(paths,startNodeFilter,relationshipFilter,endNodeFilter,direction,defaultMinStep,value.value)
+      case (Some(value), None) =>
+        value.value > defaultMaxStep match{
+          case true => Iterator()
+          case false =>
+            val paths = pathSteps(startNodeFilter,relationshipFilter,endNodeFilter,direction, value.value)
+            pathStepsAllin(paths,startNodeFilter,relationshipFilter,endNodeFilter,direction,value.value,defaultMaxStep)
+        }
+
+      case (Some(value1), Some(value2)) =>
+        value1.value > value2.value match {
+          case true => Iterator()
+          case false =>
+            val paths = pathSteps(startNodeFilter,relationshipFilter,endNodeFilter,direction, value1.value)
+            pathStepsAllin(paths,startNodeFilter,relationshipFilter,endNodeFilter,direction,value1.value,value2.value)
+        }
+    }
+
+  }
+
   def expand(nodeId: LynxId, direction: SemanticDirection): Iterator[PathTriple] = {
     val rels = direction match {
       case BOTH => relationships().flatMap(item =>
@@ -201,12 +261,13 @@ trait GraphModel {
   }
 
   def expand(nodeId: LynxId, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {
-    expand(nodeId, direction).filter(
+    val res = expand(nodeId, direction).filter(
       item => {
         val PathTriple(_, rel, endNode, _) = item
         relationshipFilter.matches(rel) && endNodeFilter.matches(endNode)
       }
     )
+    res
   }
 
   def createElements[T](

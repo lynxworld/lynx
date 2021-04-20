@@ -2,7 +2,7 @@ package org.grapheco.lynx
 
 import java.util.Date
 
-import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTDate, CTDateTime, CTFloat, CTInteger, CTList, CTMap, CTNode, CTRelationship, CTString, CypherType}
+import org.opencypher.v9_0.util.symbols.{CTPath,CTAny, CTBoolean, CTDate, CTDateTime, CTFloat, CTInteger, CTList, CTMap, CTNode, CTRelationship, CTString, CypherType}
 
 trait LynxValue {
   def value: Any
@@ -169,6 +169,18 @@ trait LynxRelationship extends LynxValue {
   def property(name: String): Option[LynxValue]
 
   def cypherType = CTRelationship
+}
+
+case class LynxPath(nodes: Seq[LynxNode], relationships: Seq[LynxRelationship]) extends LynxValue {
+
+  def startNode: LynxNode = nodes.head
+  def endNode: LynxNode = nodes.last
+  def lastRelationship: LynxRelationship = relationships.last
+
+  def nodesValues = nodes
+  def relationshipValues = relationships
+  def value = this
+  def cypherType = CTPath
 }
 
 object LynxValue {

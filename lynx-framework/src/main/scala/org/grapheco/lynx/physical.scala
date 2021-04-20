@@ -2,7 +2,7 @@ package org.grapheco.lynx
 
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions.{NodePattern, RelationshipChain, _}
-import org.opencypher.v9_0.util.symbols.{CTAny, CTNode, CTRelationship}
+import org.opencypher.v9_0.util.symbols.{CTAny, CTNode, CTRelationship, CTPath}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -314,21 +314,42 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
 
     implicit val ec = ctx.expressionContext
 
-    val schema = Seq(
-      var1.map(_.name).getOrElse(s"__NODE_${leftNode.hashCode}") -> CTNode,
-      var2.map(_.name).getOrElse(s"__RELATIONSHIP_${rel.hashCode}") -> CTRelationship,
-      var3.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode)
+    length match {
+      case Some(Some(Range(lower, upper))) =>
+        val schema = Seq(
+          var1.map(_.name).getOrElse(s"__NODE_${leftNode.hashCode}") -> CTNode,
+          var2.map(_.name).getOrElse(s"__RELATIONSHIP_${rel.hashCode}") -> CTPath,
+          var3.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode)
+        DataFrame(schema, () => {
+          graphModel.pathsWithRange(
+            NodeFilter(labels1.map(_.name), props1.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+            RelationshipFilter(types.map(_.name), props2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+            NodeFilter(labels3.map(_.name), props3.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+            direction,lower, upper).map(
+            path =>
+              Seq(path.startNode, path, path.endNode)
+          )
+        })
 
-    DataFrame(schema, () => {
-      graphModel.paths(
-        NodeFilter(labels1.map(_.name), props1.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-        RelationshipFilter(types.map(_.name), props2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-        NodeFilter(labels3.map(_.name), props3.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-        direction).map(
-        triple =>
-          Seq(triple.startNode, triple.storedRelation, triple.endNode)
-      )
-    })
+      case _ =>
+
+        val schema = Seq(
+          var1.map(_.name).getOrElse(s"__NODE_${leftNode.hashCode}") -> CTNode,
+          var2.map(_.name).getOrElse(s"__RELATIONSHIP_${rel.hashCode}") -> CTRelationship,
+          var3.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode)
+
+        DataFrame(schema, () => {
+          graphModel.paths(
+            NodeFilter(labels1.map(_.name), props1.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+            RelationshipFilter(types.map(_.name), props2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+            NodeFilter(labels3.map(_.name), props3.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
+            direction).map(
+            triple =>
+              Seq(triple.startNode, triple.storedRelation, triple.endNode)
+          )
+        })
+    }
+
   }
 }
 
