@@ -118,6 +118,15 @@ class TestBase extends LazyLogging {
           1
         })))
     })
+
+    myfun.register("sum", new CallableProcedure {
+      override val inputs: Seq[(String, LynxType)] = Seq("values" -> CTAny)
+      override val outputs: Seq[(String, LynxType)] = Seq("count" -> CTInteger)
+
+      override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] = {
+        Iterable(Seq(args.head.asInstanceOf[LynxInteger]))
+      }
+    })
   }
 
   protected def runOnDemoGraph(query: String, param: Map[String, Any] = Map.empty[String, Any]): LynxResult = {
