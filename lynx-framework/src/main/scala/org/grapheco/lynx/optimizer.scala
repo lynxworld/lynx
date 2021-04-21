@@ -54,128 +54,176 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
     case pnode: PPTNode => {
       pnode.children match {
         case Seq(pf@PPTFilter(exprs)) => {
-          pf.children match {
-            case Seq(pns@PPTNodeScan(pattern)) => {
-              exprs match {
-                case e@Equals(Property(map, pkn), rhs) => {
-                  val pushProperties: Option[Expression] = Option(MapExpression(List((pkn, rhs)))(e.position))
-                  val newPattern = NodePattern(pattern.variable, pattern.labels, pushProperties, pattern.baseNode)(pattern.position)
-                  pnode.withChildren(Seq(PPTNodeScan(newPattern)(ppc)))
-                }
-                case hl@HasLabels(expression, labels) => {
-                  val newPattern = NodePattern(pattern.variable, labels, pattern.properties, pattern.baseNode)(pattern.position)
-                  pnode.withChildren(Seq(PPTNodeScan(newPattern)(ppc)))
-                }
-                case a@Ands(exprs) => {
-                  val result = handleNodeAndsExpression(exprs, pattern, a.position) // return (NodePattern,otherSituation)
-                  if (result._2.isEmpty) pnode.withChildren(Seq(PPTNodeScan(result._1)(ppc)))
-                  else pnode.withChildren(Seq(PPTFilter(result._2.head)(PPTNodeScan(result._1)(ppc), ppc)))
-                }
-                case _ => pnode
-              }
-            }
-            case Seq(prs@PPTRelationshipScan(rel, left, right)) => {
-              exprs match {
-                case hl@HasLabels(expression, labels) => {
-                  expression match {
-                    case Variable(name) => {
-                      if (left.variable.get.name == name) {
-                        val newPattern = NodePattern(left.variable, labels, left.properties, left.baseNode)(left.position)
-                        pnode.withChildren(Seq(PPTRelationshipScan(rel, newPattern, right)(ppc)))
-                      }
-                      else {
-                        val newPattern = NodePattern(right.variable, labels, right.properties, right.baseNode)(right.position)
-                        pnode.withChildren(Seq(PPTRelationshipScan(rel, left, newPattern)(ppc)))
-                      }
-                    }
-                  }
-                }
-                case e@Equals(Property(map, pkn), rhs) => {
-                  map match {
-                    case Variable(name) => {
-                      if (left.variable.get.name == name) {
-                        val pushProperties: Option[Expression] = Option(MapExpression(List((pkn, rhs)))(left.position))
-                        val newPattern = NodePattern(left.variable, left.labels, pushProperties, left.baseNode)(left.position)
-                        pnode.withChildren(Seq(PPTRelationshipScan(rel, newPattern, right)(ppc)))
-                      }
-                      else {
-                        val pushProperties: Option[Expression] = Option(MapExpression(List((pkn, rhs)))(right.position))
-                        val newPattern = NodePattern(right.variable, right.labels, pushProperties, right.baseNode)(right.position)
-                        pnode.withChildren(Seq(PPTRelationshipScan(rel, left, newPattern)(ppc)))
-                      }
-                    }
-                  }
-                }
-                case a@Ands(expressions) => {
-                  val nodeLabels = mutable.Map[String, Seq[LabelName]]()
-                  val nodeProperties = mutable.Map[String, Option[Expression]]()
-                  val otherSituations = mutable.Set[Expression]()
-
-                  expressions.foreach {
-                    case hl@HasLabels(expression, labels) =>
-                      nodeLabels += expression.asInstanceOf[Variable].name -> labels
-
-                    case eq@Equals(Property(expression, propertyKey), value) =>
-                      nodeProperties += expression.asInstanceOf[Variable].name -> Option(MapExpression(List((propertyKey, value)))(eq.position))
-
-                    case other => otherSituations.add(other)
-                  }
-
-                  val leftPattern = getNewNodePattern(left, nodeLabels.toMap, nodeProperties.toMap)
-                  val rightPattern = getNewNodePattern(right, nodeLabels.toMap, nodeProperties.toMap)
-
-                  if (otherSituations.isEmpty) pnode.withChildren(Seq(PPTRelationshipScan(rel, leftPattern, rightPattern)(ppc)))
-                  else {
-                    if (otherSituations.size > 1) pnode.withChildren(Seq(PPTFilter(Ands(otherSituations.toSet)(a.position))(PPTRelationshipScan(rel, leftPattern, rightPattern)(ppc), ppc)))
-
-                    else pnode.withChildren(Seq(PPTFilter(otherSituations.head)(PPTRelationshipScan(rel, leftPattern, rightPattern)(ppc), ppc)))
-                  }
-                }
-                case _ => pnode
-              }
-            }
-            case Seq(pep@PPTExpandPath(rel, right)) => {
-
-              val nodeLabels = mutable.Map[String, Seq[LabelName]]()
-              val nodeProperties = mutable.Map[String, Option[Expression]]()
-              val otherExceptions = mutable.Set[Expression]()
-              var andsPosition: InputPosition = null
-
-              exprs match {
-                case a@Ands(exprs2) => {
-                  andsPosition = a.position
-                  exprs2.foreach {
-                    case h@HasLabels(expression, labels) =>
-                      nodeLabels += expression.asInstanceOf[Variable].name -> labels
-
-                    case eq@Equals(Property(expression, propertyKey), value) =>
-                      nodeProperties += expression.asInstanceOf[Variable].name -> Option(MapExpression(List((propertyKey, value)))(eq.position))
-
-                    case other => otherExceptions.add(other)
-                  }
-                }
-                case other => otherExceptions.add(other)
-              }
-
-              val topExpandPath = bottomUpExpandPath(nodeLabels.toMap, nodeProperties.toMap, pep, ppc)
-
-              if (otherExceptions.isEmpty) {
-                pnode.withChildren(Seq(topExpandPath))
-              }
-              else {
-                if (otherExceptions.size > 1) {
-                  pnode.withChildren(Seq(PPTFilter(Ands(otherExceptions.toSet)(andsPosition))(topExpandPath, ppc)))
-                }
-                else pnode.withChildren(Seq(PPTFilter(otherExceptions.head)(topExpandPath, ppc)))
-              }
-            }
-            case _ => pnode
-          }
+          val res = pptFilterPushDownRule(exprs, pf, pnode, ppc)
+          if (res._2) pnode.withChildren(res._1)
+          else pnode
+        }
+        case Seq(pj@PPTJoin()) => {
+          val newPPT = pptJoinChildrenMap(pj, ppc)
+          pnode.withChildren(Seq(newPPT))
         }
         case _ => pnode
       }
     }
   })
+
+  def pptJoinChildrenMap(pj: PPTJoin, ppc: PhysicalPlannerContext): PPTNode = {
+    val res = pj.children.map {
+      case pf@PPTFilter(expr) => {
+        val res = pptFilterPushDownRule(expr, pf, pj, ppc)
+        if (res._2) res._1.head
+        else pf
+      }
+      case pjj@PPTJoin() => pptJoinChildrenMap(pjj, ppc)
+      case f => f
+    }
+    pj.withChildren(res)
+  }
+
+  def pptFilterPushDownRule(exprs: Expression, pf: PPTFilter, pnode: PPTNode, ppc: PhysicalPlannerContext): (Seq[PPTNode], Boolean) = {
+    pf.children match {
+      case Seq(pns@PPTNodeScan(pattern)) => {
+        val patternAndSet = nodeScanPushDown(exprs, pattern)
+        if (patternAndSet._3) {
+          if (patternAndSet._2.isEmpty) (Seq(PPTNodeScan(patternAndSet._1)(ppc)), true)
+          else (Seq(PPTFilter(patternAndSet._2.head)(PPTNodeScan(patternAndSet._1)(ppc), ppc)), true)
+        }
+        else (null, false)
+      }
+      case Seq(prs@PPTRelationshipScan(rel, left, right)) => {
+        val patternsAndSet = relationshipScanPushDown(exprs, left, right)
+        if (patternsAndSet._4) {
+          if (patternsAndSet._3.isEmpty)
+            (Seq(PPTRelationshipScan(rel, patternsAndSet._1, patternsAndSet._2)(ppc)), true)
+          else
+            (Seq(PPTFilter(patternsAndSet._3.head)(PPTRelationshipScan(rel, patternsAndSet._1, patternsAndSet._2)(ppc), ppc)), true)
+        }
+        else (null, false)
+      }
+      case Seq(pep@PPTExpandPath(rel, right)) => {
+        val expandAndSet = expandPathPushDown(exprs, right, pep, ppc)
+        if (expandAndSet._2.isEmpty) (Seq(expandAndSet._1), true)
+        else (Seq(PPTFilter(expandAndSet._2.head)(expandAndSet._1, ppc)), true)
+      }
+      case _ => (null, false)
+    }
+  }
+
+  def nodeScanPushDown(expression: Expression, pattern: NodePattern): (NodePattern, Set[Expression], Boolean) = {
+    expression match {
+      case e@Equals(Property(map, pkn), rhs) => {
+        val pushProperties: Option[Expression] = Option(MapExpression(List((pkn, rhs)))(e.position))
+        val newPattern = NodePattern(pattern.variable, pattern.labels, pushProperties, pattern.baseNode)(pattern.position)
+        (newPattern, Set.empty, true)
+      }
+      case hl@HasLabels(expression, labels) => {
+        val newPattern = NodePattern(pattern.variable, labels, pattern.properties, pattern.baseNode)(pattern.position)
+        (newPattern, Set.empty, true)
+      }
+      case a@Ands(exprs) => handleNodeAndsExpression(exprs, pattern, a.position)
+
+      case _ => (pattern, Set.empty, false)
+    }
+  }
+
+  def relationshipScanPushDown(expression: Expression, left: NodePattern,
+                               right: NodePattern): (NodePattern, NodePattern, Set[Expression], Boolean) = {
+    expression match {
+      case hl@HasLabels(expr, labels) => {
+        expr match {
+          case Variable(name) => {
+            if (left.variable.get.name == name) {
+              val newLeftPattern = NodePattern(left.variable, labels, left.properties, left.baseNode)(left.position)
+              (newLeftPattern, right, Set(), true)
+            }
+            else {
+              val newRightPattern = NodePattern(right.variable, labels, right.properties, right.baseNode)(right.position)
+              (left, newRightPattern, Set(), true)
+            }
+          }
+          case _ => (left, right, Set(), false)
+        }
+      }
+      case e@Equals(Property(map, pkn), rhs) => {
+        map match {
+          case Variable(name) => {
+            if (left.variable.get.name == name) {
+              val pushProperties: Option[Expression] = Option(MapExpression(List((pkn, rhs)))(left.position))
+              val newLeftPattern = NodePattern(left.variable, left.labels, pushProperties, left.baseNode)(left.position)
+              (newLeftPattern, right, Set(), true)
+            }
+            else {
+              val pushProperties: Option[Expression] = Option(MapExpression(List((pkn, rhs)))(right.position))
+              val newRightPattern = NodePattern(right.variable, right.labels, pushProperties, right.baseNode)(right.position)
+              (left, newRightPattern, Set(), true)
+            }
+          }
+          case _ => (left, right, Set(), false)
+        }
+      }
+      case a@Ands(expressions) => {
+        val nodeLabels = mutable.Map[String, Seq[LabelName]]()
+        val nodeProperties = mutable.Map[String, Option[Expression]]()
+        val otherExpressions = mutable.Set[Expression]()
+
+        expressions.foreach {
+          case hl@HasLabels(expr, labels) =>
+            nodeLabels += expr.asInstanceOf[Variable].name -> labels
+
+          case eq@Equals(Property(expr, propertyKey), value) =>
+            nodeProperties += expr.asInstanceOf[Variable].name -> Option(MapExpression(List((propertyKey, value)))(eq.position))
+
+          case other => otherExpressions.add(other)
+        }
+
+        val leftPattern = getNewNodePattern(left, nodeLabels.toMap, nodeProperties.toMap)
+        val rightPattern = getNewNodePattern(right, nodeLabels.toMap, nodeProperties.toMap)
+
+        if (otherExpressions.isEmpty) (leftPattern, rightPattern, Set(), true)
+        else {
+          if (otherExpressions.size > 1) {
+            (leftPattern, rightPattern, Set(Ands(otherExpressions.toSet)(a.position)), true)
+          }
+          else {
+            (leftPattern, rightPattern, Set(otherExpressions.head), true)
+          }
+        }
+      }
+      case _ => (left, right, Set(), false)
+    }
+  }
+
+  def expandPathPushDown(expression: Expression, right: NodePattern,
+                         pep: PPTExpandPath, ppc: PhysicalPlannerContext): (PPTNode, Set[Expression]) = {
+    val nodeLabels = mutable.Map[String, Seq[LabelName]]()
+    val nodeProperties = mutable.Map[String, Option[Expression]]()
+    val otherExpressions = mutable.Set[Expression]()
+    var andsPosition: InputPosition = null
+
+    expression match {
+      case a@Ands(exprs) => {
+        andsPosition = a.position
+        exprs.foreach {
+          case h@HasLabels(expression, labels) =>
+            nodeLabels += expression.asInstanceOf[Variable].name -> labels
+
+          case eq@Equals(Property(expression, propertyKey), value) =>
+            nodeProperties += expression.asInstanceOf[Variable].name -> Option(MapExpression(List((propertyKey, value)))(eq.position))
+
+          case other => otherExpressions.add(other)
+        }
+      }
+      case other => otherExpressions.add(other)
+    }
+
+    val topExpandPath = bottomUpExpandPath(nodeLabels.toMap, nodeProperties.toMap, pep, ppc)
+
+    if (otherExpressions.isEmpty) (topExpandPath, Set())
+    else {
+      if (otherExpressions.size > 1) (topExpandPath, Set(Ands(otherExpressions.toSet)(andsPosition)))
+      else (topExpandPath, Set(otherExpressions.head))
+    }
+  }
 
   def bottomUpExpandPath(nodeLabels: Map[String, Seq[LabelName]], nodeProperties: Map[String, Option[Expression]],
                          pptNode: PPTNode, ppc: PhysicalPlannerContext): PPTNode = {
@@ -193,28 +241,27 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
     }
   }
 
-  def getNewNodePattern(node: NodePattern, nodeLabels: Map[String, Seq[LabelName]], nodeProperties: Map[String, Option[Expression]]): NodePattern = {
+  def getNewNodePattern(node: NodePattern, nodeLabels: Map[String, Seq[LabelName]],
+                        nodeProperties: Map[String, Option[Expression]]): NodePattern = {
     val label = nodeLabels.getOrElse(node.variable.get.name, node.labels)
     val property = nodeProperties.getOrElse(node.variable.get.name, node.properties)
     NodePattern(node.variable, label, property, node.baseNode)(node.position)
   }
 
-  def handleNodeAndsExpression(exprs: Set[Expression], pattern: NodePattern, andsPosition: InputPosition): (NodePattern, Set[Expression]) = {
+  def handleNodeAndsExpression(exprs: Set[Expression], pattern: NodePattern,
+                               andsPosition: InputPosition): (NodePattern, Set[Expression], Boolean) = {
     var properties = pattern.properties
-
-    val otherSituations: mutable.Set[Expression] = mutable.Set.empty
+    val otherExpressions: mutable.Set[Expression] = mutable.Set.empty
     var pushLabels: Seq[LabelName] = pattern.labels
     var newNodePattern: NodePattern = null
     exprs.foreach {
       case e@Equals(Property(map, pkn), rhs) => properties = Option(MapExpression(List((pkn, rhs)))(e.position))
       case hl@HasLabels(expression, labels) => pushLabels = labels
-      case other => otherSituations.add(other)
+      case other => otherExpressions.add(other)
     }
-
     newNodePattern = NodePattern(pattern.variable, pushLabels, properties, pattern.baseNode)(pattern.position)
 
-    if (otherSituations.size > 1) (newNodePattern, Set(Ands(otherSituations.toSet)(andsPosition)))
-
-    else (newNodePattern, otherSituations.toSet)
+    if (otherExpressions.size > 1) (newNodePattern, Set(Ands(otherExpressions.toSet)(andsPosition)), true)
+    else (newNodePattern, otherExpressions.toSet, true)
   }
 }
