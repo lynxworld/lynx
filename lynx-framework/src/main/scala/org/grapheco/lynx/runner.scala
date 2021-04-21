@@ -204,13 +204,7 @@ trait GraphModel {
   }
 
   def pathStepsAllin(phLin:Iterator[LynxPath], startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, lower: Long, upper: Long): Iterator[LynxPath] = {
-  /*  lower == upper match {
-      case true => phLin
-      case false =>
-        val stepMore = stepForward(phLin,startNodeFilter, relationshipFilter, endNodeFilter,direction)
-        phLin++pathStepsAllin(stepMore,startNodeFilter,relationshipFilter,endNodeFilter,direction,lower+1, upper)
-    }*/
-    var newLin = pathSteps(startNodeFilter,relationshipFilter,endNodeFilter,direction, defaultMinStep)
+    var newLin = pathSteps(startNodeFilter,relationshipFilter,endNodeFilter,direction, lower)
     var step = lower
     while(step < upper){
       val stepMore = stepForward(phLin,startNodeFilter, relationshipFilter, endNodeFilter,direction)
@@ -261,13 +255,12 @@ trait GraphModel {
   }
 
   def expand(nodeId: LynxId, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {
-    val res = expand(nodeId, direction).filter(
+    expand(nodeId, direction).filter(
       item => {
         val PathTriple(_, rel, endNode, _) = item
         relationshipFilter.matches(rel) && endNodeFilter.matches(endNode)
       }
     )
-    res
   }
 
   def createElements[T](

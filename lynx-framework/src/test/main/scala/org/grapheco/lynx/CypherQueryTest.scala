@@ -430,11 +430,12 @@ class CypherQueryTest extends TestBase {
   def testmatchxing2(): Unit ={
     val res = runOnDemoGraph("match data =(n:leader)-[:KNOWS*3..2]->() return n")
     Assert.assertNotEquals(1,res.records().size)
+    Assert.assertEquals(0,res.records().size)
   }
 
   @Test
   def testmatchxing3(): Unit ={
-    val res = runOnDemoGraph("match data =(n)-[:KNOWS*1..2]->() return data")
+    val res = runOnDemoGraph("match (n)-[:KNOWS*1..2]->() return n")
     Assert.assertEquals(3,res.records().size)
   }
 
