@@ -4,6 +4,44 @@ import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.func.{LynxProcedure, LynxProcedureArgument}
 
 import scala.collection.mutable
+import org.opencypher.v9_0.util.symbols.CTAny
+
+trait CallableProcedure {
+  val inputs: Seq[(String, LynxType)]
+  val outputs: Seq[(String, LynxType)]
+
+  def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]]
+
+  def signature(procedureName: String) = s"$procedureName(${inputs.map(x => Seq(x._1, x._2).mkString(":")).mkString(",")})"
+
+  def checkArguments(procedureName: String, argTypesActual: Seq[LynxType]) = {
+    if (argTypesActual.size != inputs.size)
+      throw WrongNumberOfArgumentsException(s"$procedureName(${inputs.map(x => Seq(x._1, x._2).mkString(":")).mkString(",")})",
+        inputs.size, argTypesActual.size)
+
+    inputs.zip(argTypesActual).foreach(x => {
+      if (x._1._2 != x._2)
+        throw WrongArgumentException(x._1._1, x._2, x._1._2)
+    })
+  }
+}
+
+trait CallableAggregationProcedure extends CallableProcedure {
+  val outputName: String
+  val outputValueType: LynxType
+
+  final override val inputs: Seq[(String, LynxType)] = Seq("values" -> CTAny)
+  final override val outputs: Seq[(String, LynxType)] = Seq(outputName -> outputValueType)
+
+  final override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] = {
+    collect(args.head)
+    None
+  }
+
+  def collect(value: LynxValue): Unit
+
+  def value(): LynxValue
+}
 
 trait ProcedureRegistry {
   def getProcedure(prefix: List[String], name: String): Option[CallableProcedure]
@@ -31,25 +69,27 @@ class DefaultProcedureRegistry(types: TypeSystem, classes: Class[_]*) extends Pr
               pan.name()
             }
 
-          argName -> types.typeOf(par.getType.asInstanceOf[Class[Any]])
+          argName -> types.typeOf(par.getType)
         })
 
-        register(an.name(), inputs, Seq.empty, (args) => types.wrap(met.invoke(host, args)))
+        //TODO: N-tuples
+        val outputs = Seq("value" -> types.typeOf(met.getReturnType))
+        register(an.name(), inputs, outputs, (args) => types.wrap(met.invoke(host, args: _*)))
       }
     })
   }
 
   def register(name: String, procedure: CallableProcedure): Unit = {
     procedures(name) = procedure
-    logger.debug(s"registered procedure: $name")
+    logger.debug(s"registered procedure: ${procedure.signature(name)}")
   }
 
-  def register(name: String, inputs0: Seq[(String, LynxType)], outputs0: Seq[(String, LynxType)], call0: (Seq[LynxType]) => LynxValue): Unit = {
+  def register(name: String, inputs0: Seq[(String, LynxType)], outputs0: Seq[(String, LynxType)], call0: (Seq[LynxValue]) => LynxValue): Unit = {
     register(name, new CallableProcedure() {
       override val inputs: Seq[(String, LynxType)] = inputs0
       override val outputs: Seq[(String, LynxType)] = outputs0
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] = ???
+      override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] = Some(Seq(call0(args)))
     })
   }
 
@@ -61,6 +101,11 @@ class DefaultFunctions {
   def lynx(): String = {
     "lynx-0.3"
   }
+
+  @LynxProcedure(name = "lynx")
+  def sum(x: LynxInteger): LynxInteger = {
+    x
+  }
 }
 
 case class UnknownProcedureException(prefix: List[String], name: String) extends LynxException {
@@ -71,6 +116,6 @@ case class WrongNumberOfArgumentsException(signature: String, sizeExpected: Int,
   override def getMessage: String = s"Wrong number of arguments of $signature(), expected: $sizeExpected, actual: $sizeActual"
 }
 
-case class WrongArgumentException(argName: String, expectedType: LynxType, actualValue: LynxValue) extends LynxException {
-  override def getMessage: String = s"Wrong argument of $argName, expected: $expectedType, actual: ${actualValue.cypherType}"
+case class WrongArgumentException(argName: String, expectedType: LynxType, actualType: LynxType) extends LynxException {
+  override def getMessage: String = s"Wrong argument of $argName, expected: $expectedType, actual: ${actualType}"
 }
