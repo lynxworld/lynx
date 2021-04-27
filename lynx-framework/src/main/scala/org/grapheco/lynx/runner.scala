@@ -1,3 +1,4 @@
+
 package org.grapheco.lynx
 
 import com.typesafe.scalalogging.LazyLogging
@@ -6,12 +7,15 @@ import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.SemanticState
 import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, SemanticDirection}
 import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
-import org.opencypher.v9_0.util.symbols.CTAny
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 
-case class CypherRunnerContext(typeSystem: TypeSystem, procedureRegistry: ProcedureRegistry, dataFrameOperator: DataFrameOperator, expressionEvaluator: ExpressionEvaluator, graphModel: GraphModel)
+case class CypherRunnerContext(typeSystem: TypeSystem,
+                               procedureRegistry: ProcedureRegistry,
+                               dataFrameOperator: DataFrameOperator,
+                               expressionEvaluator: ExpressionEvaluator,
+                               graphModel: GraphModel)
 
 class CypherRunner(graphModel: GraphModel) extends LazyLogging {
   protected lazy val types: TypeSystem = new DefaultTypeSystem()
@@ -30,7 +34,8 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
     val (statement, param2, state) = queryParser.parse(query)
     logger.debug(s"AST tree: ${statement}")
 
-    val logicalPlan = logicalPlanner.plan(statement, LogicalPlannerContext())
+    val logicalPlannerContext = LogicalPlannerContext(param ++ param2, runnerContext)
+    val logicalPlan = logicalPlanner.plan(statement, logicalPlannerContext)
     logger.debug(s"logical plan: \r\n${logicalPlan.pretty}")
 
     val physicalPlannerContext = PhysicalPlannerContext(param ++ param2, runnerContext)
@@ -81,7 +86,13 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
   }
 }
 
-case class LogicalPlannerContext() {
+//TODO: LogicalPlannerContext vs. PhysicalPlannerContext?
+object LogicalPlannerContext {
+  def apply(queryParameters: Map[String, Any], runnerContext: CypherRunnerContext): LogicalPlannerContext =
+    new LogicalPlannerContext(queryParameters.map(x => x._1 -> runnerContext.typeSystem.wrap(x._2).cypherType).toSeq, runnerContext)
+}
+
+case class LogicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runnerContext: CypherRunnerContext) {
 }
 
 object PhysicalPlannerContext {
@@ -115,28 +126,10 @@ trait PlanAware {
   def getPhysicalPlan(): PPTNode
 }
 
-trait CallableProcedure {
-  val inputs: Seq[(String, LynxType)]
-  val outputs: Seq[(String, LynxType)]
-
-  def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]]
-
-  def checkArguments(procedureName: String, actual: Seq[LynxValue]) = {
-    if (actual.size != inputs.size)
-      throw WrongNumberOfArgumentsException(s"$procedureName(${inputs.map(x => Seq(x._1, x._2).mkString(":")).mkString(",")})", inputs.size, actual.size)
-
-    inputs.zip(actual).foreach(x => {
-      val ((name, ctype), value) = x
-      if (value != LynxNull && (ctype == CTAny || value.cypherType != ctype))
-        throw WrongArgumentException(name, ctype, value)
-    })
-  }
-}
-
 case class NodeFilter(labels: Seq[String], properties: Map[String, LynxValue]) {
   def matches(node: LynxNode): Boolean = (labels, node.labels) match {
     case (Seq(), _) => properties.forall(p => node.property(p._1).orNull.equals(p._2))
-    case (_, nodeLabels) => labels.forall(nodeLabels.contains(_)) && properties.forall(p => node.property(p._1).orNull.equals(p._2))
+    case (_, nodeLabels) => labels.forall(nodeLabels.contains(_)) && properties.forall(p => node.property(p._1).getOrElse(None).equals(p._2))
   }
 }
 
@@ -190,9 +183,9 @@ trait GraphModel {
   }
 
   def createElements[T](
-    nodesInput: Seq[(String, NodeInput)],
-    relsInput: Seq[(String, RelationshipInput)],
-    onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T): T
+                         nodesInput: Seq[(String, NodeInput)],
+                         relsInput: Seq[(String, RelationshipInput)],
+                         onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T): T
 
   def createIndex(labelName: LabelName, properties: List[PropertyKeyName]): Unit
 

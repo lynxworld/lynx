@@ -399,7 +399,7 @@ case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: Proced
           case None => procedure.inputs.map(arg => ctx.expressionContext.params.getOrElse(arg._1, LynxNull))
         }
 
-        procedure.checkArguments((parts :+ name).mkString("."), args)
+//        procedure.checkArguments((parts :+ name).mkString("."), args)
         DataFrame(procedure.outputs, () => procedure.call(args, ctx).iterator)
 
       case None => throw UnknownProcedureException(parts, name)
