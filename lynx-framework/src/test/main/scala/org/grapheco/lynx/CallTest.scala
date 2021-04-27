@@ -29,4 +29,8 @@ class CallTest extends TestBase {
       }
     })
   }
+  @Test
+  def testSumSimple(): Unit = {
+    val rs = runOnDemoGraph("match (n) return sum(n.age)").records().next()
+  }
 }
