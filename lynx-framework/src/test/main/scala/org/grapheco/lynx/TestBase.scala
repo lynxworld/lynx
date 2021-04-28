@@ -99,7 +99,7 @@ class TestBase extends LazyLogging {
   }
 
   val runner = new CypherRunner(model) {
-    val myfun = new DefaultProcedureRegistry(types, classOf[DefaultFunctions])
+    val myfun = new DefaultProcedureRegistry(types, classOf[DefaultProcedures])
     override lazy val procedures: ProcedureRegistry = myfun
 
     myfun.register("test.authors", new CallableProcedure {

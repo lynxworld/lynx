@@ -19,7 +19,7 @@ case class CypherRunnerContext(typeSystem: TypeSystem,
 
 class CypherRunner(graphModel: GraphModel) extends LazyLogging {
   protected lazy val types: TypeSystem = new DefaultTypeSystem()
-  protected lazy val procedures: ProcedureRegistry = new DefaultProcedureRegistry(types, classOf[DefaultFunctions])
+  protected lazy val procedures: ProcedureRegistry = new DefaultProcedureRegistry(types, classOf[DefaultProcedures])
   protected lazy val expressionEvaluator: ExpressionEvaluator = new DefaultExpressionEvaluator(graphModel, types, procedures)
   protected lazy val dataFrameOperator: DataFrameOperator = new DefaultDataFrameOperator(expressionEvaluator)
   private implicit lazy val runnerContext = CypherRunnerContext(types, procedures, dataFrameOperator, expressionEvaluator, graphModel)
