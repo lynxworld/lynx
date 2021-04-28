@@ -50,8 +50,8 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
   override def plan(logicalPlan: LPTNode)(implicit plannerContext: PhysicalPlannerContext): PPTNode = {
     implicit val runnerContext: CypherRunnerContext = plannerContext.runnerContext
     logicalPlan match {
-//      case LPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]]) =>
-//        PPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])
+      case LPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]]) =>
+        PPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])
       case lc@LPTCreate(c: Create) => PPTCreateTranslator(c).translate(lc.in.map(plan(_)))(plannerContext)
       case ls@LPTSelect(columns: Seq[(String, Option[String])]) => PPTSelect(columns)(plan(ls.in), plannerContext)
       case lp@LPTProject(ri) => PPTProject(ri)(plan(lp.in), plannerContext)
