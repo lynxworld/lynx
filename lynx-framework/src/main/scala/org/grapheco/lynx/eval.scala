@@ -74,6 +74,11 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case CountStar() => LynxInteger(ec.vars.size)
 
+      case fe: FunctionExpression => {
+        val procedureArgs = fe.args.map(eval(_))
+        fe.procedure.call(procedureArgs, ec.executionContext).head.head// TODO improve
+      }
+
       case Add(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
           (lvalue, rvalue) match {

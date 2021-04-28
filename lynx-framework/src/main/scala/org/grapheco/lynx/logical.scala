@@ -1,9 +1,8 @@
 package org.grapheco.lynx
 
-import org.opencypher.v9_0.ast.{Clause, Create, CreateIndex, CreateUniquePropertyConstraint, Limit, Match, OrderBy, PeriodicCommitHint, ProcedureResult, ProcedureResultItem, Query, QueryPart, Return, ReturnItem, ReturnItems, ReturnItemsDef, SingleQuery, Skip, SortItem, Statement, UnresolvedCall, Where, With}
-import org.opencypher.v9_0.expressions.{EveryPath, Expression, LabelName, LogicalVariable, Namespace, NodePattern, Pattern, PatternElement, PatternPart, ProcedureName, RelationshipChain, RelationshipPattern, Variable}
-import org.opencypher.v9_0.expressions.{LabelName, Property, PropertyKeyName, Variable}
-import org.opencypher.v9_0.util.ASTNode
+import org.opencypher.v9_0.ast.{AliasedReturnItem, Clause, Create, CreateIndex, CreateUniquePropertyConstraint, Limit, Match, OrderBy, PeriodicCommitHint, ProcedureResult, ProcedureResultItem, Query, QueryPart, Return, ReturnItem, ReturnItems, ReturnItemsDef, SingleQuery, Skip, SortItem, Statement, UnresolvedCall, Where, With}
+import org.opencypher.v9_0.expressions.{EveryPath, Expression, FunctionInvocation, FunctionName, LabelName, LogicalVariable, Namespace, NodePattern, Pattern, PatternElement, PatternPart, ProcedureName, Property, PropertyKeyName, RelationshipChain, RelationshipPattern, Variable}
+import org.opencypher.v9_0.util.{ASTNode, InputPosition}
 
 //logical plan tree node (operator)
 trait LPTNode extends TreeNode {
@@ -198,10 +197,24 @@ case class LPTCreateUnit(items: Seq[ReturnItem]) extends LPTNode {
 
 case class LPTProjectTranslator(ri: ReturnItemsDef) extends LPTNodeTranslator {
   def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
-    in match {
-      case Some(sin) => LPTProject(ri)(sin)
-      case None => LPTProject(ri)(LPTCreateUnit(ri.items))
+    val newItems: Seq[ReturnItem] = ri.items.map {
+      _ match {
+        case ar@AliasedReturnItem(expression: Expression, variable: LogicalVariable) =>
+          expression match {
+            case f@FunctionInvocation(namespace, functionName, distinct, args) =>
+              val e = FunctionExpression(f)
+              AliasedReturnItem(e, variable)(ar.position)
+            case _ => ar
+          }
+        case item: ReturnItem => item
+      }
     }
+    val newRi = ReturnItems(ri.includeExisting, newItems)(ri.position)
+    val preojectIn = in match {
+      case Some(sin) => sin
+      case None => LPTCreateUnit(newItems)
+    }
+    LPTProject(newRi)(preojectIn)
   }
 }
 
