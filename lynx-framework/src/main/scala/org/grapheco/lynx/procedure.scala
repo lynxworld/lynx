@@ -2,6 +2,8 @@ package org.grapheco.lynx
 
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.func.{LynxProcedure, LynxProcedureArgument}
+import org.opencypher.v9_0.expressions.{Expression, FunctionInvocation, FunctionName, Namespace}
+import org.opencypher.v9_0.util.InputPosition
 
 import scala.collection.mutable
 import org.opencypher.v9_0.util.symbols.CTAny
@@ -106,4 +108,31 @@ case class WrongNumberOfArgumentsException(signature: String, sizeExpected: Int,
 
 case class WrongArgumentException(argName: String, expectedType: LynxType, actualType: LynxType) extends LynxException {
   override def getMessage: String = s"Wrong argument of $argName, expected: $expectedType, actual: ${actualType}"
+}
+
+case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit plannerContext: LogicalPlannerContext) extends Expression {
+  val procedure: CallableProcedure = plannerContext.runnerContext.procedureRegistry.getProcedure(funcInov.namespace.parts, funcInov.functionName.name).get
+
+  override def position: InputPosition = funcInov.position
+
+  override def productElement(n: Int): Any = funcInov.productElement(n)
+
+  override def productArity: Int = funcInov.productArity
+
+  override def canEqual(that: Any): Boolean = funcInov.canEqual(that)
+}
+
+class DefaultProcedures {
+  @LynxProcedure(name = "lynx")
+  def lynx(): String = {
+    "lynx-0.3"
+  }
+  @LynxProcedure(name = "sum")
+  def sum(x: LynxInteger): LynxInteger = {
+    x
+  }
+  @LynxProcedure(name = "power")
+  def power(x: LynxInteger, n: LynxInteger): LynxInteger = {
+    LynxInteger(math.pow(x.value, n.value).toInt)
+  }
 }
