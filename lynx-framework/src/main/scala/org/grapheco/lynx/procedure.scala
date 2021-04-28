@@ -96,18 +96,6 @@ class DefaultProcedureRegistry(types: TypeSystem, classes: Class[_]*) extends Pr
   override def getProcedure(prefix: List[String], name: String): Option[CallableProcedure] = procedures.get((prefix :+ name).mkString("."))
 }
 
-class DefaultFunctions {
-  @LynxProcedure(name = "lynx")
-  def lynx(): String = {
-    "lynx-0.3"
-  }
-
-  @LynxProcedure(name = "lynx")
-  def sum(x: LynxInteger): LynxInteger = {
-    x
-  }
-}
-
 case class UnknownProcedureException(prefix: List[String], name: String) extends LynxException {
   override def getMessage: String = s"unknown procedure: ${(prefix :+ name).mkString(".")}"
 }
