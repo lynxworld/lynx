@@ -202,7 +202,7 @@ case class LPTProjectTranslator(ri: ReturnItemsDef) extends LPTNodeTranslator {
         case ar@AliasedReturnItem(expression: Expression, variable: LogicalVariable) =>
           expression match {
             case f@FunctionInvocation(namespace, functionName, distinct, args) =>
-              val e = FunctionExpression(f)
+              val e = ProcedureExpression(f)
               AliasedReturnItem(e, variable)(ar.position)
             case _ => ar
           }
