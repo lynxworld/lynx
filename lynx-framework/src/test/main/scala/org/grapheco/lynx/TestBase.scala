@@ -75,15 +75,15 @@ class TestBase extends LazyLogging {
         override val inputs: Seq[(String, LynxType)] = Seq()
         override val outputs: Seq[(String, LynxType)] = Seq("haha" -> CTInteger)
 
-        override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] =
-          Iterable(Seq(LynxInteger(args.size)))
+        override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
+          LynxInteger(args.size)
       })
       case ".sum" => Some(new CallableProcedure {
         override val inputs: Seq[(String, LynxType)] = Seq()
         override val outputs: Seq[(String, LynxType)] = Seq("haha" -> CTInteger)
 
-        override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] =
-          Iterable(Seq(LynxInteger(args.size)))
+        override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
+          LynxInteger(args.size)
       })
 
       case _ => None
@@ -106,32 +106,32 @@ class TestBase extends LazyLogging {
       override val inputs: Seq[(String, LynxType)] = Seq()
       override val outputs: Seq[(String, LynxType)] = Seq("name" -> CTString)
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] =
-        Seq(Seq(LynxValue("bluejoe")), Seq(LynxValue("lzx")), Seq(LynxValue("airzihao")))
+      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
+        LynxList(List(LynxValue("bluejoe"), LynxValue("lzx"), LynxValue("airzihao")))
     })
 
     myfun.register("toInterger", new CallableProcedure {
       override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
       override val outputs: Seq[(String, LynxType)] = Seq("number" -> CTInteger)
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] =
-        Iterable(Seq(LynxInteger(args.head.value.toString.toInt)))
+      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue=
+        LynxInteger(args.head.value.toString.toInt)
     })
 
     myfun.register("date", new CallableProcedure {
       override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
       override val outputs: Seq[(String, LynxType)] = Seq("date" -> CTDate)
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] =
-        Iterable(Seq(LynxDate(new SimpleDateFormat("yyyy-MM-dd").parse(args.head.asInstanceOf[LynxString].value).getTime)))
+      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
+        LynxDate(new SimpleDateFormat("yyyy-MM-dd").parse(args.head.asInstanceOf[LynxString].value).getTime)
     })
 
     myfun.register("count", new CallableProcedure {
       override val inputs: Seq[(String, LynxType)] = Seq("values" -> CTAny)
       override val outputs: Seq[(String, LynxType)] = Seq("count" -> CTInteger)
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] =
-        Iterable(Seq(LynxInteger(args.size)))
+      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
+        LynxInteger(args.size)
     })
   }
 

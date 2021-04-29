@@ -400,7 +400,7 @@ case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: Proced
         }
 
 //        procedure.checkArguments((parts :+ name).mkString("."), args)
-        DataFrame(procedure.outputs, () => procedure.call(args, ctx).iterator)
+        DataFrame(procedure.outputs, () => Iterator(Seq(procedure.call(args, ctx))))
 
       case None => throw UnknownProcedureException(parts, name)
     }

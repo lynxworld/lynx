@@ -12,7 +12,7 @@ trait CallableProcedure {
   val inputs: Seq[(String, LynxType)]
   val outputs: Seq[(String, LynxType)]
 
-  def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]]
+  def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue
 
   def signature(procedureName: String) = s"$procedureName(${inputs.map(x => Seq(x._1, x._2).mkString(":")).mkString(",")})"
 
@@ -35,9 +35,9 @@ trait CallableAggregationProcedure extends CallableProcedure {
   final override val inputs: Seq[(String, LynxType)] = Seq("values" -> CTAny)
   final override val outputs: Seq[(String, LynxType)] = Seq(outputName -> outputValueType)
 
-  final override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] = {
+  final override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue = {
     collect(args.head)
-    None
+    LynxNull //TODO CallableAggregationProcedure
   }
 
   def collect(value: LynxValue): Unit
@@ -91,7 +91,7 @@ class DefaultProcedureRegistry(types: TypeSystem, classes: Class[_]*) extends Pr
       override val inputs: Seq[(String, LynxType)] = inputs0
       override val outputs: Seq[(String, LynxType)] = outputs0
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): Iterable[Seq[LynxValue]] = Some(Seq(call0(args)))
+      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue = call0(args)
     })
   }
 
