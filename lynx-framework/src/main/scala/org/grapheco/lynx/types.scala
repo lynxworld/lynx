@@ -28,7 +28,7 @@ class DefaultTypeSystem extends TypeSystem {
     case v: LynxValue => v
     case v: Boolean => LynxBoolean(v)
     case v: Int => LynxInteger(v)
-    case v: Long => LynxInteger(v.toInt)
+    case v: Long => LynxInteger(v)
     case v: String => LynxString(v)
     case v: Double => LynxDouble(v)
     case v: Float => LynxDouble(v)
