@@ -1,6 +1,8 @@
 package org.grapheco.lynx
 
 import org.junit.{Assert, Test}
+import java.time.format.DateTimeFormatter
+import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
 
 class CypherDataTypeTest extends TestBase {
 
@@ -34,5 +36,55 @@ class CypherDataTypeTest extends TestBase {
       r.get("arr1").get.asInstanceOf[LynxList].value.map(_.value.asInstanceOf[Long]).toArray)
     Assert.assertArrayEquals(Array[Boolean](true,false),
       r.get("arr2").get.asInstanceOf[LynxList].value.map(_.value.asInstanceOf[Boolean]).toArray)
+  }
+
+  @Test
+  def testDateTypeProperty(): Unit = {
+    runOnDemoGraph("create (n:person{name:'date1', born:date('2015-02-01')})")
+    runOnDemoGraph("create (n:person{name:'date2', born:date('2015/02/02')})")
+
+    val r1 = runOnDemoGraph("match (n:person{name:'date1'}) return n.born").records().next()
+    Assert.assertEquals(LocalDate.parse("2015-02-01", DateTimeFormatter.ofPattern("yyyy-MM-dd")),
+      r1.get("n.born").get.asInstanceOf[LynxDate].value)
+    val r2 = runOnDemoGraph("match (n:person{name:'date2'}) return n.born").records().next()
+    Assert.assertEquals(LocalDate.parse("2015-02-02", DateTimeFormatter.ofPattern("yyyy-MM-dd")),
+      r2.get("n.born").get.asInstanceOf[LynxDate].value)
+  }
+
+  @Test
+  def testDateTimeTypeProperty(): Unit = {
+    runOnDemoGraph("CREATE (Keanu:person {name:'datetime1',born:datetime('1984-10-11T12:31:14.123456789Z')})")
+    runOnDemoGraph("CREATE (Keanu:person {name:'datetime2',born:datetime('1984-10-11T12:31:14.123456789+01:00')})")
+
+    val r1 = runOnDemoGraph("match (n:person{name:'datetime1'}) return n.born").records().next()
+    Assert.assertEquals(ZonedDateTime.parse("1984-10-11T12:31:14.123456789Z"),
+      r1.get("n.born").get.asInstanceOf[LynxDateTime].value)
+    val r2 = runOnDemoGraph("match (n:person{name:'datetime2'}) return n.born").records().next()
+    Assert.assertEquals(ZonedDateTime.parse("1984-10-11T12:31:14.123456789+01:00"),
+      r2.get("n.born").get.asInstanceOf[LynxDateTime].value)
+  }
+
+  @Test
+  def testLocalDateTimeTypeProperty(): Unit = {
+    runOnDemoGraph("CREATE (Keanu:person {name:'localdatetime1',born:localdatetime('2015-07-21T21:40:32.142')})")
+    val r1 = runOnDemoGraph("match (n:person{name:'localdatetime1'}) return n.born").records().next()
+    Assert.assertEquals(LocalDateTime.parse("2015-07-21T21:40:32.142"),
+      r1.get("n.born").get.asInstanceOf[LynxLocalDateTime].value)
+  }
+
+  @Test
+  def testLocalTimeTypeProperty(): Unit = {
+    runOnDemoGraph("CREATE (Keanu:person {name:'localtime1',born: localtime('21:40:32.142')})")
+    val r1 = runOnDemoGraph("match (n:person{name:'localtime1'}) return n.born").records().next()
+    Assert.assertEquals(LocalTime.parse("21:40:32.142"),
+      r1.get("n.born").get.asInstanceOf[LynxLocalTime].value)
+  }
+
+  @Test
+  def testTimeTypeProperty(): Unit = {
+    runOnDemoGraph("CREATE (Keanu:person {name:'time1',born: time('21:40:32.142+01:00')})")
+    val r1 = runOnDemoGraph("match (n:person{name:'time1'}) return n.born").records().next()
+    Assert.assertEquals(OffsetTime.parse("21:40:32.142+01:00"),
+      r1.get("n.born").get.asInstanceOf[LynxTime].value)
   }
 }
