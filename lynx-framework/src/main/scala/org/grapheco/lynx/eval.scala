@@ -140,6 +140,9 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case v: Literal =>
         types.wrap(v.value)
 
+      case v: ListLiteral =>
+        LynxValue(v.expressions.map(e=>eval(e)))
+
       case Variable(name) =>
         ec.vars(name)
 
