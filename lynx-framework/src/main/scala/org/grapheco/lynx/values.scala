@@ -27,7 +27,7 @@ trait LynxNumber extends LynxValue {
 
 }
 
-case class LynxInteger(v: Int) extends LynxNumber {
+case class LynxInteger(v: Long) extends LynxNumber {
   def value = v
 
   def number: Number = v
@@ -177,7 +177,7 @@ object LynxValue {
     case v: LynxValue => v
     case v: Boolean => LynxBoolean(v)
     case v: Int => LynxInteger(v)
-    case v: Long => LynxInteger(v.toInt)
+    case v: Long => LynxInteger(v)
     case v: String => LynxString(v)
     case v: Double => LynxDouble(v)
     case v: Float => LynxDouble(v)
