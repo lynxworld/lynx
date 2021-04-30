@@ -1,6 +1,6 @@
 package org.grapheco.lynx
 
-import java.util.Date
+import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
 
 import org.opencypher.v9_0.expressions.{BooleanLiteral, CountStar, DoubleLiteral, FunctionInvocation, IntegerLiteral, Parameter, StringLiteral, Variable}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTString, CypherType}
@@ -32,10 +32,19 @@ class DefaultTypeSystem extends TypeSystem {
     case v: String => LynxString(v)
     case v: Double => LynxDouble(v)
     case v: Float => LynxDouble(v)
-    case v: Date => LynxDate(v.getTime)
+    case v: LocalDate => LynxDate(v)
+    case v: ZonedDateTime => LynxDateTime(v)
+    case v: LocalDateTime => LynxLocalDateTime(v)
+    case v: LocalTime => LynxLocalTime(v)
+    case v: OffsetTime => LynxTime(v)
     case v: Iterable[Any] => LynxList(v.map(wrap(_)).toList)
     case v: Map[String, Any] => LynxMap(v.map(x => x._1 -> wrap(x._2)))
-    case v: Array[Any] => LynxList(v.map(wrap(_)).toList)
+    case v: Array[Int] => LynxList(v.map(wrap(_)).toList)
+    case v: Array[Long] => LynxList(v.map(wrap(_)).toList)
+    case v: Array[Double] => LynxList(v.map(wrap(_)).toList)
+    case v: Array[Float] => LynxList(v.map(wrap(_)).toList)
+    case v: Array[Boolean] => LynxList(v.map(wrap(_)).toList)
+    case v: Array[String] => LynxList(v.map(wrap(_)).toList)
     case _ => throw InvalidValueException(value)
   }
 }
