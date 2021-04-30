@@ -1,8 +1,8 @@
 package org.grapheco.lynx
 
-import java.util.Date
+import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
 
-import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTDate, CTDateTime, CTFloat, CTInteger, CTList, CTMap, CTNode, CTRelationship, CTString, CypherType}
+import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTDate, CTDateTime, CTLocalDateTime, CTTime, CTLocalTime, CTFloat, CTInteger, CTList, CTMap, CTNode, CTRelationship, CTString, CypherType}
 
 trait LynxValue {
   def value: Any
@@ -123,16 +123,33 @@ case class LynxMap(v: Map[String, LynxValue]) extends LynxCompositeValue {
 
 trait LynxTemporalValue extends LynxValue
 
-case class LynxDate(ms: Long) extends LynxTemporalValue {
-  def value = ms
-
+case class LynxDate(localDate: LocalDate) extends LynxTemporalValue {
+  def value = localDate
   def cypherType = CTDate
 }
 
-case class LynxDateTime(ms: Long) extends LynxTemporalValue {
-  def value = ms
+case class LynxDateTime(zonedDateTime: ZonedDateTime) extends LynxTemporalValue {
+  def value = zonedDateTime
 
   def cypherType = CTDateTime
+}
+
+case class LynxLocalDateTime(localDateTime: LocalDateTime) extends LynxTemporalValue {
+  def value = localDateTime
+
+  def cypherType: LynxType = CTLocalDateTime
+}
+
+case class LynxLocalTime(localTime: LocalTime) extends LynxTemporalValue {
+  def value = localTime
+
+  def cypherType: LynxType = CTLocalTime
+}
+
+case class LynxTime(offsetTime: OffsetTime) extends LynxTemporalValue {
+  def value = offsetTime
+
+  def cypherType: LynxType = CTTime
 }
 
 object LynxNull extends LynxValue {
@@ -181,10 +198,19 @@ object LynxValue {
     case v: String => LynxString(v)
     case v: Double => LynxDouble(v)
     case v: Float => LynxDouble(v)
-    case v: Date => LynxDate(v.getTime)
-    case v: Iterable[Any] => LynxList(v.map(LynxValue(_)).toList)
-    case v: Map[String, Any] => LynxMap(v.map(x => x._1 -> LynxValue(x._2)))
-    case v: Array[Any] => LynxList(v.map(LynxValue(_)).toList)
+    case v: LocalDate => LynxDate(v)
+    case v: ZonedDateTime => LynxDateTime(v)
+    case v: LocalDateTime => LynxLocalDateTime(v)
+    case v: LocalTime => LynxLocalTime(v)
+    case v: OffsetTime => LynxTime(v)
+    case v: Iterable[Any] => LynxList(v.map(apply(_)).toList)
+    case v: Map[String, Any] => LynxMap(v.map(x => x._1 -> apply(x._2)))
+    case v: Array[Int] => LynxList(v.map(apply(_)).toList)
+    case v: Array[Long] => LynxList(v.map(apply(_)).toList)
+    case v: Array[Double] => LynxList(v.map(apply(_)).toList)
+    case v: Array[Float] => LynxList(v.map(apply(_)).toList)
+    case v: Array[Boolean] => LynxList(v.map(apply(_)).toList)
+    case v: Array[String] => LynxList(v.map(apply(_)).toList)
     case _ => throw InvalidValueException(value)
   }
 }
