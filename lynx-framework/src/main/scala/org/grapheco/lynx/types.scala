@@ -45,6 +45,7 @@ class DefaultTypeSystem extends TypeSystem {
     case v: Array[Float] => LynxList(v.map(wrap(_)).toList)
     case v: Array[Boolean] => LynxList(v.map(wrap(_)).toList)
     case v: Array[String] => LynxList(v.map(wrap(_)).toList)
+    case v: Array[Any] => LynxList(v.map(wrap(_)).toList)
     case _ => throw InvalidValueException(value)
   }
 }
