@@ -211,6 +211,7 @@ object LynxValue {
     case v: Array[Float] => LynxList(v.map(apply(_)).toList)
     case v: Array[Boolean] => LynxList(v.map(apply(_)).toList)
     case v: Array[String] => LynxList(v.map(apply(_)).toList)
+    case v: Array[Any] => LynxList(v.map(apply(_)).toList)
     case _ => throw InvalidValueException(value)
   }
 }
