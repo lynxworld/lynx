@@ -5,7 +5,7 @@ import org.opencypher.v9_0.ast.semantics.{SemanticErrorDef, SemanticFeature, Sem
 import org.opencypher.v9_0.frontend.PlannerName
 import org.opencypher.v9_0.frontend.phases.{AstRewriting, BaseContains, BaseContext, BaseState, CompilationPhaseTracer, InitialState, InternalNotificationLogger, Monitors, Parsing, SemanticAnalysis, SyntaxDeprecationWarnings, Transformer, devNullLogger, _}
 import org.opencypher.v9_0.rewriting.Deprecations.V2
-import org.opencypher.v9_0.rewriting.rewriters.{Forced, Never}
+import org.opencypher.v9_0.rewriting.rewriters.Never
 import org.opencypher.v9_0.rewriting.{AstRewritingMonitor, RewriterStepSequencer}
 import org.opencypher.v9_0.util.spi.MapToPublicExceptions
 import org.opencypher.v9_0.util.{CypherException, InputPosition}
@@ -57,6 +57,7 @@ class DefaultQueryParser(runnerContext: CypherRunnerContext) extends QueryParser
       isolateAggregation andThen
       SemanticAnalysis(warn = false, SemanticFeature.Cypher10Support, SemanticFeature.MultipleGraphs, SemanticFeature.WithInitialQuerySignature) andThen
       Namespacer andThen
+      FunctionMapper(runnerContext) andThen
       CNFNormalizer andThen
       LateAstRewriting
 
