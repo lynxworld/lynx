@@ -3,7 +3,10 @@ package org.grapheco.lynx
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.func.{LynxProcedure, LynxProcedureArgument}
 import org.opencypher.v9_0.expressions.{Expression, FunctionInvocation, FunctionName, Namespace}
-import org.opencypher.v9_0.util.InputPosition
+import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPhase
+import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPhase.AST_REWRITE
+import org.opencypher.v9_0.frontend.phases.{BaseContext, BaseState, Condition, Phase}
+import org.opencypher.v9_0.util.{InputPosition, Rewriter, bottomUp, inSequence}
 
 import scala.collection.mutable
 import org.opencypher.v9_0.util.symbols.CTAny
@@ -91,7 +94,7 @@ class DefaultProcedureRegistry(types: TypeSystem, classes: Class[_]*) extends Pr
       override val inputs: Seq[(String, LynxType)] = inputs0
       override val outputs: Seq[(String, LynxType)] = outputs0
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue = call0(args)
+      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue = LynxValue(call0(args))
     })
   }
 
@@ -110,8 +113,10 @@ case class WrongArgumentException(argName: String, expectedType: LynxType, actua
   override def getMessage: String = s"Wrong argument of $argName, expected: $expectedType, actual: ${actualType}"
 }
 
-case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit plannerContext: LogicalPlannerContext) extends Expression {
-  val procedure: CallableProcedure = plannerContext.runnerContext.procedureRegistry.getProcedure(funcInov.namespace.parts, funcInov.functionName.name).get
+case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runnerContext: CypherRunnerContext) extends Expression {
+  val procedure: CallableProcedure = runnerContext.procedureRegistry.getProcedure(funcInov.namespace.parts, funcInov.functionName.name).get
+  val args: Seq[Expression] = funcInov.args
+  val aggregating: Boolean = funcInov.containsAggregate
 
   override def position: InputPosition = funcInov.position
 
@@ -122,17 +127,36 @@ case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit planne
   override def canEqual(that: Any): Boolean = funcInov.canEqual(that)
 }
 
+case class FunctionMapper(runnerContext: CypherRunnerContext) extends Phase[BaseContext, BaseState, BaseState] {
+  override def phase: CompilationPhase = AST_REWRITE
+
+  override def description: String = "map functions to their procedure implementations"
+
+  override def process(from: BaseState, ignored: BaseContext): BaseState = {
+    val rewriter = inSequence(
+      bottomUp(Rewriter.lift {
+        case func: FunctionInvocation => {
+          ProcedureExpression(func)(runnerContext)
+        }
+      }))
+    val newStatement = from.statement().endoRewrite(rewriter)
+    from.withStatement(newStatement)
+  }
+
+  override def postConditions: Set[Condition] = Set.empty
+}
+
 class DefaultProcedures {
   @LynxProcedure(name = "lynx")
   def lynx(): String = {
     "lynx-0.3"
   }
   @LynxProcedure(name = "sum")
-  def sum(x: LynxInteger): LynxInteger = {
-    x
+  def sum(inputs: Seq[LynxInteger]): Int = {
+    inputs.map(_.value.toInt).reduce((a, b) => a + b)
   }
   @LynxProcedure(name = "power")
-  def power(x: LynxInteger, n: LynxInteger): LynxInteger = {
-    LynxInteger(math.pow(x.value, n.value).toInt)
+  def power(x: LynxInteger, n: LynxInteger): Int = {
+    math.pow(x.value, n.value).toInt
   }
 }

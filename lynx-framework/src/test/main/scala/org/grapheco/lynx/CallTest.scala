@@ -37,4 +37,8 @@ class CallTest extends TestBase {
   def testPower(): Unit = {
     val rs = runOnDemoGraph("match (n) return power(n.age, 2)").records().next()
   }
+  @Test
+  def testSumGroupBy(): Unit = {
+    val rs = runOnDemoGraph("match (n) return n.name, sum(n.age)").records().next()
+  }
 }
