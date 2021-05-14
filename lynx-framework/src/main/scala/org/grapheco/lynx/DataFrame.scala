@@ -135,15 +135,11 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
     DataFrame(schema2,
       () => df.records.map(
         record => {
-          println(colNames)
-          println(record)
           val nameValues= colNames.zip(record).toMap
-          println(nameValues)
           val recordCtx = ctx.withVars(nameValues)
           grouppings.map(col => expressionEvaluator.eval(col._2)(recordCtx)) -> recordCtx
           }
       ).toTraversable.groupBy(_._1).map(groupKey2AggregateValues => {
-        println(groupKey2AggregateValues)
         groupKey2AggregateValues._1 ++ {
           val aggregatingCtxs = groupKey2AggregateValues._2.toSeq.map(_._2)
           aggregatings.map(col => expressionEvaluator.evalGroup(col._2)(aggregatingCtxs))
