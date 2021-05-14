@@ -141,6 +141,17 @@ class DefaultProcedures {
   def sum(inputs: LynxList): Int = {
     inputs.value.map(_.asInstanceOf[LynxInteger].value.toInt).reduce((a, b) => a + b)
   }
+
+  @LynxProcedure(name = "max")
+  def max(inputs: LynxList): Int = {
+    inputs.value.map(_.asInstanceOf[LynxInteger].value.toInt).max
+  }
+
+  @LynxProcedure(name = "min")
+  def min(inputs: LynxList): Int = {
+    inputs.value.map(_.asInstanceOf[LynxInteger].value.toInt).min
+  }
+
   @LynxProcedure(name = "power")
   def power(x: LynxInteger, n: LynxInteger): Int = {
     math.pow(x.value, n.value).toInt
