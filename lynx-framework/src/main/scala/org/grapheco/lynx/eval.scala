@@ -6,6 +6,8 @@ import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, C
 trait ExpressionEvaluator {
   def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue
 
+  def evalGroup(expr: Expression)(ecs: Seq[ExpressionContext]): LynxValue
+
   def typeOf(expr: Expression, definedVarTypes: Map[String, LynxType]): LynxType
 }
 
@@ -40,8 +42,8 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case _: DoubleLiteral => CTFloat
       case CountStar() => CTInteger
 
-      case FunctionInvocation(Namespace(parts), FunctionName(name), distinct, args) =>
-        procedures.getProcedure(parts, name).map(_.outputs.head._2).getOrElse(CTAny)
+      case pe: ProcedureExpression =>
+        pe.procedure.outputs.head._2
 
       case Variable(name) => definedVarTypes(name)
       case _ => CTAny
@@ -76,10 +78,9 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case fe: ProcedureExpression => {
         if(fe.aggregating){
-          println("containsAggregate")
           LynxValue(fe.args.map(eval(_)))
         }else{
-          fe.procedure.call(fe.args.map(eval(_)), ec.executionContext)
+          fe.procedure.call(fe.args.map(eval(_)))
         }
       }
 
@@ -168,4 +169,11 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case MapExpression(items) => LynxMap(items.map(it => it._1.name -> eval(it._2)).toMap)
     }
+
+  override def evalGroup(expr: Expression)(ecs: Seq[ExpressionContext]): LynxValue = {
+    val vls = LynxValue(ecs.map(eval(expr)(_).value.asInstanceOf[Seq[LynxValue]].head))//TODO fix head
+    expr match {
+      case fe: ProcedureExpression => fe.procedure.call(Seq(vls))
+    }
+  }
 }

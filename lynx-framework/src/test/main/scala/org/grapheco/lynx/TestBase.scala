@@ -15,9 +15,9 @@ class TestBase extends LazyLogging {
 
   //(bluejoe)-[:KNOWS]->(alex)-[:KNOWS]->(CNIC)
   //(bluejoe)-[]-(CNIC)
-  val node1 = TestNode(1, Seq("person", "leader"), "name" -> LynxValue("bluejoe"), "age" -> LynxValue(40))
-  val node2 = TestNode(2, Seq("person"), "name" -> LynxValue("alex"), "age" -> LynxValue(30))
-  val node3 = TestNode(3, Seq(), "name" -> LynxValue("CNIC"), "age" -> LynxValue(10))
+  val node1 = TestNode(1, Seq("person", "leader"), "gender" -> LynxValue("male"), "name" -> LynxValue("bluejoe"), "age" -> LynxValue(40))
+  val node2 = TestNode(2, Seq("person"), "name" -> LynxValue("Alice"), "gender" -> LynxValue("female"), "age" -> LynxValue(30))
+  val node3 = TestNode(3, Seq(), "name" -> LynxValue("Bob"), "gender" -> LynxValue("male"), "age" -> LynxValue(10))
   val all_nodes = ArrayBuffer[TestNode](node1, node2, node3)
   val all_rels = ArrayBuffer[TestRelationship](
     TestRelationship(1, 1, 2, Some("KNOWS")),
@@ -76,14 +76,14 @@ class TestBase extends LazyLogging {
         override val inputs: Seq[(String, LynxType)] = Seq()
         override val outputs: Seq[(String, LynxType)] = Seq("haha" -> CTInteger)
 
-        override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
+        override def call(args: Seq[LynxValue]): LynxValue =
           LynxInteger(args.size)
       })
       case ".sum" => Some(new CallableProcedure {
         override val inputs: Seq[(String, LynxType)] = Seq()
         override val outputs: Seq[(String, LynxType)] = Seq("haha" -> CTInteger)
 
-        override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
+        override def call(args: Seq[LynxValue]): LynxValue =
           LynxInteger(args.size)
       })
 
@@ -107,7 +107,7 @@ class TestBase extends LazyLogging {
       override val inputs: Seq[(String, LynxType)] = Seq()
       override val outputs: Seq[(String, LynxType)] = Seq("name" -> CTString)
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
+      override def call(args: Seq[LynxValue]): LynxValue =
         LynxList(List(LynxValue("bluejoe"), LynxValue("lzx"), LynxValue("airzihao")))
     })
 
@@ -115,7 +115,7 @@ class TestBase extends LazyLogging {
       override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
       override val outputs: Seq[(String, LynxType)] = Seq("number" -> CTInteger)
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue=
+      override def call(args: Seq[LynxValue]): LynxValue=
         LynxInteger(args.head.value.toString.toInt)
     })
 
@@ -123,7 +123,7 @@ class TestBase extends LazyLogging {
       override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
       override val outputs: Seq[(String, LynxType)] = Seq("date" -> CTDate)
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
+      override def call(args: Seq[LynxValue]): LynxValue =
         LynxDateUtil.parse(args.head.asInstanceOf[LynxString].value)
     })
 
@@ -131,7 +131,7 @@ class TestBase extends LazyLogging {
       override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
       override val outputs: Seq[(String, LynxType)] = Seq("datetime" -> CTDateTime)
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
+      override def call(args: Seq[LynxValue]): LynxValue =
         LynxDateTimeUtil.parse(args.head.asInstanceOf[LynxString].value)
     })
 
@@ -139,7 +139,7 @@ class TestBase extends LazyLogging {
       override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
       override val outputs: Seq[(String, LynxType)] = Seq("localdatetime" -> CTLocalDateTime)
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
+      override def call(args: Seq[LynxValue]): LynxValue =
         LynxLocalDateTimeUtil.parse(args.head.asInstanceOf[LynxString].value)
     })
 
@@ -147,7 +147,7 @@ class TestBase extends LazyLogging {
       override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
       override val outputs: Seq[(String, LynxType)] = Seq("localtime" -> CTLocalTime)
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
+      override def call(args: Seq[LynxValue]): LynxValue =
         LynxLocalTimeUtil.parse(args.head.asInstanceOf[LynxString].value)
     })
 
@@ -155,7 +155,7 @@ class TestBase extends LazyLogging {
       override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
       override val outputs: Seq[(String, LynxType)] = Seq("time" -> CTTime)
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
+      override def call(args: Seq[LynxValue]): LynxValue =
         LynxTimeUtil.parse(args.head.asInstanceOf[LynxString].value)
     })
 
@@ -163,7 +163,7 @@ class TestBase extends LazyLogging {
       override val inputs: Seq[(String, LynxType)] = Seq("values" -> CTAny)
       override val outputs: Seq[(String, LynxType)] = Seq("count" -> CTInteger)
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
+      override def call(args: Seq[LynxValue]): LynxValue =
         LynxInteger(args.size)
     })
   }
