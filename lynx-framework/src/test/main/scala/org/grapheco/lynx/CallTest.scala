@@ -41,4 +41,12 @@ class CallTest extends TestBase {
   def testSumGroupBy(): Unit = {
     val rs = runOnDemoGraph("match (n) return n.gender, sum(n.age)").records().next()
   }
+  @Test
+  def testMaxGroupBy(): Unit = {
+    val rs = runOnDemoGraph("match (n) return n.gender, max(n.age)").records().next()
+  }
+  @Test
+  def testMinGroupBy(): Unit = {
+    val rs = runOnDemoGraph("match (n) return n.gender, min(n.age)").records().next()
+  }
 }
