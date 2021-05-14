@@ -2,7 +2,7 @@ package org.grapheco.lynx
 
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.func.{LynxProcedure, LynxProcedureArgument}
-import org.opencypher.v9_0.expressions.{Expression, FunctionInvocation, FunctionName, Namespace}
+import org.opencypher.v9_0.expressions.{Expression, FunctionInvocation}
 import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPhase
 import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPhase.AST_REWRITE
 import org.opencypher.v9_0.frontend.phases.{BaseContext, BaseState, Condition, Phase}
@@ -15,7 +15,7 @@ trait CallableProcedure {
   val inputs: Seq[(String, LynxType)]
   val outputs: Seq[(String, LynxType)]
 
-  def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue
+  def call(args: Seq[LynxValue]): LynxValue
 
   def signature(procedureName: String) = s"$procedureName(${inputs.map(x => Seq(x._1, x._2).mkString(":")).mkString(",")})"
 
@@ -29,23 +29,6 @@ trait CallableProcedure {
         throw WrongArgumentException(x._1._1, x._2, x._1._2)
     })
   }
-}
-
-trait CallableAggregationProcedure extends CallableProcedure {
-  val outputName: String
-  val outputValueType: LynxType
-
-  final override val inputs: Seq[(String, LynxType)] = Seq("values" -> CTAny)
-  final override val outputs: Seq[(String, LynxType)] = Seq(outputName -> outputValueType)
-
-  final override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue = {
-    collect(args.head)
-    LynxNull //TODO CallableAggregationProcedure
-  }
-
-  def collect(value: LynxValue): Unit
-
-  def value(): LynxValue
 }
 
 trait ProcedureRegistry {
@@ -94,7 +77,7 @@ class DefaultProcedureRegistry(types: TypeSystem, classes: Class[_]*) extends Pr
       override val inputs: Seq[(String, LynxType)] = inputs0
       override val outputs: Seq[(String, LynxType)] = outputs0
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue = LynxValue(call0(args))
+      override def call(args: Seq[LynxValue]): LynxValue = LynxValue(call0(args))
     })
   }
 
@@ -125,6 +108,11 @@ case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runner
   override def productArity: Int = funcInov.productArity
 
   override def canEqual(that: Any): Boolean = funcInov.canEqual(that)
+
+  override def containsAggregate: Boolean = funcInov.containsAggregate
+
+  override def findAggregate: Option[Expression] = funcInov.findAggregate
+
 }
 
 case class FunctionMapper(runnerContext: CypherRunnerContext) extends Phase[BaseContext, BaseState, BaseState] {
@@ -135,9 +123,7 @@ case class FunctionMapper(runnerContext: CypherRunnerContext) extends Phase[Base
   override def process(from: BaseState, ignored: BaseContext): BaseState = {
     val rewriter = inSequence(
       bottomUp(Rewriter.lift {
-        case func: FunctionInvocation => {
-          ProcedureExpression(func)(runnerContext)
-        }
+        case func: FunctionInvocation => ProcedureExpression(func)(runnerContext)
       }))
     val newStatement = from.statement().endoRewrite(rewriter)
     from.withStatement(newStatement)
@@ -152,8 +138,8 @@ class DefaultProcedures {
     "lynx-0.3"
   }
   @LynxProcedure(name = "sum")
-  def sum(inputs: Seq[LynxInteger]): Int = {
-    inputs.map(_.value.toInt).reduce((a, b) => a + b)
+  def sum(inputs: LynxList): Int = {
+    inputs.value.map(_.asInstanceOf[LynxInteger].value.toInt).reduce((a, b) => a + b)
   }
   @LynxProcedure(name = "power")
   def power(x: LynxInteger, n: LynxInteger): Int = {

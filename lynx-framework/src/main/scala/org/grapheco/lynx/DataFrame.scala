@@ -45,6 +45,8 @@ trait DataFrameOperator {
 
   def project(df: DataFrame, columns: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame
 
+  def groupBy(df: DataFrame, grouppingItems: Seq[(String, Expression)], aggregatingItems: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame
+
   def skip(df: DataFrame, num: Int): DataFrame
 
   def take(df: DataFrame, num: Int): DataFrame
@@ -107,119 +109,46 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
     )
   }
 
-  //  private def groupBy(df: DataFrame): DataFrame ={
-  //
-  //    val flagOfAggregation: Boolean = df.schema.exists(x => x._2.isInstanceOf[AggregationType])
-  //    val flagOfCountStar: Boolean = df.schema.exists(x => x._2.isInstanceOf[CountStarType])
-  //
-  //    var gBy:  mutable.IndexedSeq[(Int, CypherType)] = mutable.IndexedSeq[(Int, CypherType)]()
-  //    var aggre: mutable.IndexedSeq[(Int, CypherType)] = mutable.IndexedSeq[(Int, CypherType)]()
-  //
-  //
-  //    if (flagOfAggregation){
-  //      if (flagOfCountStar) DataFrame(df.schema, () => Iterator(Seq(LynxInteger(df.records.size))))
-  //      else {
-  //        df.schema.foreach(s => {
-  //          s._2 match {
-  //            case avgType: AvgType => aggre = aggre ++ Seq(df.schema.indexOf(s) ->s._2)
-  //            case maxType: MaxType => aggre = aggre ++ Seq(df.schema.indexOf(s) ->s._2)
-  //            case minType: MinType => aggre = aggre ++ Seq(df.schema.indexOf(s) ->s._2)
-  //            case sumType: SumType => aggre = aggre ++ Seq(df.schema.indexOf(s) ->s._2)
-  //            case countType: CountType => aggre = aggre ++ Seq(df.schema.indexOf(s) ->s._2)
-  //            case _ => gBy = gBy ++ Seq(df.schema.indexOf(s) ->s._2)
-  //          }
-  //        })
-  //
-  //        def single(a: Seq[LynxValue], aggre: mutable.IndexedSeq[(Int, CypherType)]): Seq[LynxValue] ={
-  //          a.map(s => {
-  //            val idex = a.indexOf(s)
-  //            aggre.toMap.get(idex) match {
-  //              case None => LynxNull
-  //              case Some(value) => value match {
-  //                case avgType: AvgType => s
-  //                case maxType: MaxType => s
-  //                case minType: MinType => s
-  //                case sumType: SumType => s
-  //                case countType: CountType => LynxInteger(1)
-  //              }
-  //            }
-  //          }).filter(!_.equals(LynxNull))
-  //        }
-  //        def zero(): Seq[LynxValue] ={
-  //          df.schema.map(s => {
-  //            s._2 match {
-  //              case avgType: AvgType => LynxNull
-  //              case maxType: MaxType => LynxNull
-  //              case minType: MinType => LynxNull
-  //              case sumType: SumType => LynxNull
-  //              case countType: CountType => LynxInteger(0)
-  //              case _ => LynxNull
-  //            }
-  //          })
-  //        }
-  //
-  //
-  //        def combine(a: Seq[LynxValue], b: Seq[LynxValue], aggre: mutable.IndexedSeq[(Int, CypherType)], size: Int): Seq[LynxValue] = {
-  //          a.map(s => {
-  //              val idex = a.indexOf(s)
-  //              aggre.toMap.get(idex) match {
-  //                case None => LynxNull
-  //                case Some(value) => value match {
-  //                  case avgType: AvgType => LynxDouble(s.value.asInstanceOf[Float] / size + b(idex).value.asInstanceOf[Float] / size)
-  //                  case maxType: MaxType => if (s >= b(idex)) s else b(idex)
-  //                  case minType: MinType => if (s <= b(idex)) s else b(idex)
-  //                  case sumType: SumType => s.asInstanceOf[LynxNumber] + b(idex).asInstanceOf[LynxNumber]
-  //                  case countType: CountType => s.asInstanceOf[LynxNumber] + b(idex).asInstanceOf[LynxNumber]//LynxInteger(size)
-  //                }
-  //              }
-  //            }).filter(!_.equals(LynxNull))
-  //
-  //        }
-  //        if(gBy.isEmpty) DataFrame(df.schema, ()=> Iterator(
-  //          df.records.size match {
-  //            case 1 => single(df.records.toList.head, aggre)
-  //            case 0 => zero()
-  //            case _ =>
-  //              val dfs = df.records.size
-  //              df.records.toList.reduce((a,b) => combine(a,b, aggre, dfs))
-  //          }
-  //        ))
-  //
-  //        else{
-  //          DataFrame(df.schema,
-  //            () =>df.records.toList.groupBy(r => gBy.map(_._1).toSeq.map(r(_))).mapValues(l =>
-  //                  l.size match {
-  //                    case 1 => single(l.head, aggre)
-  //                    case 0 => zero()
-  //                    case _ => l.reduce((a, b) => combine(a, b, aggre, l.size))
-  //                  }
-  //
-  //            ).map(x => x._1 ++ x._2).toIterator)
-  //        }
-  //
-  //
-  //      }
-  //    }
-  //    else df
-  //
-  //  }
   override def project(df: DataFrame, columns: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame = {
     val schema1 = df.schema
     val schema2 = columns.map(col =>
       col._1 -> expressionEvaluator.typeOf(col._2, schema1.toMap)
     )
+    val colNames = schema1.map(_._1)
 
-    val dfn: DataFrame = DataFrame(schema2,
+    DataFrame(schema2,
       () => df.records.map(
         record => {
-          columns.map(col => {
-            expressionEvaluator.eval(col._2)(ctx.withVars(schema1.map(_._1).zip(record).toMap))
-          })
+          val recordCtx = ctx.withVars(colNames.zip(record).toMap)
+          columns.map(col => expressionEvaluator.eval(col._2)(recordCtx)) //TODO: to opt
         }
       )
     )
-    //groupBy(dfn)
-    dfn
+  }
+
+  override def groupBy(df: DataFrame, grouppings:Seq[(String, Expression)], aggregatings: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame = {
+    val schema1 = df.schema
+    val schema2 = (grouppings++aggregatings).map(col =>
+      col._1 -> expressionEvaluator.typeOf(col._2, schema1.toMap)
+    )
+    val colNames = schema1.map(_._1)
+    DataFrame(schema2,
+      () => df.records.map(
+        record => {
+          println(colNames)
+          println(record)
+          val nameValues= colNames.zip(record).toMap
+          println(nameValues)
+          val recordCtx = ctx.withVars(nameValues)
+          grouppings.map(col => expressionEvaluator.eval(col._2)(recordCtx)) -> recordCtx
+          }
+      ).toTraversable.groupBy(_._1).map(groupKey2AggregateValues => {
+        println(groupKey2AggregateValues)
+        groupKey2AggregateValues._1 ++ {
+          val aggregatingCtxs = groupKey2AggregateValues._2.toSeq.map(_._2)
+          aggregatings.map(col => expressionEvaluator.evalGroup(col._2)(aggregatingCtxs))
+        }
+      }).toIterator)
   }
 
   override def filter(df: DataFrame, predicate: (Seq[LynxValue]) => Boolean)(ctx: ExpressionContext): DataFrame = {
@@ -274,8 +203,6 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
       )
     })
   }
-
-
 }
 
 trait DataFrameOps {
@@ -286,6 +213,9 @@ trait DataFrameOps {
 
   def project(columns: Seq[(String, Expression)])(implicit ctx: ExpressionContext): DataFrame =
     operator.project(srcFrame, columns)(ctx)
+
+  def groupBy(grouppings: Seq[(String, Expression)], aggregatings: Seq[(String, Expression)])(implicit ctx: ExpressionContext): DataFrame =
+    operator.groupBy(srcFrame, grouppings, aggregatings)(ctx)
 
   def join(b: DataFrame): DataFrame = operator.join(srcFrame, b)
 

@@ -150,6 +150,10 @@ case class LPTProject(ri: ReturnItemsDef)(val in: LPTNode) extends LPTNode {
   override val children: Seq[LPTNode] = Seq(in)
 }
 
+case class LPTAggregation(aggregatings: Seq[ReturnItem], groupings: Seq[ReturnItem])(val in: LPTNode) extends LPTNode {
+  override val children: Seq[LPTNode] = Seq(in)
+}
+
 case class LPTLimit(expression: Expression)(val in: LPTNode) extends LPTNode {
   override val children: Seq[LPTNode] = Seq(in)
 }
@@ -197,11 +201,14 @@ case class LPTCreateUnit(items: Seq[ReturnItem]) extends LPTNode {
 
 case class LPTProjectTranslator(ri: ReturnItemsDef) extends LPTNodeTranslator {
   def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
-    val preojectIn = in match {
-      case Some(sin) => sin
-      case None => LPTCreateUnit(ri.items)
+    val newIn = in.getOrElse(LPTCreateUnit(ri.items))
+    ri.containsAggregate match {
+      case false => LPTProject(ri)(newIn)
+      case true => {
+        val (aggregatingItems, groupingItems) = ri.items.partition(i => i.expression.containsAggregate)
+        LPTAggregation(aggregatingItems, groupingItems)(newIn)
+      }
     }
-    LPTProject(ri)(preojectIn)
   }
 }
 
@@ -292,21 +299,5 @@ case class LPTMatchTranslator(m: Match) extends LPTNodeTranslator {
     }
   }
 }
-//from neo4j Aggregation
-//case class LPTAggregation(left: LPTNode,
-//                       groupingExpressions: Map[String, Expression],
-//                       aggregationExpression: Map[String, Expression])
-//                      (val solved: PlannerQuery with CardinalityEstimation) extends LogicalPlan with EagerLogicalPlan {
-//
-//  def ap(newSolved: PlannerQuery with CardinalityEstimation) = copy()(newSolved)
-//
-//  val lhs = Some(left)
-//
-//  def rhs = None
-//
-//  val groupingKeys = groupingExpressions.keySet.map(IdName(_))
-//
-//  val availableSymbols = groupingKeys ++ aggregationExpression.keySet.map(IdName(_))
-//}
 
 case class UnknownASTNodeException(node: ASTNode) extends LynxException

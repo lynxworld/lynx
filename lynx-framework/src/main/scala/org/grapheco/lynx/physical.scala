@@ -55,6 +55,7 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case lc@LPTCreate(c: Create) => PPTCreateTranslator(c).translate(lc.in.map(plan(_)))(plannerContext)
       case ls@LPTSelect(columns: Seq[(String, Option[String])]) => PPTSelect(columns)(plan(ls.in), plannerContext)
       case lp@LPTProject(ri) => PPTProject(ri)(plan(lp.in), plannerContext)
+      case la@LPTAggregation(a, g) => PPTAggregation(a, g)(plan(la.in), plannerContext)
       case lc@LPTCreateUnit(items) => PPTCreateUnit(items)(plannerContext)
       case lf@LPTFilter(expr) => PPTFilter(expr)(plan(lf.in), plannerContext)
       case ld@LPTDistinct() => PPTDistinct()(plan(ld.in), plannerContext)
@@ -373,6 +374,21 @@ case class PPTProject(ri: ReturnItemsDef)(implicit val in: PPTNode, val plannerC
   def withReturnItems(items: Seq[ReturnItem]) = PPTProject(ReturnItems(ri.includeExisting, items)(ri.position))(in, plannerContext)
 }
 
+case class PPTAggregation(aggregatings: Seq[ReturnItem], groupings: Seq[ReturnItem])(implicit val in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = Seq(in)
+
+  override def withChildren(children0: Seq[PPTNode]): PPTAggregation = PPTAggregation(aggregatings, groupings)(children0.head, plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = (groupings ++ aggregatings).map(x => x.name -> x.expression).map { col =>
+    col._1 -> typeOf(col._2, in.schema.toMap)
+  }
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val df = in.execute(ctx)
+    df.groupBy(groupings.map(x => x.name -> x.expression), aggregatings.map(x => x.name -> x.expression))(ctx.expressionContext)
+  }
+}
+
 case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override def withChildren(children0: Seq[PPTNode]): PPTProcedureCall = PPTProcedureCall(procedureNamespace, procedureName, declaredArguments)(plannerContext)
 
@@ -400,7 +416,7 @@ case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: Proced
         }
 
 //        procedure.checkArguments((parts :+ name).mkString("."), args)
-        DataFrame(procedure.outputs, () => Iterator(Seq(procedure.call(args, ctx))))
+        DataFrame(procedure.outputs, () => Iterator(Seq(procedure.call(args))))
 
       case None => throw UnknownProcedureException(parts, name)
     }
