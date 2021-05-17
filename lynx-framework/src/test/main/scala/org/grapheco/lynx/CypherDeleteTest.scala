@@ -7,4 +7,8 @@ class CypherDeleteTest extends TestBase {
   def testDeleteNode(): Unit = {
     var rs = runOnDemoGraph("MATCH (n) Delete n")
   }
+  @Test
+  def testDeleteDetachNode(): Unit = {
+    var rs = runOnDemoGraph("MATCH (n) DETACH DELETE n")
+  }
 }
