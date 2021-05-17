@@ -15,7 +15,7 @@ class TestBase extends LazyLogging {
 
   //(bluejoe)-[:KNOWS]->(alex)-[:KNOWS]->(CNIC)
   //(bluejoe)-[]-(CNIC)
-  val node1 = TestNode(1, Seq("person", "leader"), "gender" -> LynxValue("male"), "name" -> LynxValue("bluejoe"), "age" -> LynxValue(40))
+  val node1 = TestNode(1, Seq("person", "leader"), "gender" -> LynxValue("male"), "name" -> LynxValue("bluejoe"), "age" -> LynxValue(40.1))
   val node2 = TestNode(2, Seq("person"), "name" -> LynxValue("Alice"), "gender" -> LynxValue("female"), "age" -> LynxValue(30))
   val node3 = TestNode(3, Seq(), "name" -> LynxValue("Bob"), "gender" -> LynxValue("male"), "age" -> LynxValue(10))
   val all_nodes = ArrayBuffer[TestNode](node1, node2, node3)
