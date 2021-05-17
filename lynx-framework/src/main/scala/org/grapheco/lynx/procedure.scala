@@ -208,8 +208,11 @@ class DefaultProcedures {
   }
 
   @LynxProcedure(name= "abs")
-  def abs(x: LynxNumber): Double = {
-   math.abs(x.number.doubleValue())
+  def abs(x: LynxNumber): LynxNumber = {
+    x match {
+      case i: LynxInteger => LynxInteger(math.abs(i.value))
+      case d: LynxDouble => LynxDouble(math.abs(d.value))
+    }
   }
 
   @LynxProcedure(name= "ceil")
