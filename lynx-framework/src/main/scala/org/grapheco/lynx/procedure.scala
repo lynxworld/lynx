@@ -138,18 +138,18 @@ class DefaultProcedures {
     "lynx-0.3"
   }
   @LynxProcedure(name = "sum")
-  def sum(inputs: LynxList): Int = {
-    inputs.value.map(_.asInstanceOf[LynxInteger].value.toInt).reduce((a, b) => a + b)
+  def sum(inputs: LynxList): LynxValue = {
+    LynxValue(inputs.value.map(_.asInstanceOf[LynxNumber].number.doubleValue()).sum)
   }
 
   @LynxProcedure(name = "max")
-  def max(inputs: LynxList): Int = {
-    inputs.value.map(_.asInstanceOf[LynxInteger].value.toInt).max
+  def max(inputs: LynxList): LynxValue = {
+    LynxValue(inputs.value.map(_.asInstanceOf[LynxNumber].number.doubleValue()).max)
   }
 
   @LynxProcedure(name = "min")
-  def min(inputs: LynxList): Int = {
-    inputs.value.map(_.asInstanceOf[LynxInteger].value.toInt).min
+  def min(inputs: LynxList): LynxValue = {
+    LynxValue(inputs.value.map(_.asInstanceOf[LynxNumber].number.doubleValue()).min)
   }
 
   @LynxProcedure(name = "power")
@@ -166,5 +166,196 @@ class DefaultProcedures {
   @LynxProcedure(name="date")
   def date(): LynxDate = {
     LynxDateUtil.now()
+  }
+  def power(x: LynxValue, n: LynxValue): LynxValue = {
+    x match {
+      case xln : LynxNumber => {
+        n match {
+          case nln: LynxNumber => LynxValue(math.pow(xln.number.doubleValue(), nln.number.doubleValue()))
+          case _ => LynxNull
+        }
+      }
+      case _ => LynxNull
+    }
+  }
+
+  @LynxProcedure(name= "abs")
+  def abs(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber =>LynxValue(math.abs(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+
+  @LynxProcedure(name= "ceil")
+  def ceil(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber =>LynxValue(math.ceil(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+
+  @LynxProcedure(name= "floor")
+  def floor(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber =>LynxValue(math.floor(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+
+  @LynxProcedure(name= "rand")
+  def rand(): LynxValue = {
+    LynxValue(math.random())
+  }
+
+  @LynxProcedure(name= "round")
+  def round(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber =>LynxValue(math.round(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+
+  @LynxProcedure(name= "round")
+  def round(x: LynxValue, precision: LynxInteger): LynxValue = {
+    x match {
+      case i: LynxNumber =>{
+        val base = math.pow(10, precision.value)
+        LynxValue(math.round(base * i.number.doubleValue()).toDouble / base)
+      }
+      case _ => LynxNull
+    }
+  }
+
+  @LynxProcedure(name= "sign")
+  def sign(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber => LynxValue(math.signum(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+
+  @LynxProcedure(name= "e")
+  def e(): LynxValue = {
+   LynxValue(Math.E)
+  }
+
+  @LynxProcedure(name= "exp")
+  def exp(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber => LynxValue(math.exp(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+
+  @LynxProcedure(name= "log")
+  def log(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber => LynxValue(math.log(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+
+  @LynxProcedure(name= "log10")
+  def log10(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber => LynxValue(math.log10(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+
+  @LynxProcedure(name= "sqrt")
+  def sqrt(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber => LynxValue(math.sqrt(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+
+  @LynxProcedure(name= "acos")
+  def acos(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber => LynxValue(math.acos(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+  @LynxProcedure(name= "asin")
+  def asin(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber => LynxValue(math.asin(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+  @LynxProcedure(name= "atan")
+  def atan(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber => LynxValue(math.atan(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+  @LynxProcedure(name= "atan2")
+  def atan2(x: LynxValue, y: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber => {
+        y match {
+          case j: LynxNumber => LynxValue(math.atan2(i.number.doubleValue(), j.number.doubleValue()))
+          case _ => LynxNull
+        }
+      }
+      case _ => LynxNull
+    }
+  }
+  @LynxProcedure(name= "cos")
+  def cos(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber => LynxValue(math.cos(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+  @LynxProcedure(name= "cot")
+  def cot(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber => LynxValue(1.0 / math.tan(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+  @LynxProcedure(name= "degrees")
+  def degrees(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber => LynxValue(math.toDegrees(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+  @LynxProcedure(name= "haversin")
+  def haversin(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber => LynxValue((1.0d - math.cos(i.number.doubleValue())) / 2)
+      case _ => LynxNull
+    }
+  }
+  @LynxProcedure(name= "pi")
+  def pi(): LynxValue = {
+   LynxValue(Math.PI)
+  }
+  @LynxProcedure(name= "radians")
+  def radians(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber => LynxValue(math.toRadians(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+  @LynxProcedure(name= "sin")
+  def sin(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber => LynxValue(math.sin(i.number.doubleValue()))
+      case _ => LynxNull
+    }
+  }
+  @LynxProcedure(name= "tan")
+  def tan(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxNumber => LynxValue(math.tan(i.number.doubleValue()))
+      case _ => LynxNull
+    }
   }
 }
