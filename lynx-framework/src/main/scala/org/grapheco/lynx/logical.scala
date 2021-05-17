@@ -1,6 +1,6 @@
 package org.grapheco.lynx
 
-import org.opencypher.v9_0.ast.{AliasedReturnItem, Clause, Create, CreateIndex, CreateUniquePropertyConstraint, Limit, Match, OrderBy, PeriodicCommitHint, ProcedureResult, ProcedureResultItem, Query, QueryPart, Return, ReturnItem, ReturnItems, ReturnItemsDef, SingleQuery, Skip, SortItem, Statement, UnresolvedCall, Where, With}
+import org.opencypher.v9_0.ast.{AliasedReturnItem, Clause, Create, CreateIndex, CreateUniquePropertyConstraint, Delete, Limit, Match, OrderBy, PeriodicCommitHint, ProcedureResult, ProcedureResultItem, Query, QueryPart, Return, ReturnItem, ReturnItems, ReturnItemsDef, SingleQuery, Skip, SortItem, Statement, UnresolvedCall, Where, With}
 import org.opencypher.v9_0.expressions.{EveryPath, Expression, FunctionInvocation, FunctionName, LabelName, LogicalVariable, Namespace, NodePattern, Pattern, PatternElement, PatternPart, ProcedureName, Property, PropertyKeyName, RelationshipChain, RelationshipPattern, Variable}
 import org.opencypher.v9_0.util.{ASTNode, InputPosition}
 
@@ -81,6 +81,16 @@ case class LPTCreateTranslator(c: Create) extends LPTNodeTranslator {
 case class LPTCreate(c: Create)(val in: Option[LPTNode]) extends LPTNode {
 }
 
+
+//////////////////Delete////////////////
+case class LPTDeleteTranslator(d: Delete) extends LPTNodeTranslator {
+  override def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode =
+    LPTDelete(d)(in)
+}
+
+case class LPTDelete(d: Delete)(val in: Option[LPTNode]) extends LPTNode {
+}
+
 ///////////////////////////////////////
 case class LPTQueryPartTranslator(part: QueryPart) extends LPTNodeTranslator {
   def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
@@ -94,6 +104,7 @@ case class LPTQueryPartTranslator(part: QueryPart) extends LPTNodeTranslator {
               case w: With => LPTWithTranslator(w)
               case m: Match => LPTMatchTranslator(m)
               case c: Create => LPTCreateTranslator(c)
+              case d: Delete => LPTDeleteTranslator(d)
             }
           )
         ).translate(in)
