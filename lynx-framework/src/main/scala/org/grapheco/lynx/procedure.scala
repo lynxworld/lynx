@@ -2,6 +2,7 @@ package org.grapheco.lynx
 
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.func.{LynxProcedure, LynxProcedureArgument}
+import org.grapheco.lynx.util.LynxDateUtil
 import org.opencypher.v9_0.expressions.{Expression, FunctionInvocation}
 import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPhase
 import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPhase.AST_REWRITE
@@ -32,11 +33,11 @@ trait CallableProcedure {
 }
 
 trait ProcedureRegistry {
-  def getProcedure(prefix: List[String], name: String): Option[CallableProcedure]
+  def getProcedure(prefix: List[String], name: String, argsLength: Int): Option[CallableProcedure]
 }
 
 class DefaultProcedureRegistry(types: TypeSystem, classes: Class[_]*) extends ProcedureRegistry with LazyLogging {
-  val procedures = mutable.Map[String, CallableProcedure]()
+  val procedures = mutable.Map[(String, Int), CallableProcedure]()
 
   classes.foreach(registerAnnotatedClass(_))
 
@@ -67,21 +68,20 @@ class DefaultProcedureRegistry(types: TypeSystem, classes: Class[_]*) extends Pr
     })
   }
 
-  def register(name: String, procedure: CallableProcedure): Unit = {
-    procedures(name) = procedure
+  def register(name: String, argsLength: Int, procedure: CallableProcedure): Unit = {
+    procedures((name, argsLength)) = procedure
     logger.debug(s"registered procedure: ${procedure.signature(name)}")
   }
 
   def register(name: String, inputs0: Seq[(String, LynxType)], outputs0: Seq[(String, LynxType)], call0: (Seq[LynxValue]) => LynxValue): Unit = {
-    register(name, new CallableProcedure() {
+    register(name, inputs0.size, new CallableProcedure() {
       override val inputs: Seq[(String, LynxType)] = inputs0
       override val outputs: Seq[(String, LynxType)] = outputs0
-
       override def call(args: Seq[LynxValue]): LynxValue = LynxValue(call0(args))
     })
   }
 
-  override def getProcedure(prefix: List[String], name: String): Option[CallableProcedure] = procedures.get((prefix :+ name).mkString("."))
+  override def getProcedure(prefix: List[String], name: String, argsLength: Int): Option[CallableProcedure] = procedures.get(((prefix :+ name).mkString("."), argsLength))
 }
 
 case class UnknownProcedureException(prefix: List[String], name: String) extends LynxException {
@@ -97,7 +97,7 @@ case class WrongArgumentException(argName: String, expectedType: LynxType, actua
 }
 
 case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runnerContext: CypherRunnerContext) extends Expression {
-  val procedure: CallableProcedure = runnerContext.procedureRegistry.getProcedure(funcInov.namespace.parts, funcInov.functionName.name).get
+  val procedure: CallableProcedure = runnerContext.procedureRegistry.getProcedure(funcInov.namespace.parts, funcInov.functionName.name, funcInov.args.size).get
   val args: Seq[Expression] = funcInov.args
   val aggregating: Boolean = funcInov.containsAggregate
 
@@ -155,5 +155,16 @@ class DefaultProcedures {
   @LynxProcedure(name = "power")
   def power(x: LynxInteger, n: LynxInteger): Int = {
     math.pow(x.value, n.value).toInt
+  }
+
+  @LynxProcedure(name="date")
+  def date(inputs: LynxString): LynxDate = {
+    if (inputs == null) LynxDateUtil.now()
+    LynxDateUtil.parse(inputs.value)
+  }
+
+  @LynxProcedure(name="date")
+  def date(): LynxDate = {
+    LynxDateUtil.now()
   }
 }

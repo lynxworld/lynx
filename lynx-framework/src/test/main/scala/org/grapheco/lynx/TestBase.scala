@@ -103,7 +103,7 @@ class TestBase extends LazyLogging {
     val myfun = new DefaultProcedureRegistry(types, classOf[DefaultProcedures])
     override lazy val procedures: ProcedureRegistry = myfun
 
-    myfun.register("test.authors", new CallableProcedure {
+    myfun.register("test.authors", 0, new CallableProcedure {
       override val inputs: Seq[(String, LynxType)] = Seq()
       override val outputs: Seq[(String, LynxType)] = Seq("name" -> CTString)
 
@@ -111,7 +111,7 @@ class TestBase extends LazyLogging {
         LynxList(List(LynxValue("bluejoe"), LynxValue("lzx"), LynxValue("airzihao")))
     })
 
-    myfun.register("toInterger", new CallableProcedure {
+    myfun.register("toInterger", 1, new CallableProcedure {
       override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
       override val outputs: Seq[(String, LynxType)] = Seq("number" -> CTInteger)
 
@@ -119,47 +119,7 @@ class TestBase extends LazyLogging {
         LynxInteger(args.head.value.toString.toInt)
     })
 
-    myfun.register("date", new CallableProcedure {
-      override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
-      override val outputs: Seq[(String, LynxType)] = Seq("date" -> CTDate)
-
-      override def call(args: Seq[LynxValue]): LynxValue =
-        LynxDateUtil.parse(args.head.asInstanceOf[LynxString].value)
-    })
-
-    myfun.register("datetime", new CallableProcedure {
-      override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
-      override val outputs: Seq[(String, LynxType)] = Seq("datetime" -> CTDateTime)
-
-      override def call(args: Seq[LynxValue]): LynxValue =
-        LynxDateTimeUtil.parse(args.head.asInstanceOf[LynxString].value)
-    })
-
-    myfun.register("localdatetime", new CallableProcedure {
-      override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
-      override val outputs: Seq[(String, LynxType)] = Seq("localdatetime" -> CTLocalDateTime)
-
-      override def call(args: Seq[LynxValue]): LynxValue =
-        LynxLocalDateTimeUtil.parse(args.head.asInstanceOf[LynxString].value)
-    })
-
-    myfun.register("localtime", new CallableProcedure {
-      override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
-      override val outputs: Seq[(String, LynxType)] = Seq("localtime" -> CTLocalTime)
-
-      override def call(args: Seq[LynxValue]): LynxValue =
-        LynxLocalTimeUtil.parse(args.head.asInstanceOf[LynxString].value)
-    })
-
-    myfun.register("time", new CallableProcedure {
-      override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
-      override val outputs: Seq[(String, LynxType)] = Seq("time" -> CTTime)
-
-      override def call(args: Seq[LynxValue]): LynxValue =
-        LynxTimeUtil.parse(args.head.asInstanceOf[LynxString].value)
-    })
-
-    myfun.register("count", new CallableProcedure {
+    myfun.register("count", 1, new CallableProcedure {
       override val inputs: Seq[(String, LynxType)] = Seq("values" -> CTAny)
       override val outputs: Seq[(String, LynxType)] = Seq("count" -> CTInteger)
 

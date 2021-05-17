@@ -53,6 +53,7 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case LPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]]) =>
         PPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])
       case lc@LPTCreate(c: Create) => PPTCreateTranslator(c).translate(lc.in.map(plan(_)))(plannerContext)
+      case ld@LPTDelete(d: Delete) => PPTDeleteTranslator(d).translate(ld.in.map(plan(_)))(plannerContext)
       case ls@LPTSelect(columns: Seq[(String, Option[String])]) => PPTSelect(columns)(plan(ls.in), plannerContext)
       case lp@LPTProject(ri) => PPTProject(ri)(plan(lp.in), plannerContext)
       case la@LPTAggregation(a, g) => PPTAggregation(a, g)(plan(la.in), plannerContext)
@@ -396,10 +397,9 @@ case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: Proced
     val Namespace(parts: List[String]) = procedureNamespace
     val ProcedureName(name: String) = procedureName
 
-    procedureRegistry.getProcedure(parts, name) match {
+    procedureRegistry.getProcedure(parts, name, declaredArguments.map(_.size).getOrElse(0)) match {
       case Some(procedure) =>
         procedure.outputs
-
       case None => throw UnknownProcedureException(parts, name)
     }
   }
@@ -408,7 +408,7 @@ case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: Proced
     val Namespace(parts: List[String]) = procedureNamespace
     val ProcedureName(name: String) = procedureName
 
-    procedureRegistry.getProcedure(parts, name) match {
+    procedureRegistry.getProcedure(parts, name, declaredArguments.map(_.size).getOrElse(0)) match {
       case Some(procedure) =>
         val args = declaredArguments match {
           case Some(args) => args.map(eval(_)(ctx.expressionContext))
@@ -579,6 +579,25 @@ case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[CreateElemen
             schemaLocal.map(x => created(x._1))
           })
     }.toSeq)
+  }
+}
+
+case class PPTDeleteTranslator(d: Delete) extends PPTNodeTranslator {
+  def translate(in: Option[PPTNode])(implicit plannerContext: PhysicalPlannerContext): PPTNode = {
+
+    PPTDelete()(in, plannerContext)
+  }
+}
+
+case class PPTDelete()(implicit val in: Option[PPTNode], val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = in.toSeq
+
+  override def withChildren(children0: Seq[PPTNode]): PPTDelete = PPTDelete()(children0.headOption, plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = in.map(_.schema).getOrElse(Seq.empty)
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    DataFrame.empty
   }
 }
 
