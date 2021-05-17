@@ -583,20 +583,23 @@ case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[CreateElemen
 }
 
 case class PPTDeleteTranslator(d: Delete) extends PPTNodeTranslator {
-  def translate(in: Option[PPTNode])(implicit plannerContext: PhysicalPlannerContext): PPTNode = {
-
-    PPTDelete()(in, plannerContext)
+  override def translate(in: Option[PPTNode])(implicit ppc: PhysicalPlannerContext): PPTNode = {
+    PPTDelete(d.forced)(in.get, ppc)
   }
 }
 
-case class PPTDelete()(implicit val in: Option[PPTNode], val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
-  override val children: Seq[PPTNode] = in.toSeq
+case class PPTDelete(forced: Boolean)(implicit val in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = Seq(in)
 
-  override def withChildren(children0: Seq[PPTNode]): PPTDelete = PPTDelete()(children0.headOption, plannerContext)
+  override def withChildren(children0: Seq[PPTNode]): PPTDelete = PPTDelete(forced)(children0.head, plannerContext)
 
-  override val schema: Seq[(String, LynxType)] = in.map(_.schema).getOrElse(Seq.empty)
+  override val schema: Seq[(String, LynxType)] = Seq.empty
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val df = in.execute(ctx)
+    graphModel.deleteNodes(df.records.map(r => {
+      r.head.asInstanceOf[LynxNode].id
+    }), forced)
     DataFrame.empty
   }
 }
