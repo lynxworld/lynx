@@ -52,7 +52,8 @@ class CallTest extends TestBase {
 
   @Test
   def testAbs(): Unit ={
-    Assert.assertEquals(LynxDouble(10.0), runOnDemoGraph(s"return abs(${20 - 30}) as value").records().next()("value"))
+    Assert.assertEquals(LynxInteger(10), runOnDemoGraph(s"return abs(${20 - 30}) as value").records().next()("value"))
+    Assert.assertEquals(LynxDouble(9.8), runOnDemoGraph(s"return abs(${20.2 - 30}) as value").records().next()("value"))
   }
 
   @Test
