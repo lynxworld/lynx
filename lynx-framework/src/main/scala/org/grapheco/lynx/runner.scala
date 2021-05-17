@@ -194,6 +194,8 @@ trait GraphModel {
   def nodes(): Iterator[LynxNode]
 
   def nodes(nodeFilter: NodeFilter): Iterator[LynxNode] = nodes().filter(nodeFilter.matches(_))
+
+  def deleteNodes(nodesIDs: Iterator[LynxId], forced: Boolean): Unit
 }
 
 trait TreeNode {
@@ -230,5 +232,9 @@ trait LynxException extends RuntimeException {
 }
 
 case class ParsingException(msg: String) extends LynxException {
+  override def getMessage: String = msg
+}
+
+case class ConstrainViolationException(msg: String) extends LynxException {
   override def getMessage: String = msg
 }
