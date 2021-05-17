@@ -2,7 +2,7 @@ package org.grapheco.lynx
 
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.func.{LynxProcedure, LynxProcedureArgument}
-import org.grapheco.lynx.util.LynxDateUtil
+import org.grapheco.lynx.util.{LynxDateTimeUtil, LynxDateUtil, LynxLocalDateTimeUtil, LynxLocalTimeUtil, LynxTimeUtil}
 import org.opencypher.v9_0.expressions.{Expression, FunctionInvocation}
 import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPhase
 import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPhase.AST_REWRITE
@@ -159,7 +159,6 @@ class DefaultProcedures {
 
   @LynxProcedure(name="date")
   def date(inputs: LynxString): LynxDate = {
-    if (inputs == null) LynxDateUtil.now()
     LynxDateUtil.parse(inputs.value)
   }
 
@@ -167,4 +166,46 @@ class DefaultProcedures {
   def date(): LynxDate = {
     LynxDateUtil.now()
   }
+
+  @LynxProcedure(name="datetime")
+  def datetime(inputs: LynxString): LynxDateTime = {
+    LynxDateTimeUtil.parse(inputs.value)
+  }
+
+  @LynxProcedure(name="datetime")
+  def datetime(): LynxDateTime = {
+    LynxDateTimeUtil.now()
+  }
+
+  @LynxProcedure(name="localdatetime")
+  def localDatetime(inputs: LynxString): LynxLocalDateTime = {
+    LynxLocalDateTimeUtil.parse(inputs.value)
+  }
+
+  @LynxProcedure(name="localdatetime")
+  def localDatetime(): LynxLocalDateTime = {
+    LynxLocalDateTimeUtil.now()
+  }
+
+  @LynxProcedure(name="time")
+  def time(inputs: LynxString): LynxTime = {
+    LynxTimeUtil.parse(inputs.value)
+  }
+
+  @LynxProcedure(name="time")
+  def time(): LynxTime = {
+    LynxTimeUtil.now()
+  }
+
+  @LynxProcedure(name="localtime")
+  def localTime(inputs: LynxString): LynxLocalTime = {
+    LynxLocalTimeUtil.parse(inputs.value)
+  }
+
+  @LynxProcedure(name="localtime")
+  def localTime(): LynxLocalTime = {
+    LynxLocalTimeUtil.now()
+  }
+
+
 }
