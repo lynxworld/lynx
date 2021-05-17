@@ -159,7 +159,6 @@ class DefaultProcedures {
 
   @LynxProcedure(name="date")
   def date(inputs: LynxString): LynxDate = {
-    if (inputs == null) LynxDateUtil.now()
     LynxDateUtil.parse(inputs.value)
   }
 
