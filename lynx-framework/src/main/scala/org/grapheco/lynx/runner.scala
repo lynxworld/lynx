@@ -195,7 +195,24 @@ trait GraphModel {
 
   def nodes(nodeFilter: NodeFilter): Iterator[LynxNode] = nodes().filter(nodeFilter.matches(_))
 
-  def deleteNodes(nodesIDs: Iterator[LynxId], forced: Boolean): Unit
+  def filterNodesWithRelations(nodesIDs: Seq[LynxId]): Seq[LynxId]
+
+  def deleteRelationsOfNodes(nodesIDs: Seq[LynxId]): Unit
+
+  def deleteFreeNodes(nodesIDs: Seq[LynxId]): Unit
+
+  def deleteNodes(nodesIDs: Iterator[LynxId], forced: Boolean): Unit = {
+    val ids = nodesIDs.toSeq //TODO fix the risk of out of memory
+    val hasRelNodes = filterNodesWithRelations(ids)
+    if(!forced){
+      if(hasRelNodes.nonEmpty){
+        throw ConstrainViolationException(s"deleting ${hasRelNodes.size} referred nodes")
+      }
+    }else{
+      deleteRelationsOfNodes(hasRelNodes)
+    }
+    deleteFreeNodes(ids)
+  }
 
   def setNodeProperty(nodeId: LynxId, propertyName: String, value: AnyRef): Seq[LynxValue]
 
