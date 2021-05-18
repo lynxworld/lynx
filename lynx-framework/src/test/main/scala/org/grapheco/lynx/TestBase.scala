@@ -98,20 +98,17 @@ class TestBase extends LazyLogging {
       allIndex.toArray
     }
 
-    override def deleteNodes(nodesIDs: Iterator[LynxId], forced: Boolean): Unit = {
-      val ids = nodesIDs.toSeq
-      val beforeNodeSize = all_nodes.size
-      val beforeRelSize = all_rels.size
-      val hasRelNodes = ids.filter(id => all_rels.filter(rel => rel.startNodeId==id || rel.endNodeId==id).nonEmpty)
-      if(!forced){
-        if(hasRelNodes.nonEmpty){
-          throw ConstrainViolationException(s"deleting ${hasRelNodes.size} referred nodes")
-        }
-      }else{
-        hasRelNodes.foreach(id => all_rels --= all_rels.filter(rel => rel.startNodeId==id || rel.endNodeId==id))
-      }
-      ids.foreach(id => all_nodes --= all_nodes.filter(_.id==id))
-      logger.debug(s"${beforeNodeSize-all_nodes.size} nodes and ${beforeRelSize-all_rels.size} relations deleted")
+
+    override def filterNodesWithRelations(nodesIDs: Seq[LynxId]): Seq[LynxId] = {
+      nodesIDs.filter(id => all_rels.filter(rel => rel.startNodeId==id || rel.endNodeId==id).nonEmpty)
+    }
+
+    override def deleteRelationsOfNodes(nodesIDs: Seq[LynxId]): Unit = {
+      nodesIDs.foreach(id => all_rels --= all_rels.filter(rel => rel.startNodeId==id || rel.endNodeId==id))
+    }
+
+    override def deleteFreeNodes(nodesIDs: Seq[LynxId]): Unit = {
+      nodesIDs.foreach(id => all_nodes --= all_nodes.filter(_.id==id))
     }
 
     override def setNodeProperty(nodeId: LynxId, propertyName: String, value: AnyRef): Seq[LynxValue] = {
