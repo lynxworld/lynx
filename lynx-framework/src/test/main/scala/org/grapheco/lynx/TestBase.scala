@@ -113,6 +113,60 @@ class TestBase extends LazyLogging {
       ids.foreach(id => all_nodes --= all_nodes.filter(_.id==id))
       logger.debug(s"${beforeNodeSize-all_nodes.size} nodes and ${beforeRelSize-all_rels.size} relations deleted")
     }
+
+    override def setNodeProperty(nodeId: LynxId, propertyName: String, value: AnyRef): Seq[LynxValue] = {
+      val record = all_nodes.find(n => n.id == nodeId)
+      if (record.isDefined){
+        val node = record.get
+        val property = scala.collection.mutable.Map(node.properties.toSeq:_*)
+        property(propertyName) = LynxValue(value)
+        val newNode = TestNode(node.id.value.asInstanceOf[Long], node.labels, property.toSeq:_*)
+        all_nodes -= node
+        all_nodes += newNode
+        Seq(newNode)
+      }
+      else Seq(LynxNull)
+    }
+
+    override def setNodeLabels(nodeId: LynxId, labels: Seq[String]): Seq[LynxValue] = {
+      val record = all_nodes.find(n => n.id == nodeId)
+      if (record.isDefined){
+        val node = record.get
+        val newNode = TestNode(node.id.value.asInstanceOf[Long], (node.labels ++ labels).distinct, node.properties.toSeq:_*)
+        all_nodes -= node
+        all_nodes += newNode
+        Seq(newNode)
+      }
+      else Seq(LynxNull)
+    }
+
+    override def setRelationshipProperty(triple: Seq[LynxValue], propertyName: String, value: AnyRef): Seq[LynxValue] = {
+      val rel = triple(1).asInstanceOf[LynxRelationship]
+      val record = all_rels.find(r => r.id == rel.id)
+      if (record.isDefined){
+        val relation = record.get
+        val property = scala.collection.mutable.Map(relation.properties.toSeq:_*)
+        property(propertyName) = LynxValue(value)
+        val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, relation.relationType, property.toMap.toSeq:_*)
+        all_rels -= relation
+        all_rels += newRelationship
+        Seq(triple.head, newRelationship, triple(2))
+      }
+      else Seq(LynxNull)
+    }
+
+    override def setRelationshipTypes(triple: Seq[LynxValue], labels: Seq[String]): Seq[LynxValue] = {
+      val rel = triple(1).asInstanceOf[LynxRelationship]
+      val record = all_rels.find(r => r.id == rel.id)
+      if (record.isDefined){
+        val relation = record.get
+        val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, Option(labels.head), relation.properties.toSeq:_*)
+        all_rels -= relation
+        all_rels += newRelationship
+        Seq(triple.head, newRelationship, triple(2))
+      }
+      else Seq(LynxNull)
+    }
   }
 
   val runner = new CypherRunner(model) {
