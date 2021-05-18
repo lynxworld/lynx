@@ -196,6 +196,14 @@ trait GraphModel {
   def nodes(nodeFilter: NodeFilter): Iterator[LynxNode] = nodes().filter(nodeFilter.matches(_))
 
   def deleteNodes(nodesIDs: Iterator[LynxId], forced: Boolean): Unit
+
+  def setNodeProperty(nodeId: LynxId, propertyName: String, value: AnyRef): Seq[LynxValue]
+
+  def setNodeLabels(nodeId: LynxId, labels: Seq[String]): Seq[LynxValue]
+
+  def setRelationshipProperty(triple: Seq[LynxValue],  propertyName: String, value: AnyRef): Seq[LynxValue]
+
+  def setRelationshipTypes(triple: Seq[LynxValue], labels: Seq[String]): Seq[LynxValue]
 }
 
 trait TreeNode {

@@ -66,6 +66,7 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case lj@LPTJoin() => PPTJoin()(plan(lj.a), plan(lj.b), plannerContext)
       case patternMatch: LPTPatternMatch => PPTPatternMatchTranslator(patternMatch)(plannerContext).translate(None)
       case li@LPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName]) => PPTCreateIndex(labelName, properties)(plannerContext)
+      case sc@LPTSetClause(d) => PPTSetClauseTranslator(d.items).translate(sc.in.map(plan(_)))(plannerContext)
     }
   }
 }
@@ -603,6 +604,61 @@ case class PPTDelete(forced: Boolean)(implicit val in: PPTNode, val plannerConte
     DataFrame.empty
   }
 }
+
+//////// SET ///////
+case class PPTSetClauseTranslator(setItems: Seq[SetItem]) extends PPTNodeTranslator {
+  override def translate(in: Option[PPTNode])(implicit ppc: PhysicalPlannerContext): PPTNode = {
+    PPTSetClause(setItems)(in.get, ppc)
+  }
+}
+
+case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = Seq(in)
+
+  override def withChildren(children0: Seq[PPTNode]): PPTSetClause = PPTSetClause(setItems)(children0.head, plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = in.schema
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val df = in.execute(ctx)
+    setItems.head match {
+      case sp@SetPropertyItem(property, literalExpr) =>{
+        val Property(variableExpr, propertyKeyName) = property
+        val keyName = propertyKeyName.name
+        val value = literalExpr.asInstanceOf[Literal].value
+
+        val res = df.records.map(n => {
+          n.size match {
+            case 1 => {
+              val node = n.head.asInstanceOf[LynxNode]
+              graphModel.setNodeProperty(node.id, keyName, value)
+            }
+            case 3 => {
+              graphModel.setRelationshipProperty(n, keyName, value)
+            }
+          }
+        })
+
+        DataFrame(schema, ()=>res)
+      }
+      case sl@SetLabelItem(variable, labels) => {
+        val res = df.records.map(n => {
+          n.size match {
+            case 1 =>{
+              val node = n.head.asInstanceOf[LynxNode]
+              graphModel.setNodeLabels(node.id, labels.map(l => l.name))
+            }
+            case 3 =>{
+              graphModel.setRelationshipTypes(n, labels.map(l => l.name))
+            }
+          }
+        })
+        DataFrame(schema, ()=>res)
+      }
+    }
+  }
+}
+////////////////////
 
 case class NodeInput(labels: Seq[String], props: Seq[(String, LynxValue)]) {
 
