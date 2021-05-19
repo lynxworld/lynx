@@ -95,9 +95,9 @@ case class LPTDelete(d: Delete)(val in: Option[LPTNode]) extends LPTNode {
 
 
 //////////////////Set////////////////
-case class LPTSetClauseTranslator(d: SetClause) extends LPTNodeTranslator {
+case class LPTSetClauseTranslator(s: SetClause) extends LPTNodeTranslator {
   override def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode =
-    LPTSetClause(d)(in)
+    LPTSetClause(s)(in)
 }
 
 case class LPTSetClause(d: SetClause)(val in: Option[LPTNode]) extends LPTNode {
