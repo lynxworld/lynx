@@ -143,7 +143,6 @@ class DefaultProcedures {
   //user should opt the count implementation at their own project
   @LynxProcedure(name = "count")
   def count(inputs: LynxList): Int = {
-    val rs = inputs.value
     inputs.value.size
   }
 
