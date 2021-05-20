@@ -214,13 +214,13 @@ trait GraphModel {
     deleteFreeNodes(ids)
   }
 
-  def setNodeProperty(nodeId: LynxId, propertyName: String, value: AnyRef): Seq[LynxValue]
+  def setNodeProperty(nodeId: LynxId, data: Array[(String ,AnyRef)], withReturn: Boolean = true): Option[Seq[LynxValue]]
 
-  def setNodeLabels(nodeId: LynxId, labels: Seq[String]): Seq[LynxValue]
+  def addNodeLabels(nodeId: LynxId, labels: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
 
-  def setRelationshipProperty(triple: Seq[LynxValue],  propertyName: String, value: AnyRef): Seq[LynxValue]
+  def setRelationshipProperty(triple: Seq[LynxValue],  data: Array[(String ,AnyRef)], withReturn: Boolean = true): Option[Seq[LynxValue]]
 
-  def setRelationshipTypes(triple: Seq[LynxValue], labels: Seq[String]): Seq[LynxValue]
+  def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
 }
 
 trait TreeNode {
