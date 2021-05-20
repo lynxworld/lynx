@@ -79,7 +79,6 @@ class TestBase extends LazyLogging {
       allIndex.toArray
     }
 
-
     override def filterNodesWithRelations(nodesIDs: Seq[LynxId]): Seq[LynxId] = {
       nodesIDs.filter(id => all_rels.filter(rel => rel.startNodeId==id || rel.endNodeId==id).nonEmpty)
     }
