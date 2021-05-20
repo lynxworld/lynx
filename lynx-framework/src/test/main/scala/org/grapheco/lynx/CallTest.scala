@@ -32,14 +32,22 @@ class CallTest extends TestBase {
 
   @Test
   def testCountSimple(): Unit = {
-    var rs = runOnDemoGraph("match (n) return n").records()
-    rs = runOnDemoGraph("match (n) return count(n)").records()
+    var rs = runOnDemoGraph("match (n) return count(n)").records().next()("count(n)")
+    Assert.assertEquals(LynxInteger(3), rs)
   }
 
   @Test
   def testSumSimple(): Unit = {
-    val rs = runOnDemoGraph("match (n) return sum(n.age)").records().next()
+    val rs = runOnDemoGraph("match (n) return sum(n.age)").records().next()("sum(n.age)")
+    Assert.assertEquals(LynxInteger(80), rs)
   }
+
+  @Test
+  def testAvg(): Unit = {
+    val rs = runOnDemoGraph("match (n) return avg(n.age)").records().next()("avg(n.age)")
+    Assert.assertEquals(LynxDouble(80/3.0), rs)
+  }
+
   @Test
   def testPower(): Unit = {
     val rs = runOnDemoGraph("match (n) return power(n.age, 3)").records().next()
