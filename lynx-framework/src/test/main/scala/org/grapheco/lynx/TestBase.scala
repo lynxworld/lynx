@@ -150,6 +150,68 @@ class TestBase extends LazyLogging {
       }
       else None
     }
+
+    override def removeNodeProperty(nodeId: LynxId, data: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+      val record = all_nodes.find(n => n.id == nodeId)
+      if (record.isDefined){
+        val node = record.get
+        val property = scala.collection.mutable.Map(node.properties.toSeq:_*)
+        data.foreach(f => {if (property.contains(f)) property -= f} )
+        val newNode = TestNode(node.id.value.asInstanceOf[Long], node.labels, property.toSeq:_*)
+        all_nodes -= node
+        all_nodes += newNode
+        if (withReturn) Option(Seq(newNode))
+        else None
+      }
+      else None
+    }
+
+    override def removeNodeLabels(nodeId: LynxId, labels: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+      val record = all_nodes.find(n => n.id == nodeId)
+      if (record.isDefined){
+        val node = record.get
+        val newNode = TestNode(node.id.value.asInstanceOf[Long], (node.labels.toBuffer -- labels), node.properties.toSeq:_*)
+        all_nodes -= node
+        all_nodes += newNode
+        if (withReturn) Option(Seq(newNode))
+        else None
+      }
+      else None
+    }
+
+    override def removeRelationshipProperty(triple: Seq[LynxValue], data: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+      val rel = triple(1).asInstanceOf[LynxRelationship]
+      val record = all_rels.find(r => r.id == rel.id)
+      if (record.isDefined){
+        val relation = record.get
+        val property = scala.collection.mutable.Map(relation.properties.toSeq:_*)
+        data.foreach(f => {if (property.contains(f)) property -= f} )
+        val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, relation.relationType, property.toMap.toSeq:_*)
+        all_rels -= relation
+        all_rels += newRelationship
+        if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
+        else None
+      }
+      else None
+    }
+
+    override def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+      val rel = triple(1).asInstanceOf[LynxRelationship]
+      val record = all_rels.find(r => r.id == rel.id)
+      if (record.isDefined){
+        val relation = record.get
+        val newType: Option[String] = {
+          if (relation.relationType.get == labels.head) None
+          else Option(relation.relationType.get)
+        }
+        val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, newType, relation.properties.toSeq:_*)
+        all_rels -= relation
+        all_rels += newRelationship
+        if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
+        else None
+      }
+      else None
+    }
   }
 
   val runner = new CypherRunner(model) {

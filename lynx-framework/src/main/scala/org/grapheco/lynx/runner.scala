@@ -221,6 +221,15 @@ trait GraphModel {
   def setRelationshipProperty(triple: Seq[LynxValue],  data: Array[(String ,AnyRef)], withReturn: Boolean = true): Option[Seq[LynxValue]]
 
   def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+
+  def removeNodeProperty(nodeId: LynxId, data: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+
+  def removeNodeLabels(nodeId: LynxId, labels: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+
+  def removeRelationshipProperty(triple: Seq[LynxValue],  data: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+
+  def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+
 }
 
 trait TreeNode {
