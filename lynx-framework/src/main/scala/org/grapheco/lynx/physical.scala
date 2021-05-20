@@ -67,6 +67,7 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case patternMatch: LPTPatternMatch => PPTPatternMatchTranslator(patternMatch)(plannerContext).translate(None)
       case li@LPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName]) => PPTCreateIndex(labelName, properties)(plannerContext)
       case sc@LPTSetClause(d) => PPTSetClauseTranslator(d.items).translate(sc.in.map(plan(_)))(plannerContext)
+      case lr@LPTRemove(r) => PPTRemoveTranslator(r.items).translate(lr.in.map(plan(_)))(plannerContext)
     }
   }
 }
@@ -719,6 +720,91 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
   }
 }
 ////////////////////
+
+/////////REMOVE//////////////
+case class PPTRemoveTranslator(removeItems: Seq[RemoveItem]) extends PPTNodeTranslator {
+  override def translate(in: Option[PPTNode])(implicit ppc: PhysicalPlannerContext): PPTNode = {
+    PPTRemove(removeItems)(in.get, ppc)
+  }
+}
+
+case class PPTRemove(removeItems: Seq[RemoveItem])(implicit val in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+
+  override val children: Seq[PPTNode] = Seq(in)
+
+  override def withChildren(children0: Seq[PPTNode]): PPTRemove = PPTRemove(removeItems)(children0.head, plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = in.schema
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val df = in.execute(ctx)
+    val isWithReturn = ctx.expressionContext.executionContext.statement.returnColumns.nonEmpty
+    removeItems.head match {
+      case rp@RemovePropertyItem(property) =>{
+        val data = removeItems.map(f => f.asInstanceOf[RemovePropertyItem].property.propertyKey.name).toArray
+        if (isWithReturn) {
+          val res = df.records.map(n => {
+            n.size match {
+              case 1 => {
+                val node = n.head.asInstanceOf[LynxNode]
+                graphModel.removeNodeProperty(node.id, data, isWithReturn)
+              }
+              case 3 => {
+                graphModel.removeRelationshipProperty(n, data, isWithReturn)
+              }
+            }
+          })
+          DataFrame(schema, ()=>res.map(f => f.get))
+        }
+        else{
+          df.records.foreach(n => {
+            n.size match {
+              case 1 => {
+                val node = n.head.asInstanceOf[LynxNode]
+                graphModel.removeNodeProperty(node.id, data, isWithReturn)
+              }
+              case 3 => {
+                graphModel.removeRelationshipProperty(n, data, isWithReturn)
+              }
+            }
+          })
+          DataFrame.empty
+        }
+      }
+      case rl@RemoveLabelItem(variable, labels) => {
+        if (isWithReturn) {
+          val res = df.records.map(n => {
+            n.size match {
+              case 1 => {
+                val node = n.head.asInstanceOf[LynxNode]
+                graphModel.removeNodeLabels(node.id, labels.map(f => f.name).toArray, isWithReturn)
+              }
+              case 3 => {
+                graphModel.removeRelationshipType(n, labels.map(f => f.name).toArray, isWithReturn)
+              }
+            }
+          })
+          DataFrame(schema, ()=>res.map(f => f.get))
+        }
+        else{
+          df.records.foreach(n => {
+            n.size match {
+              case 1 => {
+                val node = n.head.asInstanceOf[LynxNode]
+                graphModel.removeNodeLabels(node.id, labels.map(f => f.name).toArray, isWithReturn)
+              }
+              case 3 => {
+                graphModel.removeRelationshipType(n, labels.map(f => f.name).toArray, isWithReturn)
+              }
+            }
+          })
+          DataFrame.empty
+        }
+      }
+    }
+  }
+}
+////////////////////////////
 
 case class NodeInput(labels: Seq[String], props: Seq[(String, LynxValue)]) {
 
