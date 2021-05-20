@@ -96,10 +96,12 @@ case class WrongArgumentException(argName: String, expectedType: LynxType, actua
   override def getMessage: String = s"Wrong argument of $argName, expected: $expectedType, actual: ${actualType}"
 }
 
-case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runnerContext: CypherRunnerContext) extends Expression {
+case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runnerContext: CypherRunnerContext) extends Expression with LazyLogging {
   val procedure: CallableProcedure = runnerContext.procedureRegistry.getProcedure(funcInov.namespace.parts, funcInov.functionName.name, funcInov.args.size).get
   val args: Seq[Expression] = funcInov.args
   val aggregating: Boolean = funcInov.containsAggregate
+
+  logger.debug(s"binding FunctionInvocation ${funcInov.name} to procedure ${procedure}, containsAggregate: ${aggregating}")
 
   override def position: InputPosition = funcInov.position
 
@@ -137,6 +139,14 @@ class DefaultProcedures {
   def lynx(): String = {
     "lynx-0.3"
   }
+
+  //user should opt the count implementation at their own project
+  @LynxProcedure(name = "count")
+  def count(inputs: LynxList): Int = {
+    val rs = inputs.value
+    inputs.value.size
+  }
+
   @LynxProcedure(name = "sum")
   def sum(inputs: LynxList): LynxNumber = {
     inputs.value.map(_.asInstanceOf[LynxNumber]).reduce((a, b) => a + b)
