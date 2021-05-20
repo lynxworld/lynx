@@ -49,6 +49,18 @@ class CallTest extends TestBase {
   }
 
   @Test
+  def testScalarSize(): Unit = {
+    val rs = runOnDemoGraph("RETURN size(['Alice', 'Bob'])").records().next().head._2
+    Assert.assertEquals(LynxInteger(2), rs)
+  }
+
+  @Test
+  def testStringSize(): Unit = {
+    val rs = runOnDemoGraph("RETURN size('Alice')").records().next().head._2
+    Assert.assertEquals(LynxInteger(5), rs)
+  }
+
+  @Test
   def testPower(): Unit = {
     val rs = runOnDemoGraph("match (n) return power(n.age, 3)").records().next()
   }

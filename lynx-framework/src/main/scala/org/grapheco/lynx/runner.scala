@@ -272,3 +272,7 @@ case class ParsingException(msg: String) extends LynxException {
 case class ConstrainViolationException(msg: String) extends LynxException {
   override def getMessage: String = msg
 }
+
+case class ProcedureUnregisteredException(msg: String) extends LynxException {
+  override def getMessage: String = msg
+}

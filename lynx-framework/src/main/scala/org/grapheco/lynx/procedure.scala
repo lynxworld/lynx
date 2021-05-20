@@ -97,7 +97,7 @@ case class WrongArgumentException(argName: String, expectedType: LynxType, actua
 }
 
 case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runnerContext: CypherRunnerContext) extends Expression with LazyLogging {
-  val procedure: CallableProcedure = runnerContext.procedureRegistry.getProcedure(funcInov.namespace.parts, funcInov.functionName.name, funcInov.args.size).get
+  val procedure: CallableProcedure = runnerContext.procedureRegistry.getProcedure(funcInov.namespace.parts, funcInov.functionName.name, funcInov.args.size).getOrElse(throw ProcedureUnregisteredException(funcInov.name))
   val args: Seq[Expression] = funcInov.args
   val aggregating: Boolean = funcInov.containsAggregate
 
@@ -144,6 +144,14 @@ class DefaultProcedures {
   @LynxProcedure(name = "count")
   def count(inputs: LynxList): Int = {
     inputs.value.size
+  }
+
+  @LynxProcedure(name = "size")
+  def size(input: LynxValue): Int = {
+    input match {
+      case l: LynxList => l.value.size
+      case s: LynxString => s.value.size
+    }
   }
 
   @LynxProcedure(name = "sum")
