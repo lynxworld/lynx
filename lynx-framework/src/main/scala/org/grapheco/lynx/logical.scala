@@ -1,6 +1,6 @@
 package org.grapheco.lynx
 
-import org.opencypher.v9_0.ast.{AliasedReturnItem, Clause, Create, CreateIndex, CreateUniquePropertyConstraint, Delete, Limit, Match, OrderBy, PeriodicCommitHint, ProcedureResult, ProcedureResultItem, Query, QueryPart, Return, ReturnItem, ReturnItems, ReturnItemsDef, SetClause, SingleQuery, Skip, SortItem, Statement, UnresolvedCall, Where, With}
+import org.opencypher.v9_0.ast.{AliasedReturnItem, Clause, Create, CreateIndex, CreateUniquePropertyConstraint, Delete, Limit, Match, OrderBy, PeriodicCommitHint, ProcedureResult, ProcedureResultItem, Query, QueryPart, Remove, Return, ReturnItem, ReturnItems, ReturnItemsDef, SetClause, SingleQuery, Skip, SortItem, Statement, UnresolvedCall, Where, With}
 import org.opencypher.v9_0.expressions.{EveryPath, Expression, FunctionInvocation, FunctionName, LabelName, LogicalVariable, Namespace, NodePattern, Pattern, PatternElement, PatternPart, ProcedureName, Property, PropertyKeyName, RelationshipChain, RelationshipPattern, Variable}
 import org.opencypher.v9_0.util.{ASTNode, InputPosition}
 
@@ -108,6 +108,20 @@ case class LPTSetClause(d: SetClause)(val in: Option[LPTNode]) extends LPTNode {
 }
 ///////////////////////////////////////
 
+//////////////REMOVE//////////////////
+case class LPTRemoveTranslator(r: Remove) extends LPTNodeTranslator {
+  override def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode =
+    LPTRemove(r)(in)
+}
+
+case class LPTRemove(r: Remove)(val in: Option[LPTNode]) extends LPTNode {
+  override val children: Seq[LPTNode] = {
+    if (in.isDefined) Seq(in.get)
+    else Seq()
+  }
+}
+/////////////////////////////////////
+
 case class LPTQueryPartTranslator(part: QueryPart) extends LPTNodeTranslator {
   def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
     part match {
@@ -122,6 +136,7 @@ case class LPTQueryPartTranslator(part: QueryPart) extends LPTNodeTranslator {
               case c: Create => LPTCreateTranslator(c)
               case d: Delete => LPTDeleteTranslator(d)
               case s: SetClause => LPTSetClauseTranslator(s)
+              case r: Remove => LPTRemoveTranslator(r)
             }
           )
         ).translate(in)
