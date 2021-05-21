@@ -158,8 +158,8 @@ class DefaultProcedures {
   }
 
   @LynxProcedure(name="date")
-  def date(inputs: LynxString): LynxDate = {
-    LynxDateUtil.parse(inputs.value)
+  def date(inputs: LynxValue): LynxDate = {
+    LynxDateUtil.parse(inputs).asInstanceOf[LynxDate]
   }
 
   @LynxProcedure(name="date")
@@ -168,8 +168,8 @@ class DefaultProcedures {
   }
 
   @LynxProcedure(name="datetime")
-  def datetime(inputs: LynxString): LynxDateTime = {
-    LynxDateTimeUtil.parse(inputs.value)
+  def datetime(inputs: LynxValue): LynxDateTime = {
+    LynxDateTimeUtil.parse(inputs).asInstanceOf[LynxDateTime]
   }
 
   @LynxProcedure(name="datetime")
@@ -178,8 +178,8 @@ class DefaultProcedures {
   }
 
   @LynxProcedure(name="localdatetime")
-  def localDatetime(inputs: LynxString): LynxLocalDateTime = {
-    LynxLocalDateTimeUtil.parse(inputs.value)
+  def localDatetime(inputs: LynxValue): LynxLocalDateTime = {
+    LynxLocalDateTimeUtil.parse(inputs).asInstanceOf[LynxLocalDateTime]
   }
 
   @LynxProcedure(name="localdatetime")
@@ -188,8 +188,8 @@ class DefaultProcedures {
   }
 
   @LynxProcedure(name="time")
-  def time(inputs: LynxString): LynxTime = {
-    LynxTimeUtil.parse(inputs.value)
+  def time(inputs: LynxValue): LynxTime = {
+    LynxTimeUtil.parse(inputs).asInstanceOf[LynxTime]
   }
 
   @LynxProcedure(name="time")
@@ -198,8 +198,8 @@ class DefaultProcedures {
   }
 
   @LynxProcedure(name="localtime")
-  def localTime(inputs: LynxString): LynxLocalTime = {
-    LynxLocalTimeUtil.parse(inputs.value)
+  def localTime(inputs: LynxValue): LynxLocalTime = {
+    LynxLocalTimeUtil.parse(inputs).asInstanceOf[LynxLocalTime]
   }
 
   @LynxProcedure(name="localtime")
