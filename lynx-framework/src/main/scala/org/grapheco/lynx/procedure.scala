@@ -189,6 +189,7 @@ class DefaultProcedures {
     LynxDateUtil.now()
   }
 
+
   @LynxProcedure(name="datetime")
   def datetime(inputs: LynxValue): LynxDateTime = {
     LynxDateTimeUtil.parse(inputs).asInstanceOf[LynxDateTime]
@@ -353,4 +354,112 @@ class DefaultProcedures {
    math.tan(x.number.doubleValue())
   }
 
+  @LynxProcedure(name= "labels")
+  def labels(x: LynxNode): Seq[String] = {
+    x.labels
+  }
+
+  // scalar functions
+  @LynxProcedure(name= "id")
+  def id(x: LynxValue): Long = {
+    x match {
+      case n: LynxNode => n.id.value.asInstanceOf[Long]
+      case r: LynxRelationship => r.id.value.asInstanceOf[Long]
+      case _ => throw new LynxFunctionException("id can only used on node and relationship")
+    }
+  }
+
+  // string functions
+  @LynxProcedure(name= "left")
+  def left(x: LynxString, endIndex: LynxInteger): String = {
+    val str = x.value
+    if (endIndex.value.toInt < str.length) str.substring(0, endIndex.value.toInt)
+    else str
+  }
+
+  @LynxProcedure(name= "right")
+  def right(x: LynxString, endIndex: LynxInteger): String = {
+    val str = x.value
+    if (endIndex.value.toInt < str.length) str.substring(endIndex.value.toInt - 1)
+    else str
+  }
+
+  @LynxProcedure(name= "ltrim")
+  def ltrim(x: LynxString): String = {
+    val str = x.value
+    if (str == "" || str == null) str
+    else x.value.replaceAll(s"^[  ]+", "")
+  }
+
+  @LynxProcedure(name= "rtrim")
+  def rtrim(x: LynxString): String = {
+    val str = x.value
+    if (str == "" || str == null) str
+    else x.value.replaceAll(s"[　 ]+$$", "")
+  }
+
+  @LynxProcedure(name= "trim")
+  def trim(x: LynxString): String = {
+    val str = x.value
+    if (str == "" || str == null) str
+    else str.trim
+  }
+
+  @LynxProcedure(name= "replace")
+  def replace(x: LynxString, search: LynxString, replace: LynxString): String = {
+    val str = x.value
+    if (str == "" || str == null) str
+    else str.replaceAll(search.value, replace.value)
+  }
+
+  @LynxProcedure(name= "reverse")
+  def reverse(x: LynxString): String = {
+    val str = x.value
+    if (str == "" || str == null) str
+    else str.reverse
+  }
+
+  @LynxProcedure(name= "split")
+  def split(x: LynxString, regex: LynxString): Array[String] = {
+    val str = x.value
+    if (str == "" || str == null) Array(str)
+    else str.split(regex.value)
+  }
+
+  @LynxProcedure(name= "substring")
+  def substring(x: LynxString, left: LynxInteger, length: LynxInteger): String = {
+    val str = x.value
+    if (str == "" || str == null) str
+    else {
+      if (left.value.toInt + length.value.toInt < str.length)
+        str.substring(left.value.toInt, left.value.toInt + length.value.toInt)
+      else str.substring(left.value.toInt)
+    }
+  }
+
+  @LynxProcedure(name= "substring")
+  def substring(x: LynxString, left: LynxInteger): String = {
+    val str = x.value
+    if (str == "" || str == null) str
+    else str.substring(left.value.toInt)
+  }
+
+  @LynxProcedure(name= "toLower")
+  def toLower(x: LynxString): String = {
+    x.value.toLowerCase
+  }
+
+  @LynxProcedure(name= "toUpper")
+  def toUpper(x: LynxString): String = {
+    x.value.toUpperCase
+  }
+
+  @LynxProcedure(name= "toString")
+  def toString(x: LynxValue): String = {
+    x.value.toString
+  }
+}
+
+class LynxFunctionException(msg: String) extends LynxException{
+  override def getMessage: String = msg
 }

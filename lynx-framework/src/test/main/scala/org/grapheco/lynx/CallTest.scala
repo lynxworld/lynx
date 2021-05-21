@@ -198,4 +198,53 @@ class CallTest extends TestBase {
   def testTan(): Unit ={
     Assert.assertEquals(LynxDouble(0.5463024898437905), runOnDemoGraph(s"return tan(0.5) as value").records().next()("value"))
   }
+
+  // String Functions
+  @Test
+  def testLeft(): Unit ={
+    Assert.assertEquals(LynxString("hel"), runOnDemoGraph("return left('hello', 3) as value").records().next()("value"))
+  }
+
+  @Test
+  def testRight(): Unit ={
+    Assert.assertEquals(LynxString("llo"), runOnDemoGraph("return right('hello', 3) as value").records().next()("value"))
+  }
+
+  @Test
+  def testTrim(): Unit ={
+    Assert.assertEquals(LynxString("hello"), runOnDemoGraph("return ltrim('    hello') as value").records().next()("value"))
+    Assert.assertEquals(LynxString("hello"), runOnDemoGraph("return rtrim('hello    ') as value").records().next()("value"))
+    Assert.assertEquals(LynxString("hello"), runOnDemoGraph("return trim('    hello  ') as value").records().next()("value"))
+  }
+
+  @Test
+  def testReplace(): Unit ={
+    Assert.assertEquals(LynxString("hezzo"), runOnDemoGraph("return replace('hello', 'l', 'z') as value").records().next()("value"))
+  }
+
+  @Test
+  def testReverse(): Unit ={
+    Assert.assertEquals(LynxString("olleh"), runOnDemoGraph("return reverse('hello') as value").records().next()("value"))
+  }
+
+  @Test
+  def testSplit(): Unit ={
+    Assert.assertEquals(LynxList(List(LynxString("one"), LynxString("two"))), runOnDemoGraph("return split('one,two', ',') as value").records().next()("value"))
+  }
+
+  @Test
+  def testLowerAndUpper(): Unit ={
+    Assert.assertEquals(LynxString("hello"), runOnDemoGraph("return toLower('HELLO') as value").records().next()("value"))
+    Assert.assertEquals(LynxString("HELLO"), runOnDemoGraph("return toUpper('hello') as value").records().next()("value"))
+  }
+
+  @Test
+  def testToString(): Unit ={
+    Assert.assertEquals(LynxString("12"), runOnDemoGraph("return toString(12) as value").records().next()("value"))
+  }
+  @Test
+  def testSubString(): Unit ={
+    Assert.assertEquals(LynxString("llo"), runOnDemoGraph("return substring('hello', 2) as value").records().next()("value"))
+    Assert.assertEquals(LynxString("el"), runOnDemoGraph("return substring('hello', 1, 2) as value").records().next()("value"))
+  }
 }
