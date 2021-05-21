@@ -96,10 +96,12 @@ case class WrongArgumentException(argName: String, expectedType: LynxType, actua
   override def getMessage: String = s"Wrong argument of $argName, expected: $expectedType, actual: ${actualType}"
 }
 
-case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runnerContext: CypherRunnerContext) extends Expression {
-  val procedure: CallableProcedure = runnerContext.procedureRegistry.getProcedure(funcInov.namespace.parts, funcInov.functionName.name, funcInov.args.size).get
+case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runnerContext: CypherRunnerContext) extends Expression with LazyLogging {
+  val procedure: CallableProcedure = runnerContext.procedureRegistry.getProcedure(funcInov.namespace.parts, funcInov.functionName.name, funcInov.args.size).getOrElse(throw ProcedureUnregisteredException(funcInov.name))
   val args: Seq[Expression] = funcInov.args
   val aggregating: Boolean = funcInov.containsAggregate
+
+  logger.debug(s"binding FunctionInvocation ${funcInov.name} to procedure ${procedure}, containsAggregate: ${aggregating}")
 
   override def position: InputPosition = funcInov.position
 
@@ -137,19 +139,39 @@ class DefaultProcedures {
   def lynx(): String = {
     "lynx-0.3"
   }
+
+  //user should opt the count implementation at their own project
+  @LynxProcedure(name = "count")
+  def count(inputs: LynxList): Int = {
+    inputs.value.size
+  }
+
+  @LynxProcedure(name = "size")
+  def size(input: LynxValue): Int = {
+    input match {
+      case l: LynxList => l.value.size
+      case s: LynxString => s.value.size
+    }
+  }
+
   @LynxProcedure(name = "sum")
-  def sum(inputs: LynxList): Int = {
-    inputs.value.map(_.asInstanceOf[LynxInteger].value.toInt).reduce((a, b) => a + b)
+  def sum(inputs: LynxList): LynxNumber = {
+    inputs.value.map(_.asInstanceOf[LynxNumber]).reduce((a, b) => a + b)
+  }
+
+  @LynxProcedure(name = "avg")
+  def avg(inputs: LynxList): Double = {
+    inputs.value.map(_.asInstanceOf[LynxNumber]).reduce((a, b) => a + b).number.doubleValue() / inputs.value.size
   }
 
   @LynxProcedure(name = "max")
-  def max(inputs: LynxList): Int = {
-    inputs.value.map(_.asInstanceOf[LynxInteger].value.toInt).max
+  def max(inputs: LynxList): LynxNumber = {
+    inputs.value.map(_.asInstanceOf[LynxNumber]).reduce((a, b) => if (a > b) a else b)
   }
 
   @LynxProcedure(name = "min")
-  def min(inputs: LynxList): Int = {
-    inputs.value.map(_.asInstanceOf[LynxInteger].value.toInt).min
+  def min(inputs: LynxList): LynxNumber = {
+    inputs.value.map(_.asInstanceOf[LynxNumber]).reduce((a, b) => if (a > b) b else a)
   }
 
   @LynxProcedure(name = "power")
@@ -208,124 +230,127 @@ class DefaultProcedures {
   }
 
   @LynxProcedure(name= "abs")
-  def abs(x: LynxNumber): LynxValue = {
-    LynxValue(math.abs(x.number.doubleValue()))
+  def abs(x: LynxNumber): LynxNumber = {
+    x match {
+      case i: LynxInteger => LynxInteger(math.abs(i.value))
+      case d: LynxDouble => LynxDouble(math.abs(d.value))
+    }
   }
 
   @LynxProcedure(name= "ceil")
-  def ceil(x: LynxNumber): LynxValue = {
-    LynxValue(math.ceil(x.number.doubleValue()))
+  def ceil(x: LynxNumber): Double = {
+    math.ceil(x.number.doubleValue())
   }
 
   @LynxProcedure(name= "floor")
-  def floor(x: LynxNumber): LynxValue = {
-   LynxValue(math.floor(x.number.doubleValue()))
+  def floor(x: LynxNumber): Double = {
+   math.floor(x.number.doubleValue())
   }
 
   @LynxProcedure(name= "rand")
-  def rand(): LynxValue = {
-    LynxValue(math.random())
+  def rand(): Double = {
+    math.random()
   }
 
   @LynxProcedure(name= "round")
-  def round(x: LynxNumber): LynxValue = {
-    LynxValue(math.round(x.number.doubleValue()))
+  def round(x: LynxNumber): Long = {
+    math.round(x.number.doubleValue())
   }
 
   @LynxProcedure(name= "round")
-  def round(x: LynxNumber, precision: LynxInteger): LynxValue = {
+  def round(x: LynxNumber, precision: LynxInteger): Double = {
     val base = math.pow(10, precision.value)
-    LynxValue(math.round(base * x.number.doubleValue()).toDouble / base)
+    math.round(base * x.number.doubleValue()).toDouble / base
   }
 
   @LynxProcedure(name= "sign")
-  def sign(x: LynxNumber): LynxValue = {
-   LynxValue(math.signum(x.number.doubleValue()))
+  def sign(x: LynxNumber): Double = {
+   math.signum(x.number.doubleValue())
   }
 
   @LynxProcedure(name= "e")
-  def e(): LynxValue = {
-   LynxValue(Math.E)
+  def e(): Double = {
+   Math.E
   }
 
   @LynxProcedure(name= "exp")
-  def exp(x: LynxNumber): LynxValue = {
-    LynxValue(math.exp(x.number.doubleValue()))
+  def exp(x: LynxNumber): Double = {
+    math.exp(x.number.doubleValue())
   }
 
   @LynxProcedure(name= "log")
-  def log(x: LynxNumber): LynxValue = {
-   LynxValue(math.log(x.number.doubleValue()))
+  def log(x: LynxNumber): Double = {
+   math.log(x.number.doubleValue())
   }
 
   @LynxProcedure(name= "log10")
-  def log10(x: LynxNumber): LynxValue = {
-    LynxValue(math.log10(x.number.doubleValue()))
+  def log10(x: LynxNumber): Double = {
+    math.log10(x.number.doubleValue())
   }
 
   @LynxProcedure(name= "sqrt")
-  def sqrt(x: LynxNumber): LynxValue = {
-   LynxValue(math.sqrt(x.number.doubleValue()))
+  def sqrt(x: LynxNumber): Double = {
+   math.sqrt(x.number.doubleValue())
   }
 
   @LynxProcedure(name= "acos")
-  def acos(x: LynxNumber): LynxValue = {
-   LynxValue(math.acos(x.number.doubleValue()))
+  def acos(x: LynxNumber): Double = {
+   math.acos(x.number.doubleValue())
   }
 
   @LynxProcedure(name= "asin")
-  def asin(x: LynxNumber): LynxValue = {
-    LynxValue(math.asin(x.number.doubleValue()))
+  def asin(x: LynxNumber): Double = {
+    math.asin(x.number.doubleValue())
   }
 
   @LynxProcedure(name= "atan")
-  def atan(x: LynxNumber): LynxValue = {
-   LynxValue(math.atan(x.number.doubleValue()))
+  def atan(x: LynxNumber): Double = {
+   math.atan(x.number.doubleValue())
   }
 
   @LynxProcedure(name= "atan2")
-  def atan2(x: LynxNumber, y: LynxNumber): LynxValue = {
-    LynxValue(math.atan2(x.number.doubleValue(), y.number.doubleValue()))
+  def atan2(x: LynxNumber, y: LynxNumber): Double = {
+    math.atan2(x.number.doubleValue(), y.number.doubleValue())
   }
 
   @LynxProcedure(name= "cos")
-  def cos(x: LynxNumber): LynxValue = {
-   LynxValue(math.cos(x.number.doubleValue()))
+  def cos(x: LynxNumber): Double = {
+   math.cos(x.number.doubleValue())
   }
 
   @LynxProcedure(name= "cot")
-  def cot(x: LynxNumber): LynxValue = {
-    LynxValue(1.0 / math.tan(x.number.doubleValue()))
+  def cot(x: LynxNumber): Double = {
+    1.0 / math.tan(x.number.doubleValue())
   }
 
   @LynxProcedure(name= "degrees")
-  def degrees(x: LynxNumber): LynxValue = {
-    LynxValue(math.toDegrees(x.number.doubleValue()))
+  def degrees(x: LynxNumber): Double = {
+    math.toDegrees(x.number.doubleValue())
   }
 
   @LynxProcedure(name= "haversin")
-  def haversin(x: LynxNumber): LynxValue = {
-    LynxValue((1.0d - math.cos(x.number.doubleValue())) / 2)
+  def haversin(x: LynxNumber): Double = {
+    (1.0d - math.cos(x.number.doubleValue())) / 2
   }
 
   @LynxProcedure(name= "pi")
-  def pi(): LynxValue = {
-   LynxValue(Math.PI)
+  def pi(): Double = {
+   Math.PI
   }
 
   @LynxProcedure(name= "radians")
-  def radians(x: LynxNumber): LynxValue = {
-    LynxValue(math.toRadians(x.number.doubleValue()))
+  def radians(x: LynxNumber): Double = {
+    math.toRadians(x.number.doubleValue())
   }
 
   @LynxProcedure(name= "sin")
-  def sin(x: LynxNumber): LynxValue = {
-    LynxValue(math.sin(x.number.doubleValue()))
+  def sin(x: LynxNumber): Double = {
+    math.sin(x.number.doubleValue())
   }
 
   @LynxProcedure(name= "tan")
-  def tan(x: LynxNumber): LynxValue = {
-   LynxValue(math.tan(x.number.doubleValue()))
+  def tan(x: LynxNumber): Double = {
+   math.tan(x.number.doubleValue())
   }
 
 }

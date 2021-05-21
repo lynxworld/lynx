@@ -195,7 +195,41 @@ trait GraphModel {
 
   def nodes(nodeFilter: NodeFilter): Iterator[LynxNode] = nodes().filter(nodeFilter.matches(_))
 
-  def deleteNodes(nodesIDs: Iterator[LynxId], forced: Boolean): Unit
+  def filterNodesWithRelations(nodesIDs: Seq[LynxId]): Seq[LynxId]
+
+  def deleteRelationsOfNodes(nodesIDs: Seq[LynxId]): Unit
+
+  def deleteFreeNodes(nodesIDs: Seq[LynxId]): Unit
+
+  def deleteNodes(nodesIDs: Iterator[LynxId], forced: Boolean): Unit = {
+    val ids = nodesIDs.toSeq //TODO fix the risk of out of memory
+    val hasRelNodes = filterNodesWithRelations(ids)
+    if(!forced){
+      if(hasRelNodes.nonEmpty){
+        throw ConstrainViolationException(s"deleting ${hasRelNodes.size} referred nodes")
+      }
+    }else{
+      deleteRelationsOfNodes(hasRelNodes)
+    }
+    deleteFreeNodes(ids)
+  }
+
+  def setNodeProperty(nodeId: LynxId, data: Array[(String ,AnyRef)], withReturn: Boolean = true): Option[Seq[LynxValue]]
+
+  def addNodeLabels(nodeId: LynxId, labels: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+
+  def setRelationshipProperty(triple: Seq[LynxValue],  data: Array[(String ,AnyRef)], withReturn: Boolean = true): Option[Seq[LynxValue]]
+
+  def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+
+  def removeNodeProperty(nodeId: LynxId, data: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+
+  def removeNodeLabels(nodeId: LynxId, labels: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+
+  def removeRelationshipProperty(triple: Seq[LynxValue],  data: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+
+  def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+
 }
 
 trait TreeNode {
@@ -236,5 +270,9 @@ case class ParsingException(msg: String) extends LynxException {
 }
 
 case class ConstrainViolationException(msg: String) extends LynxException {
+  override def getMessage: String = msg
+}
+
+case class ProcedureUnregisteredException(msg: String) extends LynxException {
   override def getMessage: String = msg
 }
