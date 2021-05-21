@@ -1,5 +1,7 @@
 package org.grapheco.lynx
 
+import java.util.regex.Pattern
+
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.func.{LynxProcedure, LynxProcedureArgument}
 import org.grapheco.lynx.util.{LynxDateTimeUtil, LynxDateUtil, LynxLocalDateTimeUtil, LynxLocalTimeUtil, LynxTimeUtil}
@@ -135,6 +137,10 @@ case class FunctionMapper(runnerContext: CypherRunnerContext) extends Phase[Base
 }
 
 class DefaultProcedures {
+
+  val booleanPattern = Pattern.compile("true|false", Pattern.CASE_INSENSITIVE)
+  val numberPattern = Pattern.compile("-?[0-9]+.?[0-9]+")
+
   @LynxProcedure(name = "lynx")
   def lynx(): String = {
     "lynx-0.3"
@@ -230,6 +236,8 @@ class DefaultProcedures {
     LynxLocalTimeUtil.now()
   }
 
+
+  // math functions
   @LynxProcedure(name= "abs")
   def abs(x: LynxNumber): LynxNumber = {
     x match {
@@ -368,6 +376,62 @@ class DefaultProcedures {
       case _ => throw new LynxFunctionException("id can only used on node and relationship")
     }
   }
+
+  @LynxProcedure(name= "toInteger")
+  def toInteger(x: LynxValue): LynxValue = {
+    x match {
+      case n: LynxNumber => LynxInteger(n.number.intValue())
+      case r: LynxString => {
+        val str = r.value
+        val res = numberPattern.matcher(str)
+        if (res.matches()) {
+          LynxInteger(str.toDouble.toInt)
+        }
+        else LynxNull
+      }
+      case _ => throw new LynxFunctionException("toInteger conversion failure")
+    }
+  }
+
+  @LynxProcedure(name= "toFloat")
+  def toFloat(x: LynxValue): LynxValue = {
+    x match {
+      case n: LynxNumber => LynxDouble(n.number.floatValue())
+      case r: LynxString => {
+        val str = r.value
+        val res = numberPattern.matcher(str)
+        if (res.matches()) LynxDouble(str.toDouble)
+        else LynxNull
+      }
+      case _ => throw new LynxFunctionException("toFloat conversion failure")
+    }
+  }
+
+  @LynxProcedure(name= "toBoolean")
+  def toBoolean(x: LynxValue): LynxValue = {
+    x match {
+      case r: LynxString => {
+        val str = r.value
+        val res = booleanPattern.matcher(str)
+        if (res.matches()) LynxValue(str.toBoolean)
+        else LynxNull
+      }
+      case _ => throw new LynxFunctionException("toBoolean conversion failure")
+    }
+  }
+
+  @LynxProcedure(name= "type")
+  def getType(x: LynxValue): LynxValue = {
+    x match {
+      case r: LynxRelationship => {
+        val t = r.relationType
+        if (t.isDefined) LynxValue(t.get)
+        else LynxNull
+      }
+      case _ => throw new LynxFunctionException("type can only used on relationship")
+    }
+  }
+
 
   // string functions
   @LynxProcedure(name= "left")
