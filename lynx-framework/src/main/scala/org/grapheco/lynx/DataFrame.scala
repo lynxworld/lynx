@@ -133,18 +133,24 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
     )
     val colNames = schema1.map(_._1)
     DataFrame(schema2,
-      () => df.records.map(
-        record => {
+      () => {
+        val recordGroups = df.records.map(record => {
           val nameValues= colNames.zip(record).toMap
           val recordCtx = ctx.withVars(nameValues)
           grouppings.map(col => expressionEvaluator.eval(col._2)(recordCtx)) -> recordCtx
-          }
-      ).toTraversable.groupBy(_._1).map(groupKey2AggregateValues => {
-        groupKey2AggregateValues._1 ++ {
-          val aggregatingCtxs = groupKey2AggregateValues._2.toSeq.map(_._2)
-          aggregatings.map(col => expressionEvaluator.evalGroup(col._2)(aggregatingCtxs))
+        }).toTraversable.groupBy(_._1)
+        if (recordGroups.nonEmpty) {
+          recordGroups.map(groupKey2AggregateValues => {
+            groupKey2AggregateValues._1 ++ {
+              val aggregatingCtxs = groupKey2AggregateValues._2.toSeq.map(_._2)
+              aggregatings.map(col => expressionEvaluator.evalGroup(col._2)(aggregatingCtxs))
+            }
+          }).toIterator
+        } else {
+          Iterator(aggregatings.map(col => expressionEvaluator.evalGroup(col._2)(Seq())))
         }
-      }).toIterator)
+      }
+    )
   }
 
   override def filter(df: DataFrame, predicate: (Seq[LynxValue]) => Boolean)(ctx: ExpressionContext): DataFrame = {
