@@ -247,4 +247,18 @@ class CallTest extends TestBase {
     Assert.assertEquals(LynxString("llo"), runOnDemoGraph("return substring('hello', 2) as value").records().next()("value"))
     Assert.assertEquals(LynxString("el"), runOnDemoGraph("return substring('hello', 1, 2) as value").records().next()("value"))
   }
+  @Test
+  def testId(): Unit ={
+    Assert.assertEquals(LynxInteger(3), runOnDemoGraph("match (n) where n.name='Bob' return id(n)").records().next()("id(n)"))
+  }
+  @Test
+  def testTo(): Unit ={
+    Assert.assertEquals(LynxInteger(10), runOnDemoGraph("return toInteger('10.2') as value").records().next()("value"))
+    Assert.assertEquals(LynxDouble(10.2), runOnDemoGraph("return toFloat('10.2') as value").records().next()("value"))
+    Assert.assertEquals(LynxBoolean(false), runOnDemoGraph("return toBoolean('false') as value").records().next()("value"))
+  }
+  @Test
+  def testType(): Unit ={
+    Assert.assertEquals(LynxString("KNOWS"), runOnDemoGraph("match (n)-[r]->(m) where id(m)=2 return type(r) as value").records().next()("value"))
+  }
 }
