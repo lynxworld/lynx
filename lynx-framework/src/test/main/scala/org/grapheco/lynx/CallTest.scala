@@ -261,4 +261,10 @@ class CallTest extends TestBase {
   def testType(): Unit ={
     Assert.assertEquals(LynxString("KNOWS"), runOnDemoGraph("match (n)-[r]->(m) where id(m)=2 return type(r) as value").records().next()("value"))
   }
+
+  // TODO: bug
+  @Test
+  def testNodes(): Unit ={
+    runOnDemoGraph("match p = (a)-->(b)-->(c) return nodes(p)")
+  }
 }

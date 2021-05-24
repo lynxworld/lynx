@@ -14,6 +14,8 @@ import org.opencypher.v9_0.util.{InputPosition, Rewriter, bottomUp, inSequence}
 import scala.collection.mutable
 import org.opencypher.v9_0.util.symbols.CTAny
 
+import scala.collection.mutable.ArrayBuffer
+
 trait CallableProcedure {
   val inputs: Seq[(String, LynxType)]
   val outputs: Seq[(String, LynxType)]
@@ -362,9 +364,15 @@ class DefaultProcedures {
    math.tan(x.number.doubleValue())
   }
 
+  // list function
   @LynxProcedure(name= "labels")
   def labels(x: LynxNode): Seq[String] = {
     x.labels
+  }
+
+  @LynxProcedure(name= "nodes")
+  def nodes(x: LynxList): Seq[LynxNode] = {
+   ???
   }
 
   // scalar functions
@@ -460,7 +468,7 @@ class DefaultProcedures {
     val str = x.value
     if (str == "" || str == null) str
     else x.value.replaceAll(s"[　 ]+$$", "")
-  }
+}
 
   @LynxProcedure(name= "trim")
   def trim(x: LynxString): String = {
