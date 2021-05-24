@@ -57,9 +57,9 @@ class DefaultQueryParser(runnerContext: CypherRunnerContext) extends QueryParser
       isolateAggregation andThen
       SemanticAnalysis(warn = false, SemanticFeature.Cypher10Support, SemanticFeature.MultipleGraphs, SemanticFeature.WithInitialQuerySignature) andThen
       Namespacer andThen
-      FunctionMapper(runnerContext) andThen
       CNFNormalizer andThen
-      LateAstRewriting
+      LateAstRewriting andThen
+      FunctionMapper(runnerContext)
 
   override def parse(query: String): (Statement, Map[String, Any], SemanticState) = {
     val startState = InitialState(query, None, new PlannerName {

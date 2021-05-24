@@ -204,6 +204,7 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
         }
       )
     })
+
   }
 }
 

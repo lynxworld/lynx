@@ -206,7 +206,7 @@ trait GraphModel {
     val hasRelNodes = filterNodesWithRelations(ids)
     if(!forced){
       if(hasRelNodes.nonEmpty){
-        throw ConstrainViolationException(s"deleting ${hasRelNodes.size} referred nodes")
+        throw ConstrainViolatedException(s"deleting ${hasRelNodes.size} referred nodes")
       }
     }else{
       deleteRelationsOfNodes(hasRelNodes)
@@ -269,7 +269,7 @@ case class ParsingException(msg: String) extends LynxException {
   override def getMessage: String = msg
 }
 
-case class ConstrainViolationException(msg: String) extends LynxException {
+case class ConstrainViolatedException(msg: String) extends LynxException {
   override def getMessage: String = msg
 }
 
