@@ -12,9 +12,6 @@ import org.opencypher.v9_0.frontend.phases.{BaseContext, BaseState, Condition, P
 import org.opencypher.v9_0.util.{InputPosition, Rewriter, bottomUp, inSequence}
 
 import scala.collection.mutable
-import org.opencypher.v9_0.util.symbols.CTAny
-
-import scala.collection.mutable.ArrayBuffer
 
 trait CallableProcedure {
   val inputs: Seq[(String, LynxType)]
