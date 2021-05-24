@@ -145,6 +145,18 @@ class DefaultProcedures {
     "lynx-0.3"
   }
 
+  @LynxProcedure(name = "nodes")
+  def nodes(inputs: LynxList): List[LynxNode] = {
+    val a = inputs.value
+    inputs.value.filter(value => value.isInstanceOf[LynxNode]).asInstanceOf[List[LynxNode]]
+  }
+
+  @LynxProcedure(name = "relationships")
+  def relationships(inputs: LynxList): List[LynxRelationship] = {
+    val list: LynxList = inputs.value.tail.head.asInstanceOf[LynxList]
+    list.value.filter(value => value.isInstanceOf[LynxRelationship]).asInstanceOf[List[LynxRelationship]].reverse
+  }
+
   //user should opt the count implementation at their own project
   @LynxProcedure(name = "count")
   def count(inputs: LynxList): Int = {

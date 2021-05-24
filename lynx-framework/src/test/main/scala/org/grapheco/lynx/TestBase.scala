@@ -18,10 +18,12 @@ class TestBase extends LazyLogging {
   val node1 = TestNode(1, Seq("person", "leader"), "gender" -> LynxValue("male"), "name" -> LynxValue("bluejoe"), "age" -> LynxValue(40))
   val node2 = TestNode(2, Seq("person"), "name" -> LynxValue("Alice"), "gender" -> LynxValue("female"), "age" -> LynxValue(30))
   val node3 = TestNode(3, Seq(), "name" -> LynxValue("Bob"), "gender" -> LynxValue("male"), "age" -> LynxValue(10))
-  val all_nodes = ArrayBuffer[TestNode](node1, node2, node3)
+  val node4 = TestNode(4, Seq(), "name" -> LynxValue("Bob2"), "gender" -> LynxValue("male"), "age" -> LynxValue(10))
+  val all_nodes = ArrayBuffer[TestNode](node1, node2, node3, node4)
   val all_rels = ArrayBuffer[TestRelationship](
-    TestRelationship(1, 1, 2, Some("KNOWS")),
-    TestRelationship(2, 2, 3, Some("KNOWS")),
+    TestRelationship(1, 1, 2, Some("KNOWS"), "years" -> LynxValue(5)),
+    TestRelationship(2, 2, 3, Some("KNOWS"), "years" -> LynxValue(4)),
+    TestRelationship(4, 3, 4, Some("KNOWS")),
     TestRelationship(3, 1, 3, None)
   )
   val allIndex = ArrayBuffer[(LabelName, List[PropertyKeyName])]()
