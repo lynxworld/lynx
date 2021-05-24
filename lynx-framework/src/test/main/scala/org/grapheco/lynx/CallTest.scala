@@ -263,9 +263,10 @@ class CallTest extends TestBase {
     Assert.assertEquals(LynxString("KNOWS"), runOnDemoGraph("match (n)-[r]->(m) where id(m)=2 return type(r) as value").records().next()("value"))
   }
 
-  // TODO: bug
   @Test
-  def testNodes(): Unit ={
-    runOnDemoGraph("match p = (a)-->(b)-->(c) return nodes(p)")
+  def testLength(): Unit = {
+    Assert.assertEquals(LynxInteger(2), runOnDemoGraph("Match p = ()-->()-->() return length(p) as length;").records().next()("length"))
+    Assert.assertEquals(LynxInteger(1), runOnDemoGraph("Match p = ()-[:KNOWS]->() return length(p) as length;").records().next()("length"))
+      Assert.assertEquals(false, runOnDemoGraph("Match p = ()-[:NOT_KNOW]-() return length(p);").records().hasNext)
   }
 }

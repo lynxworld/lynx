@@ -151,6 +151,12 @@ class DefaultProcedures {
     inputs.value.size
   }
 
+  @LynxProcedure(name = "length")
+  def length(inputs: LynxList): Int = {
+    val list: LynxList = inputs.value.tail.head.asInstanceOf[LynxList]
+    list.value.filter(value => value.isInstanceOf[LynxRelationship]).length
+  }
+
   @LynxProcedure(name = "size")
   def size(input: LynxValue): Int = {
     input match {
@@ -365,11 +371,6 @@ class DefaultProcedures {
   @LynxProcedure(name= "labels")
   def labels(x: LynxNode): Seq[String] = {
     x.labels
-  }
-
-  @LynxProcedure(name= "nodes")
-  def nodes(x: LynxList): Seq[LynxNode] = {
-   ???
   }
 
   // scalar functions
