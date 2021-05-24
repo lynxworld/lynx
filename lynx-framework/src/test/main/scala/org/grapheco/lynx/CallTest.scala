@@ -263,10 +263,29 @@ class CallTest extends TestBase {
     Assert.assertEquals(LynxString("KNOWS"), runOnDemoGraph("match (n)-[r]->(m) where id(m)=2 return type(r) as value").records().next()("value"))
   }
 
+  // TODO: bug
+  @Test
+  def testNodes(): Unit ={
+    val result = runOnDemoGraph("match p = (a)-->(b)-->(c)-->(d) return p;").records().next()
+    val actualNodeList = result("nodes")
+    val expectedNodeList = List( result("a"), result("b"), result("c"))
+    Assert.assertEquals(expectedNodeList, actualNodeList)
+  }
+
+  @Test
+  def testRelationships(): Unit = {
+    val result1 = runOnDemoGraph("match p = (a{name:'bluejoe'})-[r:KNOWS]->(b) return relationships(p) as rels, r;").records().next()
+    Assert.assertEquals(1, result1("rels").asInstanceOf[LynxList].value.length)
+    Assert.assertEquals(result1("r"), result1("rels").asInstanceOf[LynxList].value.head)
+
+    val result2 = runOnDemoGraph("match p = (a{name:'bluejoe'})-[r1]->(b)-[r2]->(c)-[r3]->(d) return relationships(p) as rels, r1, r2, r3;").records().next()
+    Assert.assertEquals(List(result2("r1"), result2("r2"), result2("r3")), result2("rels").asInstanceOf[LynxList].value)
+  }
+
   @Test
   def testLength(): Unit = {
     Assert.assertEquals(LynxInteger(2), runOnDemoGraph("Match p = ()-->()-->() return length(p) as length;").records().next()("length"))
     Assert.assertEquals(LynxInteger(1), runOnDemoGraph("Match p = ()-[:KNOWS]->() return length(p) as length;").records().next()("length"))
-      Assert.assertEquals(false, runOnDemoGraph("Match p = ()-[:NOT_KNOW]-() return length(p);").records().hasNext)
+    Assert.assertEquals(false, runOnDemoGraph("Match p = ()-[:NOT_KNOW]-() return length(p);").records().hasNext)
   }
 }
