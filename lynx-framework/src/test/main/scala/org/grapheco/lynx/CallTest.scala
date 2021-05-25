@@ -266,9 +266,9 @@ class CallTest extends TestBase {
   // TODO: bug
   @Test
   def testNodes(): Unit ={
-    val result = runOnDemoGraph("match p = (a)-->(b)-->(c)-->(d) return p;").records().next()
-    val actualNodeList = result("nodes")
-    val expectedNodeList = List( result("a"), result("b"), result("c"))
+    val result = runOnDemoGraph("match p = (a)-->(b)-->(c)-->(d) return nodes(p) as nodes, a, b, c, d;").records().next()
+    val actualNodeList = result("nodes").asInstanceOf[LynxList].value
+    val expectedNodeList = List( result("a"), result("b"), result("c"), result("d"))
     Assert.assertEquals(expectedNodeList, actualNodeList)
   }
 
