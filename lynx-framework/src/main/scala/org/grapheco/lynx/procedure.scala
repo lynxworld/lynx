@@ -147,8 +147,15 @@ class DefaultProcedures {
 
   @LynxProcedure(name = "nodes")
   def nodes(inputs: LynxList): List[LynxNode] = {
-    val a = inputs.value
-    inputs.value.filter(value => value.isInstanceOf[LynxNode]).asInstanceOf[List[LynxNode]]
+    def fetchNodeFromList(list: LynxList): LynxNode = {
+      list.value.filter(item => item.isInstanceOf[LynxNode]).head.asInstanceOf[LynxNode]
+    }
+    def fetchListFromList(list: LynxList): LynxList = {
+      list.value.filter(item => item.isInstanceOf[LynxList]).head.asInstanceOf[LynxList]
+    }
+    val list = fetchListFromList(inputs)
+    if (list.value.nonEmpty) List(fetchNodeFromList(inputs)) ++ nodes(fetchListFromList(inputs))
+    else List(fetchNodeFromList(inputs))
   }
 
   @LynxProcedure(name = "relationships")
