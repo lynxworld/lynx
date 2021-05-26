@@ -235,14 +235,14 @@ case class PPTExpandPath(rel: RelationshipPattern, rightNode: NodePattern)(impli
             record0.last.asInstanceOf[LynxNode].id,
             RelationshipFilter(types.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
             NodeFilter(labels2.map(_.name), properties2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-            direction).map(triple =>
-            record0 ++ Seq(triple.storedRelation, triple.endNode)).filter(
-            item => {
+            direction)
+            .map(triple =>
+              record0 ++ Seq(triple.storedRelation, triple.endNode))
+            .filter(item => {
               //(m)-[r]-(n)-[p]-(t), r!=p
               val relIds = item.filter(_.isInstanceOf[LynxRelationship]).map(_.asInstanceOf[LynxRelationship].id)
               relIds.size == relIds.toSet.size
-            }
-          )
+            })
       }
     })
   }
