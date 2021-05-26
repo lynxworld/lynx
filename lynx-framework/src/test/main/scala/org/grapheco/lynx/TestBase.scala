@@ -5,7 +5,8 @@ import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetTime, ZoneId, ZoneO
 
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.Profiler
-import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName}
+import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
+import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, SemanticDirection}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTDate, CTDateTime, CTInteger, CTLocalDateTime, CTLocalTime, CTString, CTTime}
 
 import scala.collection.mutable.ArrayBuffer
@@ -68,10 +69,69 @@ class TestBase extends LazyLogging {
 
     override def nodes(): Iterator[LynxNode] = all_nodes.iterator
 
+    override def nodesWithMerge(nodeFilter: NodeFilter): Iterator[LynxNode] = {
+      val res = nodes().filter(nodeFilter.matches)
+      if (res.isEmpty) {
+        val id = all_nodes.size + 1
+        val newNode = TestNode(id, nodeFilter.labels, nodeFilter.properties.toSeq:_*)
+        all_nodes.append(newNode)
+        Iterator[LynxNode](newNode)
+      }
+      else res
+    }
+
     override def relationships(): Iterator[PathTriple] =
       all_rels.map(rel =>
         PathTriple(nodeAt(rel.startId).get, rel, nodeAt(rel.endId).get)
       ).iterator
+
+    override def pathsWithMerge(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {
+      val rels = direction match {
+        case BOTH => relationships().flatMap(item =>
+          Seq(item, item.revert))
+        case INCOMING => relationships().map(_.revert)
+        case OUTGOING => relationships()
+      }
+
+      val res = rels.filter {
+        case PathTriple(startNode, rel, endNode, _) =>
+          relationshipFilter.matches(rel) && startNodeFilter.matches(startNode) && endNodeFilter.matches(endNode)
+      }
+      if (res.isEmpty){
+        val startNodes = nodes(startNodeFilter).toArray
+        val endNodes = nodes(endNodeFilter).toArray
+        val newTriple = ArrayBuffer[PathTriple]()
+        if (startNodes.nonEmpty && endNodes.nonEmpty){
+          startNodes.foreach(s =>{
+            endNodes.foreach(e => {
+              val newRel = TestRelationship(all_rels.size + 1, s.id.value.asInstanceOf[Long], e.id.value.asInstanceOf[Long], Option(relationshipFilter.types.head), relationshipFilter.properties.toSeq:_*)
+              newTriple += PathTriple(s, newRel, e)
+              all_rels.append(newRel)
+            })
+          })
+          newTriple.toIterator
+        }
+        else res
+      }
+      else res
+    }
+
+    override def expandWithMerge(nodeId: LynxId, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {
+      val rels = direction match {
+        case BOTH => relationships().flatMap(item =>
+          Seq(item, item.revert))
+        case INCOMING => relationships().map(_.revert)
+        case OUTGOING => relationships()
+      }
+      val targetRels = rels.filter(_.startNode.id == nodeId)
+
+      targetRels.filter(
+        item => {
+          val PathTriple(_, rel, endNode, _) = item
+          relationshipFilter.matches(rel) && endNodeFilter.matches(endNode)
+        }
+      )
+    }
 
     override def createIndex(labelName: LabelName, properties: List[PropertyKeyName]): Unit = {
       allIndex += Tuple2(labelName, properties)

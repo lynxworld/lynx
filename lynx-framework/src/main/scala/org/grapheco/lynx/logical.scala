@@ -1,6 +1,6 @@
 package org.grapheco.lynx
 
-import org.opencypher.v9_0.ast.{AliasedReturnItem, Clause, Create, CreateIndex, CreateUniquePropertyConstraint, Delete, Limit, Match, OrderBy, PeriodicCommitHint, ProcedureResult, ProcedureResultItem, Query, QueryPart, Remove, Return, ReturnItem, ReturnItems, ReturnItemsDef, SetClause, SingleQuery, Skip, SortItem, Statement, UnresolvedCall, Where, With}
+import org.opencypher.v9_0.ast.{AliasedReturnItem, Clause, Create, CreateIndex, CreateUniquePropertyConstraint, Delete, Limit, Match, Merge, MergeAction, OrderBy, PeriodicCommitHint, ProcedureResult, ProcedureResultItem, Query, QueryPart, Remove, Return, ReturnItem, ReturnItems, ReturnItemsDef, SetClause, SingleQuery, Skip, SortItem, Statement, UnresolvedCall, Where, With}
 import org.opencypher.v9_0.expressions.{EveryPath, Expression, FunctionInvocation, FunctionName, LabelName, LogicalVariable, Namespace, NodePattern, Pattern, PatternElement, PatternPart, ProcedureName, Property, PropertyKeyName, RelationshipChain, RelationshipPattern, Variable}
 import org.opencypher.v9_0.util.{ASTNode, InputPosition}
 
@@ -134,6 +134,7 @@ case class LPTQueryPartTranslator(part: QueryPart) extends LPTNodeTranslator {
               case w: With => LPTWithTranslator(w)
               case m: Match => LPTMatchTranslator(m)
               case c: Create => LPTCreateTranslator(c)
+              case m: Merge => LPTMergeTranslator(m)
               case d: Delete => LPTDeleteTranslator(d)
               case s: SetClause => LPTSetClauseTranslator(s)
               case r: Remove => LPTRemoveTranslator(r)
@@ -343,4 +344,52 @@ case class LPTMatchTranslator(m: Match) extends LPTNodeTranslator {
   }
 }
 
+//////////////merge//////////////////////
+case class LPTPatternMerge(headNode: NodePattern, chain: Seq[(RelationshipPattern, NodePattern)]) extends LPTNode {
+}
+
+case class LPTMergeTranslator(m: Merge) extends LPTNodeTranslator {
+  def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
+    //run match
+    val Merge(Pattern(patternParts: Seq[PatternPart]), actions: Seq[MergeAction], where: Option[Where]) = m
+    val parts = patternParts.map(mergePatternPart(_)(plannerContext))
+    val matched = (parts.drop(1)).foldLeft(parts.head)((a, b) => LPTJoin()(a, b))
+    val filtered = LPTWhereTranslator(where).translate(Some(matched))
+
+    in match {
+      case None => filtered
+      case Some(left) => LPTJoin()(left, filtered)
+    }
+  }
+
+  private def mergePatternPart(patternPart: PatternPart)(implicit lpc: LogicalPlannerContext): LPTNode = {
+    patternPart match {
+      case EveryPath(element: PatternElement) => mergePattern(element)
+    }
+  }
+
+  private def mergePattern(element: PatternElement)(implicit lpc: LogicalPlannerContext): LPTPatternMerge = {
+    element match {
+      //match (m:label1)
+      case np: NodePattern =>
+        LPTPatternMerge(np, Seq.empty)
+
+      //match ()-[]->()
+      case rc@RelationshipChain(
+      leftNode: NodePattern,
+      relationship: RelationshipPattern,
+      rightNode: NodePattern) =>
+        LPTPatternMerge(leftNode, Seq(relationship -> rightNode))
+
+      //match ()-[]->()-...-[r:type]->(n:label2)
+      case rc@RelationshipChain(
+      leftChain: RelationshipChain,
+      relationship: RelationshipPattern,
+      rightNode: NodePattern) =>
+        val mp = mergePattern(leftChain)
+        LPTPatternMerge(mp.headNode, mp.chain :+ (relationship -> rightNode))
+    }
+  }
+}
+///////////////////////////////////////
 case class UnknownASTNodeException(node: ASTNode) extends LynxException

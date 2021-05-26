@@ -162,6 +162,8 @@ trait GraphModel {
     }
   }
 
+  def pathsWithMerge(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple]
+
   def expand(nodeId: LynxId, direction: SemanticDirection): Iterator[PathTriple] = {
     val rels = direction match {
       case BOTH => relationships().flatMap(item =>
@@ -182,6 +184,8 @@ trait GraphModel {
     )
   }
 
+  def expandWithMerge(nodeId: LynxId, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple]
+
   def createElements[T](
                          nodesInput: Seq[(String, NodeInput)],
                          relsInput: Seq[(String, RelationshipInput)],
@@ -194,6 +198,8 @@ trait GraphModel {
   def nodes(): Iterator[LynxNode]
 
   def nodes(nodeFilter: NodeFilter): Iterator[LynxNode] = nodes().filter(nodeFilter.matches(_))
+
+  def nodesWithMerge(nodeFilter: NodeFilter): Iterator[LynxNode]
 
   def filterNodesWithRelations(nodesIDs: Seq[LynxId]): Seq[LynxId]
 
