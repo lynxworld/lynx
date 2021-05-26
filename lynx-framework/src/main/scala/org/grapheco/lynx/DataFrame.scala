@@ -168,17 +168,17 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
     val colsb = b.schema.map(_._1).zipWithIndex.toMap
     //["m", "n"]
     val joinCols = a.schema.map(_._1).filter(colsb.contains(_))
-    val (smallTable, largeTable, smallColumns, largeColumns) =
+    val (smallTable, largeTable, smallColumns, largeColumns, swapped) =
       if (a.records.size < b.records.size) {
-        (a, b, colsa, colsb)
+        (a, b, colsa, colsb, false)
       }
       else {
-        (b, a, colsb, colsa)
+        (b, a, colsb, colsa, true)
       }
 
     //{1->"m", 2->"n"}
     val largeColumns2 = (largeColumns -- joinCols).map(_.swap)
-    val joinedSchema = smallTable.schema ++ (largeTable.schema.filter(x => !joinCols.contains(x._1)))
+    val joinedSchema = a.schema ++ b.schema.filter(x => !joinCols.contains(x._1))
 
     DataFrame(joinedSchema, () => {
       val smallMap: Map[Seq[LynxValue], Iterable[(Seq[LynxValue], Seq[LynxValue])]] =
@@ -192,7 +192,14 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
       val joinedRecords = largeTable.records.flatMap {
         row => {
           val value: Seq[LynxValue] = joinCols.map(joinCol => row(largeColumns(joinCol)))
-          smallMap.getOrElse(value, Seq()).map(x => x._2 ++ largeColumns2.map(x => row(x._1)))
+          smallMap.getOrElse(value, Seq()).map(x => {
+            val lvs = largeColumns2.map(x => row(x._1)).toSeq
+            if(swapped){
+              lvs ++ x._2
+            }else {
+              x._2 ++ lvs
+            }
+          })
         }
       }
 
@@ -204,7 +211,6 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
         }
       )
     })
-
   }
 }
 
