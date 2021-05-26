@@ -56,7 +56,8 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case NilPathStep => LynxList(List.empty)
       case f: NodePathStep => LynxList(List(eval(f.node), evalPathStep(f.next)))
       case m: MultiRelationshipPathStep => LynxList(List(eval(m.rel), eval(m.toNode.get), evalPathStep(m.next)))
-      case s: SingleRelationshipPathStep => LynxList(s.dependencies.map(eval).toList ++ List(eval(s.toNode.get)))
+      case s: SingleRelationshipPathStep =>
+        LynxList(s.dependencies.map(eval).toList ++ List(eval(s.toNode.get)) ++ List(evalPathStep(s.next)))
     }
   }
 
