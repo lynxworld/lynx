@@ -65,7 +65,6 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case ll@LPTSkip(expr) => PPTSkip(expr)(plan(ll.in), plannerContext)
       case lj@LPTJoin() => PPTJoin()(plan(lj.a), plan(lj.b), plannerContext)
       case patternMatch: LPTPatternMatch => PPTPatternMatchTranslator(patternMatch)(plannerContext).translate(None)
-      case patternMerge: LPTPatternMerge => PPTPatternMergeTranslator(patternMerge)(plannerContext).translate(None)
       case li@LPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName]) => PPTCreateIndex(labelName, properties)(plannerContext)
       case sc@LPTSetClause(d) => PPTSetClauseTranslator(d.items).translate(sc.in.map(plan(_)))(plannerContext)
       case lr@LPTRemove(r) => PPTRemoveTranslator(r.items).translate(lr.in.map(plan(_)))(plannerContext)
@@ -94,29 +93,6 @@ case class PPTPatternMatchTranslator(patternMatch: LPTPatternMatch)(implicit val
     planPatternMatch(patternMatch)(ppc)
   }
 }
-
-case class PPTPatternMergeTranslator(patternMerge: LPTPatternMerge)(implicit val plannerContext: PhysicalPlannerContext) extends PPTNodeTranslator {
-  private def planPatternMerge(pm: LPTPatternMerge)(implicit ppc: PhysicalPlannerContext): PPTNode = {
-    val LPTPatternMerge(headNode: NodePattern, chain: Seq[(RelationshipPattern, NodePattern)]) = pm
-    chain.toList match {
-      //match (m)
-      case Nil => PPTNodeScanWithMerge(headNode)(ppc)
-      //match (m)-[r]-(n)
-      case List(Tuple2(rel, rightNode)) => PPTRelationshipScanWithMerge(rel, headNode, rightNode)(ppc)
-      //match (m)-[r]-(n)-...-[p]-(z)
-      case _ =>
-        val (lastRelationship, lastNode) = chain.last
-        val dropped = chain.dropRight(1)
-        val part = planPatternMerge(LPTPatternMerge(headNode, dropped))(ppc)
-        PPTExpandPathWithMerge(lastRelationship, lastNode)(part, plannerContext)
-    }
-  }
-
-  override def translate(in: Option[PPTNode])(implicit ppc: PhysicalPlannerContext): PPTNode = {
-    planPatternMerge(patternMerge)(ppc)
-  }
-}
-
 
 case class PPTJoin()(a: PPTNode, b: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override val children: Seq[PPTNode] = Seq(a, b)
@@ -272,63 +248,6 @@ case class PPTExpandPath(rel: RelationshipPattern, rightNode: NodePattern)(impli
   }
 }
 
-case class PPTExpandPathWithMerge(rel: RelationshipPattern, rightNode: NodePattern)(implicit in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
-  override val children: Seq[PPTNode] = Seq(in)
-
-  override def withChildren(children0: Seq[PPTNode]): PPTExpandPathWithMerge = PPTExpandPathWithMerge(rel, rightNode)(children0.head, plannerContext)
-
-  override val schema: Seq[(String, LynxType)] = {
-    val RelationshipPattern(
-    variable: Option[LogicalVariable],
-    types: Seq[RelTypeName],
-    length: Option[Option[Range]],
-    properties: Option[Expression],
-    direction: SemanticDirection,
-    legacyTypeSeparator: Boolean,
-    baseRel: Option[LogicalVariable]) = rel
-    val NodePattern(var2, labels2: Seq[LabelName], properties2: Option[Expression], baseNode2: Option[LogicalVariable]) = rightNode
-    val schema0 = Seq(variable.map(_.name).getOrElse(s"__RELATIONSHIP_${rel.hashCode}") -> CTRelationship,
-      var2.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode)
-    in.schema ++ schema0
-  }
-
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
-    val df = in.execute(ctx)
-    val RelationshipPattern(
-    variable: Option[LogicalVariable],
-    types: Seq[RelTypeName],
-    length: Option[Option[Range]],
-    properties: Option[Expression],
-    direction: SemanticDirection,
-    legacyTypeSeparator: Boolean,
-    baseRel: Option[LogicalVariable]) = rel
-    val NodePattern(var2, labels2: Seq[LabelName], properties2: Option[Expression], baseNode2: Option[LogicalVariable]) = rightNode
-
-    val schema0 = Seq(variable.map(_.name).getOrElse(s"__RELATIONSHIP_${rel.hashCode}") -> CTRelationship,
-      var2.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode)
-
-    implicit val ec = ctx.expressionContext
-
-    DataFrame(df.schema ++ schema0, () => {
-      df.records.flatMap {
-        record0 =>
-          graphModel.expandWithMerge(
-            record0.last.asInstanceOf[LynxNode].id,
-            RelationshipFilter(types.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-            NodeFilter(labels2.map(_.name), properties2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-            direction)
-            .map(triple =>
-              record0 ++ Seq(triple.storedRelation, triple.endNode))
-            .filter(item => {
-              //(m)-[r]-(n)-[p]-(t), r!=p
-              val relIds = item.filter(_.isInstanceOf[LynxRelationship]).map(_.asInstanceOf[LynxRelationship].id)
-              relIds.size == relIds.toSet.size
-            })
-      }
-    })
-  }
-}
-
 case class PPTNodeScan(pattern: NodePattern)(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override def withChildren(children0: Seq[PPTNode]): PPTNodeScan = PPTNodeScan(pattern)(plannerContext)
 
@@ -355,35 +274,6 @@ case class PPTNodeScan(pattern: NodePattern)(implicit val plannerContext: Physic
         graphModel.nodes(NodeFilter(Seq.empty, properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)))
       } else
         graphModel.nodes(NodeFilter(labels.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)))
-
-      nodes.map(Seq(_))
-    })
-  }
-}
-
-case class PPTNodeScanWithMerge(pattern: NodePattern)(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
-  override def withChildren(children0: Seq[PPTNode]): PPTNodeScanWithMerge = PPTNodeScanWithMerge(pattern)(plannerContext)
-
-  override val schema: Seq[(String, LynxType)] = {
-    val NodePattern(
-    Some(var0: LogicalVariable),
-    labels: Seq[LabelName],
-    properties: Option[Expression],
-    baseNode: Option[LogicalVariable]) = pattern
-    Seq(var0.name -> CTNode)
-  }
-
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
-    val NodePattern(
-    Some(var0: LogicalVariable),
-    labels: Seq[LabelName],
-    properties: Option[Expression],
-    baseNode: Option[LogicalVariable]) = pattern
-
-    implicit val ec = ctx.expressionContext
-
-    DataFrame(Seq(var0.name -> CTNode), () => {
-      val nodes = graphModel.nodesWithMerge(NodeFilter(labels.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)))
 
       nodes.map(Seq(_))
     })
@@ -443,61 +333,6 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
     })
   }
 }
-
-case class PPTRelationshipScanWithMerge(rel: RelationshipPattern, leftNode: NodePattern, rightNode: NodePattern)(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
-  override def withChildren(children0: Seq[PPTNode]): PPTRelationshipScanWithMerge = PPTRelationshipScanWithMerge(rel, leftNode, rightNode)(plannerContext)
-
-  override val schema: Seq[(String, LynxType)] = {
-    val RelationshipPattern(
-    var2: Option[LogicalVariable],
-    types: Seq[RelTypeName],
-    length: Option[Option[Range]],
-    props2: Option[Expression],
-    direction: SemanticDirection,
-    legacyTypeSeparator: Boolean,
-    baseRel: Option[LogicalVariable]) = rel
-    val NodePattern(var1, labels1: Seq[LabelName], props1: Option[Expression], baseNode1: Option[LogicalVariable]) = leftNode
-    val NodePattern(var3, labels3: Seq[LabelName], props3: Option[Expression], baseNode3: Option[LogicalVariable]) = rightNode
-
-    Seq(
-      var1.map(_.name).getOrElse(s"__NODE_${leftNode.hashCode}") -> CTNode,
-      var2.map(_.name).getOrElse(s"__RELATIONSHIP_${rel.hashCode}") -> CTRelationship,
-      var3.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode
-    )
-  }
-
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
-    val RelationshipPattern(
-    var2: Option[LogicalVariable],
-    types: Seq[RelTypeName],
-    length: Option[Option[Range]],
-    props2: Option[Expression],
-    direction: SemanticDirection,
-    legacyTypeSeparator: Boolean,
-    baseRel: Option[LogicalVariable]) = rel
-    val NodePattern(var1, labels1: Seq[LabelName], props1: Option[Expression], baseNode1: Option[LogicalVariable]) = leftNode
-    val NodePattern(var3, labels3: Seq[LabelName], props3: Option[Expression], baseNode3: Option[LogicalVariable]) = rightNode
-
-    implicit val ec = ctx.expressionContext
-
-    val schema = Seq(
-      var1.map(_.name).getOrElse(s"__NODE_${leftNode.hashCode}") -> CTNode,
-      var2.map(_.name).getOrElse(s"__RELATIONSHIP_${rel.hashCode}") -> CTRelationship,
-      var3.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode)
-
-    DataFrame(schema, () => {
-      graphModel.pathsWithMerge(
-        NodeFilter(labels1.map(_.name), props1.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-        RelationshipFilter(types.map(_.name), props2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-        NodeFilter(labels3.map(_.name), props3.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-        direction).map(
-        triple =>
-          Seq(triple.startNode, triple.storedRelation, triple.endNode)
-      )
-    })
-  }
-}
-
 case class PPTCreateUnit(items: Seq[ReturnItem])(val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override def withChildren(children0: Seq[PPTNode]): PPTCreateUnit = PPTCreateUnit(items)(plannerContext)
 
