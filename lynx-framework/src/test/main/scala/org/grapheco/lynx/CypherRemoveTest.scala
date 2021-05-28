@@ -30,7 +30,7 @@ class CypherRemoveTest extends TestBase {
   def testRemoveRelationshipProperty(): Unit ={
     runOnDemoGraph("match (n)-[r]->(m) where n.name='Alice' set r.value1='tmp', r.value2=100, r.value3=true return r")
     val res = runOnDemoGraph("match (n)-[r]->(m) where n.name='Alice' remove r.value1, r.value3 return r").records().next()("r").asInstanceOf[TestRelationship].properties
-    Assert.assertEquals(Seq(LynxValue(100)), res.values.toSeq)
+    Assert.assertEquals(Seq(LynxInteger(4), LynxValue(100)), res.values.toSeq)
   }
 
   @Test

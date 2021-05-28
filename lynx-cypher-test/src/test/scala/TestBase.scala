@@ -1,5 +1,5 @@
 import com.typesafe.scalalogging.LazyLogging
-import org.grapheco.lynx.{CallableProcedure, ContextualNodeInputRef, CypherRunner, DefaultProcedureRegistry, DefaultProcedures, GraphModel, LynxId, LynxInteger, LynxList, LynxNode, LynxRelationship, LynxResult, LynxType, LynxValue, NodeInput, NodeInputRef, PathTriple, ProcedureRegistry, RelationshipInput, StoredNodeInputRef, TestNode, TestRelationship}
+import org.grapheco.lynx.{CallableProcedure, ContextualNodeInputRef, CypherRunner, DefaultProcedureRegistry, DefaultProcedures, GraphModel, LynxId, LynxInteger, LynxList, LynxNode, LynxRelationship, LynxResult, LynxType, LynxValue, NodeInput, NodeInputRef, PathTriple, ProcedureRegistry, RelationshipInput, StoredNodeInputRef}
 import org.grapheco.lynx.util.Profiler
 import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName}
 import org.opencypher.v9_0.util.symbols.{CTInteger, CTString}
