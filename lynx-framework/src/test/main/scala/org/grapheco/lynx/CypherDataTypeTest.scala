@@ -52,6 +52,12 @@ class CypherDataTypeTest extends TestBase {
   }
 
   @Test
+  def testDateTypeVariableArgs(): Unit = {
+    runOnDemoGraph("create (n:person{name:'date1', born:date()})")
+    runOnDemoGraph("create (n:person{name:'date2', born:date('2015/02/02')})")
+  }
+
+  @Test
   def testDateTimeTypeProperty(): Unit = {
     runOnDemoGraph("CREATE (Keanu:person {name:'datetime1',born:datetime('1984-10-11T12:31:14.123456789Z')})")
     runOnDemoGraph("CREATE (Keanu:person {name:'datetime2',born:datetime('1984-10-11T12:31:14.123456789+01:00')})")
