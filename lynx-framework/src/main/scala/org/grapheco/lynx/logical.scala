@@ -1,6 +1,6 @@
 package org.grapheco.lynx
 
-import org.opencypher.v9_0.ast.{AliasedReturnItem, Clause, Create, CreateIndex, CreateUniquePropertyConstraint, Limit, Match, OrderBy, PeriodicCommitHint, ProcedureResult, ProcedureResultItem, Query, QueryPart, Return, ReturnItem, ReturnItems, ReturnItemsDef, SingleQuery, Skip, SortItem, Statement, UnresolvedCall, Where, With}
+import org.opencypher.v9_0.ast.{AliasedReturnItem, Clause, Create, CreateIndex, CreateUniquePropertyConstraint, Delete, Limit, Match, Merge, MergeAction, OrderBy, PeriodicCommitHint, ProcedureResult, ProcedureResultItem, Query, QueryPart, Remove, Return, ReturnItem, ReturnItems, ReturnItemsDef, SetClause, SingleQuery, Skip, SortItem, Statement, UnresolvedCall, Where, With}
 import org.opencypher.v9_0.expressions.{EveryPath, Expression, FunctionInvocation, FunctionName, LabelName, LogicalVariable, Namespace, NodePattern, Pattern, PatternElement, PatternPart, ProcedureName, Property, PropertyKeyName, RelationshipChain, RelationshipPattern, Variable}
 import org.opencypher.v9_0.util.{ASTNode, InputPosition}
 
@@ -81,7 +81,47 @@ case class LPTCreateTranslator(c: Create) extends LPTNodeTranslator {
 case class LPTCreate(c: Create)(val in: Option[LPTNode]) extends LPTNode {
 }
 
+
+//////////////////Delete////////////////
+case class LPTDeleteTranslator(d: Delete) extends LPTNodeTranslator {
+  override def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode =
+    LPTDelete(d)(in)
+}
+
+case class LPTDelete(d: Delete)(val in: Option[LPTNode]) extends LPTNode {
+}
+
 ///////////////////////////////////////
+
+
+//////////////////Set////////////////
+case class LPTSetClauseTranslator(s: SetClause) extends LPTNodeTranslator {
+  override def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode =
+    LPTSetClause(s)(in)
+}
+
+case class LPTSetClause(d: SetClause)(val in: Option[LPTNode]) extends LPTNode {
+  override val children: Seq[LPTNode] = {
+    if (in.isDefined) Seq(in.get)
+    else Seq()
+  }
+}
+///////////////////////////////////////
+
+//////////////REMOVE//////////////////
+case class LPTRemoveTranslator(r: Remove) extends LPTNodeTranslator {
+  override def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode =
+    LPTRemove(r)(in)
+}
+
+case class LPTRemove(r: Remove)(val in: Option[LPTNode]) extends LPTNode {
+  override val children: Seq[LPTNode] = {
+    if (in.isDefined) Seq(in.get)
+    else Seq()
+  }
+}
+/////////////////////////////////////
+
 case class LPTQueryPartTranslator(part: QueryPart) extends LPTNodeTranslator {
   def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
     part match {
@@ -94,6 +134,9 @@ case class LPTQueryPartTranslator(part: QueryPart) extends LPTNodeTranslator {
               case w: With => LPTWithTranslator(w)
               case m: Match => LPTMatchTranslator(m)
               case c: Create => LPTCreateTranslator(c)
+              case d: Delete => LPTDeleteTranslator(d)
+              case s: SetClause => LPTSetClauseTranslator(s)
+              case r: Remove => LPTRemoveTranslator(r)
             }
           )
         ).translate(in)
@@ -150,6 +193,10 @@ case class LPTProject(ri: ReturnItemsDef)(val in: LPTNode) extends LPTNode {
   override val children: Seq[LPTNode] = Seq(in)
 }
 
+case class LPTAggregation(aggregatings: Seq[ReturnItem], groupings: Seq[ReturnItem])(val in: LPTNode) extends LPTNode {
+  override val children: Seq[LPTNode] = Seq(in)
+}
+
 case class LPTLimit(expression: Expression)(val in: LPTNode) extends LPTNode {
   override val children: Seq[LPTNode] = Seq(in)
 }
@@ -197,11 +244,14 @@ case class LPTCreateUnit(items: Seq[ReturnItem]) extends LPTNode {
 
 case class LPTProjectTranslator(ri: ReturnItemsDef) extends LPTNodeTranslator {
   def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
-    val preojectIn = in match {
-      case Some(sin) => sin
-      case None => LPTCreateUnit(ri.items)
+    val newIn = in.getOrElse(LPTCreateUnit(ri.items))
+    ri.containsAggregate match {
+      case false => LPTProject(ri)(newIn)
+      case true => {
+        val (aggregatingItems, groupingItems) = ri.items.partition(i => i.expression.containsAggregate)
+        LPTAggregation(aggregatingItems, groupingItems)(newIn)
+      }
     }
-    LPTProject(ri)(preojectIn)
   }
 }
 
@@ -292,21 +342,4 @@ case class LPTMatchTranslator(m: Match) extends LPTNodeTranslator {
     }
   }
 }
-//from neo4j Aggregation
-//case class LPTAggregation(left: LPTNode,
-//                       groupingExpressions: Map[String, Expression],
-//                       aggregationExpression: Map[String, Expression])
-//                      (val solved: PlannerQuery with CardinalityEstimation) extends LogicalPlan with EagerLogicalPlan {
-//
-//  def ap(newSolved: PlannerQuery with CardinalityEstimation) = copy()(newSolved)
-//
-//  val lhs = Some(left)
-//
-//  def rhs = None
-//
-//  val groupingKeys = groupingExpressions.keySet.map(IdName(_))
-//
-//  val availableSymbols = groupingKeys ++ aggregationExpression.keySet.map(IdName(_))
-//}
-
 case class UnknownASTNodeException(node: ASTNode) extends LynxException

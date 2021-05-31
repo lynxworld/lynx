@@ -5,7 +5,8 @@ import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetTime, ZoneId, ZoneO
 
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.Profiler
-import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName}
+import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
+import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, SemanticDirection}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTDate, CTDateTime, CTInteger, CTLocalDateTime, CTLocalTime, CTString, CTTime}
 
 import scala.collection.mutable.ArrayBuffer
@@ -15,13 +16,15 @@ class TestBase extends LazyLogging {
 
   //(bluejoe)-[:KNOWS]->(alex)-[:KNOWS]->(CNIC)
   //(bluejoe)-[]-(CNIC)
-  val node1 = TestNode(1, Seq("person", "leader"), "name" -> LynxValue("bluejoe"), "age" -> LynxValue(40))
-  val node2 = TestNode(2, Seq("person"), "name" -> LynxValue("alex"), "age" -> LynxValue(30))
-  val node3 = TestNode(3, Seq(), "name" -> LynxValue("CNIC"), "age" -> LynxValue(10))
-  val all_nodes = ArrayBuffer[TestNode](node1, node2, node3)
+  val node1 = TestNode(1, Seq("person", "leader"), "gender" -> LynxValue("male"), "name" -> LynxValue("bluejoe"), "age" -> LynxValue(40))
+  val node2 = TestNode(2, Seq("person"), "name" -> LynxValue("Alice"), "gender" -> LynxValue("female"), "age" -> LynxValue(30))
+  val node3 = TestNode(3, Seq(), "name" -> LynxValue("Bob"), "gender" -> LynxValue("male"), "age" -> LynxValue(10))
+  val node4 = TestNode(4, Seq(), "name" -> LynxValue("Bob2"), "gender" -> LynxValue("male"), "age" -> LynxValue(10))
+  val all_nodes = ArrayBuffer[TestNode](node1, node2, node3, node4)
   val all_rels = ArrayBuffer[TestRelationship](
-    TestRelationship(1, 1, 2, Some("KNOWS")),
-    TestRelationship(2, 2, 3, Some("KNOWS")),
+    TestRelationship(1, 1, 2, Some("KNOWS"), "years" -> LynxValue(5)),
+    TestRelationship(2, 2, 3, Some("KNOWS"), "years" -> LynxValue(4)),
+    TestRelationship(4, 3, 4, Some("KNOWS")),
     TestRelationship(3, 1, 3, None)
   )
   val allIndex = ArrayBuffer[(LabelName, List[PropertyKeyName])]()
@@ -71,25 +74,6 @@ class TestBase extends LazyLogging {
         PathTriple(nodeAt(rel.startId).get, rel, nodeAt(rel.endId).get)
       ).iterator
 
-    def getProcedure(prefix: List[String], name: String): Option[CallableProcedure] = s"${prefix.mkString(".")}.${name}" match {
-      case ".count" => Some(new CallableProcedure {
-        override val inputs: Seq[(String, LynxType)] = Seq()
-        override val outputs: Seq[(String, LynxType)] = Seq("haha" -> CTInteger)
-
-        override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
-          LynxInteger(args.size)
-      })
-      case ".sum" => Some(new CallableProcedure {
-        override val inputs: Seq[(String, LynxType)] = Seq()
-        override val outputs: Seq[(String, LynxType)] = Seq("haha" -> CTInteger)
-
-        override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
-          LynxInteger(args.size)
-      })
-
-      case _ => None
-    }
-
     override def createIndex(labelName: LabelName, properties: List[PropertyKeyName]): Unit = {
       allIndex += Tuple2(labelName, properties)
     }
@@ -97,79 +81,163 @@ class TestBase extends LazyLogging {
     override def getIndexes(): Array[(LabelName, List[PropertyKeyName])] = {
       allIndex.toArray
     }
+
+    override def filterNodesWithRelations(nodesIDs: Seq[LynxId]): Seq[LynxId] = {
+      nodesIDs.filter(id => all_rels.filter(rel => rel.startNodeId==id || rel.endNodeId==id).nonEmpty)
+    }
+
+    override def deleteRelationsOfNodes(nodesIDs: Seq[LynxId]): Unit = {
+      nodesIDs.foreach(id => all_rels --= all_rels.filter(rel => rel.startNodeId==id || rel.endNodeId==id))
+    }
+
+    override def deleteFreeNodes(nodesIDs: Seq[LynxId]): Unit = {
+      nodesIDs.foreach(id => all_nodes --= all_nodes.filter(_.id==id))
+    }
+
+
+    override def setNodeProperty(nodeId: LynxId, data: Array[(String ,AnyRef)], withReturn: Boolean): Option[Seq[LynxValue]] = {
+      val record = all_nodes.find(n => n.id == nodeId)
+      if (record.isDefined){
+        val node = record.get
+        val property = scala.collection.mutable.Map(node.properties.toSeq:_*)
+        data.foreach(f => property(f._1) = LynxValue(f._2))
+        val newNode = TestNode(node.id.value.asInstanceOf[Long], node.labels, property.toSeq:_*)
+        all_nodes -= node
+        all_nodes += newNode
+        if (withReturn) Option(Seq(newNode))
+        else None
+      }
+      else None
+    }
+
+    override def addNodeLabels(nodeId: LynxId, labels: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+      val record = all_nodes.find(n => n.id == nodeId)
+      if (record.isDefined){
+        val node = record.get
+        val newNode = TestNode(node.id.value.asInstanceOf[Long], (node.labels ++ labels).distinct, node.properties.toSeq:_*)
+        all_nodes -= node
+        all_nodes += newNode
+        if (withReturn) Option(Seq(newNode))
+        else None
+      }
+      else None
+    }
+
+    override def setRelationshipProperty(triple: Seq[LynxValue], data: Array[(String ,AnyRef)], withReturn: Boolean): Option[Seq[LynxValue]] = {
+      val rel = triple(1).asInstanceOf[LynxRelationship]
+      val record = all_rels.find(r => r.id == rel.id)
+      if (record.isDefined){
+        val relation = record.get
+        val property = scala.collection.mutable.Map(relation.properties.toSeq:_*)
+        data.foreach(f => property(f._1) = LynxValue(f._2))
+        val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, relation.relationType, property.toMap.toSeq:_*)
+        all_rels -= relation
+        all_rels += newRelationship
+        if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
+        else None
+      }
+      else None
+    }
+
+    override def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+      val rel = triple(1).asInstanceOf[LynxRelationship]
+      val record = all_rels.find(r => r.id == rel.id)
+      if (record.isDefined){
+        val relation = record.get
+        val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, Option(labels.head), relation.properties.toSeq:_*)
+        all_rels -= relation
+        all_rels += newRelationship
+        if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
+        else None
+      }
+      else None
+    }
+
+    override def removeNodeProperty(nodeId: LynxId, data: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+      val record = all_nodes.find(n => n.id == nodeId)
+      if (record.isDefined){
+        val node = record.get
+        val property = scala.collection.mutable.Map(node.properties.toSeq:_*)
+        data.foreach(f => {if (property.contains(f)) property -= f} )
+        val newNode = TestNode(node.id.value.asInstanceOf[Long], node.labels, property.toSeq:_*)
+        all_nodes -= node
+        all_nodes += newNode
+        if (withReturn) Option(Seq(newNode))
+        else None
+      }
+      else None
+    }
+
+    override def removeNodeLabels(nodeId: LynxId, labels: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+      val record = all_nodes.find(n => n.id == nodeId)
+      if (record.isDefined){
+        val node = record.get
+        val newNode = TestNode(node.id.value.asInstanceOf[Long], (node.labels.toBuffer -- labels), node.properties.toSeq:_*)
+        all_nodes -= node
+        all_nodes += newNode
+        if (withReturn) Option(Seq(newNode))
+        else None
+      }
+      else None
+    }
+
+    override def removeRelationshipProperty(triple: Seq[LynxValue], data: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+      val rel = triple(1).asInstanceOf[LynxRelationship]
+      val record = all_rels.find(r => r.id == rel.id)
+      if (record.isDefined){
+        val relation = record.get
+        val property = scala.collection.mutable.Map(relation.properties.toSeq:_*)
+        data.foreach(f => {if (property.contains(f)) property -= f} )
+        val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, relation.relationType, property.toMap.toSeq:_*)
+        all_rels -= relation
+        all_rels += newRelationship
+        if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
+        else None
+      }
+      else None
+    }
+
+    override def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+      val rel = triple(1).asInstanceOf[LynxRelationship]
+      val record = all_rels.find(r => r.id == rel.id)
+      if (record.isDefined){
+        val relation = record.get
+        val newType: Option[String] = {
+          if (relation.relationType.get == labels.head) None
+          else Option(relation.relationType.get)
+        }
+        val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, newType, relation.properties.toSeq:_*)
+        all_rels -= relation
+        all_rels += newRelationship
+        if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
+        else None
+      }
+      else None
+    }
   }
 
   val runner = new CypherRunner(model) {
     val myfun = new DefaultProcedureRegistry(types, classOf[DefaultProcedures])
     override lazy val procedures: ProcedureRegistry = myfun
 
-    myfun.register("test.authors", new CallableProcedure {
+    myfun.register("test.authors", 0, new CallableProcedure {
       override val inputs: Seq[(String, LynxType)] = Seq()
       override val outputs: Seq[(String, LynxType)] = Seq("name" -> CTString)
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
+      override def call(args: Seq[LynxValue]): LynxValue =
         LynxList(List(LynxValue("bluejoe"), LynxValue("lzx"), LynxValue("airzihao")))
     })
 
-    myfun.register("toInterger", new CallableProcedure {
+    myfun.register("toInterger", 1, new CallableProcedure {
       override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
       override val outputs: Seq[(String, LynxType)] = Seq("number" -> CTInteger)
 
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue=
+      override def call(args: Seq[LynxValue]): LynxValue=
         LynxInteger(args.head.value.toString.toInt)
-    })
-
-    myfun.register("date", new CallableProcedure {
-      override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
-      override val outputs: Seq[(String, LynxType)] = Seq("date" -> CTDate)
-
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
-        LynxDateUtil.parse(args.head.asInstanceOf[LynxString].value)
-    })
-
-    myfun.register("datetime", new CallableProcedure {
-      override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
-      override val outputs: Seq[(String, LynxType)] = Seq("datetime" -> CTDateTime)
-
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
-        LynxDateTimeUtil.parse(args.head.asInstanceOf[LynxString].value)
-    })
-
-    myfun.register("localdatetime", new CallableProcedure {
-      override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
-      override val outputs: Seq[(String, LynxType)] = Seq("localdatetime" -> CTLocalDateTime)
-
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
-        LynxLocalDateTimeUtil.parse(args.head.asInstanceOf[LynxString].value)
-    })
-
-    myfun.register("localtime", new CallableProcedure {
-      override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
-      override val outputs: Seq[(String, LynxType)] = Seq("localtime" -> CTLocalTime)
-
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
-        LynxLocalTimeUtil.parse(args.head.asInstanceOf[LynxString].value)
-    })
-
-    myfun.register("time", new CallableProcedure {
-      override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
-      override val outputs: Seq[(String, LynxType)] = Seq("time" -> CTTime)
-
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
-        LynxTimeUtil.parse(args.head.asInstanceOf[LynxString].value)
-    })
-
-    myfun.register("count", new CallableProcedure {
-      override val inputs: Seq[(String, LynxType)] = Seq("values" -> CTAny)
-      override val outputs: Seq[(String, LynxType)] = Seq("count" -> CTInteger)
-
-      override def call(args: Seq[LynxValue], ctx: ExecutionContext): LynxValue =
-        LynxInteger(args.size)
     })
   }
 
   protected def runOnDemoGraph(query: String, param: Map[String, Any] = Map.empty[String, Any]): LynxResult = {
-    println(s"query: $query")
     runner.compile(query)
     Profiler.timing {
       //call cache() only for test
