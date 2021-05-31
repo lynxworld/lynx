@@ -1,11 +1,7 @@
 package org.grapheco.lynx
 
-import org.opencypher.v9_0.ast.SortItem
-import org.opencypher.v9_0.expressions.{BooleanLiteral, DoubleLiteral, Expression, IntegerLiteral, Parameter, Property, StringLiteral, True, Variable}
-import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTString, CypherType}
-
-import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import org.opencypher.v9_0.expressions.Expression
+import org.opencypher.v9_0.util.symbols.CypherType
 
 trait DataFrame {
   def schema: Seq[(String, LynxType)]
