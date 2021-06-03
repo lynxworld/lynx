@@ -67,7 +67,8 @@ class DefaultQueryParser(runnerContext: CypherRunnerContext) extends QueryParser
 
       override def toTextOutput: String = s"$name $version"
 
-      override def version: String = "0.3"
+      override def version: String = org.grapheco.lynx.version
+
     })
 
     val endState = transformers.transform(startState, context)
