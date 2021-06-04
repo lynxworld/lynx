@@ -79,7 +79,7 @@ case class LPTCreateTranslator(c: Create) extends LPTNodeTranslator {
 }
 
 case class LPTCreate(c: Create)(val in: Option[LPTNode]) extends LPTNode {
-  override val children: Seq[LPTNode] = Seq(in.getOrElse(null))
+  override val children: Seq[LPTNode] = in.toSeq
 }
 
 
