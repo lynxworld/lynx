@@ -102,10 +102,7 @@ case class LPTSetClauseTranslator(s: SetClause) extends LPTNodeTranslator {
 }
 
 case class LPTSetClause(d: SetClause)(val in: Option[LPTNode]) extends LPTNode {
-  override val children: Seq[LPTNode] = {
-    if (in.isDefined) Seq(in.get)
-    else Seq()
-  }
+  override val children: Seq[LPTNode] = in.toSeq
 }
 ///////////////////////////////////////
 
