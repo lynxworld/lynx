@@ -298,7 +298,7 @@ case class LPTDistinct()(val in: LPTNode) extends LPTNode {
 }
 
 ///////////////////////////////////////
-case class LPTJoin()(val a: LPTNode, val b: LPTNode) extends LPTNode {
+case class LPTJoin(val isSingleMatch: Boolean)(val a: LPTNode, val b: LPTNode) extends LPTNode {
   override val children: Seq[LPTNode] = Seq(a, b)
 }
 
@@ -312,12 +312,12 @@ case class LPTMatchTranslator(m: Match) extends LPTNodeTranslator {
     //run match
     val Match(optional, Pattern(patternParts: Seq[PatternPart]), hints, where: Option[Where]) = m
     val parts = patternParts.map(matchPatternPart(_)(plannerContext))
-    val matched = (parts.drop(1)).foldLeft(parts.head)((a, b) => LPTJoin()(a, b))
+    val matched = parts.drop(1).foldLeft(parts.head)((a, b) => LPTJoin(true)(a, b))
     val filtered = LPTWhereTranslator(where).translate(Some(matched))
 
     in match {
       case None => filtered
-      case Some(left) => LPTJoin()(left, filtered)
+      case Some(left) => LPTJoin(false)(left, filtered)
     }
   }
 

@@ -59,7 +59,7 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
           if (res._2) pnode.withChildren(res._1)
           else pnode
         }
-        case Seq(pj@PPTJoin()) => {
+        case Seq(pj@PPTJoin(isSingleMatch)) => {
           val newPPT = pptJoinChildrenMap(pj, ppc)
           pnode.withChildren(Seq(newPPT))
         }
@@ -75,7 +75,7 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
         if (res._2) res._1.head
         else pf
       }
-      case pjj@PPTJoin() => pptJoinChildrenMap(pjj, ppc)
+      case pjj@PPTJoin(isSingleMatch) => pptJoinChildrenMap(pjj, ppc)
       case f => f
     }
     pj.withChildren(res)
@@ -98,7 +98,7 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
         }
         PPTNodeScan(NodePattern(pattern.variable, labels, props,pattern.baseNode)(pattern.position))(ppc)
       }
-      case pjj@PPTJoin() => pptFilterThenJoinChildrenMap(propArray, labelArray, pjj, ppc)
+      case pjj@PPTJoin(isSingleMatch) => pptFilterThenJoinChildrenMap(propArray, labelArray, pjj, ppc)
       case f => f
     }
     pj.withChildren(res)
@@ -144,7 +144,7 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
         if (expandAndSet._2.isEmpty) (Seq(expandAndSet._1), true)
         else (Seq(PPTFilter(expandAndSet._2.head)(expandAndSet._1, ppc)), true)
       }
-      case Seq(pj@PPTJoin()) => pptFilterThenJoin(exprs, pj, ppc)
+      case Seq(pj@PPTJoin(isSingleMatch)) => pptFilterThenJoin(exprs, pj, ppc)
       case _ => (null, false)
     }
   }
