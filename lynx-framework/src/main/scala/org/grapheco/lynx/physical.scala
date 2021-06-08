@@ -1,5 +1,6 @@
 package org.grapheco.lynx
 
+import org.grapheco.lynx
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions.{NodePattern, RelationshipChain, _}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTNode, CTRelationship}
@@ -53,6 +54,7 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case LPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]]) =>
         PPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])
       case lc@LPTCreate(c: Create) => PPTCreateTranslator(c).translate(lc.in.map(plan(_)))(plannerContext)
+      case lm@LPTMerge(m: Merge) => PPTMergeTranslator(m).translate(lm.in.map(plan(_)))(plannerContext)
       case ld@LPTDelete(d: Delete) => PPTDeleteTranslator(d).translate(ld.in.map(plan(_)))(plannerContext)
       case ls@LPTSelect(columns: Seq[(String, Option[String])]) => PPTSelect(columns)(plan(ls.in), plannerContext)
       case lp@LPTProject(ri) => PPTProject(ri)(plan(lp.in), plannerContext)
@@ -65,6 +67,7 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case ll@LPTSkip(expr) => PPTSkip(expr)(plan(ll.in), plannerContext)
       case lj@LPTJoin() => PPTJoin()(plan(lj.a), plan(lj.b), plannerContext)
       case patternMatch: LPTPatternMatch => PPTPatternMatchTranslator(patternMatch)(plannerContext).translate(None)
+
       case li@LPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName]) => PPTCreateIndex(labelName, properties)(plannerContext)
       case sc@LPTSetClause(d) => PPTSetClauseTranslator(d.items).translate(sc.in.map(plan(_)))(plannerContext)
       case lr@LPTRemove(r) => PPTRemoveTranslator(r.items).translate(lr.in.map(plan(_)))(plannerContext)
@@ -266,7 +269,6 @@ case class PPTNodeScan(pattern: NodePattern)(implicit val plannerContext: Physic
     labels: Seq[LabelName],
     properties: Option[Expression],
     baseNode: Option[LogicalVariable]) = pattern
-
     implicit val ec = ctx.expressionContext
 
     DataFrame(Seq(var0.name -> CTNode), () => {
@@ -333,6 +335,7 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
     })
   }
 }
+
 case class PPTCreateUnit(items: Seq[ReturnItem])(val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override def withChildren(children0: Seq[PPTNode]): PPTCreateUnit = PPTCreateUnit(items)(plannerContext)
 
@@ -436,6 +439,177 @@ case class PPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName
   }
 }
 
+///////////////////////merge/////////////
+trait MergeElement {
+  def getSchema: String
+}
+
+case class MergeNode(varName: String, labels: Seq[LabelName], properties: Option[Expression]) extends MergeElement {
+  override def getSchema: String = varName
+}
+
+case class MergeRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) extends MergeElement{
+  override def getSchema: String = varName
+}
+
+case class PPTMergeTranslator(m: Merge) extends PPTNodeTranslator {
+  def translate(in: Option[PPTNode])(implicit plannerContext: PhysicalPlannerContext): PPTNode = {
+    val definedVars = in.map(_.schema.map(_._1)).getOrElse(Seq.empty).toSet
+    val mergeOps = ArrayBuffer[MergeElement]()
+    val mergeSchema = ArrayBuffer[(String, LynxType)]()
+
+    m.pattern.patternParts.foreach {
+      case EveryPath(element) => {
+        element match {
+          case NodePattern(var1: Option[LogicalVariable], labels1, properties1, _) =>{
+            val leftNodeName = var1.map(_.name).getOrElse(s"__NODE_${element.hashCode}")
+            mergeSchema.append((leftNodeName, CTNode))
+            mergeOps.append(MergeNode(leftNodeName, labels1, properties1))
+          }
+          case chain: RelationshipChain =>{
+            buildMerge(chain, definedVars, mergeSchema, mergeOps)
+          }
+        }
+      }
+    }
+
+    PPTMerge(mergeSchema, mergeOps)(in, plannerContext)
+  }
+
+  private def buildMerge(chain: RelationshipChain, definedVars: Set[String], mergeSchema: ArrayBuffer[(String, LynxType)], mergeOps:ArrayBuffer[MergeElement]): String = {
+    val RelationshipChain(
+    left,
+    rp@RelationshipPattern(var2: Option[LogicalVariable], types: Seq[RelTypeName], length: Option[Option[Range]], properties2: Option[Expression], direction: SemanticDirection, legacyTypeSeparator: Boolean, baseRel: Option[LogicalVariable]),
+    rnp@NodePattern(var3, labels3: Seq[LabelName], properties3: Option[Expression], _)
+    ) = chain
+
+    val varRelation = var2.map(_.name).getOrElse(s"__RELATIONSHIP_${rp.hashCode}")
+    val varRightNode = var3.map(_.name).getOrElse(s"__NODE_${rnp.hashCode}")
+    left match {
+      //create (m)-[r]-(n), left=n
+      case NodePattern(var1: Option[LogicalVariable], labels1, properties1, _) =>
+        val varLeftNode = var1.map(_.name).getOrElse(s"__NODE_${left.hashCode}")
+        mergeSchema.append((varLeftNode, CTNode))
+        mergeSchema.append((varRelation, CTRelationship))
+        mergeSchema.append((varRightNode, CTNode))
+
+        mergeOps.append(MergeNode(varLeftNode, labels1, properties1))
+        mergeOps.append(MergeRelationship(varRelation, types, properties2, varLeftNode, varRightNode))
+        mergeOps.append(MergeNode(varRightNode, labels3, properties3))
+
+        varRightNode
+
+      // (m)-[p]-(t)-[r]-(n), leftChain=(m)-[p]-(t)
+      case leftChain: RelationshipChain =>
+        // (m)-[p]-(t)
+        val lastNode = buildMerge(leftChain, definedVars, mergeSchema, mergeOps)
+        mergeSchema.append((varRelation, CTRelationship))
+        mergeSchema.append((varRightNode, CTNode))
+
+        mergeOps.append(MergeRelationship(varRelation, types, properties2, lastNode, varRightNode))
+        mergeOps.append(MergeNode(varRightNode, labels3, properties3))
+
+        varRightNode
+    }
+
+  }
+}
+
+case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps:Seq[MergeElement])(implicit val in: Option[PPTNode], val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = in.toSeq
+
+  override def withChildren(children0: Seq[PPTNode]): PPTMerge = PPTMerge(mergeSchema, mergeOps)(children0.headOption, plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = mergeSchema
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    implicit val ec = ctx.expressionContext
+
+    def createNode(nodesToCreate:Seq[MergeElement],createdNodesAndRels: scala.collection.mutable.Map[String, Seq[LynxValue]]): Unit ={
+      nodesToCreate.foreach(mergeNode =>{
+        val MergeNode(varName, labels, properties) = mergeNode
+        val nodeFilter = NodeFilter(labels.map(f => f.name), properties.map {
+          case MapExpression(items) =>
+            items.map({
+              case (k, v) => k.name -> eval(v)
+            })
+        }.getOrElse(Seq.empty).toMap)
+
+        createdNodesAndRels += varName -> Seq(graphModel.createNode(nodeFilter))
+      })
+    }
+
+    def createRelationship(relsToCreate:Seq[MergeElement],createdNodesAndRels: scala.collection.mutable.Map[String, Seq[LynxValue]]): Unit ={
+      relsToCreate.foreach(mergeRelationship =>{
+        val MergeRelationship(varName, types, properties, varNameLeftNode, varNameRightNode) = mergeRelationship
+        val relationshipFilter = RelationshipFilter(types.map(t => t.name),
+          properties.map {
+            case MapExpression(items) =>
+              items.map({
+                case (k, v) => k.name -> eval(v)
+              })
+          }.getOrElse(Seq.empty[(String, LynxValue)]).toMap)
+        val leftNode = createdNodesAndRels(varNameLeftNode)
+        val rightNode = createdNodesAndRels(varNameRightNode)
+        val created = graphModel.createRelationship(relationshipFilter, leftNode.head.asInstanceOf[LynxNode], rightNode.head.asInstanceOf[LynxNode])
+        createdNodesAndRels += varName -> Seq(created)
+      })
+    }
+
+    children match {
+      case Seq(pj@PPTJoin()) =>{
+        val searchVar = pj.children.head.schema.toMap
+        val res = children.map(_.execute).head.records
+        if (res.nonEmpty) {
+          DataFrame(pj.schema, () => res)
+        }
+        else {
+          // check searchVar is all exist
+          val searchedValues = pj.children.head.execute.records
+          val toCreateSchema = mergeSchema.filter(f => !searchVar.contains(f._1))
+          val toCreateList = mergeOps.filter( f => !searchVar.contains(f.getSchema))
+          val nodesToCreate = toCreateList.filter(f=>f.isInstanceOf[MergeNode]).map(f=>f.asInstanceOf[MergeNode])
+          val relsToCreate = toCreateList.filter(f=>f.isInstanceOf[MergeRelationship]).map(f=>f.asInstanceOf[MergeRelationship])
+
+          if (searchedValues.nonEmpty){
+            val func = searchedValues.map{
+              record =>{
+                val ctxMap = pj.children.head.schema.zip(record).map(x => x._1._1 -> x._2).toMap
+                val createdNodesAndRels = scala.collection.mutable.Map[String, Seq[LynxValue]]()
+                ctxMap.foreach(f => createdNodesAndRels += f._1->Seq(f._2))
+
+                createNode(nodesToCreate, createdNodesAndRels)
+                createRelationship(relsToCreate, createdNodesAndRels)
+
+                record ++ toCreateSchema.flatMap(f => createdNodesAndRels(f._1))
+              }
+            }
+            DataFrame(searchVar.toSeq ++ toCreateSchema, ()=>func)
+          }
+          else{
+            DataFrame(pj.schema, ()=>Iterator.empty)
+          }
+        }
+      }
+      case _ =>{
+        val res = children.map(_.execute).head.records
+        if (res.nonEmpty) DataFrame(mergeSchema, ()=>res)
+        else {
+          val createdNodesAndRels = scala.collection.mutable.Map[String, Seq[LynxValue]]()
+          val nodesToCreate = mergeOps.filter(f=>f.isInstanceOf[MergeNode]).map(f=>f.asInstanceOf[MergeNode])
+          val relsToCreate = mergeOps.filter(f=>f.isInstanceOf[MergeRelationship]).map(f=>f.asInstanceOf[MergeRelationship])
+
+          createNode(nodesToCreate, createdNodesAndRels)
+          createRelationship(relsToCreate, createdNodesAndRels)
+
+          val res = Seq(mergeSchema.flatMap(f => createdNodesAndRels(f._1))).toIterator
+          DataFrame(mergeSchema, ()=>res)
+        }
+      }
+    }
+  }
+}
+/////////////////////////////////////////
 trait CreateElement
 
 case class CreateNode(varName: String, labels3: Seq[LabelName], properties3: Option[Expression]) extends CreateElement
@@ -622,12 +796,12 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
     val df = in.execute(ctx)
     val isWithReturn = ctx.expressionContext.executionContext.statement.returnColumns.nonEmpty
     setItems.head match {
-      case sp@SetPropertyItem(property, literalExpr) =>{
+      case sp@SetPropertyItem(property, literalExpr) => {
         setProperty(df,
-          setItems.toArray.map(f => f.asInstanceOf[SetPropertyItem]).map(f =>{
-          val Property(variableExpr, propertyKeyName) = f.property
-          (propertyKeyName, f.expression)
-        }),
+          setItems.toArray.map(f => f.asInstanceOf[SetPropertyItem]).map(f => {
+            val Property(variableExpr, propertyKeyName) = f.property
+            (propertyKeyName, f.expression)
+          }),
           isWithReturn)
       }
       case sl@SetLabelItem(variable, labels) => {
@@ -643,9 +817,9 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
               }
             }
           })
-          DataFrame(schema, ()=>res.map(f => f.get))
+          DataFrame(schema, () => res.map(f => f.get))
         }
-        else{
+        else {
           df.records.foreach(n => {
             n.size match {
               case 1 => {
@@ -660,9 +834,9 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
           DataFrame.empty
         }
       }
-      case si@SetIncludingPropertiesFromMapItem(variable, expression) =>{
+      case si@SetIncludingPropertiesFromMapItem(variable, expression) => {
         expression match {
-          case MapExpression(items) =>{
+          case MapExpression(items) => {
             setProperty(df, items.toArray, isWithReturn)
           }
         }
@@ -670,7 +844,7 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
     }
   }
 
-  def setProperty(df: DataFrame, kv: Array[(PropertyKeyName, Expression)], isWithReturn: Boolean): DataFrame ={
+  def setProperty(df: DataFrame, kv: Array[(PropertyKeyName, Expression)], isWithReturn: Boolean): DataFrame = {
     val data = kv.map(f => (f._1.name, mapExpressionValue(f._2)))
     if (isWithReturn) {
       val res = df.records.map(n => {
@@ -684,9 +858,9 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
           }
         }
       })
-      DataFrame(schema, ()=>res.map(f => f.get))
+      DataFrame(schema, () => res.map(f => f.get))
     }
-    else{
+    else {
       df.records.foreach(n => {
         n.size match {
           case 1 => {
@@ -702,15 +876,15 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
     }
   }
 
-  def mapExpressionValue(expression: Expression): AnyRef ={
+  def mapExpressionValue(expression: Expression): AnyRef = {
     expression match {
-      case n: Variable =>{
+      case n: Variable => {
         n.name
       }
-      case l: Literal =>{
+      case l: Literal => {
         expression.asInstanceOf[Literal].value
       }
-      case ll: ListLiteral =>{
+      case ll: ListLiteral => {
         expression.arguments.map(f => f.asInstanceOf[Literal].value).toArray
       }
     }
@@ -737,7 +911,7 @@ case class PPTRemove(removeItems: Seq[RemoveItem])(implicit val in: PPTNode, val
     val df = in.execute(ctx)
     val isWithReturn = ctx.expressionContext.executionContext.statement.returnColumns.nonEmpty
     removeItems.head match {
-      case rp@RemovePropertyItem(property) =>{
+      case rp@RemovePropertyItem(property) => {
         val data = removeItems.map(f => f.asInstanceOf[RemovePropertyItem].property.propertyKey.name).toArray
         if (isWithReturn) {
           val res = df.records.map(n => {
@@ -751,9 +925,9 @@ case class PPTRemove(removeItems: Seq[RemoveItem])(implicit val in: PPTNode, val
               }
             }
           })
-          DataFrame(schema, ()=>res.map(f => f.get))
+          DataFrame(schema, () => res.map(f => f.get))
         }
-        else{
+        else {
           df.records.foreach(n => {
             n.size match {
               case 1 => {
@@ -781,9 +955,9 @@ case class PPTRemove(removeItems: Seq[RemoveItem])(implicit val in: PPTNode, val
               }
             }
           })
-          DataFrame(schema, ()=>res.map(f => f.get))
+          DataFrame(schema, () => res.map(f => f.get))
         }
-        else{
+        else {
           df.records.foreach(n => {
             n.size match {
               case 1 => {

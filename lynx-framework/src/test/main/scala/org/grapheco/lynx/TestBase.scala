@@ -33,6 +33,20 @@ class TestBase extends LazyLogging {
   val REL_SIZE = all_rels.size
 
   val model = new GraphModel {
+
+
+    override def createNode(nodeFilter: NodeFilter): LynxNode = {
+      val node = TestNode(all_nodes.size + 1, nodeFilter.labels, nodeFilter.properties.toSeq:_*)
+      all_nodes.append(node)
+      node
+    }
+
+    override def createRelationship(relationshipFilter: RelationshipFilter, leftNode: LynxNode, rightNode: LynxNode): LynxRelationship = {
+      val relationship = TestRelationship(all_rels.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+      all_rels.append(relationship)
+      relationship
+    }
+
     override def createElements[T](
       nodesInput: Seq[(String, NodeInput)],
       relsInput: Seq[(String, RelationshipInput)],
@@ -52,7 +66,7 @@ class TestBase extends LazyLogging {
 
       val relsMap: Seq[(String, TestRelationship)] = relsInput.map(x => {
         val (varname, input) = x
-        varname -> TestRelationship(all_rels.size + 1, nodeId(input.startNodeRef), nodeId(input.endNodeRef), input.types.headOption)
+        varname -> TestRelationship(all_rels.size + 1, nodeId(input.startNodeRef), nodeId(input.endNodeRef), input.types.headOption, input.props:_*)
       }
       )
 

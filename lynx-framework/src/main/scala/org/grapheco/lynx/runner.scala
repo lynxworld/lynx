@@ -128,7 +128,7 @@ trait PlanAware {
 
 case class NodeFilter(labels: Seq[String], properties: Map[String, LynxValue]) {
   def matches(node: LynxNode): Boolean = (labels, node.labels) match {
-    case (Seq(), _) => properties.forall(p => node.property(p._1).orNull.equals(p._2))
+    case (Seq(), _) => properties.forall(p => node.property(p._1).getOrElse(None).equals(p._2))
     case (_, nodeLabels) => labels.forall(nodeLabels.contains(_)) && properties.forall(p => node.property(p._1).getOrElse(None).equals(p._2))
   }
 }
@@ -147,6 +147,8 @@ case class PathTriple(startNode: LynxNode, storedRelation: LynxRelationship, end
 
 trait GraphModel {
   def relationships(): Iterator[PathTriple]
+
+  def relationships(relationshipFilter: RelationshipFilter): Iterator[PathTriple] = relationships().filter(f => relationshipFilter.matches(f.storedRelation))
 
   def paths(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {
     val rels = direction match {
@@ -181,6 +183,9 @@ trait GraphModel {
       }
     )
   }
+
+  def createNode(nodeFilter: NodeFilter): LynxNode
+  def createRelationship(relationshipFilter: RelationshipFilter, leftNode:LynxNode, rightNode: LynxNode): LynxRelationship
 
   def createElements[T](
                          nodesInput: Seq[(String, NodeInput)],
