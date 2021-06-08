@@ -65,7 +65,7 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case ll@LPTLimit(expr) => PPTLimit(expr)(plan(ll.in), plannerContext)
       case lo@LPTOrderBy(sortItem) => PPTOrderBy(sortItem)(plan(lo.in), plannerContext)
       case ll@LPTSkip(expr) => PPTSkip(expr)(plan(ll.in), plannerContext)
-      case lj@LPTJoin() => PPTJoin()(plan(lj.a), plan(lj.b), plannerContext)
+      case lj@LPTJoin(isSingleMatch) => PPTJoin(isSingleMatch)(plan(lj.a), plan(lj.b), plannerContext)
       case patternMatch: LPTPatternMatch => PPTPatternMatchTranslator(patternMatch)(plannerContext).translate(None)
 
       case li@LPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName]) => PPTCreateIndex(labelName, properties)(plannerContext)
@@ -97,17 +97,18 @@ case class PPTPatternMatchTranslator(patternMatch: LPTPatternMatch)(implicit val
   }
 }
 
-case class PPTJoin()(a: PPTNode, b: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+case class PPTJoin(val isSingleMatch: Boolean)(a: PPTNode, b: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override val children: Seq[PPTNode] = Seq(a, b)
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df1 = a.execute(ctx)
     val df2 = b.execute(ctx)
 
-    df1.join(df2)
+    df1.join(df2, isSingleMatch)
+
   }
 
-  override def withChildren(children0: Seq[PPTNode]): PPTJoin = PPTJoin()(children0.head, children0(1), plannerContext)
+  override def withChildren(children0: Seq[PPTNode]): PPTJoin = PPTJoin(isSingleMatch)(children0.head, children0(1), plannerContext)
 
   override val schema: Seq[(String, LynxType)] = (a.schema ++ b.schema).distinct
 }
@@ -557,7 +558,7 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps:Seq[MergeElem
     }
 
     children match {
-      case Seq(pj@PPTJoin()) =>{
+      case Seq(pj@PPTJoin(isSingleMatch)) =>{
         val searchVar = pj.children.head.schema.toMap
         val res = children.map(_.execute).head.records
         if (res.nonEmpty) {

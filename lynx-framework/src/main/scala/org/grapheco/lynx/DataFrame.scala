@@ -47,7 +47,7 @@ trait DataFrameOperator {
 
   def take(df: DataFrame, num: Int): DataFrame
 
-  def join(a: DataFrame, b: DataFrame): DataFrame
+  def join(a: DataFrame, b: DataFrame, isSingleMatch: Boolean): DataFrame
 
   def distinct(df: DataFrame): DataFrame
 
@@ -159,7 +159,7 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
 
   override def take(df: DataFrame, num: Int): DataFrame = DataFrame(df.schema, () => df.records.take(num))
 
-  override def join(a: DataFrame, b: DataFrame): DataFrame = {
+  override def join(a: DataFrame, b: DataFrame, isSinglesMatch: Boolean): DataFrame = {
     val colsa = a.schema.map(_._1).zipWithIndex.toMap
     val colsb = b.schema.map(_._1).zipWithIndex.toMap
     //["m", "n"]
@@ -175,21 +175,22 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
     //{1->"m", 2->"n"}
     val largeColumns2 = (largeColumns -- joinCols).map(_.swap)
     val joinedSchema = a.schema ++ b.schema.filter(x => !joinCols.contains(x._1))
+    val needCheckSkip = isSinglesMatch && a.schema.size==b.schema.size
 
     DataFrame(joinedSchema, () => {
-      val smallMap: Map[Seq[LynxValue], Iterable[(Seq[LynxValue], Seq[LynxValue])]] =
+      val smallMap: Map[Seq[LynxValue], Iterable[(Seq[LynxValue], Seq[LynxValue])]] = {
         smallTable.records.map {
           row => {
             val value = joinCols.map(joinCol => row(smallColumns(joinCol)))
             value -> row
           }
         }.toIterable.groupBy(_._1)
-
+      }
       val joinedRecords = largeTable.records.flatMap {
         row => {
-          val value: Seq[LynxValue] = joinCols.map(joinCol => row(largeColumns(joinCol)))
+          val value = joinCols.map(joinCol => row(largeColumns(joinCol)))
           smallMap.getOrElse(value, Seq()).map(x => {
-            val lvs = largeColumns2.map(x => row(x._1)).toSeq
+            val lvs = largeColumns2.map(lc => row(lc._1)).toSeq
             if(swapped){
               lvs ++ x._2
             }else {
@@ -198,8 +199,21 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
           })
         }
       }
-
-      joinedRecords.filter(
+      val result = if(needCheckSkip){
+        val gap = a.schema.size
+        joinedRecords.filterNot(r => {
+          var identical: Boolean = true
+          for(i <- 0 until gap){
+            if(r(i).value!=r(i+gap).value){
+              identical=false
+            }
+          }
+          identical
+        })
+      }else{
+        joinedRecords
+      }
+      result.filter(
         item => {
           //(m)-[r]-(n)-[p]-(t), r!=p
           val relIds = item.filter(_.isInstanceOf[LynxRelationship]).map(_.asInstanceOf[LynxRelationship].id)
@@ -222,7 +236,7 @@ trait DataFrameOps {
   def groupBy(grouppings: Seq[(String, Expression)], aggregatings: Seq[(String, Expression)])(implicit ctx: ExpressionContext): DataFrame =
     operator.groupBy(srcFrame, grouppings, aggregatings)(ctx)
 
-  def join(b: DataFrame): DataFrame = operator.join(srcFrame, b)
+  def join(b: DataFrame, isSingleMatch: Boolean): DataFrame = operator.join(srcFrame, b, isSingleMatch)
 
   def filter(predicate: Seq[LynxValue] => Boolean)(ctx: ExpressionContext): DataFrame = operator.filter(srcFrame, predicate)(ctx)
 
