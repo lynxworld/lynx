@@ -55,14 +55,6 @@ class CypherMergeTest extends TestBase {
     Assert.assertEquals(TestNode(all_nodes.size, Seq("Critic")), res("robert"))
     Assert.assertEquals(Seq(LynxString("Critic")), res("labels(robert)").asInstanceOf[LynxValue].value)
   }
-  @Test
-  def testMergeMultipleExistNodes(): Unit ={
-    val res = runOnDemoGraph(
-      """
-        |MERGE (person:Person{bornIn:'New York'})
-        |RETURN person, person.name
-        |""".stripMargin)
-  }
 
   @Test
   def testMergeSingleNodeWithProperty(): Unit = {
@@ -127,6 +119,7 @@ class CypherMergeTest extends TestBase {
   @Test
   def testMergeOnANonExistRelationship(): Unit = {
     val relNum = all_rels.size
+    val nodesNum = all_nodes.size
 
     val res = runOnDemoGraph(
       """
@@ -138,6 +131,7 @@ class CypherMergeTest extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(relNum + 1, all_rels.size)
+    Assert.assertEquals(nodesNum, all_nodes.size)
     Assert.assertEquals(1, res.length)
     Assert.assertEquals(LynxString("Charlie Sheen"), res.head("charlie.name"))
     Assert.assertEquals(LynxString("ACTED_XXX"), res.head("type(r)"))
@@ -146,6 +140,8 @@ class CypherMergeTest extends TestBase {
 
   @Test
   def testMergeOnMultipleRelationship(): Unit = {
+    val nodesNum = all_nodes.size
+    val relNum = all_rels.size
     val res = runOnDemoGraph(
       """
         |MATCH
@@ -153,16 +149,56 @@ class CypherMergeTest extends TestBase {
         |  (reiner:Person {name: 'Rob Reiner'})
         |MERGE (oliver)-[r1:DIRECTED]->(movie:Movie)<-[r2:ACTED_IN]-(reiner)
         |RETURN movie
-        |""".stripMargin).show()
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(nodesNum + 1, all_nodes.length)
+    Assert.assertEquals(relNum + 2, all_rels.length)
+    Assert.assertEquals(Seq("Movie"), res.head("movie").asInstanceOf[LynxNode].labels)
   }
 
   @Test
-  def bugTest1(): Unit ={
-    runOnDemoGraph(
+  def testMergeOnAUndirectedRelationship(): Unit ={
+    val relNum = all_rels.size
+    val nodesNum = all_nodes.size
+
+    val res = runOnDemoGraph(
       """
-        |match (n:Person)
-        |match (m:XXX)
-        |return n
+        |MATCH
+        |  (charlie:Person {name: 'Charlie Sheen'}),
+        |  (oliver:Person {name: 'Oliver Stone'})
+        |MERGE (charlie)-[r:KNOWS]-(oliver)
+        |RETURN r
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(relNum + 1, all_rels.length)
+    Assert.assertEquals(nodesNum, all_nodes.length)
+    Assert.assertEquals("KNOWS", res.head("r").asInstanceOf[LynxRelationship].relationType.get)
+  }
+
+  @Test
+  def testMergeOnARelationshipBetweenTwoExistingNodes(): Unit ={
+    val relNum = all_rels.size
+    val nodesNum = all_nodes.size
+
+    val res = runOnDemoGraph(
+      """
+        |MATCH (person:Person)
+        |MERGE (city:City {name: person.bornIn})
+        |MERGE (person)-[r:BORN_IN]->(city)
+        |RETURN person.name, person.bornIn, city
+        |""".stripMargin)
+  }
+
+  @Test
+  def testMergeOnARelationshipBetweenAnExistingNodeAndAMergedNodeDerivedFromANodeProperty(): Unit ={
+    val relNum = all_rels.size
+    val nodesNum = all_nodes.size
+
+    val res = runOnDemoGraph(
+      """
+        |MATCH (person:Person)
+        |MERGE (person)-[r:HAS_CHAUFFEUR]->(chauffeur:Chauffeur {name: person.chauffeurName})
+        |RETURN person.name, person.chauffeurName, chauffeur
         |""".stripMargin)
   }
 }
