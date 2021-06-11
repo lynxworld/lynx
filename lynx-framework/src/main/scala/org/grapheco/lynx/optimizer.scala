@@ -1,7 +1,8 @@
 package org.grapheco.lynx
 
+import org.grapheco.lynx.RemoveNullProject.optimizeBottomUp
 import org.opencypher.v9_0.ast.AliasedReturnItem
-import org.opencypher.v9_0.expressions.{Ands, Equals, Expression, FunctionInvocation, HasLabels, LabelName, Literal, MapExpression, NodePattern, Not, Ors, Property, PropertyKeyName, Variable}
+import org.opencypher.v9_0.expressions.{Ands, Equals, Expression, FunctionInvocation, HasLabels, LabelName, Literal, MapExpression, NodePattern, Not, Ors, Property, PropertyKeyName, RelationshipPattern, Variable}
 import org.opencypher.v9_0.util.InputPosition
 
 import scala.collection.mutable
@@ -26,7 +27,8 @@ trait PhysicalPlanOptimizerRule {
 class DefaultPhysicalPlanOptimizer(runnerContext: CypherRunnerContext) extends PhysicalPlanOptimizer {
   val rules = Seq[PhysicalPlanOptimizerRule](
     RemoveNullProject,
-    NodeFilterPushDownRule
+    NodeFilterPushDownRule,
+    JoinOrderRule
   )
 
   def optimize(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = {
@@ -81,8 +83,8 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
     pj.withChildren(res)
   }
 
-  def pptFilterThenJoinChildrenMap(propArray:ArrayBuffer[(String, PropertyKeyName, Expression)], labelArray:ArrayBuffer[(String, Seq[LabelName])], pj: PPTJoin, ppc: PhysicalPlannerContext): PPTNode = {
-   val res = pj.children.map {
+  def pptFilterThenJoinChildrenMap(propArray: ArrayBuffer[(String, PropertyKeyName, Expression)], labelArray: ArrayBuffer[(String, Seq[LabelName])], pj: PPTJoin, ppc: PhysicalPlannerContext): PPTNode = {
+    val res = pj.children.map {
       case pn@PPTNodeScan(pattern) => {
         val schema = pattern.variable.get.name
         val propsFilter = propArray.filter(f => f._1 == schema).map(f => (f._2, f._3))
@@ -96,7 +98,7 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
           if (labelFilter.nonEmpty) labelFilter.head
           else pattern.labels
         }
-        PPTNodeScan(NodePattern(pattern.variable, labels, props,pattern.baseNode)(pattern.position))(ppc)
+        PPTNodeScan(NodePattern(pattern.variable, labels, props, pattern.baseNode)(pattern.position))(ppc)
       }
       case pjj@PPTJoin(isSingleMatch) => pptFilterThenJoinChildrenMap(propArray, labelArray, pjj, ppc)
       case f => f
@@ -104,14 +106,15 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
     pj.withChildren(res)
   }
 
-  def pptFilterThenJoin(filters: Expression, pj:PPTJoin, ppc: PhysicalPlannerContext): (Seq[PPTNode], Boolean) ={
-    val propertyArray:ArrayBuffer[(String, PropertyKeyName, Expression)] = ArrayBuffer()
-    val labelArray:ArrayBuffer[(String, Seq[LabelName])] = ArrayBuffer()
+  def pptFilterThenJoin(filters: Expression, pj: PPTJoin, ppc: PhysicalPlannerContext): (Seq[PPTNode], Boolean) = {
+    val propertyArray: ArrayBuffer[(String, PropertyKeyName, Expression)] = ArrayBuffer()
+    val labelArray: ArrayBuffer[(String, Seq[LabelName])] = ArrayBuffer()
     extractParamsFromFilterExpression(propertyArray, labelArray, filters)
-    val res = pptFilterThenJoinChildrenMap(propertyArray,labelArray,pj, ppc)
+    val res = pptFilterThenJoinChildrenMap(propertyArray, labelArray, pj, ppc)
     (Seq(res), true)
   }
-  def extractParamsFromFilterExpression(propArray:ArrayBuffer[(String, PropertyKeyName, Expression)], labelArray:ArrayBuffer[(String, Seq[LabelName])], filters:Expression): Unit = {
+
+  def extractParamsFromFilterExpression(propArray: ArrayBuffer[(String, PropertyKeyName, Expression)], labelArray: ArrayBuffer[(String, Seq[LabelName])], filters: Expression): Unit = {
     filters match {
       case e@Equals(Property(map, pkn), rhs) => propArray.append((map.asInstanceOf[Variable].name, pkn, rhs))
       case hl@HasLabels(expression, labels) => labelArray.append((expression.asInstanceOf[Variable].name, labels))
@@ -215,10 +218,10 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
 
           case eq@Equals(Property(expr, propertyKey), value) =>
             val name = expr.asInstanceOf[Variable].name
-            if (name == left.variable.get.name){
+            if (name == left.variable.get.name) {
               leftNodeProperties.add((propertyKey, value))
               leftPosition = eq.position
-            }else{
+            } else {
               rightNodeProperties.add((propertyKey, value))
               rightPosition = eq.position
             }
@@ -267,9 +270,9 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
 
           case eq@Equals(Property(expression, propertyKey), value) =>
             val varName = expression.asInstanceOf[Variable].name
-            if (nodeProperties.contains(varName)){
+            if (nodeProperties.contains(varName)) {
               nodeProperties(varName).add((propertyKey, value))
-            }else{
+            } else {
               nodeProperties += varName -> mutable.Set[(PropertyKeyName, Expression)]((propertyKey, value))
               positionMap += varName -> eq.position
             }
@@ -296,12 +299,12 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
     pptNode match {
       case e@PPTExpandPath(rel, right) =>
         val newPEP = bottomUpExpandPath(nodeLabels: Map[String, Seq[LabelName]], nodeProperties: Map[String, Option[Expression]], e.children.head, ppc)
-        val expandRightPattern = getNewNodePattern(right, nodeLabels, nodeProperties.getOrElse(right.variable.get.name,right.properties))
+        val expandRightPattern = getNewNodePattern(right, nodeLabels, nodeProperties.getOrElse(right.variable.get.name, right.properties))
         PPTExpandPath(rel, expandRightPattern)(newPEP, ppc)
 
       case r@PPTRelationshipScan(rel, left, right) => {
         val leftPattern = getNewNodePattern(left, nodeLabels, nodeProperties.getOrElse(left.variable.get.name, left.properties))
-        val rightPattern = getNewNodePattern(right, nodeLabels, nodeProperties.getOrElse(right.variable.get.name,right.properties))
+        val rightPattern = getNewNodePattern(right, nodeLabels, nodeProperties.getOrElse(right.variable.get.name, right.properties))
         PPTRelationshipScan(rel, leftPattern, rightPattern)(ppc)
       }
     }
@@ -340,5 +343,91 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
 
     if (otherExpressions.size > 1) (newNodePattern, Set(Ands(otherExpressions.toSet)(andsPosition)), true)
     else (newNodePattern, otherExpressions.toSet, true)
+  }
+}
+
+object JoinOrderRule extends PhysicalPlanOptimizerRule {
+  def estimate(pnode: PPTNode, ppc: PhysicalPlannerContext): Long = {
+    pnode match {
+      case ps@PPTNodeScan(pattern) => estimateNodeRows(pattern, ppc)
+      case pr@PPTRelationshipScan(rel, left, right) => estimateRelationshipRows(rel,ppc)
+      case _ => 0
+    }
+  }
+
+  def changeOrder(parent: PPTJoin, table1: PPTNode, table2: PPTNode, ppc: PhysicalPlannerContext): PPTNode = {
+    val estimatedRowA = estimate(table1, ppc)
+    val estimatedRowB = estimate(table2, ppc)
+
+    if (estimatedRowA > estimatedRowB) PPTJoin(parent.isSingleMatch)(table2, table1, ppc)
+    else PPTJoin(parent.isSingleMatch)(table1, table2, ppc)
+  }
+
+  def recursion(pJoin: PPTNode, ppc:PhysicalPlannerContext): PPTNode ={
+    val t1 = pJoin.children.head
+    val t2 = pJoin.children(1)
+    val table1 = t1 match {
+      case pj@PPTJoin(ops) => recursion(t1, ppc)
+      case _ => t1
+    }
+    val table2 = t2 match {
+      case pj@PPTJoin(ops) => recursion(t2, ppc)
+      case _ => t2
+    }
+    if (!table1.isInstanceOf[PPTJoin] && !table2.isInstanceOf[PPTJoin]){
+      changeOrder(pJoin.asInstanceOf[PPTJoin], table1, table2, ppc)
+    }
+    else {
+      (table1, table2) match {
+        case (n:PPTJoin, m:PPTJoin) =>{
+          val a = estimate(n.children.head, ppc)
+          val b = estimate(m.children.head, ppc)
+          if (a < b) PPTJoin(pJoin.asInstanceOf[PPTJoin].isSingleMatch)(table1,table2, ppc)
+          else PPTJoin(pJoin.asInstanceOf[PPTJoin].isSingleMatch)(table2,table1, ppc)
+        }
+        case (n:PPTJoin, m) =>{
+          val a = estimate(n.children.head, ppc)
+          val b = estimate(m, ppc)
+          if (a < b) PPTJoin(pJoin.asInstanceOf[PPTJoin].isSingleMatch)(table1,table2, ppc)
+          else PPTJoin(pJoin.asInstanceOf[PPTJoin].isSingleMatch)(table2,table1, ppc)
+        }
+        case (n, m: PPTJoin) =>{
+          val a = estimate(n, ppc)
+          val b = estimate(m.children.head, ppc)
+          if (a < b) PPTJoin(pJoin.asInstanceOf[PPTJoin].isSingleMatch)(table1,table2, ppc)
+          else PPTJoin(pJoin.asInstanceOf[PPTJoin].isSingleMatch)(table2,table1, ppc)
+        }
+        case _ => PPTJoin(pJoin.asInstanceOf[PPTJoin].isSingleMatch)(table1,table2, ppc)
+      }
+    }
+  }
+
+  override def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = optimizeBottomUp(plan,
+    {
+      case pnode: PPTNode => {
+        pnode.children match {
+          case Seq(pj@PPTJoin(ops)) => {
+            val res = recursion(pj, ppc)
+            pnode.withChildren(Seq(res))
+          }
+          case _ => pnode
+        }
+      }
+    }
+  )
+
+  def estimateNodeRows(nodePattern: NodePattern, ppc: PhysicalPlannerContext): Long = {
+    val model = ppc.runnerContext.graphModel
+    val labels = nodePattern.labels.map(l => l.name)
+    val propsKeyNames = nodePattern.properties.map {
+      case MapExpression(items) => items.map(f => f._1.name)
+    }.getOrElse(Seq.empty)
+
+    model.estimateNodeRows(labels, propsKeyNames)
+  }
+
+  def estimateRelationshipRows(relationshipPattern: RelationshipPattern, ppc: PhysicalPlannerContext): Long = {
+    val model = ppc.runnerContext.graphModel
+    model.estimateRelationshipRows(relationshipPattern.types.head.name)
   }
 }
