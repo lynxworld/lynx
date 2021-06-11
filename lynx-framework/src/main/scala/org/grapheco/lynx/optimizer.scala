@@ -350,7 +350,7 @@ object JoinOrderRule extends PhysicalPlanOptimizerRule {
   def estimate(pnode: PPTNode, ppc: PhysicalPlannerContext): Long = {
     pnode match {
       case ps@PPTNodeScan(pattern) => estimateNodeRows(pattern, ppc)
-      case pr@PPTRelationshipScan(rel, left, right) => estimateRelationshipRows(rel,ppc)
+      case pr@PPTRelationshipScan(rel, left, right) => estimateRelationshipRows(rel, ppc)
       case _ => 0
     }
   }
@@ -363,7 +363,7 @@ object JoinOrderRule extends PhysicalPlanOptimizerRule {
     else PPTJoin(parent.isSingleMatch)(table1, table2, ppc)
   }
 
-  def recursion(pJoin: PPTNode, ppc:PhysicalPlannerContext): PPTNode ={
+  def recursion(pJoin: PPTNode, ppc: PhysicalPlannerContext): PPTNode = {
     val t1 = pJoin.children.head
     val t2 = pJoin.children(1)
     val table1 = t1 match {
@@ -374,31 +374,11 @@ object JoinOrderRule extends PhysicalPlanOptimizerRule {
       case pj@PPTJoin(ops) => recursion(t2, ppc)
       case _ => t2
     }
-    if (!table1.isInstanceOf[PPTJoin] && !table2.isInstanceOf[PPTJoin]){
+    if (!table1.isInstanceOf[PPTJoin] && !table2.isInstanceOf[PPTJoin]) {
       changeOrder(pJoin.asInstanceOf[PPTJoin], table1, table2, ppc)
     }
     else {
-      (table1, table2) match {
-        case (n:PPTJoin, m:PPTJoin) =>{
-          val a = estimate(n.children.head, ppc)
-          val b = estimate(m.children.head, ppc)
-          if (a < b) PPTJoin(pJoin.asInstanceOf[PPTJoin].isSingleMatch)(table1,table2, ppc)
-          else PPTJoin(pJoin.asInstanceOf[PPTJoin].isSingleMatch)(table2,table1, ppc)
-        }
-        case (n:PPTJoin, m) =>{
-          val a = estimate(n.children.head, ppc)
-          val b = estimate(m, ppc)
-          if (a < b) PPTJoin(pJoin.asInstanceOf[PPTJoin].isSingleMatch)(table1,table2, ppc)
-          else PPTJoin(pJoin.asInstanceOf[PPTJoin].isSingleMatch)(table2,table1, ppc)
-        }
-        case (n, m: PPTJoin) =>{
-          val a = estimate(n, ppc)
-          val b = estimate(m.children.head, ppc)
-          if (a < b) PPTJoin(pJoin.asInstanceOf[PPTJoin].isSingleMatch)(table1,table2, ppc)
-          else PPTJoin(pJoin.asInstanceOf[PPTJoin].isSingleMatch)(table2,table1, ppc)
-        }
-        case _ => PPTJoin(pJoin.asInstanceOf[PPTJoin].isSingleMatch)(table1,table2, ppc)
-      }
+      PPTJoin(pJoin.asInstanceOf[PPTJoin].isSingleMatch)(table1, table2, ppc)
     }
   }
 
