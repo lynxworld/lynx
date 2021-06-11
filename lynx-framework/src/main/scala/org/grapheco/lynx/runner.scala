@@ -146,6 +146,11 @@ case class PathTriple(startNode: LynxNode, storedRelation: LynxRelationship, end
 }
 
 trait GraphModel {
+
+  def estimateNodeRows(labels:Seq[String], propertyKeyNames:Seq[String]): Long
+
+  def estimateRelationshipRows(relType: String): Long
+
   def relationships(): Iterator[PathTriple]
 
   def relationships(relationshipFilter: RelationshipFilter): Iterator[PathTriple] = relationships().filter(f => relationshipFilter.matches(f.storedRelation))

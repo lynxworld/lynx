@@ -35,6 +35,32 @@ class TestBase extends LazyLogging {
   val model = new GraphModel {
 
 
+    override def estimateNodeRows(labels: Seq[String], propertyKeyNames: Seq[String]): Long = {
+      def estimateProperties(target: ArrayBuffer[TestNode], propertyKeyNames: Seq[String]): Long ={
+        target.count(p =>{
+          if (propertyKeyNames.map(f => p.property(f).nonEmpty).count(p => p) == propertyKeyNames.size) true
+          else false
+        })
+      }
+
+      if (labels.nonEmpty){
+        val target = all_nodes.filter(p => p.labels == labels)
+        target.size match {
+          case 0 => 0
+          case _ =>{
+            estimateProperties(target, propertyKeyNames)
+          }
+        }
+      }
+      else {
+        estimateProperties(all_nodes, propertyKeyNames)
+      }
+    }
+
+    override def estimateRelationshipRows(relType: String): Long = {
+      all_rels.count(p => p.relationType.getOrElse("None") == relType)
+    }
+
     override def createNode(nodeFilter: NodeFilter): LynxNode = {
       val node = TestNode(all_nodes.size + 1, nodeFilter.labels, nodeFilter.properties.toSeq:_*)
       all_nodes.append(node)
