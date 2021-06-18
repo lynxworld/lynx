@@ -91,8 +91,8 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
         val property = scala.collection.mutable.Map(node.properties.toSeq:_*)
         data.foreach(f => property(f._1) = LynxValue(f._2))
         val newNode = TestNode(node.id.value.asInstanceOf[Long], node.labels, property.toSeq:_*)
-        allNodes -= node
-        allNodes += newNode
+        val index = allNodes.indexWhere(p => p==node)
+        allNodes(index) = newNode
         if (withReturn) Option(Seq(newNode))
         else None
       }
@@ -104,8 +104,8 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
       if (record.isDefined){
         val node = record.get
         val newNode = TestNode(node.id.value.asInstanceOf[Long], (node.labels ++ labels).distinct, node.properties.toSeq:_*)
-        allNodes -= node
-        allNodes += newNode
+        val index = allNodes.indexWhere(p => p==node)
+        allNodes(index) = newNode
         if (withReturn) Option(Seq(newNode))
         else None
       }
@@ -120,8 +120,8 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
         val property = scala.collection.mutable.Map(relation.properties.toSeq:_*)
         data.foreach(f => property(f._1) = LynxValue(f._2))
         val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, relation.relationType, property.toMap.toSeq:_*)
-        allRelationships -= relation
-        allRelationships += newRelationship
+        val index = allRelationships.indexWhere(p => p==relation)
+        allRelationships(index) = newRelationship
         if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
         else None
       }
@@ -134,43 +134,42 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
       if (record.isDefined){
         val relation = record.get
         val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, Option(labels.head), relation.properties.toSeq:_*)
-        allRelationships -= relation
-        allRelationships += newRelationship
+        val index = allRelationships.indexWhere(p => p==relation)
+        allRelationships(index) = newRelationship
         if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
         else None
       }
       else None
     }
 
-    override def removeNodeProperty(nodeId: LynxId, data: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def removeNodeProperty(nodeId: LynxId, data: Array[String]): Option[LynxNode] = {
       val record = allNodes.find(n => n.id == nodeId)
       if (record.isDefined){
         val node = record.get
         val property = scala.collection.mutable.Map(node.properties.toSeq:_*)
         data.foreach(f => {if (property.contains(f)) property -= f} )
         val newNode = TestNode(node.id.value.asInstanceOf[Long], node.labels, property.toSeq:_*)
-        allNodes -= node
-        allNodes += newNode
-        if (withReturn) Option(Seq(newNode))
-        else None
+
+        val index = allNodes.indexWhere(p => p==node)
+        allNodes(index) = newNode
+        Option(newNode)
       }
       else None
     }
 
-    override def removeNodeLabels(nodeId: LynxId, labels: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def removeNodeLabels(nodeId: LynxId, labels: Array[String]): Option[LynxNode] = {
       val record = allNodes.find(n => n.id == nodeId)
       if (record.isDefined){
         val node = record.get
         val newNode = TestNode(node.id.value.asInstanceOf[Long], (node.labels.toBuffer -- labels), node.properties.toSeq:_*)
-        allNodes -= node
-        allNodes += newNode
-        if (withReturn) Option(Seq(newNode))
-        else None
+        val index = allNodes.indexWhere(p => p==node)
+        allNodes(index) = newNode
+        Option(newNode)
       }
       else None
     }
 
-    override def removeRelationshipProperty(triple: Seq[LynxValue], data: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def removeRelationshipProperty(triple: Seq[LynxValue], data: Array[String]): Option[Seq[LynxValue]] = {
       val rel = triple(1).asInstanceOf[LynxRelationship]
       val record = allRelationships.find(r => r.id == rel.id)
       if (record.isDefined){
@@ -178,15 +177,14 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
         val property = scala.collection.mutable.Map(relation.properties.toSeq:_*)
         data.foreach(f => {if (property.contains(f)) property -= f} )
         val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, relation.relationType, property.toMap.toSeq:_*)
-        allRelationships -= relation
-        allRelationships += newRelationship
-        if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
-        else None
+        val index = allRelationships.indexWhere(p => p==relation)
+        allRelationships(index) = newRelationship
+        Option(Seq(triple.head, newRelationship, triple(2)))
       }
       else None
     }
 
-    override def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String]): Option[Seq[LynxValue]] = {
       val rel = triple(1).asInstanceOf[LynxRelationship]
       val record = allRelationships.find(r => r.id == rel.id)
       if (record.isDefined){
@@ -196,10 +194,9 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
           else Option(relation.relationType.get)
         }
         val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, newType, relation.properties.toSeq:_*)
-        allRelationships -= relation
-        allRelationships += newRelationship
-        if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
-        else None
+        val index = allRelationships.indexWhere(p => p==relation)
+        allRelationships(index) = newRelationship
+        Option(Seq(triple.head, newRelationship, triple(2)))
       }
       else None
     }

@@ -222,13 +222,13 @@ trait GraphModel {
 
   def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
 
-  def removeNodeProperty(nodeId: LynxId, data: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+  def removeNodeProperty(nodeId: LynxId, data: Array[String]): Option[LynxNode]
 
-  def removeNodeLabels(nodeId: LynxId, labels: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+  def removeNodeLabels(nodeId: LynxId, labels: Array[String]): Option[LynxNode]
 
-  def removeRelationshipProperty(triple: Seq[LynxValue],  data: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+  def removeRelationshipProperty(triple: Seq[LynxValue],  data: Array[String]): Option[Seq[LynxValue]]
 
-  def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+  def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String]): Option[Seq[LynxValue]]
 
 }
 
