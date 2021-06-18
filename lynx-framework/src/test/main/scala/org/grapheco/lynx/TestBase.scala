@@ -153,7 +153,7 @@ class TestBase extends LazyLogging {
       else None
     }
 
-    override def removeNodeProperty(nodeId: LynxId, data: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def removeNodeProperty(nodeId: LynxId, data: Array[String]): Option[LynxNode] = {
       val record = all_nodes.find(n => n.id == nodeId)
       if (record.isDefined){
         val node = record.get
@@ -162,26 +162,24 @@ class TestBase extends LazyLogging {
         val newNode = TestNode(node.id.value.asInstanceOf[Long], node.labels, property.toSeq:_*)
         all_nodes -= node
         all_nodes += newNode
-        if (withReturn) Option(Seq(newNode))
-        else None
+        Option(newNode)
       }
       else None
     }
 
-    override def removeNodeLabels(nodeId: LynxId, labels: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def removeNodeLabels(nodeId: LynxId, labels: Array[String]): Option[LynxNode] = {
       val record = all_nodes.find(n => n.id == nodeId)
       if (record.isDefined){
         val node = record.get
         val newNode = TestNode(node.id.value.asInstanceOf[Long], (node.labels.toBuffer -- labels), node.properties.toSeq:_*)
         all_nodes -= node
         all_nodes += newNode
-        if (withReturn) Option(Seq(newNode))
-        else None
+        Option(newNode)
       }
       else None
     }
 
-    override def removeRelationshipProperty(triple: Seq[LynxValue], data: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def removeRelationshipProperty(triple: Seq[LynxValue], data: Array[String]): Option[Seq[LynxValue]] = {
       val rel = triple(1).asInstanceOf[LynxRelationship]
       val record = all_rels.find(r => r.id == rel.id)
       if (record.isDefined){
@@ -191,13 +189,12 @@ class TestBase extends LazyLogging {
         val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, relation.relationType, property.toMap.toSeq:_*)
         all_rels -= relation
         all_rels += newRelationship
-        if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
-        else None
+        Option(Seq(triple.head, newRelationship, triple(2)))
       }
       else None
     }
 
-    override def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String]): Option[Seq[LynxValue]] = {
       val rel = triple(1).asInstanceOf[LynxRelationship]
       val record = all_rels.find(r => r.id == rel.id)
       if (record.isDefined){
@@ -209,8 +206,7 @@ class TestBase extends LazyLogging {
         val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, newType, relation.properties.toSeq:_*)
         all_rels -= relation
         all_rels += newRelationship
-        if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
-        else None
+        Option(Seq(triple.head, newRelationship, triple(2)))
       }
       else None
     }
