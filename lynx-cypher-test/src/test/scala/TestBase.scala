@@ -84,7 +84,7 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
     }
 
 
-    override def setNodeProperty(nodeId: LynxId, data: Array[(String ,AnyRef)], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def setNodeProperty(nodeId: LynxId, data: Array[(String ,AnyRef)]): Option[LynxNode] = {
       val record = allNodes.find(n => n.id == nodeId)
       if (record.isDefined){
         val node = record.get
@@ -93,26 +93,24 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
         val newNode = TestNode(node.id.value.asInstanceOf[Long], node.labels, property.toSeq:_*)
         val index = allNodes.indexWhere(p => p==node)
         allNodes(index) = newNode
-        if (withReturn) Option(Seq(newNode))
-        else None
+        Option(newNode)
       }
       else None
     }
 
-    override def addNodeLabels(nodeId: LynxId, labels: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def addNodeLabels(nodeId: LynxId, labels: Array[String]): Option[LynxNode] = {
       val record = allNodes.find(n => n.id == nodeId)
       if (record.isDefined){
         val node = record.get
         val newNode = TestNode(node.id.value.asInstanceOf[Long], (node.labels ++ labels).distinct, node.properties.toSeq:_*)
         val index = allNodes.indexWhere(p => p==node)
         allNodes(index) = newNode
-        if (withReturn) Option(Seq(newNode))
-        else None
+        Option(newNode)
       }
       else None
     }
 
-    override def setRelationshipProperty(triple: Seq[LynxValue], data: Array[(String ,AnyRef)], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def setRelationshipProperty(triple: Seq[LynxValue], data: Array[(String ,AnyRef)]): Option[Seq[LynxValue]] = {
       val rel = triple(1).asInstanceOf[LynxRelationship]
       val record = allRelationships.find(r => r.id == rel.id)
       if (record.isDefined){
@@ -122,13 +120,12 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
         val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, relation.relationType, property.toMap.toSeq:_*)
         val index = allRelationships.indexWhere(p => p==relation)
         allRelationships(index) = newRelationship
-        if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
-        else None
+        Option(Seq(triple.head, newRelationship, triple(2)))
       }
       else None
     }
 
-    override def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String]): Option[Seq[LynxValue]] = {
       val rel = triple(1).asInstanceOf[LynxRelationship]
       val record = allRelationships.find(r => r.id == rel.id)
       if (record.isDefined){
@@ -136,8 +133,7 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
         val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, Option(labels.head), relation.properties.toSeq:_*)
         val index = allRelationships.indexWhere(p => p==relation)
         allRelationships(index) = newRelationship
-        if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
-        else None
+        Option(Seq(triple.head, newRelationship, triple(2)))
       }
       else None
     }
