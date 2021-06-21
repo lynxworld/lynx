@@ -35,30 +35,38 @@ class TestBase extends LazyLogging {
   val model = new GraphModel {
 
 
-    override def estimateNodeRows(labels: Seq[String], propertyKeyNames: Seq[String]): Long = {
+    override def estimateNodeRows(labels: Seq[String], propertyKeyNames: Seq[String], threshold: Int): Long = {
+      /* -1: match threshold rule
+         >=0: count num
+       */
       def estimateProperties(target: ArrayBuffer[TestNode], propertyKeyNames: Seq[String]): Long ={
-        target.count(p =>{
-          if (propertyKeyNames.map(f => p.property(f).nonEmpty).count(p => p) == propertyKeyNames.size) true
-          else false
-        })
+        if (propertyKeyNames.isEmpty) target.size
+        else {
+          target.count(p =>{
+            if (propertyKeyNames.map(f => p.property(f).nonEmpty).count(p => p) == propertyKeyNames.size) true
+            else false
+          })
+        }
       }
 
       if (labels.nonEmpty){
-        val target = all_nodes.filter(p => p.labels == labels)
-        target.size match {
-          case 0 => 0
-          case _ =>{
-            estimateProperties(target, propertyKeyNames)
-          }
-        }
+        val targetArray = all_nodes.filter(p => p.labels == labels)
+        val targetLength = targetArray.size
+        if (targetLength < threshold) -1
+        else if (targetLength == 0) 0
+        else estimateProperties(targetArray, propertyKeyNames)
       }
       else {
-        estimateProperties(all_nodes, propertyKeyNames)
+        val res = estimateProperties(all_nodes, propertyKeyNames)
+        if (res < threshold) -1
+        else res
       }
     }
 
-    override def estimateRelationshipRows(relType: String): Long = {
-      all_rels.count(p => p.relationType.getOrElse("None") == relType)
+    override def estimateRelationshipRows(relType: String, threshold: Int): Long = {
+      val res = all_rels.count(p => p.relationType.getOrElse("None") == relType)
+      if (res < threshold) -1
+      else res
     }
 
     override def createNode(nodeFilter: NodeFilter): LynxNode = {

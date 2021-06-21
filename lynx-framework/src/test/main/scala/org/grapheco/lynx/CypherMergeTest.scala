@@ -21,14 +21,16 @@ class CypherMergeTest extends TestBase {
     all_nodes.clear()
     all_rels.clear()
 
-    n1 = TestNode(1, Seq("Person"), "bornIn"->LynxValue("New York"), "name"->LynxValue("Oliver Stone"), "chauffeurName"->LynxValue("Bill White"))
+    n1 = TestNode(1, Seq("Person"), "bornIn"->LynxValue("New York"), "name"->LynxValue("Oliver Stone"), "chauffeurName"->LynxValue("Bill White"), "a"->LynxValue("b"))
     n2 = TestNode(2, Seq("Person"), "bornIn"->LynxValue("New Jersey"), "name"->LynxValue("Michael Douglas"), "chauffeurName"->LynxValue("John Brown"))
     n3 = TestNode(3, Seq("Person"), "bornIn"->LynxValue("Ohio"), "name"->LynxValue("Martin Sheen"), "chauffeurName"->LynxValue("Bob Brown"))
-    n4 = TestNode(4, Seq("Person"), "bornIn"->LynxValue("New York"), "name"->LynxValue("Rob Reiner"), "chauffeurName"->LynxValue("Ted Green"))
+    n4 = TestNode(4, Seq("Person"), "bornIn"->LynxValue("New York"), "name"->LynxValue("Rob Reiner"), "chauffeurName"->LynxValue("Bill White"))
     n5 = TestNode(5, Seq("Person"), "bornIn"->LynxValue("New York"), "name"->LynxValue("Charlie Sheen"), "chauffeurName"->LynxValue("John Brown"))
 
     val m1 = TestNode(6, Seq("Movie"), "title"->LynxValue("Wall Street"))
     val m2 = TestNode(7, Seq("Movie"), "title"->LynxValue("The American President"))
+
+    val c1 = TestNode(8, Seq("City"),"name"->LynxValue("New York"))
 
     val r1 = TestRelationship(1, 5, 3, Option("Father"))
     val r2 = TestRelationship(2, 1, 6, Option("ACTED_IN"))
@@ -40,8 +42,20 @@ class CypherMergeTest extends TestBase {
     val r8 = TestRelationship(8, 5, 6, Option("ACTED_IN"))
     val r9 = TestRelationship(9, 5, 6, Option("ACTED_IN"))
 
-    all_nodes.append(n1, n2, n3, n4, n5, m1, m2)
+    all_nodes.append(n1, n2, n3, n4, n5, m1, m2, c1)
     all_rels.append(r1, r2, r3, r4, r5, r6, r7, r8, r9)
+  }
+
+  @Test
+  def test(): Unit ={
+    runOnDemoGraph(
+      """
+        |match (n1:Person{a:'b'})
+        |match (n2:Person{bornIn:n1.bornIn})
+        |return n2
+        |""".stripMargin)
+
+//    runOnDemoGraph("match (n:Person) return n.bornIn")
   }
 
   @Test

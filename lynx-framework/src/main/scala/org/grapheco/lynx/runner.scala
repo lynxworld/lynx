@@ -147,9 +147,9 @@ case class PathTriple(startNode: LynxNode, storedRelation: LynxRelationship, end
 
 trait GraphModel {
 
-  def estimateNodeRows(labels:Seq[String], propertyKeyNames:Seq[String]): Long
+  def estimateNodeRows(labels:Seq[String], propertyKeyNames:Seq[String], threshold: Int = 1): Long
 
-  def estimateRelationshipRows(relType: String): Long
+  def estimateRelationshipRows(relType: String, threshold: Int = 100000): Long
 
   def relationships(): Iterator[PathTriple]
 
