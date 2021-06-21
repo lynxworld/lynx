@@ -122,16 +122,16 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
     )
   }
 
-  override def groupBy(df: DataFrame, grouppings:Seq[(String, Expression)], aggregatings: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame = {
+  override def groupBy(df: DataFrame, grouppings: Seq[(String, Expression)], aggregatings: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame = {
     val schema1 = df.schema
-    val schema2 = (grouppings++aggregatings).map(col =>
+    val schema2 = (grouppings ++ aggregatings).map(col =>
       col._1 -> expressionEvaluator.typeOf(col._2, schema1.toMap)
     )
     val colNames = schema1.map(_._1)
     DataFrame(schema2,
       () => {
         val recordGroups = df.records.map(record => {
-          val nameValues= colNames.zip(record).toMap
+          val nameValues = colNames.zip(record).toMap
           val recordCtx = ctx.withVars(nameValues)
           grouppings.map(col => expressionEvaluator.eval(col._2)(recordCtx)) -> recordCtx
         }).toTraversable.groupBy(_._1)
@@ -175,7 +175,7 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
     //{1->"m", 2->"n"}
     val largeColumns2 = (largeColumns -- joinCols).map(_.swap)
     val joinedSchema = a.schema ++ b.schema.filter(x => !joinCols.contains(x._1))
-    val needCheckSkip = isSinglesMatch && a.schema.size==b.schema.size
+    val needCheckSkip = isSinglesMatch && a.schema.size == b.schema.size
 
     DataFrame(joinedSchema, () => {
       val smallMap: Map[Seq[LynxValue], Iterable[(Seq[LynxValue], Seq[LynxValue])]] = {
@@ -186,31 +186,32 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
           }
         }.toIterable.groupBy(_._1)
       }
+
       val joinedRecords = largeTable.records.flatMap {
         row => {
           val value = joinCols.map(joinCol => row(largeColumns(joinCol)))
           smallMap.getOrElse(value, Seq()).map(x => {
             val lvs = largeColumns2.map(lc => row(lc._1)).toSeq
-            if(swapped){
+            if (swapped) {
               lvs ++ x._2
-            }else {
+            } else {
               x._2 ++ lvs
             }
           })
         }
       }
-      val result = if(needCheckSkip){
+      val result = if (needCheckSkip) {
         val gap = a.schema.size
         joinedRecords.filterNot(r => {
           var identical: Boolean = true
-          for(i <- 0 until gap){
-            if(r(i).value!=r(i+gap).value){
-              identical=false
+          for (i <- 0 until gap) {
+            if (r(i).value != r(i + gap).value) {
+              identical = false
             }
           }
           identical
         })
-      }else{
+      } else {
         joinedRecords
       }
       result.filter(
