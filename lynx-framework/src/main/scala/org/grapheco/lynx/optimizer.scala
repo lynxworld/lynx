@@ -84,7 +84,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
       case pr@PPTRelationshipScan(rel, leftPattern, rightPattern) =>{
         ???
       }
-      case pj1@PPTJoin(pj.filterExpr) =>{
+      case pj1@PPTJoin(filterExpr) =>{
         table1 = joinRecursion(pj1, ppc)
       }
     }
@@ -100,7 +100,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
       case pr@PPTRelationshipScan(rel, leftPattern, rightPattern) =>{
         ???
       }
-      case pj2@PPTJoin(pj.filterExpr) =>{
+      case pj2@PPTJoin(filterExpr) =>{
         table2 = joinRecursion(pj2, ppc)
       }
     }
