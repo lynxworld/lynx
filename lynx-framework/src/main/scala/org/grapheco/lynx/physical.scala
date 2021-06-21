@@ -63,7 +63,7 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case ll@LPTLimit(expr) => PPTLimit(expr)(plan(ll.in), plannerContext)
       case lo@LPTOrderBy(sortItem) => PPTOrderBy(sortItem)(plan(lo.in), plannerContext)
       case ll@LPTSkip(expr) => PPTSkip(expr)(plan(ll.in), plannerContext)
-      case lj@LPTJoin() => PPTJoin()(plan(lj.a), plan(lj.b), plannerContext)
+      case lj@LPTJoin() => PPTJoin(None)(plan(lj.a), plan(lj.b), plannerContext)
       case patternMatch: LPTPatternMatch => PPTPatternMatchTranslator(patternMatch)(plannerContext).translate(None)
       case li@LPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName]) => PPTCreateIndex(labelName, properties)(plannerContext)
       case sc@LPTSetClause(d) => PPTSetClauseTranslator(d.items).translate(sc.in.map(plan(_)))(plannerContext)
@@ -94,17 +94,29 @@ case class PPTPatternMatchTranslator(patternMatch: LPTPatternMatch)(implicit val
   }
 }
 
-case class PPTJoin()(a: PPTNode, b: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+case class PPTJoin(filterExpr: Option[Expression])(a: PPTNode, b: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override val children: Seq[PPTNode] = Seq(a, b)
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df1 = a.execute(ctx)
     val df2 = b.execute(ctx)
 
-    df1.join(df2)
+    val df = df1.join(df2)
+
+    if (filterExpr.nonEmpty){
+      val ec = ctx.expressionContext
+      df.filter {
+        (record: Seq[LynxValue]) =>
+          eval(filterExpr.get)(ec.withVars(df.schema.map(_._1).zip(record).toMap)) match {
+            case LynxBoolean(b) => b
+            case LynxNull => false
+          }
+      }(ec)
+    }
+    else df
   }
 
-  override def withChildren(children0: Seq[PPTNode]): PPTJoin = PPTJoin()(children0.head, children0(1), plannerContext)
+  override def withChildren(children0: Seq[PPTNode]): PPTJoin = PPTJoin(filterExpr)(children0.head, children0(1), plannerContext)
 
   override val schema: Seq[(String, LynxType)] = (a.schema ++ b.schema).distinct
 }
