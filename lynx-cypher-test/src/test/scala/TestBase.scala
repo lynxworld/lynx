@@ -1,7 +1,7 @@
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.{CallableProcedure, ContextualNodeInputRef, CypherRunner, DefaultProcedureRegistry, DefaultProcedures, GraphModel, LynxId, LynxInteger, LynxList, LynxNode, LynxRelationship, LynxResult, LynxType, LynxValue, NodeFilter, NodeInput, NodeInputRef, PathTriple, ProcedureRegistry, RelationshipFilter, RelationshipInput, StoredNodeInputRef}
 import org.grapheco.lynx.util.Profiler
-import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName}
+import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, SemanticDirection}
 import org.opencypher.v9_0.util.symbols.{CTInteger, CTString}
 
 import scala.collection.mutable.ArrayBuffer
@@ -23,6 +23,34 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
 
   val model = new GraphModel {
 
+    override def createNode(nodeFilter: NodeFilter): LynxNode = {
+      val node = TestNode(allNodes.size + 1, nodeFilter.labels, nodeFilter.properties.toSeq:_*)
+      allNodes.append(node)
+      node
+    }
+
+    override def createRelationship(relationshipFilter: RelationshipFilter, leftNode: LynxNode, rightNode: LynxNode, direction: SemanticDirection): PathTriple = {
+      val relationship = direction match {
+        case SemanticDirection.INCOMING =>{
+          val r1 = TestRelationship(allRelationships.size + 1, rightNode.id.value.asInstanceOf[Long], leftNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+          allRelationships.append(r1)
+          r1
+        }
+        case SemanticDirection.OUTGOING =>{
+          val r1 = TestRelationship(allRelationships.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+          allRelationships.append(r1)
+          r1
+        }
+        case SemanticDirection.BOTH =>{
+          val r1 = TestRelationship(allRelationships.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+          val r2 = TestRelationship(allRelationships.size + 1, rightNode.id.value.asInstanceOf[Long], leftNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+          allRelationships.append(r1, r2)
+          r1
+        }
+      }
+      PathTriple(leftNode, relationship, rightNode)
+    }
+
     override def mergeNode(nodeFilter: NodeFilter): LynxNode = {
       // because join not found data, so, if res nonEmpty, there must be only 1 node in db
       val res = nodes(nodeFilter)
@@ -34,13 +62,29 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
       }
     }
 
-    override def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode: LynxNode, rightNode: LynxNode): PathTriple = {
+    override def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode: LynxNode, rightNode: LynxNode, direction: SemanticDirection): PathTriple = {
       // because join not found data, so, if res nonEmpty, there must be only 1 node in db
       val res = relationships(relationshipFilter)
       if (res.nonEmpty) res.next()
       else {
-        val relationship = TestRelationship(allRelationships.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
-        allRelationships.append(relationship)
+        val relationship = direction match {
+          case SemanticDirection.INCOMING =>{
+            val r1 = TestRelationship(allRelationships.size + 1, rightNode.id.value.asInstanceOf[Long], leftNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+            allRelationships.append(r1)
+            r1
+          }
+          case SemanticDirection.OUTGOING =>{
+            val r1 = TestRelationship(allRelationships.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+            allRelationships.append(r1)
+            r1
+          }
+          case SemanticDirection.BOTH =>{
+            val r1 = TestRelationship(allRelationships.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+            val r2 = TestRelationship(allRelationships.size + 1, rightNode.id.value.asInstanceOf[Long], leftNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+            allRelationships.append(r1, r2)
+            r1
+          }
+        }
         PathTriple(leftNode, relationship, rightNode)
       }
     }

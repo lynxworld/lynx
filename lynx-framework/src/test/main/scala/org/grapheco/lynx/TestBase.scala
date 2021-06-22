@@ -34,6 +34,34 @@ class TestBase extends LazyLogging {
 
   val model = new GraphModel {
 
+    override def createNode(nodeFilter: NodeFilter): LynxNode = {
+      val node = TestNode(all_nodes.size + 1, nodeFilter.labels, nodeFilter.properties.toSeq:_*)
+      all_nodes.append(node)
+      node
+    }
+
+    override def createRelationship(relationshipFilter: RelationshipFilter, leftNode: LynxNode, rightNode: LynxNode, direction: SemanticDirection): PathTriple = {
+      val relationship = direction match {
+        case SemanticDirection.INCOMING =>{
+          val r1 = TestRelationship(all_rels.size + 1, rightNode.id.value.asInstanceOf[Long], leftNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+          all_rels.append(r1)
+          r1
+        }
+        case SemanticDirection.OUTGOING =>{
+          val r1 = TestRelationship(all_rels.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+          all_rels.append(r1)
+          r1
+        }
+        case SemanticDirection.BOTH =>{
+          val r1 = TestRelationship(all_rels.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+          val r2 = TestRelationship(all_rels.size + 1, rightNode.id.value.asInstanceOf[Long], leftNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+          all_rels.append(r1, r2)
+          r1
+        }
+      }
+      PathTriple(leftNode, relationship, rightNode)
+    }
+
     override def mergeNode(nodeFilter: NodeFilter): LynxNode = {
       // because join not found data, so, if res nonEmpty, there must be only 1 node in db
       val res = nodes(nodeFilter)
@@ -45,13 +73,29 @@ class TestBase extends LazyLogging {
       }
     }
 
-    override def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode: LynxNode, rightNode: LynxNode): PathTriple = {
+    override def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode: LynxNode, rightNode: LynxNode, direction: SemanticDirection): PathTriple = {
       // because join not found data, so, if res nonEmpty, there must be only 1 node in db
       val res = relationships(relationshipFilter)
       if (res.nonEmpty) res.next()
       else {
-        val relationship = TestRelationship(all_rels.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
-        all_rels.append(relationship)
+        val relationship = direction match {
+          case SemanticDirection.INCOMING =>{
+            val r1 = TestRelationship(all_rels.size + 1, rightNode.id.value.asInstanceOf[Long], leftNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+            all_rels.append(r1)
+            r1
+          }
+          case SemanticDirection.OUTGOING =>{
+            val r1 = TestRelationship(all_rels.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+            all_rels.append(r1)
+            r1
+          }
+          case SemanticDirection.BOTH =>{
+            val r1 = TestRelationship(all_rels.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+            val r2 = TestRelationship(all_rels.size + 1, rightNode.id.value.asInstanceOf[Long], leftNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+            all_rels.append(r1, r2)
+            r1
+          }
+        }
         PathTriple(leftNode, relationship, rightNode)
       }
     }
