@@ -36,14 +36,14 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 
     val logicalPlannerContext = LogicalPlannerContext(param ++ param2, runnerContext)
     val logicalPlan = logicalPlanner.plan(statement, logicalPlannerContext)
-    logger.debug(s"logical plan: \r\n${logicalPlan.pretty}")
+    logger.info(s"logical plan: \r\n${logicalPlan.pretty}")
 
     val physicalPlannerContext = PhysicalPlannerContext(param ++ param2, runnerContext)
     val physicalPlan = physicalPlanner.plan(logicalPlan)(physicalPlannerContext)
-    logger.debug(s"physical plan: \r\n${physicalPlan.pretty}")
+    logger.info(s"physical plan: \r\n${physicalPlan.pretty}")
 
     val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan, physicalPlannerContext)
-    logger.debug(s"optimized physical plan: \r\n${optimizedPhysicalPlan.pretty}")
+    logger.info(s"optimized physical plan: \r\n${optimizedPhysicalPlan.pretty}")
 
     val ctx = ExecutionContext(physicalPlannerContext, statement, param ++ param2)
     val df = optimizedPhysicalPlan.execute(ctx)
@@ -147,6 +147,7 @@ case class PathTriple(startNode: LynxNode, storedRelation: LynxRelationship, end
 
 trait GraphModel {
   def relationships(): Iterator[PathTriple]
+  def relationships(relationshipFilter: RelationshipFilter): Iterator[PathTriple] = relationships().filter(f => relationshipFilter.matches(f.storedRelation))
 
   def paths(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {
     val rels = direction match {
@@ -181,6 +182,11 @@ trait GraphModel {
       }
     )
   }
+
+
+  def mergeNode(nodeFilter: NodeFilter): LynxNode
+  def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode:LynxNode, rightNode: LynxNode): PathTriple
+
 
   def createElements[T](
                          nodesInput: Seq[(String, NodeInput)],

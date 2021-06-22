@@ -81,6 +81,19 @@ case class LPTCreateTranslator(c: Create) extends LPTNodeTranslator {
 case class LPTCreate(c: Create)(val in: Option[LPTNode]) extends LPTNode {
 }
 
+//////////////merge//////////////////////
+case class LPTMergeTranslator(m: Merge) extends LPTNodeTranslator {
+  def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
+    val matchInfo = Match(false, m.pattern, Seq.empty, m.where)(m.position)
+    val mergeIn = LPTMatchTranslator(matchInfo).translate(in)
+    LPTMerge(m)(Option(mergeIn))
+  }
+}
+case class LPTMerge(m: Merge)(val in: Option[LPTNode]) extends LPTNode {
+  override val children: Seq[LPTNode] = in.toSeq
+}
+///////////////////////////////////////
+
 
 //////////////////Delete////////////////
 case class LPTDeleteTranslator(d: Delete) extends LPTNodeTranslator {
@@ -134,6 +147,7 @@ case class LPTQueryPartTranslator(part: QueryPart) extends LPTNodeTranslator {
               case w: With => LPTWithTranslator(w)
               case m: Match => LPTMatchTranslator(m)
               case c: Create => LPTCreateTranslator(c)
+              case m: Merge => LPTMergeTranslator(m)
               case d: Delete => LPTDeleteTranslator(d)
               case s: SetClause => LPTSetClauseTranslator(s)
               case r: Remove => LPTRemoveTranslator(r)
