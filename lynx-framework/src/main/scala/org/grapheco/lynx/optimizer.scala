@@ -73,6 +73,37 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     else (Seq.empty, None)
   }
 
+  def checkExpandPath(pe: PPTExpandPath, ppc:PhysicalPlannerContext): (PPTNode, Seq[((LogicalVariable, PropertyKeyName), Expression)]) = {
+    pe.children match {
+      case Seq(pr@PPTRelationshipScan(rel, leftPattern, rightPattern)) =>{
+        val leftChecked = checkNodeReference(leftPattern)
+        val rightChecked = checkNodeReference(rightPattern)
+
+        val res = (leftChecked._2, rightChecked._2) match {
+          case (None, None) => pr
+          case (value1, None) => PPTRelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
+          case (None, value2) => PPTRelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
+          case (value1, value2) => PPTRelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
+        }
+
+        (pe.withChildren(Seq(res)), leftChecked._1 ++ rightChecked._1)
+      }
+      case Seq(pe2@PPTExpandPath(rel, rightPattern)) =>{
+        val res = checkExpandPath(pe2, ppc)
+        val rightChecked = checkNodeReference(rightPattern)
+
+        val newPPTExpandPath = {
+          if (rightChecked._2.nonEmpty){
+            PPTExpandPath(rel, rightChecked._2.get)(res._1, ppc)
+          }
+          else pe2.withChildren(Seq(res._1))
+        }
+
+        (newPPTExpandPath, res._2 ++ rightChecked._1)
+      }
+    }
+  }
+
   def joinRecursion(pj: PPTJoin, ppc: PhysicalPlannerContext): PPTNode = {
     var table1 = pj.children.head
     var table2 = pj.children.last
@@ -81,7 +112,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     table1 match {
       case ps@PPTNodeScan(pattern)=>{
         val checked = checkNodeReference(pattern)
-        referenceProperty ++= checked._1
+        referenceProperty = referenceProperty ++ checked._1
         if (checked._2.isDefined){
           table1 = PPTNodeScan(checked._2.get)(ppc)
         }
@@ -99,7 +130,12 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
           case (value1, value2) => table1 = PPTRelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
         }
       }
-      case pj1@PPTJoin(filterExpr) =>{
+      case pe@PPTExpandPath(rel, rightPattern) =>{
+        val res = checkExpandPath(pe, ppc)
+        table1 = res._1
+        referenceProperty ++= res._2
+      }
+      case pj1@PPTJoin(filterExpr) => {
         table1 = joinRecursion(pj1, ppc)
       }
     }
@@ -124,6 +160,11 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
           case (None, value2) => table2 = PPTRelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
           case (value1, value2) => table2 = PPTRelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
         }
+      }
+      case pe@PPTExpandPath(rel, rightPattern) =>{
+        val res = checkExpandPath(pe, ppc)
+        table2 = res._1
+        referenceProperty ++= res._2
       }
       case pj2@PPTJoin(filterExpr) =>{
         table2 = joinRecursion(pj2, ppc)

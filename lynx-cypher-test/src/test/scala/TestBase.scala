@@ -1,5 +1,5 @@
 import com.typesafe.scalalogging.LazyLogging
-import org.grapheco.lynx.{CallableProcedure, ContextualNodeInputRef, CypherRunner, DefaultProcedureRegistry, DefaultProcedures, GraphModel, LynxId, LynxInteger, LynxList, LynxNode, LynxRelationship, LynxResult, LynxType, LynxValue, NodeInput, NodeInputRef, PathTriple, ProcedureRegistry, RelationshipInput, StoredNodeInputRef}
+import org.grapheco.lynx.{CallableProcedure, ContextualNodeInputRef, CypherRunner, DefaultProcedureRegistry, DefaultProcedures, GraphModel, LynxId, LynxInteger, LynxList, LynxNode, LynxRelationship, LynxResult, LynxType, LynxValue, NodeFilter, NodeInput, NodeInputRef, PathTriple, ProcedureRegistry, RelationshipFilter, RelationshipInput, StoredNodeInputRef}
 import org.grapheco.lynx.util.Profiler
 import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName}
 import org.opencypher.v9_0.util.symbols.{CTInteger, CTString}
@@ -22,6 +22,29 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
   val REL_SIZE = allRelationships.size
 
   val model = new GraphModel {
+
+    override def mergeNode(nodeFilter: NodeFilter): LynxNode = {
+      // because join not found data, so, if res nonEmpty, there must be only 1 node in db
+      val res = nodes(nodeFilter)
+      if (res.nonEmpty) res.next()
+      else {
+        val node = TestNode(allNodes.size + 1, nodeFilter.labels, nodeFilter.properties.toSeq:_*)
+        allNodes.append(node)
+        node
+      }
+    }
+
+    override def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode: LynxNode, rightNode: LynxNode): PathTriple = {
+      // because join not found data, so, if res nonEmpty, there must be only 1 node in db
+      val res = relationships(relationshipFilter)
+      if (res.nonEmpty) res.next()
+      else {
+        val relationship = TestRelationship(allRelationships.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+        allRelationships.append(relationship)
+        PathTriple(leftNode, relationship, rightNode)
+      }
+    }
+
     override def createElements[T](
                                     nodesInput: Seq[(String, NodeInput)],
                                     relsInput: Seq[(String, RelationshipInput)],

@@ -33,6 +33,29 @@ class TestBase extends LazyLogging {
   val REL_SIZE = all_rels.size
 
   val model = new GraphModel {
+
+    override def mergeNode(nodeFilter: NodeFilter): LynxNode = {
+      // because join not found data, so, if res nonEmpty, there must be only 1 node in db
+      val res = nodes(nodeFilter)
+      if (res.nonEmpty) res.next()
+      else {
+        val node = TestNode(all_nodes.size + 1, nodeFilter.labels, nodeFilter.properties.toSeq:_*)
+        all_nodes.append(node)
+        node
+      }
+    }
+
+    override def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode: LynxNode, rightNode: LynxNode): PathTriple = {
+      // because join not found data, so, if res nonEmpty, there must be only 1 node in db
+      val res = relationships(relationshipFilter)
+      if (res.nonEmpty) res.next()
+      else {
+        val relationship = TestRelationship(all_rels.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
+        all_rels.append(relationship)
+        PathTriple(leftNode, relationship, rightNode)
+      }
+    }
+
     override def createElements[T](
       nodesInput: Seq[(String, NodeInput)],
       relsInput: Seq[(String, RelationshipInput)],
