@@ -506,7 +506,12 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
       val MapExpression(items) = properties.get.asInstanceOf[MapExpression]
       val filter1 = items.filterNot(item => item._2.isInstanceOf[Literal])
       val filter2 = items.filter(item => item._2.isInstanceOf[Literal])
-      val newPattern = NodePattern(variable, pattern.labels, Option(MapExpression(filter2)(properties.get.position)), pattern.baseNode)(pattern.position)
+      val newPattern = {
+        if (filter2.nonEmpty){
+          NodePattern(variable, pattern.labels, Option(MapExpression(filter2)(properties.get.position)), pattern.baseNode)(pattern.position)
+        }
+        else NodePattern(variable, pattern.labels, None, pattern.baseNode)(pattern.position)
+      }
       if (filter1.nonEmpty) (filter1.map(f => (variable.get, f._1) -> f._2), Some(newPattern))
       else (Seq.empty, None)
     }
@@ -527,9 +532,19 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
         }
       }
       case pr@PPTRelationshipScan(rel, leftPattern, rightPattern) =>{
-        ???
+        val leftChecked = checkNodeReference(leftPattern)
+        val rightChecked = checkNodeReference(rightPattern)
+        referenceProperty ++= leftChecked._1
+        referenceProperty ++= rightChecked._1
+
+        (leftChecked._2, rightChecked._2) match {
+          case (None, None) => table1
+          case (value1, None) => table1 = PPTRelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
+          case (None, value2) => table1 = PPTRelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
+          case (value1, value2) => table1 = PPTRelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
+        }
       }
-      case pj1@PPTJoin(pj.isSingleMatch, pj.filterExpr) =>{
+      case pj1@PPTJoin(isSingleMatch, filterExpr) =>{
         table1 = joinRecursion(pj1, ppc)
       }
     }
@@ -543,9 +558,19 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
         }
       }
       case pr@PPTRelationshipScan(rel, leftPattern, rightPattern) =>{
-        ???
+        val leftChecked = checkNodeReference(leftPattern)
+        val rightChecked = checkNodeReference(rightPattern)
+        referenceProperty ++= leftChecked._1
+        referenceProperty ++= rightChecked._1
+
+        (leftChecked._2, rightChecked._2) match {
+          case (None, None) => table2
+          case (value1, None) => table2 = PPTRelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
+          case (None, value2) => table2 = PPTRelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
+          case (value1, value2) => table2 = PPTRelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
+        }
       }
-      case pj2@PPTJoin(pj.isSingleMatch, pj.filterExpr) =>{
+      case pj2@PPTJoin(isSingleMatch, filterExpr) =>{
         table2 = joinRecursion(pj2, ppc)
       }
     }
