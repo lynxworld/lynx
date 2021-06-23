@@ -4,6 +4,7 @@ import org.grapheco.lynx.util.Profiler
 import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, SemanticDirection}
 import org.opencypher.v9_0.util.symbols.{CTInteger, CTString}
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 /**
@@ -22,6 +23,14 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
   val REL_SIZE = allRelationships.size
 
   val model = new GraphModel {
+
+    override def copyNode(srcNode: LynxNode, maskNode: LynxNode): Seq[LynxValue] = {
+      val _maskNode = maskNode.asInstanceOf[TestNode]
+      val newSrcNode = TestNode(srcNode.id.value.asInstanceOf[Long], _maskNode.labels, _maskNode.properties.toSeq:_*)
+      val index = allNodes.indexWhere(p => p.id == srcNode.id)
+      allNodes(index) = newSrcNode
+      Seq(newSrcNode, maskNode)
+    }
 
     override def mergeNode(nodeFilter: NodeFilter, forceToCreate: Boolean): LynxNode = {
       // 1.
@@ -126,13 +135,23 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
   }
 
 
-  override def setNodeProperty(nodeId: LynxId, data: Array[(String, AnyRef)]): Option[LynxNode] = {
+  override def setNodeProperty(nodeId: LynxId, data: Array[(String, AnyRef)], cleanExistProperties: Boolean): Option[LynxNode] = {
     val record = allNodes.find(n => n.id == nodeId)
     if (record.isDefined) {
       val node = record.get
-      val property = scala.collection.mutable.Map(node.properties.toSeq: _*)
-      data.foreach(f => property(f._1) = LynxValue(f._2))
-      val newNode = TestNode(node.id.value.asInstanceOf[Long], node.labels, property.toSeq: _*)
+      val newNode = {
+        if (cleanExistProperties){
+          val prop = data.map(f => f._1 -> LynxValue(f._2)).toMap
+          TestNode(node.id.value.asInstanceOf[Long], node.labels, prop.toSeq: _*)
+        }
+        else {
+          val prop = mutable.Map(node.properties.toSeq:_*)
+          data.foreach(f => {
+            prop(f._1) = LynxValue(f._2)
+          })
+          TestNode(node.id.value.asInstanceOf[Long], node.labels, prop.toSeq: _*)
+        }
+      }
       val index = allNodes.indexWhere(p => p == node)
       allNodes(index) = newNode
       Option(newNode)

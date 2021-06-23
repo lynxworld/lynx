@@ -9,6 +9,7 @@ import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOI
 import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, SemanticDirection}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTDate, CTDateTime, CTInteger, CTLocalDateTime, CTLocalTime, CTString, CTTime}
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 class TestBase extends LazyLogging {
@@ -33,6 +34,14 @@ class TestBase extends LazyLogging {
   val REL_SIZE = all_rels.size
 
   val model = new GraphModel {
+
+    override def copyNode(srcNode: LynxNode, maskNode: LynxNode): Seq[LynxValue] = {
+      val _maskNode = maskNode.asInstanceOf[TestNode]
+      val newSrcNode = TestNode(srcNode.id.value.asInstanceOf[Long], _maskNode.labels, _maskNode.properties.toSeq:_*)
+      val index = all_nodes.indexWhere(p => p.id == srcNode.id)
+      all_nodes(index) = newSrcNode
+      Seq(newSrcNode, maskNode)
+    }
 
     override def mergeNode(nodeFilter: NodeFilter, forceToCreate: Boolean): LynxNode = {
       if (forceToCreate){
@@ -136,15 +145,25 @@ class TestBase extends LazyLogging {
     }
 
 
-    override def setNodeProperty(nodeId: LynxId, data: Array[(String ,AnyRef)]): Option[LynxNode] = {
+    override def setNodeProperty(nodeId: LynxId, data: Array[(String, AnyRef)], cleanExistProperties: Boolean): Option[LynxNode] = {
       val record = all_nodes.find(n => n.id == nodeId)
-      if (record.isDefined){
+      if (record.isDefined) {
         val node = record.get
-        val property = scala.collection.mutable.Map(node.properties.toSeq:_*)
-        data.foreach(f => property(f._1) = LynxValue(f._2))
-        val newNode = TestNode(node.id.value.asInstanceOf[Long], node.labels, property.toSeq:_*)
-        all_nodes -= node
-        all_nodes += newNode
+        val newNode = {
+          if (cleanExistProperties){
+            val prop = data.map(f => f._1 -> LynxValue(f._2)).toMap
+            TestNode(node.id.value.asInstanceOf[Long], node.labels, prop.toSeq: _*)
+          }
+          else {
+            val prop = mutable.Map(node.properties.toSeq:_*)
+            data.foreach(f => {
+              prop(f._1) = LynxValue(f._2)
+            })
+            TestNode(node.id.value.asInstanceOf[Long], node.labels, prop.toSeq: _*)
+          }
+        }
+        val index = all_nodes.indexWhere(p => p == node)
+        all_nodes(index) = newNode
         Option(newNode)
       }
       else None

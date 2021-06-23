@@ -183,6 +183,7 @@ trait GraphModel {
     )
   }
 
+  def copyNode(srcNode:LynxNode, maskNode: LynxNode): Seq[LynxValue]
 
   def mergeNode(nodeFilter: NodeFilter, forceToCreate: Boolean): LynxNode
   def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode:LynxNode, rightNode: LynxNode, direction: SemanticDirection, forceToCreate: Boolean): PathTriple
@@ -219,7 +220,7 @@ trait GraphModel {
     deleteFreeNodes(ids)
   }
 
-  def setNodeProperty(nodeId: LynxId, data: Array[(String ,AnyRef)]): Option[LynxNode]
+  def setNodeProperty(nodeId: LynxId, data: Array[(String ,AnyRef)], cleanExistProperties: Boolean = false): Option[LynxNode]
 
   def addNodeLabels(nodeId: LynxId, labels: Array[String]): Option[LynxNode]
 

@@ -828,15 +828,25 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
     val isWithReturn = ctx.expressionContext.executionContext.statement.returnColumns.nonEmpty
 
     val res = df.records.map(n => {
+      val ctxMap = df.schema.zip(n).map(x => x._1._1 -> x._2).toMap
+
       n.size match {
+          // set node
         case 1 =>{
           var tmpNode = n.head.asInstanceOf[LynxNode]
           setItems.foreach{
             case sp@SetPropertyItem(property, literalExpr) =>{
-              val Property(variable, keyName) = property
-              val value = mapExpressionValue(literalExpr)
-              val data = Array(keyName.name -> value)
-              tmpNode = graphModel.setNodeProperty(tmpNode.id, data).get
+              val Property(map, keyName) = property
+              map match {
+                case v@Variable(name) =>{
+                  val value = mapExpressionValue(literalExpr, ctx, ctxMap)
+                  val data = Array(keyName.name -> value)
+                  tmpNode = graphModel.setNodeProperty(tmpNode.id, data).get
+                }
+                case cp@CaseExpression(expression, alternatives, default) =>{
+                  ???
+                }
+              }
             }
             case sl@SetLabelItem(variable, labels) => {
               tmpNode = graphModel.addNodeLabels(tmpNode.id, labels.map(f => f.name).toArray).get
@@ -845,21 +855,46 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
               expression match {
                 case MapExpression(items) =>{
                   items.foreach(f => {
-                    val data = Array(f._1.name -> mapExpressionValue(f._2))
+                    val data = Array(f._1.name -> mapExpressionValue(f._2, ctx, ctxMap))
                     tmpNode = graphModel.setNodeProperty(tmpNode.id, data).get
                   })
+                }
+              }
+            }
+            case sep@SetExactPropertiesFromMapItem(variable, expression) =>{
+              expression match {
+                case MapExpression(items) =>{
+                  val data = items.map(f => f._1.name -> mapExpressionValue(f._2, ctx, ctxMap))
+                  tmpNode = graphModel.setNodeProperty(tmpNode.id, data.toArray, true).get
                 }
               }
             }
           }
           Seq(tmpNode)
         }
+          // set join
+        case 2 =>{
+          var tmpNode = Seq[LynxValue]()
+          setItems.foreach{
+            case sep@SetExactPropertiesFromMapItem(variable, expression) =>{
+              expression match {
+                case v@Variable(name) =>{
+                  val node1 = ctxMap(variable.name).asInstanceOf[LynxNode]
+                  val node2 = ctxMap(name).asInstanceOf[LynxNode]
+                  tmpNode = graphModel.copyNode(node1, node2)
+                }
+              }
+            }
+          }
+          tmpNode
+        }
+          // set relationship
         case 3 =>{
           var triple = n
           setItems.foreach{
             case sp@SetPropertyItem(property, literalExpr) =>{
               val Property(variable, keyName) = property
-              val value = mapExpressionValue(literalExpr)
+              val value = mapExpressionValue(literalExpr, ctx, ctxMap)
               val data = Array(keyName.name -> value)
               triple = graphModel.setRelationshipProperty(triple, data).get
             }
@@ -870,7 +905,7 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
               expression match {
                 case MapExpression(items) =>{
                   items.foreach(f => {
-                    val data = Array(f._1.name -> mapExpressionValue(f._2))
+                    val data = Array(f._1.name -> mapExpressionValue(f._2, ctx, ctxMap))
                     triple = graphModel.setRelationshipProperty(triple, data).get
                   })
                 }
@@ -885,7 +920,7 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
     else DataFrame.empty
   }
 
-  def mapExpressionValue(expression: Expression): AnyRef ={
+  def mapExpressionValue(expression: Expression, ctx: ExecutionContext, ctxMap:Map[String, LynxValue]): AnyRef ={
     expression match {
       case n: Variable =>{
         n.name
@@ -895,6 +930,9 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
       }
       case ll: ListLiteral =>{
         expression.arguments.map(f => f.asInstanceOf[Literal].value).toArray
+      }
+      case pe@ProcedureExpression(funcInov) =>{
+        eval(pe)(ctx.expressionContext.withVars(ctxMap))
       }
     }
   }
