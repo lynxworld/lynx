@@ -104,72 +104,63 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     }
   }
 
+  def joinReferenceRule(table: PPTNode, ppc:PhysicalPlannerContext): (PPTNode, Seq[((LogicalVariable, PropertyKeyName), Expression)]) = {
+    var referenceProperty = Seq[((LogicalVariable, PropertyKeyName), Expression)]()
+    val newTable = table match {
+      case ps@PPTNodeScan(pattern)=>{
+        val checked = checkNodeReference(pattern)
+        referenceProperty = referenceProperty ++ checked._1
+        if (checked._2.isDefined){
+          PPTNodeScan(checked._2.get)(ppc)
+        }
+        else ps
+      }
+      case pr@PPTRelationshipScan(rel, leftPattern, rightPattern) =>{
+        val leftChecked = checkNodeReference(leftPattern)
+        val rightChecked = checkNodeReference(rightPattern)
+        referenceProperty ++= leftChecked._1
+        referenceProperty ++= rightChecked._1
+
+        (leftChecked._2, rightChecked._2) match {
+          case (None, None) => table
+          case (value1, None) => PPTRelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
+          case (None, value2) => PPTRelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
+          case (value1, value2) => PPTRelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
+        }
+      }
+      case pe@PPTExpandPath(rel, rightPattern) =>{
+        val res = checkExpandPath(pe, ppc)
+        referenceProperty ++= res._2
+        res._1
+      }
+      case pm@PPTMerge(mergeSchema, mergeOps) =>{
+        pm.children.head match {
+          case pj2@PPTJoin(filterExpr) => {
+            pm.withChildren(Seq(joinRecursion(pj2, ppc)))
+          }
+          case _ =>{
+            pm
+          }
+        }
+      }
+      case pj1@PPTJoin(filterExpr) => {
+        joinRecursion(pj1, ppc)
+      }
+    }
+    (newTable, referenceProperty)
+  }
+
   def joinRecursion(pj: PPTJoin, ppc: PhysicalPlannerContext): PPTNode = {
     var table1 = pj.children.head
     var table2 = pj.children.last
     var referenceProperty = Seq[((LogicalVariable, PropertyKeyName), Expression)]()
 
-    table1 match {
-      case ps@PPTNodeScan(pattern)=>{
-        val checked = checkNodeReference(pattern)
-        referenceProperty = referenceProperty ++ checked._1
-        if (checked._2.isDefined){
-          table1 = PPTNodeScan(checked._2.get)(ppc)
-        }
-      }
-      case pr@PPTRelationshipScan(rel, leftPattern, rightPattern) =>{
-        val leftChecked = checkNodeReference(leftPattern)
-        val rightChecked = checkNodeReference(rightPattern)
-        referenceProperty ++= leftChecked._1
-        referenceProperty ++= rightChecked._1
-
-        (leftChecked._2, rightChecked._2) match {
-          case (None, None) => table1
-          case (value1, None) => table1 = PPTRelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
-          case (None, value2) => table1 = PPTRelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
-          case (value1, value2) => table1 = PPTRelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
-        }
-      }
-      case pe@PPTExpandPath(rel, rightPattern) =>{
-        val res = checkExpandPath(pe, ppc)
-        table1 = res._1
-        referenceProperty ++= res._2
-      }
-      case pj1@PPTJoin(filterExpr) => {
-        table1 = joinRecursion(pj1, ppc)
-      }
-    }
-
-    table2 match {
-      case ps@PPTNodeScan(pattern)=>{
-        val checked = checkNodeReference(pattern)
-        referenceProperty = referenceProperty ++ checked._1
-        if (checked._2.isDefined){
-          table2 = PPTNodeScan(checked._2.get)(ppc)
-        }
-      }
-      case pr@PPTRelationshipScan(rel, leftPattern, rightPattern) =>{
-        val leftChecked = checkNodeReference(leftPattern)
-        val rightChecked = checkNodeReference(rightPattern)
-        referenceProperty ++= leftChecked._1
-        referenceProperty ++= rightChecked._1
-
-        (leftChecked._2, rightChecked._2) match {
-          case (None, None) => table2
-          case (value1, None) => table2 = PPTRelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
-          case (None, value2) => table2 = PPTRelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
-          case (value1, value2) => table2 = PPTRelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
-        }
-      }
-      case pe@PPTExpandPath(rel, rightPattern) =>{
-        val res = checkExpandPath(pe, ppc)
-        table2 = res._1
-        referenceProperty ++= res._2
-      }
-      case pj2@PPTJoin(filterExpr) =>{
-        table2 = joinRecursion(pj2, ppc)
-      }
-    }
+    val res1 = joinReferenceRule(table1, ppc)
+    val res2 = joinReferenceRule(table2, ppc)
+    table1 = res1._1
+    table2 = res2._1
+    referenceProperty ++= res1._2
+    referenceProperty ++= res2._2
 
     if (referenceProperty.nonEmpty){
       referenceProperty.length match {

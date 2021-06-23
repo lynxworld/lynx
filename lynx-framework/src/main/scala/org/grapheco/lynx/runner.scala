@@ -184,10 +184,8 @@ trait GraphModel {
   }
 
 
-  def mergeNode(nodeFilter: NodeFilter): LynxNode
-  def createNode(nodeFilter: NodeFilter): LynxNode
-  def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode:LynxNode, rightNode: LynxNode, direction: SemanticDirection): PathTriple
-  def createRelationship(relationshipFilter: RelationshipFilter, leftNode:LynxNode, rightNode: LynxNode, direction: SemanticDirection): PathTriple
+  def mergeNode(nodeFilter: NodeFilter, forceToCreate: Boolean): LynxNode
+  def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode:LynxNode, rightNode: LynxNode, direction: SemanticDirection, forceToCreate: Boolean): PathTriple
 
   def createElements[T](
                          nodesInput: Seq[(String, NodeInput)],
