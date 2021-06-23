@@ -37,7 +37,7 @@ class TestMerge {
   val testBase = new TestBase(nodesBuffer, relsBuffer)
 
   @Test
-  def mergeSingleNodeWithALabel(): Unit ={
+  def testMergeSingleNodeWithALabel(): Unit ={
     val nodeNum = nodesBuffer.length
     val records = testBase.runOnDemoGraph(
       """
@@ -76,8 +76,8 @@ class TestMerge {
 
     Assert.assertEquals(1, records.length)
     Assert.assertEquals(nodeNum, nodesBuffer.length)
-    Assert.assertEquals(n2.property("name").get, records.head("michael.name"))
-    Assert.assertEquals(n2.property("bornIn").get, records.head("michael.bornIn"))
+    Assert.assertEquals(n3.property("name").get, records.head("michael.name"))
+    Assert.assertEquals(n3.property("bornIn").get, records.head("michael.bornIn"))
   }
 
   @Test
@@ -173,7 +173,7 @@ class TestMerge {
     val relNum = relsBuffer.size
     val nodesNum = nodesBuffer.size
 
-    val res = testBase.runOnDemoGraph(
+    val records = testBase.runOnDemoGraph(
       """
         |MATCH
         |  (charlie:Person {name: 'Charlie Sheen'}),
@@ -184,7 +184,7 @@ class TestMerge {
 
     Assert.assertEquals(relNum + 1, relsBuffer.length)
     Assert.assertEquals(nodesNum, nodesBuffer.length)
-    Assert.assertEquals("KNOWS", res.head("r").asInstanceOf[LynxRelationship].relationType.get)
+    Assert.assertEquals("KNOWS", records.head("r").asInstanceOf[LynxRelationship].relationType.get)
   }
 
   @Test
@@ -192,13 +192,16 @@ class TestMerge {
     val relNum = relsBuffer.size
     val nodesNum = nodesBuffer.size
 
-    val res = testBase.runOnDemoGraph(
+    val records = testBase.runOnDemoGraph(
       """
         |MATCH (person:Person)
         |MERGE (city:City {name: person.bornIn})
         |MERGE (person)-[r:BORN_IN]->(city)
         |RETURN person.name, person.bornIn, city
-        |""".stripMargin)
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(nodesNum + 3, nodesBuffer.length)
+    Assert.assertEquals(relNum + 5, relsBuffer.length)
   }
 
   @Test
@@ -206,11 +209,14 @@ class TestMerge {
     val relNum = relsBuffer.size
     val nodesNum = nodesBuffer.size
 
-    val res = testBase.runOnDemoGraph(
+    val records = testBase.runOnDemoGraph(
       """
         |MATCH (person:Person)
         |MERGE (person)-[r:HAS_CHAUFFEUR]->(chauffeur:Chauffeur {name: person.chauffeurName})
         |RETURN person.name, person.chauffeurName, chauffeur
-        |""".stripMargin)
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(nodesNum + 5, nodesBuffer.length)
+    Assert.assertEquals(relNum + 5, relsBuffer.length)
   }
 }

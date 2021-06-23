@@ -526,6 +526,7 @@ case class PPTMergeTranslator(m: Merge) extends PPTNodeTranslator {
   }
 }
 
+// if pattern not exists, create all elements in mergeOps
 case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps:Seq[MergeElement])(implicit val in: Option[PPTNode], val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override val children: Seq[PPTNode] = in.toSeq
 
@@ -536,7 +537,7 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps:Seq[MergeElem
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     implicit val ec = ctx.expressionContext
 
-    def mergeNode(nodesToCreate: Seq[MergeNode], mergedNodesAndRels: mutable.Map[String, Seq[LynxValue]], ctxMap: Map[String, LynxValue] = Map.empty, forceToCreate:Boolean = false): Unit ={
+    def createNode(nodesToCreate: Seq[MergeNode], mergedNodesAndRels: mutable.Map[String, Seq[LynxValue]], ctxMap: Map[String, LynxValue] = Map.empty, forceToCreate: Boolean = false): Unit ={
       nodesToCreate.foreach(mergeNode =>{
         val MergeNode(varName, labels, properties) = mergeNode
         val nodeFilter = NodeFilter(labels.map(f => f.name), properties.map {
@@ -547,15 +548,15 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps:Seq[MergeElem
         }.getOrElse(Seq.empty).toMap)
 
         val res = {
-          if (forceToCreate) graphModel.createNode(nodeFilter)
-          else graphModel.mergeNode(nodeFilter)
+          if (ctxMap.contains(varName)) ctxMap(varName)
+          else graphModel.mergeNode(nodeFilter, forceToCreate)
         }
 
         mergedNodesAndRels += varName -> Seq(res)
       })
     }
 
-    def mergeRelationship(relsToCreate: Seq[MergeRelationship], createdNodesAndRels: mutable.Map[String, Seq[LynxValue]], ctxMap: Map[String, LynxValue] = Map.empty, forceToCreate:Boolean = false): Unit ={
+    def createRelationship(relsToCreate: Seq[MergeRelationship], createdNodesAndRels: mutable.Map[String, Seq[LynxValue]], ctxMap: Map[String, LynxValue] = Map.empty, forceToCreate: Boolean = false): Unit ={
       relsToCreate.foreach(mergeRels =>{
         val MergeRelationship(varName, types, properties, varNameLeftNode, varNameRightNode, direction) = mergeRels
         val relationshipFilter = RelationshipFilter(types.map(t => t.name),
@@ -577,10 +578,8 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps:Seq[MergeElem
           else ???
         }
 
-        val res = {
-          if (forceToCreate) graphModel.createRelationship(relationshipFilter, leftNode.asInstanceOf[LynxNode], rightNode.asInstanceOf[LynxNode], direction)
-          else graphModel.mergeRelationship(relationshipFilter, leftNode.asInstanceOf[LynxNode], rightNode.asInstanceOf[LynxNode], direction)
-        }
+        val res = graphModel.mergeRelationship(relationshipFilter, leftNode.asInstanceOf[LynxNode], rightNode.asInstanceOf[LynxNode], direction, forceToCreate)
+
         createdNodesAndRels += varName -> Seq(res.storedRelation)
       })
     }
@@ -593,14 +592,13 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps:Seq[MergeElem
           DataFrame(pj.schema, () => res)
         }
         else {
-          // check searchVar
           val toCreateSchema = mergeSchema.filter(f => !searchVar.contains(f._1))
           val toCreateList = mergeOps.filter( f => !searchVar.contains(f.getSchema))
           val nodesToCreate = toCreateList.filter(f=>f.isInstanceOf[MergeNode]).map(f=>f.asInstanceOf[MergeNode])
           val relsToCreate = toCreateList.filter(f=>f.isInstanceOf[MergeRelationship]).map(f=>f.asInstanceOf[MergeRelationship])
 
           val dependDf = pj.children.head.execute
-          val anotherPPTNode = pj.children.last
+          val anotherDf = pj.children.last
 
           val func = dependDf.records.map{
             record =>{
@@ -608,14 +606,13 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps:Seq[MergeElem
 
               val mergedNodesAndRels = mutable.Map[String, Seq[LynxValue]]()
 
-              if (anotherPPTNode.isInstanceOf[PPTExpandPath]){
-                mergeNode(nodesToCreate, mergedNodesAndRels, ctxMap, true)
-                mergeRelationship(relsToCreate, mergedNodesAndRels, ctxMap, true)
+              val forceToCreate = {
+                if (anotherDf.isInstanceOf[PPTExpandPath] || anotherDf.isInstanceOf[PPTRelationshipScan]) true
+                else false
               }
-              else{
-                mergeNode(nodesToCreate, mergedNodesAndRels, ctxMap)
-                mergeRelationship(relsToCreate, mergedNodesAndRels, ctxMap)
-              }
+
+              createNode(nodesToCreate, mergedNodesAndRels, ctxMap, forceToCreate)
+              createRelationship(relsToCreate, mergedNodesAndRels, ctxMap, forceToCreate)
 
               record ++ toCreateSchema.flatMap(f => mergedNodesAndRels(f._1))
             }
@@ -628,14 +625,14 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps:Seq[MergeElem
         val res = children.map(_.execute).head.records
         if (res.nonEmpty) DataFrame(mergeSchema, ()=>res)
         else {
-          val mergedNodesAndRels = mutable.Map[String, Seq[LynxValue]]()
+          val createdNodesAndRels = mutable.Map[String, Seq[LynxValue]]()
           val nodesToCreate = mergeOps.filter(f=>f.isInstanceOf[MergeNode]).map(f=>f.asInstanceOf[MergeNode])
           val relsToCreate = mergeOps.filter(f=>f.isInstanceOf[MergeRelationship]).map(f=>f.asInstanceOf[MergeRelationship])
 
-          mergeNode(nodesToCreate, mergedNodesAndRels)
-          mergeRelationship(relsToCreate, mergedNodesAndRels)
+          createNode(nodesToCreate, createdNodesAndRels, Map.empty, true)
+          createRelationship(relsToCreate, createdNodesAndRels, Map.empty, true)
 
-          val res = Seq(mergeSchema.flatMap(f => mergedNodesAndRels(f._1))).toIterator
+          val res = Seq(mergeSchema.flatMap(f => createdNodesAndRels(f._1))).toIterator
           DataFrame(mergeSchema, ()=>res)
         }
       }
