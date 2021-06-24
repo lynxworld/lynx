@@ -184,6 +184,8 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
             case _ =>{
               val expr = alternatives.find(
                 alt => {
+                  // case [xxx] when [yyy] then 1
+                  // if [yyy] is a boolean, then [xxx] no use
                   val res = eval(alt._1)
                   if (res.isInstanceOf[LynxBoolean]) res.value.asInstanceOf[Boolean]
                   else eval(alt._1) == evalValue
@@ -195,8 +197,12 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           }
         }
         else{
-          val expr = alternatives.find(alt => eval(alt._1).value.asInstanceOf[Boolean]).map(_._2).getOrElse(default.get)
-          eval(expr)
+          val expr = alternatives.find(alt => eval(alt._1).value.asInstanceOf[Boolean]).map(_._2).getOrElse{
+            if (default.isDefined) default.get
+            else null
+          }
+          if (expr != null) eval(expr)
+          else LynxNull
         }
       }
       case MapExpression(items) => LynxMap(items.map(it => it._1.name -> eval(it._2)).toMap)

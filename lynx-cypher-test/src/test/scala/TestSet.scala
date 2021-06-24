@@ -28,8 +28,8 @@ class TestSet {
   val testBase = new TestBase(nodesBuffer, relsBuffer)
 
   @Test
-  def setAProperty(): Unit ={
-    var records = testBase.runOnDemoGraph(
+  def setAProperty1(): Unit ={
+    val records = testBase.runOnDemoGraph(
       """
         |MATCH (n {name: 'Andy'})
         |SET n.surname = 'Taylor'
@@ -39,8 +39,11 @@ class TestSet {
     Assert.assertEquals(1, records.length)
     Assert.assertEquals("Andy", records.head("n.name").asInstanceOf[LynxValue].value)
     Assert.assertEquals("Taylor", records.head("n.surname").asInstanceOf[LynxValue].value)
+  }
 
-    records = testBase.runOnDemoGraph(
+  @Test
+  def setAProperty2(): Unit ={
+    val records = testBase.runOnDemoGraph(
       """
         |MATCH (n {name: 'Andy'})
         |SET (CASE WHEN n.age = 36 THEN n END).worksIn = 'Malmo'
@@ -49,8 +52,11 @@ class TestSet {
     Assert.assertEquals(1, records.length)
     Assert.assertEquals("Andy", records.head("n.name").asInstanceOf[LynxValue].value)
     Assert.assertEquals("Malmo", records.head("n.worksIn").asInstanceOf[LynxValue].value)
+  }
 
-    records = testBase.runOnDemoGraph(
+  @Test
+  def setAProperty3(): Unit ={
+    val records = testBase.runOnDemoGraph(
       """
         |MATCH (n {name: 'Andy'})
         |SET (CASE WHEN n.age = 55 THEN n END).worksIn = 'Malmo'
@@ -58,7 +64,7 @@ class TestSet {
         |""".stripMargin).records().toArray
     Assert.assertEquals(1, records.length)
     Assert.assertEquals("Andy", records.head("n.name").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(LynxNull, records.head("n.worksIn").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(null, records.head("n.worksIn").asInstanceOf[LynxValue].value)
   }
 
   @Test

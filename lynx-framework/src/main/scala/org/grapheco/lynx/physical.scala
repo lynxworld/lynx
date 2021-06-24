@@ -838,13 +838,18 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
               val Property(map, keyName) = property
               map match {
                 case v@Variable(name) =>{
-                  val value = mapExpressionValue(literalExpr, ctx, ctxMap)
-                  val data = Array(keyName.name -> value)
+                  val data = Array(keyName.name -> mapExpressionValue(literalExpr, ctx, ctxMap))
                   tmpNode = graphModel.setNodeProperty(tmpNode.id, data).get
                 }
                 case cp@CaseExpression(expression, alternatives, default) =>{
-                  //TODO: push down in optimizer
-                  ???
+                  val res = eval(cp)(ctx.expressionContext.withVars(ctxMap))
+                  res match {
+                    case LynxNull => tmpNode = n.head.asInstanceOf[LynxNode]
+                    case _ => {
+                      val data = Array(keyName.name -> mapExpressionValue(literalExpr, ctx, ctxMap))
+                      tmpNode = graphModel.setNodeProperty(res.asInstanceOf[LynxNode].id, data).get
+                    }
+                  }
                 }
               }
             }
@@ -894,8 +899,7 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
           setItems.foreach{
             case sp@SetPropertyItem(property, literalExpr) =>{
               val Property(variable, keyName) = property
-              val value = mapExpressionValue(literalExpr, ctx, ctxMap)
-              val data = Array(keyName.name -> value)
+              val data = Array(keyName.name -> mapExpressionValue(literalExpr, ctx, ctxMap))
               triple = graphModel.setRelationshipProperty(triple, data).get
             }
             case sl@SetLabelItem(variable, labels) => {
