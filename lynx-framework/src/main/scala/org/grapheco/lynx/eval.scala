@@ -144,6 +144,19 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           case LynxBoolean(b) => LynxBoolean(!b)
         }
 
+      case IsNull(lhs) =>{
+        eval(lhs) match {
+          case LynxNull => LynxBoolean(true)
+          case _ => LynxBoolean(false)
+        }
+      }
+      case IsNotNull(lhs) =>{
+        eval(lhs) match {
+          case LynxNull => LynxBoolean(false)
+          case _ => LynxBoolean(true)
+        }
+      }
+
       case v: Literal =>
         types.wrap(v.value)
 
@@ -164,10 +177,28 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         types.wrap(ec.param(name))
 
       case CaseExpression(expression, alternatives, default) => {
-        val expr = alternatives.find(alt => eval(alt._1).value.asInstanceOf[Boolean]).map(_._2).getOrElse(default.get)
-        eval(expr)
-      }
+        if (expression.isDefined){
+          val evalValue = eval(expression.get)
+          evalValue match {
+            case LynxNull => LynxNull
+            case _ =>{
+              val expr = alternatives.find(
+                alt => {
+                  val res = eval(alt._1)
+                  if (res.isInstanceOf[LynxBoolean]) res.value.asInstanceOf[Boolean]
+                  else eval(alt._1) == evalValue
+                })
+                .map(_._2).getOrElse(default.get)
 
+              eval(expr)
+            }
+          }
+        }
+        else{
+          val expr = alternatives.find(alt => eval(alt._1).value.asInstanceOf[Boolean]).map(_._2).getOrElse(default.get)
+          eval(expr)
+        }
+      }
       case MapExpression(items) => LynxMap(items.map(it => it._1.name -> eval(it._2)).toMap)
     }
 
