@@ -825,7 +825,6 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
-    val isWithReturn = ctx.expressionContext.executionContext.statement.returnColumns.nonEmpty
 
     val res = df.records.map(n => {
       val ctxMap = df.schema.zip(n).map(x => x._1._1 -> x._2).toMap
@@ -844,6 +843,7 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
                   tmpNode = graphModel.setNodeProperty(tmpNode.id, data).get
                 }
                 case cp@CaseExpression(expression, alternatives, default) =>{
+                  //TODO: push down in optimizer
                   ???
                 }
               }
@@ -879,9 +879,9 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
             case sep@SetExactPropertiesFromMapItem(variable, expression) =>{
               expression match {
                 case v@Variable(name) =>{
-                  val node1 = ctxMap(variable.name).asInstanceOf[LynxNode]
-                  val node2 = ctxMap(name).asInstanceOf[LynxNode]
-                  tmpNode = graphModel.copyNode(node1, node2)
+                  val srcNode = ctxMap(variable.name).asInstanceOf[LynxNode]
+                  val maskNode = ctxMap(name).asInstanceOf[LynxNode]
+                  tmpNode = graphModel.copyNode(srcNode, maskNode)
                 }
               }
             }
@@ -916,8 +916,8 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
         }
       }
     })
-    if (isWithReturn) DataFrame(schema, ()=>res)
-    else DataFrame.empty
+
+    DataFrame.cached(schema, res.toSeq)
   }
 
   def mapExpressionValue(expression: Expression, ctx: ExecutionContext, ctxMap:Map[String, LynxValue]): AnyRef ={
