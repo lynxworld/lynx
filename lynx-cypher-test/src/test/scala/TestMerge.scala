@@ -37,6 +37,57 @@ class TestMerge {
   val testBase = new TestBase(nodesBuffer, relsBuffer)
 
   @Test
+  def testMergeOnCreate(): Unit ={
+    val nodeNum = nodesBuffer.length
+
+    val records = testBase.runOnDemoGraph(
+      """
+        |MERGE (keanu:Person {name: 'Keanu Reeves'})
+        |ON CREATE
+        |  SET keanu.created = timestamp()
+        |RETURN keanu.name, keanu.created
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(nodeNum + 1, nodesBuffer.length)
+  }
+
+  @Test
+  def testMergeOnMatch(): Unit ={
+    val nodeNum = nodesBuffer.length
+
+    val records = testBase.runOnDemoGraph(
+      """
+        |MERGE (person:Person)
+        |ON MATCH
+        |  SET person.found = true
+        |RETURN person.name, person.found
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(5, records.length)
+    Assert.assertEquals(nodeNum, nodesBuffer.length)
+  }
+
+  @Test
+  def testMergeWithOnCreateOnMatch(): Unit ={
+    val nodeNum = nodesBuffer.length
+
+    val records = testBase.runOnDemoGraph(
+      """
+        |MERGE (keanu:Person {name: 'Keanu Reeves'})
+        |ON CREATE
+        |  SET keanu.created = timestamp()
+        |ON MATCH
+        |  SET keanu.lastSeen = timestamp()
+        |RETURN keanu.name, keanu.created, keanu.lastSeen
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(nodeNum + 1, nodesBuffer.length)
+    Assert.assertEquals(null, records.head("keanu.lastSeen").asInstanceOf[LynxValue].value)
+  }
+
+  @Test
   def testMergeSingleNodeWithALabel(): Unit ={
     val nodeNum = nodesBuffer.length
     val records = testBase.runOnDemoGraph(

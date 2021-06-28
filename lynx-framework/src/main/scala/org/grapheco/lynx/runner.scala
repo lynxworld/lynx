@@ -9,7 +9,7 @@ import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, SemanticDire
 import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
 
 import scala.annotation.tailrec
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable
 
 case class CypherRunnerContext(typeSystem: TypeSystem,
                                procedureRegistry: ProcedureRegistry,
@@ -100,7 +100,7 @@ object PhysicalPlannerContext {
     new PhysicalPlannerContext(queryParameters.map(x => x._1 -> runnerContext.typeSystem.wrap(x._2).cypherType).toSeq, runnerContext)
 }
 
-case class PhysicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runnerContext: CypherRunnerContext) {
+case class PhysicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runnerContext: CypherRunnerContext, var pptContext: mutable.Map[String, Any]=mutable.Map.empty) {
 }
 
 //TODO: context.context??
@@ -220,7 +220,7 @@ trait GraphModel {
     deleteFreeNodes(ids)
   }
 
-  def setNodeProperty(nodeId: LynxId, data: Array[(String ,AnyRef)], cleanExistProperties: Boolean = false): Option[LynxNode]
+  def setNodeProperty(nodeId: LynxId, data: Array[(String ,LynxValue)], cleanExistProperties: Boolean = false): Option[LynxNode]
 
   def addNodeLabels(nodeId: LynxId, labels: Array[String]): Option[LynxNode]
 
@@ -243,7 +243,7 @@ trait TreeNode {
   val children: Seq[SerialType] = Seq.empty
 
   def pretty: String = {
-    val lines = new ArrayBuffer[String]
+    val lines = new mutable.ArrayBuffer[String]
 
     @tailrec
     def recTreeToString(toPrint: List[TreeNode], prefix: String, stack: List[List[TreeNode]]): Unit = {
