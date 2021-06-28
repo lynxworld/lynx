@@ -88,6 +88,24 @@ class TestMerge {
   }
 
   @Test
+  def testMergeOnMatchSettingMultipleProperties(): Unit ={
+    val nodeNum = nodesBuffer.length
+
+    val records = testBase.runOnDemoGraph(
+      """
+        |MERGE (person:Person)
+        |ON MATCH
+        |  SET
+        |    person.found = true,
+        |    person.lastAccessed = timestamp()
+        |RETURN person.name, person.found, person.lastAccessed
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(5, records.length)
+    Assert.assertEquals(nodeNum, nodesBuffer.length)
+  }
+
+  @Test
   def testMergeSingleNodeWithALabel(): Unit ={
     val nodeNum = nodesBuffer.length
     val records = testBase.runOnDemoGraph(
