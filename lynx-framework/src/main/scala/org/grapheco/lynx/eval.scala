@@ -171,6 +171,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           case LynxNull => LynxNull
           case cn: LynxNode => cn.property(name).getOrElse(LynxNull)
           case cr: LynxRelationship => cr.property(name).getOrElse(LynxNull)
+          case time: LynxDateTime => time
         }
 
       case Parameter(name, parameterType) =>
@@ -197,10 +198,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           }
         }
         else{
-          val expr = alternatives.find(alt => eval(alt._1).value.asInstanceOf[Boolean]).map(_._2).getOrElse{
-            if (default.isDefined) default.get
-            else null
-          }
+          val expr = alternatives.find(alt => eval(alt._1).value.asInstanceOf[Boolean]).map(_._2).getOrElse{default.orNull}
           if (expr != null) eval(expr)
           else LynxNull
         }

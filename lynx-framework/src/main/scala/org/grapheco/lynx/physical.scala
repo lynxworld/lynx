@@ -55,6 +55,7 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
         PPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])
       case lc@LPTCreate(c: Create) => PPTCreateTranslator(c).translate(lc.in.map(plan(_)))(plannerContext)
       case lm@LPTMerge(m: Merge) => PPTMergeTranslator(m).translate(lm.in.map(plan(_)))(plannerContext)
+      case lm@LPTMergeAction(m: Seq[MergeAction]) =>PPTMergeAction(m)(plan(lm.in.get), plannerContext)
       case ld@LPTDelete(d: Delete) => PPTDeleteTranslator(d).translate(ld.in.map(plan(_)))(plannerContext)
       case ls@LPTSelect(columns: Seq[(String, Option[String])]) => PPTSelect(columns)(plan(ls.in), plannerContext)
       case lp@LPTProject(ri) => PPTProject(ri)(plan(lp.in), plannerContext)
@@ -463,6 +464,19 @@ case class MergeRelationship(varName: String, types: Seq[RelTypeName], propertie
   override def getSchema: String = varName
 }
 
+case class PPTMergeAction(actions: Seq[MergeAction])(implicit in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override def withChildren(children0: Seq[PPTNode]): PPTMergeAction = PPTMergeAction(actions)(children0.head, plannerContext)
+
+  override val children: Seq[PPTNode] = Seq(in)
+
+  override val schema: Seq[(String, LynxType)] = in.schema
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    PPTSetClause(Seq.empty, actions)(in, plannerContext).execute(ctx)
+  }
+}
+
+
 case class PPTMergeTranslator(m: Merge) extends PPTNodeTranslator {
   def translate(in: Option[PPTNode])(implicit plannerContext: PhysicalPlannerContext): PPTNode = {
     val definedVars = in.map(_.schema.map(_._1)).getOrElse(Seq.empty).toSet
@@ -589,9 +603,12 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps:Seq[MergeElem
         val searchVar = pj.children.head.schema.toMap
         val res = children.map(_.execute).head.records
         if (res.nonEmpty) {
+          plannerContext.pptContext ++= Map("MergeAction"->false)
           DataFrame(pj.schema, () => res)
         }
         else {
+          plannerContext.pptContext ++= Map("MergeAction"->true)
+
           val toCreateSchema = mergeSchema.filter(f => !searchVar.contains(f._1))
           val toCreateList = mergeOps.filter( f => !searchVar.contains(f.getSchema))
           val nodesToCreate = toCreateList.filter(f=>f.isInstanceOf[MergeNode]).map(f=>f.asInstanceOf[MergeNode])
@@ -623,8 +640,12 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps:Seq[MergeElem
       case _ =>{
         // only merge situation
         val res = children.map(_.execute).head.records
-        if (res.nonEmpty) DataFrame(mergeSchema, ()=>res)
+        if (res.nonEmpty) {
+          plannerContext.pptContext ++= Map("MergeAction"->false)
+          DataFrame(mergeSchema, ()=>res)
+        }
         else {
+          plannerContext.pptContext ++= Map("MergeAction"->true)
           val createdNodesAndRels = mutable.Map[String, Seq[LynxValue]]()
           val nodesToCreate = mergeOps.filter(f=>f.isInstanceOf[MergeNode]).map(f=>f.asInstanceOf[MergeNode])
           val relsToCreate = mergeOps.filter(f=>f.isInstanceOf[MergeRelationship]).map(f=>f.asInstanceOf[MergeRelationship])
@@ -738,6 +759,7 @@ case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[CreateElemen
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     implicit val ec = ctx.expressionContext
     val df = in.map(_.execute(ctx)).getOrElse(createUnitDataFrame(Seq.empty))
+
     //DataFrame should be generated first
     DataFrame.cached(schema, df.records.map {
       record =>
@@ -815,7 +837,7 @@ case class PPTSetClauseTranslator(setItems: Seq[SetItem]) extends PPTNodeTransla
   }
 }
 
-case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+case class PPTSetClause(var setItems: Seq[SetItem], mergeAction: Seq[MergeAction] = Seq.empty)(implicit val in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
 
   override val children: Seq[PPTNode] = Seq(in)
 
@@ -825,6 +847,15 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
+
+    setItems = {
+      if (mergeAction.nonEmpty){
+        val isCreate = plannerContext.pptContext("MergeAction").asInstanceOf[Boolean]
+        if (isCreate) mergeAction.find(p => p.isInstanceOf[OnCreate]).get.asInstanceOf[OnCreate].action.items
+        else mergeAction.find(p => p.isInstanceOf[OnMatch]).get.asInstanceOf[OnMatch].action.items
+      }
+      else setItems
+    }
 
     val res = df.records.map(n => {
       val ctxMap = df.schema.zip(n).map(x => x._1._1 -> x._2).toMap
@@ -838,7 +869,7 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
               val Property(map, keyName) = property
               map match {
                 case v@Variable(name) =>{
-                  val data = Array(keyName.name -> mapExpressionValue(literalExpr, ctx, ctxMap))
+                  val data = Array(keyName.name -> eval(literalExpr)(ctx.expressionContext.withVars(ctxMap)))
                   tmpNode = graphModel.setNodeProperty(tmpNode.id, data).get
                 }
                 case cp@CaseExpression(expression, alternatives, default) =>{
@@ -846,7 +877,7 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
                   res match {
                     case LynxNull => tmpNode = n.head.asInstanceOf[LynxNode]
                     case _ => {
-                      val data = Array(keyName.name -> mapExpressionValue(literalExpr, ctx, ctxMap))
+                      val data = Array(keyName.name -> eval(literalExpr)(ctx.expressionContext.withVars(ctxMap)))
                       tmpNode = graphModel.setNodeProperty(res.asInstanceOf[LynxNode].id, data).get
                     }
                   }
@@ -860,7 +891,7 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
               expression match {
                 case MapExpression(items) =>{
                   items.foreach(f => {
-                    val data = Array(f._1.name -> mapExpressionValue(f._2, ctx, ctxMap))
+                    val data = Array(f._1.name -> eval(f._2)(ctx.expressionContext.withVars(ctxMap)))
                     tmpNode = graphModel.setNodeProperty(tmpNode.id, data).get
                   })
                 }
@@ -869,7 +900,7 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
             case sep@SetExactPropertiesFromMapItem(variable, expression) =>{
               expression match {
                 case MapExpression(items) =>{
-                  val data = items.map(f => f._1.name -> mapExpressionValue(f._2, ctx, ctxMap))
+                  val data = items.map(f => f._1.name -> eval(f._2)(ctx.expressionContext.withVars(ctxMap)))
                   tmpNode = graphModel.setNodeProperty(tmpNode.id, data.toArray, true).get
                 }
               }
@@ -925,20 +956,21 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
   }
 
   def mapExpressionValue(expression: Expression, ctx: ExecutionContext, ctxMap:Map[String, LynxValue]): AnyRef ={
-    expression match {
-      case n: Variable =>{
-        n.name
-      }
-      case l: Literal =>{
-        expression.asInstanceOf[Literal].value
-      }
-      case ll: ListLiteral =>{
-        expression.arguments.map(f => f.asInstanceOf[Literal].value).toArray
-      }
-      case pe@ProcedureExpression(funcInov) =>{
-        eval(pe)(ctx.expressionContext.withVars(ctxMap))
-      }
-    }
+    eval(expression)(ctx.expressionContext.withVars(ctxMap))
+    //    expression match {
+//      case n: Variable =>{
+//        n.name
+//      }
+//      case l: Literal =>{
+//        expression.asInstanceOf[Literal].value
+//      }
+//      case ll: ListLiteral =>{
+//        expression.arguments.map(f => f.asInstanceOf[Literal].value).toArray
+//      }
+//      case pe@ProcedureExpression(funcInov) =>{
+//        eval(pe)(ctx.expressionContext.withVars(ctxMap))
+//      }
+//    }
   }
 }
 ////////////////////
