@@ -97,14 +97,14 @@ case class PPTPatternMatchTranslator(patternMatch: LPTPatternMatch)(implicit val
   }
 }
 
-case class PPTJoin(filterExpr: Option[Expression])(a: PPTNode, b: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+case class PPTJoin(filterExpr: Option[Expression], bigTableIndex: Int = 1)(a: PPTNode, b: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override val children: Seq[PPTNode] = Seq(a, b)
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df1 = a.execute(ctx)
     val df2 = b.execute(ctx)
 
-    val df = df1.join(df2)
+    val df = df1.join(df2, bigTableIndex)
 
     if (filterExpr.nonEmpty){
       val ec = ctx.expressionContext
@@ -599,7 +599,7 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps:Seq[MergeElem
     }
 
     children match {
-      case Seq(pj@PPTJoin(filterExpr)) =>{
+      case Seq(pj@PPTJoin(filterExpr, bigTableIndex)) =>{
         val searchVar = pj.children.head.schema.toMap
         val res = children.map(_.execute).head.records
         if (res.nonEmpty) {

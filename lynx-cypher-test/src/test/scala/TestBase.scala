@@ -24,6 +24,18 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
 
   val model = new GraphModel {
 
+    override def estimateNodeLabel(labelName: String): Long = {
+      allNodes.count(p => p.labels.contains(labelName))
+    }
+
+    override def estimateNodeProperty(propertyName: String): Long = {
+      allNodes.count(p => p.property(propertyName).isDefined)
+    }
+
+    override def estimateRelationship(relType: String): Long = {
+      allRelationships.count(p => p.relationType.get == relType)
+    }
+
     override def copyNode(srcNode: LynxNode, maskNode: LynxNode): Seq[LynxValue] = {
       val _maskNode = maskNode.asInstanceOf[TestNode]
       val newSrcNode = TestNode(srcNode.id.value.asInstanceOf[Long], _maskNode.labels, _maskNode.properties.toSeq:_*)
@@ -33,7 +45,6 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
     }
 
     override def mergeNode(nodeFilter: NodeFilter, forceToCreate: Boolean): LynxNode = {
-      // 1.
       if (forceToCreate){
         val node = TestNode(allNodes.size + 1, nodeFilter.labels, nodeFilter.properties.toSeq: _*)
         allNodes.append(node)

@@ -66,6 +66,8 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 
       override def getPhysicalPlan(): PPTNode = physicalPlan
 
+      override def getOptimizerPlan(): PPTNode = optimizedPhysicalPlan
+
       override def cache(): LynxResult = {
         val source = this
         val cached = df.records.toSeq
@@ -124,6 +126,8 @@ trait PlanAware {
   def getLogicalPlan(): LPTNode
 
   def getPhysicalPlan(): PPTNode
+
+  def getOptimizerPlan(): PPTNode
 }
 
 case class NodeFilter(labels: Seq[String], properties: Map[String, LynxValue]) {
@@ -146,6 +150,13 @@ case class PathTriple(startNode: LynxNode, storedRelation: LynxRelationship, end
 }
 
 trait GraphModel {
+
+  //estimate
+  def estimateNodeLabel(labelName: String): Long
+  def estimateNodeProperty(propertyName: String): Long
+  def estimateRelationship(relType: String): Long
+  /////////////
+
   def relationships(): Iterator[PathTriple]
   def relationships(relationshipFilter: RelationshipFilter): Iterator[PathTriple] = relationships().filter(f => relationshipFilter.matches(f.storedRelation))
 
