@@ -142,7 +142,6 @@ class TestBase extends LazyLogging {
       nodesIDs.foreach(id => all_nodes --= all_nodes.filter(_.id==id))
     }
 
-
     override def setNodeProperty(nodeId: LynxId, data: Array[(String ,AnyRef)], withReturn: Boolean): Option[Seq[LynxValue]] = {
       val record = all_nodes.find(n => n.id == nodeId)
       if (record.isDefined){
@@ -261,6 +260,15 @@ class TestBase extends LazyLogging {
         else None
       }
       else None
+    }
+
+    override def deleteRelations(ids: Iterator[LynxId]): Unit = {
+      ids.foreach(rid =>{
+        deleteRelation(rid)
+      })
+    }
+    override def deleteRelation(id: LynxId): Unit = {
+      all_rels --= all_rels.filter(_.id == id)
     }
   }
 

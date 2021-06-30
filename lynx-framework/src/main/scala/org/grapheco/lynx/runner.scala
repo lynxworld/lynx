@@ -207,9 +207,17 @@ trait GraphModel {
 
   def filterNodesWithRelations(nodesIDs: Seq[LynxId]): Seq[LynxId]
 
+  def deleteRelation(id: LynxId): Unit
+
+  def deleteRelations(ids: Iterator[LynxId]): Unit
+
   def deleteRelationsOfNodes(nodesIDs: Seq[LynxId]): Unit
 
   def deleteFreeNodes(nodesIDs: Seq[LynxId]): Unit
+
+  def deleteNode(id: LynxId, forced: Boolean): Unit = {
+    deleteNodes(Seq(id).toIterator, forced)
+  }
 
   def deleteNodes(nodesIDs: Iterator[LynxId], forced: Boolean): Unit = {
     val ids = nodesIDs.toSeq //TODO fix the risk of out of memory

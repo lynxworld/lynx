@@ -88,4 +88,19 @@ class CypherDeleteTest extends TestBase {
     Assert.assertEquals(num, all_nodes.size)
     Assert.assertEquals(0, all_rels.size)
   }
+
+  @Test
+  def deleteNodesAndRelationships(): Unit ={
+    val nodeNum = all_nodes.length
+    val relNum = all_rels.length
+
+    runOnDemoGraph(
+      """
+        |MATCH ({name: 'Andy'})-[r:KNOWS]->(n {name: 'Timothy'})
+        |DETACH DELETE n, r
+        |""".stripMargin)
+
+    Assert.assertEquals(nodeNum - 1, all_nodes.size)
+    Assert.assertEquals(relNum - 1, all_rels.size)
+  }
 }
