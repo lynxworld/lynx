@@ -3,7 +3,7 @@ package org.grapheco.lynx
 import org.grapheco.lynx
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions.{NodePattern, RelationshipChain, _}
-import org.opencypher.v9_0.util.symbols.{CTAny, CTNode, CTRelationship}
+import org.opencypher.v9_0.util.symbols.{CTAny, CTNode, CTRelationship, CypherType}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -55,7 +55,9 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
         PPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])
       case lc@LPTCreate(c: Create) => PPTCreateTranslator(c).translate(lc.in.map(plan(_)))(plannerContext)
       case lm@LPTMerge(m: Merge) => PPTMergeTranslator(m).translate(lm.in.map(plan(_)))(plannerContext)
-      case ld@LPTDelete(d: Delete) => PPTDeleteTranslator(d).translate(ld.in.map(plan(_)))(plannerContext)
+      case ld@LPTDelete(columns: Seq[(String, Option[String])], forced: Boolean) => {
+        PPTDelete(columns, forced)(plan(ld.in), plannerContext)
+      }
       case ls@LPTSelect(columns: Seq[(String, Option[String])]) => PPTSelect(columns)(plan(ls.in), plannerContext)
       case lp@LPTProject(ri) => PPTProject(ri)(plan(lp.in), plannerContext)
       case la@LPTAggregation(a, g) => PPTAggregation(a, g)(plan(la.in), plannerContext)
@@ -767,24 +769,31 @@ case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[CreateElemen
   }
 }
 
-case class PPTDeleteTranslator(d: Delete) extends PPTNodeTranslator {
-  override def translate(in: Option[PPTNode])(implicit ppc: PhysicalPlannerContext): PPTNode = {
-    PPTDelete(d.forced)(in.get, ppc)
-  }
-}
-
-case class PPTDelete(forced: Boolean)(implicit val in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+case class PPTDelete(columns: Seq[(String, Option[String])], forced: Boolean)(implicit val in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override val children: Seq[PPTNode] = Seq(in)
 
-  override def withChildren(children0: Seq[PPTNode]): PPTDelete = PPTDelete(forced)(children0.head, plannerContext)
+  override def withChildren(children0: Seq[PPTNode]): PPTDelete = PPTDelete(columns, forced)(children0.head, plannerContext)
 
   override val schema: Seq[(String, LynxType)] = Seq.empty
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
-    graphModel.deleteNodes(df.records.map(r => {
-      r.head.asInstanceOf[LynxNode].id
-    }), forced)
+    val schema1: Map[String, (CypherType, Int)] = df.schema.zipWithIndex.map(x => x._1._1 -> (x._1._2, x._2)).toMap
+    df.records.foreach {
+      row =>
+        columns.map(column => {
+          val colType = schema1(column._1)._1
+          val toBeDeleted = row.apply(schema1(column._1)._2)
+          colType match {
+            case CTRelationship => {
+              graphModel.deleteRelation(toBeDeleted.asInstanceOf[LynxRelationship].id)
+            }
+            case CTNode => {
+              graphModel.deleteNode(toBeDeleted.asInstanceOf[LynxNode].id, forced)
+            }
+          }
+        })
+    }
     DataFrame.empty
   }
 }
