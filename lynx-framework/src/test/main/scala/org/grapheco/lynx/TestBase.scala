@@ -35,6 +35,18 @@ class TestBase extends LazyLogging {
 
   val model = new GraphModel {
 
+    override def estimateNodeLabel(labelName: String): Long = {
+      all_nodes.count(p => p.labels.contains(labelName))
+    }
+
+    override def estimateNodeProperty(propertyName: String): Long = {
+      all_nodes.count(p => p.property(propertyName).isDefined)
+    }
+
+    override def estimateRelationship(relType: String): Long = {
+      all_rels.count(p => p.relationType.get == relType)
+    }
+
     override def copyNode(srcNode: LynxNode, maskNode: LynxNode): Seq[LynxValue] = {
       val _maskNode = maskNode.asInstanceOf[TestNode]
       val newSrcNode = TestNode(srcNode.id.value.asInstanceOf[Long], _maskNode.labels, _maskNode.properties.toSeq:_*)
@@ -293,6 +305,15 @@ class TestBase extends LazyLogging {
     Profiler.timing {
       //call cache() only for test
       val rs = runner.run(query, param).cache()
+      rs.show()
+      rs
+    }
+  }
+  protected def runOnDemoGraph2(query: String, param: Map[String, Any] = Map.empty[String, Any]): LynxResult = {
+    runner.compile(query)
+    Profiler.timing {
+      //call cache() only for test
+      val rs = runner.run(query, param)
       rs.show()
       rs
     }
