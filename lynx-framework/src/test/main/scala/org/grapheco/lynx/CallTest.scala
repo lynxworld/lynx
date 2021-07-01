@@ -9,10 +9,8 @@ class CallTest extends TestBase {
     var rs: LynxResult = null
     rs = runOnDemoGraph("call test.authors()")
     Assert.assertEquals(Seq("name"), rs.columns)
-    Assert.assertEquals(3, rs.records().size)
-    Assert.assertEquals(Map("name" -> LynxValue("bluejoe")), rs.records().toSeq.apply(0))
-    Assert.assertEquals(Map("name" -> LynxValue("lzx")), rs.records().toSeq.apply(1))
-    Assert.assertEquals(Map("name" -> LynxValue("airzihao")), rs.records().toSeq.apply(2))
+    Assert.assertEquals(1, rs.records().size)
+    Assert.assertEquals(Map("name" ->LynxList(List(LynxString("bluejoe"), LynxString("lzx"), LynxString("airzihao")))), rs.records().toSeq.apply(0))
   }
 
   @Test
@@ -23,7 +21,7 @@ class CallTest extends TestBase {
       }
     })
 
-    Assert.assertThrows(classOf[WrongNumberOfArgumentsException], new ThrowingRunnable() {
+    Assert.assertThrows(classOf[UnknownProcedureException], new ThrowingRunnable() {
       override def run(): Unit = {
         runOnDemoGraph("call test.authors(2)")
       }
@@ -33,19 +31,19 @@ class CallTest extends TestBase {
   @Test
   def testCountSimple(): Unit = {
     var rs = runOnDemoGraph("match (n) return count(n)").records().next()("count(n)")
-    Assert.assertEquals(LynxInteger(3), rs)
+    Assert.assertEquals(LynxInteger(4), rs)
   }
 
   @Test
   def testSumSimple(): Unit = {
     val rs = runOnDemoGraph("match (n) return sum(n.age)").records().next()("sum(n.age)")
-    Assert.assertEquals(LynxInteger(80), rs)
+    Assert.assertEquals(LynxInteger(90), rs)
   }
 
   @Test
   def testAvg(): Unit = {
     val rs = runOnDemoGraph("match (n) return avg(n.age)").records().next()("avg(n.age)")
-    Assert.assertEquals(LynxDouble(80/3.0), rs)
+    Assert.assertEquals(LynxDouble(90/4.0), rs)
   }
 
   @Test
