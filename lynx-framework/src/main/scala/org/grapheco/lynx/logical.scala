@@ -96,26 +96,14 @@ case class LPTMerge(m: Merge)(val in: Option[LPTNode]) extends LPTNode {
 ///////////////////////////////////////
 
 //////////////////Delete////////////////
-
-object LPTDeleteTranslator{
-  def apply(d: Delete): LPTDeleteTranslator = {
-    val Variable(v) = d.expressions.head
-    LPTDeleteTranslator(d.expressions.map(item => {
-      val vName = item.asInstanceOf[Variable].name
-       vName -> Some(vName)
-    }), d.forced)
-  }
-}
-
-case class LPTDeleteTranslator(columns: Seq[(String, Option[String])], forced: Boolean) extends LPTNodeTranslator {
+case class LPTDeleteTranslator(delete: Delete) extends LPTNodeTranslator {
   override def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode =
-    LPTDelete(columns, forced)(in.get)
+    LPTDelete(delete)(in.get)
 }
 
-case class LPTDelete(columns: Seq[(String, Option[String])], forced: Boolean)(val in: LPTNode) extends LPTNode {
+case class LPTDelete(delete: Delete)(val in: LPTNode) extends LPTNode {
   override val children: Seq[LPTNode] = Seq(in)
 }
-
 ///////////////////////////////////////
 
 
