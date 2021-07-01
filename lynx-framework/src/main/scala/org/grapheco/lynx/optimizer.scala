@@ -437,6 +437,11 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
           }
         }
       }
+      case pf@PPTFilter(expr) => {
+        val tmp = joinReferenceRule(pf.children.head, ppc)
+        referenceProperty ++= tmp._2
+        pf.withChildren(Seq(tmp._1))
+      }
       case pj1@PPTJoin(filterExpr, bigTableIndex) => {
         joinRecursion(pj1, ppc)
       }
