@@ -67,7 +67,7 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case ll@LPTLimit(expr) => PPTLimit(expr)(plan(ll.in), plannerContext)
       case lo@LPTOrderBy(sortItem) => PPTOrderBy(sortItem)(plan(lo.in), plannerContext)
       case ll@LPTSkip(expr) => PPTSkip(expr)(plan(ll.in), plannerContext)
-      case lj@LPTJoin() => PPTJoin(None, isSingleMatch)(plan(lj.a), plan(lj.b), plannerContext)
+      case lj@LPTJoin(isSingleMatch) => PPTJoin(None, isSingleMatch)(plan(lj.a), plan(lj.b), plannerContext)
       case patternMatch: LPTPatternMatch => PPTPatternMatchTranslator(patternMatch)(plannerContext).translate(None)
       case li@LPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName]) => PPTCreateIndex(labelName, properties)(plannerContext)
       case sc@LPTSetClause(d) => PPTSetClauseTranslator(d.items).translate(sc.in.map(plan(_)))(plannerContext)
@@ -120,7 +120,7 @@ case class PPTJoin(filterExpr: Option[Expression], val isSingleMatch: Boolean, b
     else df
   }
 
-  override def withChildren(children0: Seq[PPTNode]): PPTJoin = PPTJoin(filterExpr isSingleMatch)(children0.head, children0(1), plannerContext)
+  override def withChildren(children0: Seq[PPTNode]): PPTJoin = PPTJoin(filterExpr, isSingleMatch)(children0.head, children0(1), plannerContext)
 
   override val schema: Seq[(String, LynxType)] = (a.schema ++ b.schema).distinct
 }
@@ -600,7 +600,7 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps:Seq[MergeElem
     }
 
     children match {
-      case Seq(pj@PPTJoin(filterExpr, bigTableIndex)) =>{
+      case Seq(pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex)) =>{
         val searchVar = pj.children.head.schema.toMap
         val res = children.map(_.execute).head.records
         if (res.nonEmpty) {
