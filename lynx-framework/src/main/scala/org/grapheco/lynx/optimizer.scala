@@ -431,8 +431,8 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
       }
       case pm@PPTMerge(mergeSchema, mergeOps) =>{
         pm.children.head match {
-          case pj2@PPTJoin(filterExpr, bigTableIndex) => {
-            pm.withChildren(Seq(joinRecursion(pj2, ppc)))
+          case pj2@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => {
+            pm.withChildren(Seq(joinRecursion(pj2, ppc, isSingleMatch)))
           }
           case _ =>{
             pm
@@ -444,14 +444,14 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
         referenceProperty ++= tmp._2
         pf.withChildren(Seq(tmp._1))
       }
-      case pj1@PPTJoin(filterExpr, bigTableIndex) => {
-        joinRecursion(pj1, ppc)
+      case pj1@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => {
+        joinRecursion(pj1, ppc, isSingleMatch)
       }
     }
     (newTable, referenceProperty)
   }
 
-  def joinRecursion(pj: PPTJoin, ppc: PhysicalPlannerContext): PPTNode = {
+  def joinRecursion(pj: PPTJoin, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PPTNode = {
     var table1 = pj.children.head
     var table2 = pj.children.last
     var referenceProperty = Seq[((LogicalVariable, PropertyKeyName), Expression)]()
@@ -468,7 +468,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
         case 1 => {
           val ksv = referenceProperty.head
           val filter = Equals(Property(ksv._1._1, ksv._1._2)(ksv._1._1.position), ksv._2)(ksv._1._1.position)
-          PPTJoin(Option(filter))(table1, table2, ppc)
+          PPTJoin(Option(filter), isSingleMatch)(table1, table2, ppc)
         }
         case _ =>{
           val setExprs = mutable.Set[Expression]()
@@ -476,7 +476,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
             val filter = Equals(Property(f._1._1, f._1._2)(f._1._1.position), f._2)(f._1._1.position)
             setExprs.add(filter)
           })
-          PPTJoin(Option(Ands(setExprs.toSet)(referenceProperty.head._1._1.position)))(table1, table2, ppc)
+          PPTJoin(Option(Ands(setExprs.toSet)(referenceProperty.head._1._1.position)), isSingleMatch)(table1, table2, ppc)
         }
       }
     }
@@ -487,8 +487,8 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     {
       case pnode: PPTNode =>
         pnode.children match {
-          case Seq(pj@PPTJoin(filterExpr, bigTableIndex)) =>{
-            val res1 = joinRecursion(pj, ppc)
+          case Seq(pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex)) =>{
+            val res1 = joinRecursion(pj, ppc, isSingleMatch)
             pnode.withChildren(Seq(res1))
           }
           case _ => pnode
@@ -503,8 +503,8 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
     {
       case pnode: PPTNode =>{
         pnode.children match {
-          case Seq(pj@PPTJoin(filterExpr, bigTableIndex)) => {
-            val res = joinRecursion(pj, ppc)
+          case Seq(pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex)) => {
+            val res = joinRecursion(pj, ppc, isSingleMatch)
             pnode.withChildren(Seq(res))
           }
           case _ => pnode
@@ -546,26 +546,26 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
   def estimateTableSize(parent: PPTJoin, table1: PPTNode, table2: PPTNode, ppc: PhysicalPlannerContext): PPTNode = {
     val estimateTable1 = estimate(table1, ppc)
     val estimateTable2 = estimate(table2, ppc)
-    if (estimateTable1 < estimateTable2) PPTJoin(parent.filterExpr, 1)(table1, table2, ppc)
-    else PPTJoin(parent.filterExpr, 0)(table1, table2, ppc)
+    if (estimateTable1 < estimateTable2) PPTJoin(parent.filterExpr, parent.isSingleMatch, 1)(table1, table2, ppc)
+    else PPTJoin(parent.filterExpr, parent.isSingleMatch, 0)(table1, table2, ppc)
   }
 
-  def joinRecursion(parent: PPTJoin, ppc: PhysicalPlannerContext): PPTNode ={
+  def joinRecursion(parent: PPTJoin, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PPTNode ={
     val t1 = parent.children.head
     val t2 = parent.children.last
 
     val table1 = t1 match {
-      case pj@PPTJoin(filterExpr, bigTableIndex) => joinRecursion(pj, ppc)
+      case pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => joinRecursion(pj, ppc, isSingleMatch)
       case pm@PPTMerge(mergeSchema, mergeOps) => {
-        val res = joinRecursion(pm.children.head.asInstanceOf[PPTJoin], ppc)
+        val res = joinRecursion(pm.children.head.asInstanceOf[PPTJoin], ppc, isSingleMatch)
         pm.withChildren(Seq(res))
       }
       case _ => t1
     }
     val table2 = t2 match {
-      case pj@PPTJoin(filterExpr, bigTableIndex) => joinRecursion(pj, ppc)
+      case pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => joinRecursion(pj, ppc, isSingleMatch)
       case pm@PPTMerge(mergeSchema, mergeOps) => {
-        val res = joinRecursion(pm.children.head.asInstanceOf[PPTJoin], ppc)
+        val res = joinRecursion(pm.children.head.asInstanceOf[PPTJoin], ppc, isSingleMatch)
         pm.withChildren(Seq(res))
       }
       case _ => t2
@@ -575,6 +575,6 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
       && (table2.isInstanceOf[PPTNodeScan] || table2.isInstanceOf[PPTRelationshipScan])){
       estimateTableSize(parent, table1, table2, ppc)
     }
-    else PPTJoin(parent.filterExpr, parent.bigTableIndex)(table1, table2, ppc)
+    else PPTJoin(parent.filterExpr, parent.isSingleMatch, parent.bigTableIndex)(table1, table2, ppc)
   }
 }
