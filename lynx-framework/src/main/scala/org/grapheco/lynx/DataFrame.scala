@@ -47,7 +47,7 @@ trait DataFrameOperator {
 
   def take(df: DataFrame, num: Int): DataFrame
 
-  def join(a: DataFrame, b: DataFrame, isSingleMatch: Boolean): DataFrame
+  def join(a: DataFrame, b: DataFrame, isSingleMatch: Boolean, bigTableIndex: Int): DataFrame
 
   def distinct(df: DataFrame): DataFrame
 
@@ -159,13 +159,13 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
 
   override def take(df: DataFrame, num: Int): DataFrame = DataFrame(df.schema, () => df.records.take(num))
 
-  override def join(a: DataFrame, b: DataFrame, isSinglesMatch: Boolean): DataFrame = {
+  override def join(a: DataFrame, b: DataFrame, isSinglesMatch: Boolean, bigTableIndex: Int): DataFrame = {
     val colsa = a.schema.map(_._1).zipWithIndex.toMap
     val colsb = b.schema.map(_._1).zipWithIndex.toMap
     //["m", "n"]
     val joinCols = a.schema.map(_._1).filter(colsb.contains(_))
     val (smallTable, largeTable, smallColumns, largeColumns, swapped) =
-      if (a.records.size < b.records.size) {
+      if (bigTableIndex == 1) {
         (a, b, colsa, colsb, false)
       }
       else {
@@ -237,7 +237,7 @@ trait DataFrameOps {
   def groupBy(grouppings: Seq[(String, Expression)], aggregatings: Seq[(String, Expression)])(implicit ctx: ExpressionContext): DataFrame =
     operator.groupBy(srcFrame, grouppings, aggregatings)(ctx)
 
-  def join(b: DataFrame, isSingleMatch: Boolean): DataFrame = operator.join(srcFrame, b, isSingleMatch)
+  def join(b: DataFrame, isSingleMatch: Boolean, bigTableIndex: Int): DataFrame = operator.join(srcFrame, b, isSingleMatch, bigTableIndex)
 
   def filter(predicate: Seq[LynxValue] => Boolean)(ctx: ExpressionContext): DataFrame = operator.filter(srcFrame, predicate)(ctx)
 

@@ -9,6 +9,7 @@ import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOI
 import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, SemanticDirection}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTDate, CTDateTime, CTInteger, CTLocalDateTime, CTLocalTime, CTString, CTTime}
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 class TestBase extends LazyLogging {
@@ -34,51 +35,64 @@ class TestBase extends LazyLogging {
 
   val model = new GraphModel {
 
+    override def estimateNodeLabel(labelName: String): Long = {
+      all_nodes.count(p => p.labels.contains(labelName))
+    }
 
-    override def estimateNodeRows(labels: Seq[String], propertyKeyNames: Seq[String], threshold: Int): Long = {
-      /* -1: match threshold rule
-         >=0: count num
-       */
-      def estimateProperties(target: ArrayBuffer[TestNode], propertyKeyNames: Seq[String]): Long ={
-        if (propertyKeyNames.isEmpty) target.size
-        else {
-          target.count(p =>{
-            if (propertyKeyNames.map(f => p.property(f).nonEmpty).count(p => p) == propertyKeyNames.size) true
-            else false
-          })
-        }
-      }
+    override def estimateNodeProperty(propertyName: String): Long = {
+      all_nodes.count(p => p.property(propertyName).isDefined)
+    }
 
-      if (labels.nonEmpty){
-        val targetArray = all_nodes.filter(p => p.labels == labels)
-        val targetLength = targetArray.size
-        if (targetLength < threshold) -1
-        else if (targetLength == 0) 0
-        else estimateProperties(targetArray, propertyKeyNames)
+    override def estimateRelationship(relType: String): Long = {
+      all_rels.count(p => p.relationType.get == relType)
+    }
+
+    override def copyNode(srcNode: LynxNode, maskNode: LynxNode): Seq[LynxValue] = {
+      val _maskNode = maskNode.asInstanceOf[TestNode]
+      val newSrcNode = TestNode(srcNode.id.value.asInstanceOf[Long], _maskNode.labels, _maskNode.properties.toSeq:_*)
+      val index = all_nodes.indexWhere(p => p.id == srcNode.id)
+      all_nodes(index) = newSrcNode
+      Seq(newSrcNode, maskNode)
+    }
+
+    override def mergeNode(nodeFilter: NodeFilter, forceToCreate: Boolean): LynxNode = {
+      if (forceToCreate){
+        val node = TestNode(all_nodes.size + 1, nodeFilter.labels, nodeFilter.properties.toSeq: _*)
+        all_nodes.append(node)
+        node
       }
       else {
-        val res = estimateProperties(all_nodes, propertyKeyNames)
-        if (res < threshold) -1
-        else res
+        val checkMerged = nodes(nodeFilter)
+        if (checkMerged.nonEmpty){
+          checkMerged.next()
+        }
+        else {
+          val node = TestNode(all_nodes.size + 1, nodeFilter.labels, nodeFilter.properties.toSeq: _*)
+          all_nodes.append(node)
+          node
+        }
       }
     }
 
-    override def estimateRelationshipRows(relType: String, threshold: Int): Long = {
-      val res = all_rels.count(p => p.relationType.getOrElse("None") == relType)
-      if (res < threshold) -1
-      else res
-    }
-
-    override def createNode(nodeFilter: NodeFilter): LynxNode = {
-      val node = TestNode(all_nodes.size + 1, nodeFilter.labels, nodeFilter.properties.toSeq:_*)
-      all_nodes.append(node)
-      node
-    }
-
-    override def createRelationship(relationshipFilter: RelationshipFilter, leftNode: LynxNode, rightNode: LynxNode): LynxRelationship = {
-      val relationship = TestRelationship(all_rels.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq:_*)
-      all_rels.append(relationship)
-      relationship
+    override def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode: LynxNode, rightNode: LynxNode, direction: SemanticDirection, forceToCreate: Boolean): PathTriple = {
+      val relationship = direction match {
+        case SemanticDirection.INCOMING => {
+          val r1 = TestRelationship(all_rels.size + 1, rightNode.id.value.asInstanceOf[Long], leftNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq: _*)
+          all_rels.append(r1)
+          r1
+        }
+        case SemanticDirection.OUTGOING => {
+          val r1 = TestRelationship(all_rels.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq: _*)
+          all_rels.append(r1)
+          r1
+        }
+        case SemanticDirection.BOTH => {
+          val r1 = TestRelationship(all_rels.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq: _*)
+          all_rels.append(r1)
+          r1
+        }
+      }
+      PathTriple(leftNode, relationship, rightNode)
     }
 
     override def createElements[T](
@@ -100,7 +114,7 @@ class TestBase extends LazyLogging {
 
       val relsMap: Seq[(String, TestRelationship)] = relsInput.map(x => {
         val (varname, input) = x
-        varname -> TestRelationship(all_rels.size + 1, nodeId(input.startNodeRef), nodeId(input.endNodeRef), input.types.headOption, input.props:_*)
+        varname -> TestRelationship(all_rels.size + 1, nodeId(input.startNodeRef), nodeId(input.endNodeRef), input.types.headOption)
       }
       )
 
@@ -142,35 +156,43 @@ class TestBase extends LazyLogging {
       nodesIDs.foreach(id => all_nodes --= all_nodes.filter(_.id==id))
     }
 
-    override def setNodeProperty(nodeId: LynxId, data: Array[(String ,AnyRef)], withReturn: Boolean): Option[Seq[LynxValue]] = {
+
+    override def setNodeProperty(nodeId: LynxId, data: Array[(String, LynxValue)], cleanExistProperties: Boolean): Option[LynxNode] = {
       val record = all_nodes.find(n => n.id == nodeId)
-      if (record.isDefined){
+      if (record.isDefined) {
         val node = record.get
-        val property = scala.collection.mutable.Map(node.properties.toSeq:_*)
-        data.foreach(f => property(f._1) = LynxValue(f._2))
-        val newNode = TestNode(node.id.value.asInstanceOf[Long], node.labels, property.toSeq:_*)
-        all_nodes -= node
-        all_nodes += newNode
-        if (withReturn) Option(Seq(newNode))
-        else None
+        val newNode = {
+          if (cleanExistProperties){
+            TestNode(node.id.value.asInstanceOf[Long], node.labels, data.toSeq: _*)
+          }
+          else {
+            val prop = mutable.Map(node.properties.toSeq:_*)
+            data.foreach(f => {
+              prop(f._1) = LynxValue(f._2)
+            })
+            TestNode(node.id.value.asInstanceOf[Long], node.labels, prop.toSeq: _*)
+          }
+        }
+        val index = all_nodes.indexWhere(p => p == node)
+        all_nodes(index) = newNode
+        Option(newNode)
       }
       else None
     }
 
-    override def addNodeLabels(nodeId: LynxId, labels: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def addNodeLabels(nodeId: LynxId, labels: Array[String]): Option[LynxNode] = {
       val record = all_nodes.find(n => n.id == nodeId)
       if (record.isDefined){
         val node = record.get
         val newNode = TestNode(node.id.value.asInstanceOf[Long], (node.labels ++ labels).distinct, node.properties.toSeq:_*)
         all_nodes -= node
         all_nodes += newNode
-        if (withReturn) Option(Seq(newNode))
-        else None
+        Option(newNode)
       }
       else None
     }
 
-    override def setRelationshipProperty(triple: Seq[LynxValue], data: Array[(String ,AnyRef)], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def setRelationshipProperty(triple: Seq[LynxValue], data: Array[(String ,AnyRef)]): Option[Seq[LynxValue]] = {
       val rel = triple(1).asInstanceOf[LynxRelationship]
       val record = all_rels.find(r => r.id == rel.id)
       if (record.isDefined){
@@ -180,13 +202,12 @@ class TestBase extends LazyLogging {
         val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, relation.relationType, property.toMap.toSeq:_*)
         all_rels -= relation
         all_rels += newRelationship
-        if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
-        else None
+        Option(Seq(triple.head, newRelationship, triple(2)))
       }
       else None
     }
 
-    override def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String]): Option[Seq[LynxValue]] = {
       val rel = triple(1).asInstanceOf[LynxRelationship]
       val record = all_rels.find(r => r.id == rel.id)
       if (record.isDefined){
@@ -194,13 +215,12 @@ class TestBase extends LazyLogging {
         val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, Option(labels.head), relation.properties.toSeq:_*)
         all_rels -= relation
         all_rels += newRelationship
-        if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
-        else None
+        Option(Seq(triple.head, newRelationship, triple(2)))
       }
       else None
     }
 
-    override def removeNodeProperty(nodeId: LynxId, data: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def removeNodeProperty(nodeId: LynxId, data: Array[String]): Option[LynxNode] = {
       val record = all_nodes.find(n => n.id == nodeId)
       if (record.isDefined){
         val node = record.get
@@ -209,26 +229,24 @@ class TestBase extends LazyLogging {
         val newNode = TestNode(node.id.value.asInstanceOf[Long], node.labels, property.toSeq:_*)
         all_nodes -= node
         all_nodes += newNode
-        if (withReturn) Option(Seq(newNode))
-        else None
+        Option(newNode)
       }
       else None
     }
 
-    override def removeNodeLabels(nodeId: LynxId, labels: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def removeNodeLabels(nodeId: LynxId, labels: Array[String]): Option[LynxNode] = {
       val record = all_nodes.find(n => n.id == nodeId)
       if (record.isDefined){
         val node = record.get
         val newNode = TestNode(node.id.value.asInstanceOf[Long], (node.labels.toBuffer -- labels), node.properties.toSeq:_*)
         all_nodes -= node
         all_nodes += newNode
-        if (withReturn) Option(Seq(newNode))
-        else None
+        Option(newNode)
       }
       else None
     }
 
-    override def removeRelationshipProperty(triple: Seq[LynxValue], data: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def removeRelationshipProperty(triple: Seq[LynxValue], data: Array[String]): Option[Seq[LynxValue]] = {
       val rel = triple(1).asInstanceOf[LynxRelationship]
       val record = all_rels.find(r => r.id == rel.id)
       if (record.isDefined){
@@ -238,13 +256,12 @@ class TestBase extends LazyLogging {
         val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, relation.relationType, property.toMap.toSeq:_*)
         all_rels -= relation
         all_rels += newRelationship
-        if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
-        else None
+        Option(Seq(triple.head, newRelationship, triple(2)))
       }
       else None
     }
 
-    override def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean): Option[Seq[LynxValue]] = {
+    override def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String]): Option[Seq[LynxValue]] = {
       val rel = triple(1).asInstanceOf[LynxRelationship]
       val record = all_rels.find(r => r.id == rel.id)
       if (record.isDefined){
@@ -256,8 +273,7 @@ class TestBase extends LazyLogging {
         val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, newType, relation.properties.toSeq:_*)
         all_rels -= relation
         all_rels += newRelationship
-        if (withReturn) Option(Seq(triple.head, newRelationship, triple(2)))
-        else None
+        Option(Seq(triple.head, newRelationship, triple(2)))
       }
       else None
     }
@@ -298,6 +314,15 @@ class TestBase extends LazyLogging {
     Profiler.timing {
       //call cache() only for test
       val rs = runner.run(query, param).cache()
+      rs.show()
+      rs
+    }
+  }
+  protected def runOnDemoGraph2(query: String, param: Map[String, Any] = Map.empty[String, Any]): LynxResult = {
+    runner.compile(query)
+    Profiler.timing {
+      //call cache() only for test
+      val rs = runner.run(query, param)
       rs.show()
       rs
     }

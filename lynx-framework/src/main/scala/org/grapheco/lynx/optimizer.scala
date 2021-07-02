@@ -28,8 +28,8 @@ class DefaultPhysicalPlanOptimizer(runnerContext: CypherRunnerContext) extends P
   val rules = Seq[PhysicalPlanOptimizerRule](
     RemoveNullProject,
     NodeFilterPushDownRule,
-    JoinReferenceRule
-//    JoinOrderRule
+    JoinReferenceRule,
+    JoinTableSizeEstimateRule
   )
 
   def optimize(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = {
@@ -53,9 +53,6 @@ object RemoveNullProject extends PhysicalPlanOptimizerRule {
   )
 }
 
-/**
- * rule to push down node's filter properties to NodePattern
- */
 object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
   override def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = optimizeBottomUp(plan, {
     case pnode: PPTNode => {
@@ -65,7 +62,7 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
           if (res._2) pnode.withChildren(res._1)
           else pnode
         }
-        case Seq(pj@PPTJoin(isSingleMatch, filterExpr)) => {
+        case Seq(pj@PPTJoin(filterExpr, isSingleMatch,  bigTableIndex)) => {
           val newPPT = pptJoinChildrenMap(pj, ppc)
           pnode.withChildren(Seq(newPPT))
         }
@@ -81,7 +78,7 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
         if (res._2) res._1.head
         else pf
       }
-      case pjj@PPTJoin(isSingleMatch, filterExpr) => pptJoinChildrenMap(pjj, ppc)
+      case pjj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => pptJoinChildrenMap(pjj, ppc)
       case f => f
     }
     pj.withChildren(res)
@@ -104,7 +101,7 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
         }
         PPTNodeScan(NodePattern(pattern.variable, labels, props, pattern.baseNode)(pattern.position))(ppc)
       }
-      case pjj@PPTJoin(isSingleMatch, filterExpr) => pptFilterThenJoinChildrenMap(propArray, labelArray, pjj, ppc)
+      case pjj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => pptFilterThenJoinChildrenMap(propArray, labelArray, pjj, ppc)
       case f => f
     }
     pj.withChildren(res)
@@ -151,7 +148,7 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
         if (expandAndSet._2.isEmpty) (Seq(expandAndSet._1), true)
         else (Seq(PPTFilter(expandAndSet._2.head)(expandAndSet._1, ppc)), true)
       }
-      case Seq(pj@PPTJoin(isSingleMatch, filterExpr)) => pptFilterThenJoin(exprs, pj, ppc)
+      case Seq(pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex)) => pptFilterThenJoin(exprs, pj, ppc)
       case _ => (null, false)
     }
   }
@@ -350,152 +347,6 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
   }
 }
 
-
-/**
- * rule to judge size of two tables.
- *
- * 1. method 1: threshold: If any of tables' rowCount less than threshold, this table be a small table (put to memory).
- * 2. method 2:
- *        2.1 estimate reference table's full rowCount  which not include the referenced property
- *        2.2 estimate referenced table's full rowCount with properties.
- *        2.3 compare tables
- */
-object JoinOrderRule extends PhysicalPlanOptimizerRule {
-  def estimate(pnode: PPTNode, ppc: PhysicalPlannerContext): (Boolean, Long, Map[String, Seq[String]]) = {
-    pnode match {
-      case ps@PPTNodeScan(pattern) => estimateNodeRows(pattern, ppc.runnerContext.graphModel)
-      case pr@PPTRelationshipScan(rel, left, right) => estimateRelationshipRows(rel, left, right, ppc.runnerContext.graphModel)
-    }
-  }
-
-  def checkTables(parent: PPTJoin, table1: PPTNode, table2: PPTNode, ppc: PhysicalPlannerContext): (PPTNode, Int, Int) = {
-    val estimatedTable1 = estimate(table1, ppc)
-    val estimatedTable2 = estimate(table2, ppc)
-
-    val referenceTableIndex = {
-      (estimatedTable1._1, estimatedTable2._1) match {
-        case (true, false) => 0
-        case (false, true) => 1
-        case (false, false) => -1
-      }
-    }
-
-    val smallTableIndex = {
-      if (estimatedTable1._2 == -1) 0
-      else if (estimatedTable2._2 == -1) 1
-      else {
-        if (estimatedTable1._2 <= estimatedTable2._2) 0
-        else 1
-      }
-    }
-
-    (PPTJoin(parent.isSingleMatch, parent.filterExpr)(table1, table2, ppc), referenceTableIndex, smallTableIndex)
-  }
-
-  def joinRecursion(pJoin: PPTNode, ppc: PhysicalPlannerContext): (PPTNode, Int, Int) = {
-    // flag: check is with reference
-
-    val t1 = pJoin.children.head
-    val t2 = pJoin.children(1)
-
-    val (table1, referTableIndex1, smallTableIndex1) = t1 match {
-      case pj@PPTJoin(ops, filterExpr) => joinRecursion(t1, ppc)
-      case _ => (t1, false, 0)
-    }
-    val (table2, referTableIndex2, smallTableIndex2) = t2 match {
-      case pj@PPTJoin(ops, filterExpr) => joinRecursion(t2, ppc)
-      case _ => (t2, false, 0)
-    }
-    if (!table1.isInstanceOf[PPTJoin] && !table2.isInstanceOf[PPTJoin]) {
-      checkTables(pJoin.asInstanceOf[PPTJoin], table1, table2, ppc)
-    }
-    else (PPTJoin(pJoin.asInstanceOf[PPTJoin].isSingleMatch, pJoin.asInstanceOf[PPTJoin].filterExpr)(table1, table2, ppc), -1, 0)
-  }
-
-  override def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = optimizeBottomUp(plan,
-    {
-      case pnode: PPTNode => {
-        pnode.children match {
-          case Seq(pj@PPTJoin(ops, filterExpr)) => {
-            val res = joinRecursion(pj, ppc)
-            pnode.withChildren(Seq(res._1))
-          }
-          case _ => pnode
-        }
-      }
-    }
-  )
-
-  def estimateNodeRows(nodePattern: NodePattern, model: GraphModel): (Boolean, Long, Map[String, Seq[String]]) = {
-    val labels = nodePattern.labels.map(l => l.name)
-
-    val (isWithReference, referenceName) = {
-      val prop = nodePattern.properties.map({
-        case MapExpression(items)=>{
-          items.map(p => {
-            p._2 match {
-              case Property(a, b) => (p._1.name, 1)
-              case _ => (p._1.name, 0)
-            }
-          })
-        }
-      })
-      if (prop.isDefined && prop.get.map(f => f._2).sum > 0) (true, prop.get.filter(f => f._2 == 1).map(f => f._1))
-      else (false, Seq.empty)
-    }
-
-    val propsKeyNames = {
-      val allKeys = nodePattern.properties.map {
-        case MapExpression(items) => items.map(f => f._1.name)
-      }.getOrElse(Seq.empty)
-
-      if (isWithReference){
-        allKeys.filter(f => !referenceName.contains(f))
-      }
-      else allKeys
-    }
-    val countResult = model.estimateNodeRows(labels, propsKeyNames)
-
-    (isWithReference, countResult, Map(nodePattern.variable.get.name -> referenceName))
-  }
-
-  def estimateRelationshipRows(relationshipPattern: RelationshipPattern, leftPattern:NodePattern, rightPattern:NodePattern, model: GraphModel): (Boolean, Long, Map[String, Seq[String]]) = {
-    val (leftIsWithReference, leftReferenceName) = {
-      val prop = leftPattern.properties.map({
-        case MapExpression(items)=>{
-          items.map(p => {
-            p._2 match {
-              case Property(a, b) => (p._1.name, 1)
-              case _ => (p._1.name, 0)
-            }
-          })
-        }
-      })
-      if (prop.isDefined && prop.get.map(f => f._2).sum > 0) (true, prop.get.filter(f => f._2 == 1).map(f => f._1))
-      else (false, Seq.empty)
-    }
-
-    val (rightIsWithReference, rightReferenceName) = {
-      val prop = rightPattern.properties.map({
-        case MapExpression(items)=>{
-          items.map(p => {
-            p._2 match {
-              case Property(a, b) => (p._1.name, 1)
-              case _ => (p._1.name, 0)
-            }
-          })
-        }
-      })
-      if (prop.isDefined && prop.get.map(f => f._2).sum > 0) (true, prop.get.filter(f => f._2 == 1).map(f => f._1))
-      else (false, Seq.empty)
-    }
-    val referenceMap = Map(leftPattern.variable.get.name -> leftReferenceName, rightPattern.variable.get.name -> rightReferenceName)
-    val countNum = model.estimateRelationshipRows(relationshipPattern.types.head.name)
-    if (leftIsWithReference || rightIsWithReference) (true, countNum, referenceMap)
-    else (false, countNum, referenceMap)
-  }
-}
-
 object JoinReferenceRule extends PhysicalPlanOptimizerRule {
 
   def checkNodeReference(pattern: NodePattern): (Seq[((LogicalVariable, PropertyKeyName), Expression)], Option[NodePattern]) = {
@@ -518,69 +369,106 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     else (Seq.empty, None)
   }
 
+  def checkExpandPath(pe: PPTExpandPath, ppc:PhysicalPlannerContext): (PPTNode, Seq[((LogicalVariable, PropertyKeyName), Expression)]) = {
+    pe.children match {
+      case Seq(pr@PPTRelationshipScan(rel, leftPattern, rightPattern)) =>{
+        val leftChecked = checkNodeReference(leftPattern)
+        val rightChecked = checkNodeReference(rightPattern)
+
+        val res = (leftChecked._2, rightChecked._2) match {
+          case (None, None) => pr
+          case (value1, None) => PPTRelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
+          case (None, value2) => PPTRelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
+          case (value1, value2) => PPTRelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
+        }
+
+        (pe.withChildren(Seq(res)), leftChecked._1 ++ rightChecked._1)
+      }
+      case Seq(pe2@PPTExpandPath(rel, rightPattern)) =>{
+        val res = checkExpandPath(pe2, ppc)
+        val rightChecked = checkNodeReference(rightPattern)
+
+        val newPPTExpandPath = {
+          if (rightChecked._2.nonEmpty){
+            PPTExpandPath(rel, rightChecked._2.get)(res._1, ppc)
+          }
+          else pe2.withChildren(Seq(res._1))
+        }
+
+        (newPPTExpandPath, res._2 ++ rightChecked._1)
+      }
+    }
+  }
+
+  def joinReferenceRule(table: PPTNode, ppc:PhysicalPlannerContext): (PPTNode, Seq[((LogicalVariable, PropertyKeyName), Expression)]) = {
+    var referenceProperty = Seq[((LogicalVariable, PropertyKeyName), Expression)]()
+    val newTable = table match {
+      case ps@PPTNodeScan(pattern)=>{
+        val checked = checkNodeReference(pattern)
+        referenceProperty = referenceProperty ++ checked._1
+        if (checked._2.isDefined){
+          PPTNodeScan(checked._2.get)(ppc)
+        }
+        else ps
+      }
+      case pr@PPTRelationshipScan(rel, leftPattern, rightPattern) =>{
+        val leftChecked = checkNodeReference(leftPattern)
+        val rightChecked = checkNodeReference(rightPattern)
+        referenceProperty ++= leftChecked._1
+        referenceProperty ++= rightChecked._1
+
+        (leftChecked._2, rightChecked._2) match {
+          case (None, None) => table
+          case (value1, None) => PPTRelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
+          case (None, value2) => PPTRelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
+          case (value1, value2) => PPTRelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
+        }
+      }
+      case pe@PPTExpandPath(rel, rightPattern) =>{
+        val res = checkExpandPath(pe, ppc)
+        referenceProperty ++= res._2
+        res._1
+      }
+      case pm@PPTMerge(mergeSchema, mergeOps) =>{
+        pm.children.head match {
+          case pj2@PPTJoin(filterExpr, bigTableIndex) => {
+            pm.withChildren(Seq(joinRecursion(pj2, ppc)))
+          }
+          case _ =>{
+            pm
+          }
+        }
+      }
+      case pf@PPTFilter(expr) => {
+        val tmp = joinReferenceRule(pf.children.head, ppc)
+        referenceProperty ++= tmp._2
+        pf.withChildren(Seq(tmp._1))
+      }
+      case pj1@PPTJoin(filterExpr, bigTableIndex) => {
+        joinRecursion(pj1, ppc)
+      }
+    }
+    (newTable, referenceProperty)
+  }
+
   def joinRecursion(pj: PPTJoin, ppc: PhysicalPlannerContext): PPTNode = {
     var table1 = pj.children.head
     var table2 = pj.children.last
     var referenceProperty = Seq[((LogicalVariable, PropertyKeyName), Expression)]()
 
-    table1 match {
-      case ps@PPTNodeScan(pattern)=>{
-        val checked = checkNodeReference(pattern)
-        referenceProperty = referenceProperty ++ checked._1
-        if (checked._2.isDefined){
-          table1 = PPTNodeScan(checked._2.get)(ppc)
-        }
-      }
-      case pr@PPTRelationshipScan(rel, leftPattern, rightPattern) =>{
-        val leftChecked = checkNodeReference(leftPattern)
-        val rightChecked = checkNodeReference(rightPattern)
-        referenceProperty ++= leftChecked._1
-        referenceProperty ++= rightChecked._1
-
-        (leftChecked._2, rightChecked._2) match {
-          case (None, None) => table1
-          case (value1, None) => table1 = PPTRelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
-          case (None, value2) => table1 = PPTRelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
-          case (value1, value2) => table1 = PPTRelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
-        }
-      }
-      case pj1@PPTJoin(isSingleMatch, filterExpr) =>{
-        table1 = joinRecursion(pj1, ppc)
-      }
-    }
-
-    table2 match {
-      case ps@PPTNodeScan(pattern)=>{
-        val checked = checkNodeReference(pattern)
-        referenceProperty = referenceProperty ++ checked._1
-        if (checked._2.isDefined){
-          table2 = PPTNodeScan(checked._2.get)(ppc)
-        }
-      }
-      case pr@PPTRelationshipScan(rel, leftPattern, rightPattern) =>{
-        val leftChecked = checkNodeReference(leftPattern)
-        val rightChecked = checkNodeReference(rightPattern)
-        referenceProperty ++= leftChecked._1
-        referenceProperty ++= rightChecked._1
-
-        (leftChecked._2, rightChecked._2) match {
-          case (None, None) => table2
-          case (value1, None) => table2 = PPTRelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
-          case (None, value2) => table2 = PPTRelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
-          case (value1, value2) => table2 = PPTRelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
-        }
-      }
-      case pj2@PPTJoin(isSingleMatch, filterExpr) =>{
-        table2 = joinRecursion(pj2, ppc)
-      }
-    }
+    val res1 = joinReferenceRule(table1, ppc)
+    val res2 = joinReferenceRule(table2, ppc)
+    table1 = res1._1
+    table2 = res2._1
+    referenceProperty ++= res1._2
+    referenceProperty ++= res2._2
 
     if (referenceProperty.nonEmpty){
       referenceProperty.length match {
         case 1 => {
           val ksv = referenceProperty.head
           val filter = Equals(Property(ksv._1._1, ksv._1._2)(ksv._1._1.position), ksv._2)(ksv._1._1.position)
-          PPTJoin(pj.isSingleMatch, Option(filter))(table1, table2, ppc)
+          PPTJoin(Option(filter))(table1, table2, ppc)
         }
         case _ =>{
           val setExprs = mutable.Set[Expression]()
@@ -588,7 +476,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
             val filter = Equals(Property(f._1._1, f._1._2)(f._1._1.position), f._2)(f._1._1.position)
             setExprs.add(filter)
           })
-          PPTJoin(pj.isSingleMatch, Option(Ands(setExprs.toSet)(referenceProperty.head._1._1.position)))(table1, table2, ppc)
+          PPTJoin(Option(Ands(setExprs.toSet)(referenceProperty.head._1._1.position)))(table1, table2, ppc)
         }
       }
     }
@@ -599,7 +487,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     {
       case pnode: PPTNode =>
         pnode.children match {
-          case Seq(pj@PPTJoin(isSingleMatch, filterExpr)) =>{
+          case Seq(pj@PPTJoin(filterExpr, bigTableIndex)) =>{
             val res1 = joinRecursion(pj, ppc)
             pnode.withChildren(Seq(res1))
           }
@@ -607,4 +495,86 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
         }
     }
   )
+}
+
+object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
+
+  override def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = optimizeBottomUp(plan,
+    {
+      case pnode: PPTNode =>{
+        pnode.children match {
+          case Seq(pj@PPTJoin(filterExpr, bigTableIndex)) => {
+            val res = joinRecursion(pj, ppc)
+            pnode.withChildren(Seq(res))
+          }
+          case _ => pnode
+        }
+      }
+    }
+  )
+
+  def estimateNodeRow(pattern: NodePattern, graphModel: GraphModel): Long = {
+    val countArray = ArrayBuffer[Long]()
+    val labels = pattern.labels.map(l => l.name)
+    val prop = pattern.properties.map({
+      case MapExpression(items)=>{
+        items.map(p => {
+          p._2 match {
+            case Property(a, b) => p._1.name
+            case _ => p._1.name
+          }
+        })
+      }
+    })
+
+    labels.foreach(f => countArray += graphModel.estimateNodeLabel(f))
+    if (prop.isDefined) prop.get.foreach(f => countArray += graphModel.estimateNodeProperty(f))
+    countArray.min
+  }
+
+  def estimateRelationshipRow(rel: RelationshipPattern, left: NodePattern, right: NodePattern, graphModel: GraphModel): Long = {
+    graphModel.estimateRelationship(rel.types.head.name)
+  }
+
+  def estimate(table: PPTNode, ppc: PhysicalPlannerContext): Long = {
+    table match {
+      case ps@PPTNodeScan(pattern) => estimateNodeRow(pattern, ppc.runnerContext.graphModel)
+      case pr@PPTRelationshipScan(rel, left, right) => estimateRelationshipRow(rel, left, right, ppc.runnerContext.graphModel)
+    }
+  }
+
+  def estimateTableSize(parent: PPTJoin, table1: PPTNode, table2: PPTNode, ppc: PhysicalPlannerContext): PPTNode = {
+    val estimateTable1 = estimate(table1, ppc)
+    val estimateTable2 = estimate(table2, ppc)
+    if (estimateTable1 < estimateTable2) PPTJoin(parent.filterExpr, 1)(table1, table2, ppc)
+    else PPTJoin(parent.filterExpr, 0)(table1, table2, ppc)
+  }
+
+  def joinRecursion(parent: PPTJoin, ppc: PhysicalPlannerContext): PPTNode ={
+    val t1 = parent.children.head
+    val t2 = parent.children.last
+
+    val table1 = t1 match {
+      case pj@PPTJoin(filterExpr, bigTableIndex) => joinRecursion(pj, ppc)
+      case pm@PPTMerge(mergeSchema, mergeOps) => {
+        val res = joinRecursion(pm.children.head.asInstanceOf[PPTJoin], ppc)
+        pm.withChildren(Seq(res))
+      }
+      case _ => t1
+    }
+    val table2 = t2 match {
+      case pj@PPTJoin(filterExpr, bigTableIndex) => joinRecursion(pj, ppc)
+      case pm@PPTMerge(mergeSchema, mergeOps) => {
+        val res = joinRecursion(pm.children.head.asInstanceOf[PPTJoin], ppc)
+        pm.withChildren(Seq(res))
+      }
+      case _ => t2
+    }
+
+    if ((table1.isInstanceOf[PPTNodeScan] || table1.isInstanceOf[PPTRelationshipScan])
+      && (table2.isInstanceOf[PPTNodeScan] || table2.isInstanceOf[PPTRelationshipScan])){
+      estimateTableSize(parent, table1, table2, ppc)
+    }
+    else PPTJoin(parent.filterExpr, parent.bigTableIndex)(table1, table2, ppc)
+  }
 }
