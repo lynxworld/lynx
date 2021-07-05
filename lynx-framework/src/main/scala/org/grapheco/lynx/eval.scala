@@ -174,6 +174,9 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           case time: LynxDateTime => time
         }
 
+      case In(property: Property, list: ListLiteral) =>
+        LynxBoolean(eval(list).asInstanceOf[LynxList].value.contains(eval(property)))
+
       case Parameter(name, parameterType) =>
         types.wrap(ec.param(name))
 
