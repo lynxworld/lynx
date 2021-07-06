@@ -194,6 +194,11 @@ class DefaultProcedures {
     inputs.value.map(_.asInstanceOf[LynxNumber]).reduce((a, b) => a + b).number.doubleValue() / inputs.value.size
   }
 
+  @LynxProcedure(name = "collect")
+  def collect(inputs: LynxList): LynxList = {
+    inputs
+  }
+
   @LynxProcedure(name = "max")
   def max(inputs: LynxList): LynxNumber = {
     inputs.value.map(_.asInstanceOf[LynxNumber]).reduce((a, b) => if (a > b) a else b)
