@@ -123,7 +123,13 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case And(lhs, rhs) =>
         LynxBoolean(Seq(lhs, rhs).forall(eval(_) == LynxBoolean(true)))
-
+      case Multiply(lhs, rhs) =>{
+        (lhs, rhs) match {
+          case (pe@ProcedureExpression(funcInov), sdi@SignedDecimalIntegerLiteral(stringVal)) =>{
+            LynxDouble(eval(pe).value.asInstanceOf[Double] * sdi.value)
+          }
+        }
+      }
       case NotEquals(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
           types.wrap(lvalue != rvalue))
