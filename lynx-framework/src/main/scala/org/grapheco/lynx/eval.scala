@@ -174,8 +174,24 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           case time: LynxDateTime => time
         }
 
-      case In(property: Property, list: ListLiteral) =>
-        LynxBoolean(eval(list).asInstanceOf[LynxList].value.contains(eval(property)))
+      case In(lhs, rhs) =>{
+        lhs match {
+          case pe@ProcedureExpression(funcInov) =>{
+            rhs match {
+              case list@ListLiteral(expressions) =>{
+                LynxBoolean(eval(list).asInstanceOf[LynxList].value.contains(eval(pe).value))
+              }
+            }
+          }
+          case prop@Property(map, propertyKey) =>{
+            rhs match {
+              case list@ListLiteral(expressions) =>{
+                LynxBoolean(eval(list).asInstanceOf[LynxList].value.contains(eval(prop)))
+              }
+            }
+          }
+        }
+      }
 
       case Parameter(name, parameterType) =>
         types.wrap(ec.param(name))
