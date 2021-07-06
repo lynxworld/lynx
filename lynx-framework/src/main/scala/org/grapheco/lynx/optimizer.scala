@@ -2,7 +2,7 @@ package org.grapheco.lynx
 
 import org.grapheco.lynx.RemoveNullProject.optimizeBottomUp
 import org.opencypher.v9_0.ast.AliasedReturnItem
-import org.opencypher.v9_0.expressions.{Ands, Equals, Expression, FunctionInvocation, HasLabels, LabelName, Literal, LogicalVariable, MapExpression, NodePattern, Not, Ors, Property, PropertyKeyName, RelationshipPattern, Variable}
+import org.opencypher.v9_0.expressions.{Ands, Equals, Expression, FunctionInvocation, HasLabels, In, LabelName, Literal, LogicalVariable, MapExpression, NodePattern, Not, Ors, PatternExpression, Property, PropertyKeyName, RelationshipPattern, Variable}
 import org.opencypher.v9_0.util.InputPosition
 
 import scala.collection.mutable
@@ -107,19 +107,30 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
     pj.withChildren(res)
   }
 
-  def pptFilterThenJoin(filters: Expression, pj: PPTJoin, ppc: PhysicalPlannerContext): (Seq[PPTNode], Boolean) = {
+  def pptFilterThenJoin(parent: PPTFilter, filters: Expression, pj: PPTJoin, ppc: PhysicalPlannerContext): (Seq[PPTNode], Boolean) = {
     val propertyArray: ArrayBuffer[(String, PropertyKeyName, Expression)] = ArrayBuffer()
     val labelArray: ArrayBuffer[(String, Seq[LabelName])] = ArrayBuffer()
-    extractParamsFromFilterExpression(propertyArray, labelArray, filters)
+    val notPushDown: ArrayBuffer[Expression] = ArrayBuffer()
+    extractParamsFromFilterExpression(propertyArray, labelArray, filters, notPushDown)
     val res = pptFilterThenJoinChildrenMap(propertyArray, labelArray, pj, ppc)
-    (Seq(res), true)
+    notPushDown.size match {
+      case 0 => (Seq(res), true)
+      case 1 => (Seq(PPTFilter(notPushDown.head)(res, ppc)), true)
+      case 2 => {
+        val expr = Ands(Set(notPushDown:_*))(InputPosition(0, 0, 0))
+        (Seq(PPTFilter(expr)(res, ppc)), true)
+      }
+    }
   }
 
-  def extractParamsFromFilterExpression(propArray: ArrayBuffer[(String, PropertyKeyName, Expression)], labelArray: ArrayBuffer[(String, Seq[LabelName])], filters: Expression): Unit = {
+  def extractParamsFromFilterExpression(propArray: ArrayBuffer[(String, PropertyKeyName, Expression)], labelArray: ArrayBuffer[(String, Seq[LabelName])], filters: Expression, notPushDown: ArrayBuffer[Expression]): Unit = {
     filters match {
       case e@Equals(Property(map, pkn), rhs) => propArray.append((map.asInstanceOf[Variable].name, pkn, rhs))
       case hl@HasLabels(expression, labels) => labelArray.append((expression.asInstanceOf[Variable].name, labels))
-      case a@Ands(andExpress) => andExpress.foreach(exp => extractParamsFromFilterExpression(propArray, labelArray, exp))
+      case a@Ands(andExpress) => andExpress.foreach(exp => extractParamsFromFilterExpression(propArray, labelArray, exp, notPushDown))
+      case in@In(lhs, rhs) => notPushDown += in
+      case pe@PatternExpression(pattern) => notPushDown += pe
+      case nt@Not(rhs) => notPushDown += nt
     }
   }
 
@@ -148,7 +159,7 @@ object NodeFilterPushDownRule extends PhysicalPlanOptimizerRule {
         if (expandAndSet._2.isEmpty) (Seq(expandAndSet._1), true)
         else (Seq(PPTFilter(expandAndSet._2.head)(expandAndSet._1, ppc)), true)
       }
-      case Seq(pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex)) => pptFilterThenJoin(exprs, pj, ppc)
+      case Seq(pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex)) => pptFilterThenJoin(pf, exprs, pj, ppc)
       case _ => (null, false)
     }
   }
@@ -449,6 +460,8 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
           }
         }
       }
+      case pc@PPTCreateUnit(items) => pc
+
       case pf@PPTFilter(expr) => {
         val tmp = joinReferenceRule(pf.children.head, ppc)
         referenceProperty ++= tmp._2

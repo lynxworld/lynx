@@ -3,6 +3,8 @@ package org.grapheco.lynx
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTString, CypherType}
 
+import scala.util.matching.Regex
+
 trait ExpressionEvaluator {
   def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue
 
@@ -77,6 +79,18 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case CountStar() => LynxInteger(ec.vars.size)
 
+        // bugs
+      case ContainerIndex(expr, idx) =>{
+        (expr, idx) match {
+          case (v@Variable(name), pe@ProcedureExpression(funcInov)) =>{
+            ec.vars(name) match {
+              case node: LynxNode => node.property(eval(pe).value.asInstanceOf[LynxString].value).getOrElse(LynxNull)
+              case rel: LynxRelationship => rel.property(eval(pe).value.asInstanceOf[LynxString].value).getOrElse(LynxNull)
+            }
+          }
+        }
+      }
+
       case fe: ProcedureExpression => {
         if(fe.aggregating){
           LynxValue(fe.args.map(eval(_)))
@@ -122,6 +136,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) => {
           (lvalue, rvalue) match {
             case (a: LynxNumber, b: LynxNumber) => LynxBoolean(a.number.doubleValue() > b.number.doubleValue())
+            case (a: LynxString, b: LynxString) => LynxBoolean(a.value > b.value)
           }
         })
 
@@ -129,6 +144,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) => {
           (lvalue, rvalue) match {
             case (a: LynxNumber, b: LynxNumber) => LynxBoolean(a.number.doubleValue() >= b.number.doubleValue())
+            case (a: LynxString, b: LynxString) => LynxBoolean(a.value >= b.value)
           }
         })
 
@@ -196,6 +212,77 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case Parameter(name, parameterType) =>
         types.wrap(ec.param(name))
 
+      case RegexMatch(lhs, rhs) =>{
+        (lhs, rhs) match {
+          case (pe@ProcedureExpression(funcInov), StringLiteral(value)) =>{
+            val regex = new Regex(value) // TODO: opt
+            val res = regex.findFirstMatchIn(eval(pe).value.toString)
+            if (res.isDefined) LynxBoolean(true)
+            else LynxBoolean(false)
+          }
+          case (Property(map, propertyKey), StringLiteral(value)) =>{
+            val regex = new Regex(value) // TODO: opt
+            map match {
+              case Variable(name) =>{
+                ec.vars(name) match {
+                  case node: LynxNode => {
+                    val res = regex.findFirstMatchIn(node.property(propertyKey.name).getOrElse("").toString)
+                    if (res.isDefined) LynxBoolean(true)
+                    else LynxBoolean(false)
+                  }
+                  case rel: LynxRelationship => {
+                    val res = regex.findFirstMatchIn(rel.property(propertyKey.name).getOrElse("").toString)
+                    if (res.isDefined) LynxBoolean(true)
+                    else LynxBoolean(false)
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      case StartsWith(lhs, rhs) =>{
+        (lhs, rhs) match {
+          case (Property(map, propertyKey), StringLiteral(value)) =>{
+            map match {
+              case Variable(name) =>{
+                ec.vars(name) match {
+                  case node: LynxNode => LynxBoolean(node.property(propertyKey.name).getOrElse(LynxString("")).value.toString.startsWith(value))
+                  case rel: LynxRelationship => LynxBoolean(rel.property(propertyKey.name).getOrElse(LynxString("")).value.toString.startsWith(value))
+                }
+              }
+            }
+          }
+        }
+      }
+      case EndsWith(lhs, rhs) =>{
+        (lhs, rhs) match {
+          case (Property(map, propertyKey), StringLiteral(value)) =>{
+            map match {
+              case Variable(name) =>{
+                ec.vars(name) match {
+                  case node: LynxNode => LynxBoolean(node.property(propertyKey.name).getOrElse(LynxString("")).value.toString.endsWith(value))
+                  case rel: LynxRelationship => LynxBoolean(rel.property(propertyKey.name).getOrElse(LynxString("")).value.toString.endsWith(value))
+                }
+              }
+            }
+          }
+        }
+      }
+      case Contains(lhs, rhs) =>{
+        (lhs, rhs) match {
+          case (Property(map, propertyKey), StringLiteral(value)) =>{
+            map match {
+              case Variable(name) =>{
+                ec.vars(name) match {
+                  case node: LynxNode => LynxBoolean(node.property(propertyKey.name).getOrElse(LynxString("")).value.toString.contains(value))
+                  case rel: LynxRelationship => LynxBoolean(rel.property(propertyKey.name).getOrElse(LynxString("")).value.toString.contains(value))
+                }
+              }
+            }
+          }
+        }
+      }
       case CaseExpression(expression, alternatives, default) => {
         if (expression.isDefined){
           val evalValue = eval(expression.get)
