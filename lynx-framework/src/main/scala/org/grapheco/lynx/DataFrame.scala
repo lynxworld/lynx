@@ -72,8 +72,19 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
             val ev1 = expressionEvaluator.eval(s._1)(ctx.withVars(schema.map(_._1).zip(a).toMap))
             val ev2 = expressionEvaluator.eval(s._1)(ctx.withVars(schema.map(_._1).zip(b).toMap))
             s._2 match {
-              case true => (ev1 <= ev2, ev1 == ev2)
-              case false => (ev1 >= ev2, ev1 == ev2)
+                // LynxNull = MAX
+              case true => {
+                if (ev1 == LynxNull && ev2 != LynxNull) (false, false)
+                else if (ev1 == LynxNull && ev2 == LynxNull) (true, true)
+                else if (ev1 != LynxNull && ev2 == LynxNull) (true, false)
+                else (ev1 <= ev2, ev1 == ev2)
+              }
+              case false => {
+                if (ev1 == LynxNull && ev2 != LynxNull) (true, false)
+                else if (ev1 == LynxNull && ev2 == LynxNull) (true, true)
+                else if (ev1 != LynxNull && ev2 == LynxNull) (false, false)
+                else (ev1 >= ev2, ev1 == ev2)
+              }
             }
           }
           case (true, false) => (true, false)
