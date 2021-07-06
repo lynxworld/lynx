@@ -1,4 +1,4 @@
-import org.grapheco.lynx.{LynxString, LynxValue}
+import org.grapheco.lynx.{LynxList, LynxString, LynxValue}
 import org.junit.{Assert, Test}
 
 import scala.collection.mutable.ArrayBuffer
@@ -236,8 +236,8 @@ class TestMatch {
         |""".stripMargin).records().map(f => f("p").asInstanceOf[LynxValue].value).toArray
 
     Assert.assertEquals(2, records.length)
-    Assert.assertEquals(r2, records.head)
-    Assert.assertEquals(r3, records(1))
+    Assert.assertEquals(List(n2, LynxList(List(r2, m1, LynxList(List())))), records.head)
+    Assert.assertEquals(List(n2, LynxList(List(r3, m2, LynxList(List())))), records(1))
   }
 
   @Test
@@ -321,7 +321,7 @@ class TestMatch {
 
     Assert.assertEquals(3, records.length)
     Assert.assertEquals(n1, records.head)
-    Assert.assertEquals(n3, records(2))
-    Assert.assertEquals(n5, records(4))
+    Assert.assertEquals(n3, records(1))
+    Assert.assertEquals(n5, records(2))
   }
 }
