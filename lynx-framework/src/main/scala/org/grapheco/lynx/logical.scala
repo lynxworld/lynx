@@ -246,8 +246,8 @@ case class LPTWithTranslator(w: With) extends LPTNodeTranslator {
             LPTProjectTranslator(ri),
             LPTWhereTranslator(where),
             LPTSkipTranslator(skip),
-            LPTLimitTranslator(limit),
             LPTOrderByTranslator(orderBy),
+            LPTLimitTranslator(limit),
             LPTSelectTranslator(ri),
             LPTDistinctTranslator(distinct)
           )).translate(in)
