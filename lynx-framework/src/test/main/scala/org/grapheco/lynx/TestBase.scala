@@ -99,10 +99,14 @@ class TestBase extends LazyLogging {
       nodesInput: Seq[(String, NodeInput)],
       relsInput: Seq[(String, RelationshipInput)],
       onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T): T = {
+
+      var currentNodeId = all_nodes.size
+      var currentRelId = all_rels.size
+
       val nodesMap: Seq[(String, TestNode)] = nodesInput.map(x => {
         val (varname, input) = x
-        val id = all_nodes.size + 1
-        varname -> TestNode(id, input.labels, input.props: _*)
+        currentNodeId += 1
+        varname -> TestNode(currentNodeId, input.labels, input.props: _*)
       })
 
       def nodeId(ref: NodeInputRef): Long = {
@@ -114,7 +118,8 @@ class TestBase extends LazyLogging {
 
       val relsMap: Seq[(String, TestRelationship)] = relsInput.map(x => {
         val (varname, input) = x
-        varname -> TestRelationship(all_rels.size + 1, nodeId(input.startNodeRef), nodeId(input.endNodeRef), input.types.headOption)
+        currentRelId += 1
+        varname -> TestRelationship(currentRelId, nodeId(input.startNodeRef), nodeId(input.endNodeRef), input.types.headOption, input.props:_*)
       }
       )
 
