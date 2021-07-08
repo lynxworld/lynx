@@ -10,6 +10,7 @@ import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPha
 import org.opencypher.v9_0.frontend.phases.{BaseContext, BaseState, Condition, Phase}
 import org.opencypher.v9_0.util.{InputPosition, Rewriter, bottomUp, inSequence}
 
+import java.time.Duration
 import scala.collection.mutable
 
 trait CallableProcedure {
@@ -192,9 +193,11 @@ class DefaultProcedures {
   def avg(inputs: LynxList): Any = {
     val cnt = inputs.value.size
     if (cnt==0) return null
-    inputs.value match {
-      case l: List[LynxNumber] => l.map(_.number.doubleValue()).reduce((a, b) => a + b) / cnt
-      case l: List[LynxDuration] => l.map(_.value).reduce((a, b) => a.plus(b)).dividedBy(cnt)
+    val head = inputs.value.head
+    val tails = inputs.value.tail
+    head match {
+      case h: LynxNumber => tails.asInstanceOf[List[LynxNumber]].foldLeft(h){(a, b) => a + b}.number.doubleValue() / cnt
+      case h: LynxDuration => tails.asInstanceOf[List[LynxDuration]].map(_.value).foldLeft(h.value){(a, b) => a.plus(b)}.dividedBy(cnt)
     }
   }
 

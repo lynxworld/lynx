@@ -1,7 +1,6 @@
 package org.grapheco.lynx
 
-import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
-
+import java.time.{Duration, LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
 import org.opencypher.v9_0.expressions.{BooleanLiteral, CountStar, DoubleLiteral, FunctionInvocation, IntegerLiteral, Parameter, StringLiteral, Variable}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTString, CypherType}
 
@@ -37,6 +36,7 @@ class DefaultTypeSystem extends TypeSystem {
     case v: LocalDateTime => LynxLocalDateTime(v)
     case v: LocalTime => LynxLocalTime(v)
     case v: OffsetTime => LynxTime(v)
+    case v: Duration => LynxDuration(v)
     case v: Iterable[Any] => LynxList(v.map(wrap(_)).toList)
     case v: Map[String, Any] => LynxMap(v.map(x => x._1 -> wrap(x._2)))
     case v: Array[Int] => LynxList(v.map(wrap(_)).toList)

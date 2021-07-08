@@ -42,7 +42,7 @@ class CallTest extends TestBase {
 
   @Test
   def testAvg(): Unit = {
-    val rs = runOnDemoGraph("match (n:l) return avg(n.age)").records().next()("avg(n.age)")
+    val rs = runOnDemoGraph("match (n) return avg(n.age)").records().next()("avg(n.age)")
     Assert.assertEquals(LynxDouble(90/4.0), rs)
   }
 
@@ -50,6 +50,14 @@ class CallTest extends TestBase {
   def testNoneAvg(): Unit = {
     val rs = runOnDemoGraph("match (n:notexists) return avg(n.age)").records().next()("avg(n.age)")
     Assert.assertEquals(LynxNull, rs)
+  }
+
+  @Test
+  def testAvgDuration(): Unit = {
+    runOnDemoGraph("CREATE (:profile {works: duration('P18DT16H12M'), history: duration({years: 10.2, months: 5, days: 14, hours:16, minutes: 12})})")
+    runOnDemoGraph("CREATE (:profile {works: duration('P10DT16H12M'), history: duration({seconds: 1, milliseconds: 123, microseconds: 456, nanoseconds: 789})})")
+    val rs = runOnDemoGraph("match (n:profile) return avg(n.works), avg(n.history)").records().next()("avg(n.works)")
+//    Assert.assertEquals(LynxDouble(90/4.0), rs)
   }
 
   @Test
