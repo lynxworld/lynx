@@ -189,8 +189,13 @@ class DefaultProcedures {
   }
 
   @LynxProcedure(name = "avg")
-  def avg(inputs: LynxList): Double = {
-    inputs.value.map(_.asInstanceOf[LynxNumber]).reduce((a, b) => a + b).number.doubleValue() / inputs.value.size
+  def avg(inputs: LynxList): Any = {
+    val cnt = inputs.value.size
+    if (cnt==0) return null
+    inputs.value match {
+      case l: List[LynxNumber] => l.map(_.number.doubleValue()).reduce((a, b) => a + b) / cnt
+      case l: List[LynxDuration] => l.map(_.value).reduce((a, b) => a.plus(b)).dividedBy(cnt)
+    }
   }
 
   @LynxProcedure(name = "collect")
