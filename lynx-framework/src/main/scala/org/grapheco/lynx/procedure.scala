@@ -1,10 +1,9 @@
-package org.grapheco.lynx
+ package org.grapheco.lynx
 
 import java.util.regex.Pattern
-
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.func.{LynxProcedure, LynxProcedureArgument}
-import org.grapheco.lynx.util.{LynxDateTimeUtil, LynxDateUtil, LynxLocalDateTimeUtil, LynxLocalTimeUtil, LynxTimeUtil}
+import org.grapheco.lynx.util.{LynxDateTimeUtil, LynxDateUtil, LynxDurationUtil, LynxLocalDateTimeUtil, LynxLocalTimeUtil, LynxTimeUtil}
 import org.opencypher.v9_0.expressions.{Expression, FunctionInvocation}
 import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPhase
 import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPhase.AST_REWRITE
@@ -265,6 +264,13 @@ class DefaultProcedures {
     LynxLocalTimeUtil.now()
   }
 
+  @LynxProcedure(name="duration")
+  def duration(input: LynxValue): LynxDuration = {
+    input match {
+      case LynxString(v) => LynxDurationUtil.parse(v)
+      case LynxMap(v) => LynxDurationUtil.parse(v.asInstanceOf[Map[String, LynxNumber]].mapValues(_.number.doubleValue()))
+    }
+  }
 
   // math functions
   @LynxProcedure(name= "abs")
