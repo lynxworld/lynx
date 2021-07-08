@@ -1,8 +1,7 @@
 package org.grapheco.lynx
 
-import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
-
-import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTDate, CTDateTime, CTLocalDateTime, CTTime, CTLocalTime, CTFloat, CTInteger, CTList, CTMap, CTNode, CTRelationship, CTString, CypherType}
+import java.time.{Duration, LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
+import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTDate, CTDateTime, CTDuration, CTFloat, CTInteger, CTList, CTLocalDateTime, CTLocalTime, CTMap, CTNode, CTRelationship, CTString, CTTime, CypherType}
 
 trait LynxValue {
   def value: Any
@@ -150,6 +149,12 @@ case class LynxTime(offsetTime: OffsetTime) extends LynxTemporalValue {
   def value = offsetTime
 
   def cypherType: LynxType = CTTime
+}
+
+case class LynxDuration(duration: Duration) extends LynxTemporalValue {
+  def value = duration
+
+  def cypherType: LynxType = CTDuration
 }
 
 object LynxNull extends LynxValue {
