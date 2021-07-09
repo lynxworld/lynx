@@ -5,6 +5,7 @@ import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetTime, ZoneId, ZoneO
 
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.Profiler
+import org.opencypher.v9_0.expressions
 import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
 import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, SemanticDirection}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTDate, CTDateTime, CTInteger, CTLocalDateTime, CTLocalTime, CTString, CTTime}
@@ -291,6 +292,8 @@ class TestBase extends LazyLogging {
     override def deleteRelation(id: LynxId): Unit = {
       all_rels --= all_rels.filter(_.id == id)
     }
+
+    override def pathsWithLength(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, length: Option[Option[expressions.Range]]): Seq[Seq[Seq[Seq[PathTriple]]]] = ???
   }
 
   val runner = new CypherRunner(model) {
