@@ -11,6 +11,11 @@ trait TypeSystem {
   def typeOf(clazz: Class[_]): LynxType
 
   def wrap(value: Any): LynxValue
+
+  def unwrap(value: Any): Any = value match {
+    case lv: LynxValue => lv.value
+    case _ => value
+  }
 }
 
 class DefaultTypeSystem extends TypeSystem {

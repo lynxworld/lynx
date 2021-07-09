@@ -64,7 +64,8 @@ class DefaultProcedureRegistry(types: TypeSystem, classes: Class[_]*) extends Pr
 
         //TODO: N-tuples
         val outputs = Seq("value" -> types.typeOf(met.getReturnType))
-        register(an.name(), inputs, outputs, (args) => types.wrap(met.invoke(host, args: _*)))
+        register(an.name(), inputs, outputs, (args) =>
+          types.wrap(met.invoke(host, args.map(types.unwrap(_)): _*)))
       }
     })
   }
