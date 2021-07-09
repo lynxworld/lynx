@@ -24,6 +24,128 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
 
   val model = new GraphModel {
 
+    override def pathsWithLength(leftNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, rightNodeFilter: NodeFilter, direction: SemanticDirection, length: Option[Option[Range]]): Seq[Seq[Seq[Seq[PathTriple]]]] = {
+      /*
+    length:
+      [r:XXX] = None
+      [r:XXX*] = Some(None) // degree 1 to MAX
+      [r:XXX*..] =Some(Some(Range(None, None))) // degree 1 to MAX
+      [r:XXX*..3] = Some(Some(Range(None, 3)))
+      [r:XXX*1..] = Some(Some(Range(1, None)))
+      [r:XXX*1..3] = Some(Some(Range(1, 3)))
+============================================================================
+      degree 1: List[List[PathTriple]]
+      degree 2: List[List[PathTriple], List[PathTriple], ... ]
+      degree 3: List[List[PathTriple], List[PathTriple], ... ]
+        ...
+      degree n: List[List[PathTriple], List[PathTriple], ... ]
+============================================================================
+      Seq[Seq[Seq[PathTriple]]]
+        Seq(
+          Seq(
+            Seq(1->2)
+            Seq(2->3)
+          ),
+          Seq(
+            Seq(1->2, 2->3)
+            Seq(4->5, 5->6)
+          ),
+          Seq(
+            Seq(1->2, 2->3, 3->4),
+            Seq(11->22, 22->33, 33->44)
+          )
+        )
+     */
+
+      def getDegreeRelationship(lower: Int, upper: Int): Seq[Seq[Seq[Seq[PathTriple]]]] = {
+
+        val relsTriple = relationships(relationshipFilter).toList
+        val searchedPaths = ArrayBuffer[Seq[Seq[Seq[PathTriple]]]]()
+
+        for (degree <- lower to upper) {
+          direction match {
+            case SemanticDirection.OUTGOING => {
+              degree match {
+                case 0 => ???
+                case 1 => {
+                  val d1 = getPathHead(leftNodeFilter)
+                  d1.map(degree => {
+                    degree.filter(p => rightNodeFilter.matches(p.last.endNode))
+                  }).filter(p => p.nonEmpty)
+
+                  if (d1.nonEmpty) searchedPaths += d1
+                }
+                case n => {
+                  val middleNum = n - 1
+                  var left = getPathHead(leftNodeFilter)
+                  for (i <- 1 to middleNum) {
+                    left = getPathMiddle(left)
+                  }
+                  val res = getPathLast(left, rightNodeFilter)
+                  if (res.nonEmpty) searchedPaths += res
+                }
+              }
+            }
+            case SemanticDirection.INCOMING => ???
+            case SemanticDirection.BOTH => ???
+          }
+        }
+
+        def getPathHead(leftNodeFilter: NodeFilter): Seq[Seq[Seq[PathTriple]]] = {
+          Seq(Seq(relsTriple.filter(p => leftNodeFilter.matches(p.startNode))))
+        }
+
+        def getPathMiddle(leftList: Seq[Seq[Seq[PathTriple]]]): Seq[Seq[Seq[PathTriple]]] = {
+          if (leftList.nonEmpty) {
+            leftList.map(
+              degree => {
+                degree.flatMap{
+                  singleLinks =>{
+                    val findRight = relsTriple.filter(p => p.startNode == singleLinks.last.endNode).filter(p => !singleLinks.contains(p))
+                    if (findRight.nonEmpty){
+                      findRight.map(f => singleLinks ++ Seq(f))
+                    }
+                    else Seq.empty
+                  }
+                }.filter(p => p.nonEmpty)
+              }
+            )
+          }
+          else Seq.empty
+        }
+
+        def getPathLast(leftList: Seq[Seq[Seq[PathTriple]]], rightNodeFilter: NodeFilter): Seq[Seq[Seq[PathTriple]]] = {
+          leftList.map(
+            degree => {
+              degree.filter(
+                singleLinks => rightNodeFilter.matches(singleLinks.last.endNode)
+              )
+            }
+          ).filter(p => p.nonEmpty)
+        }
+
+        searchedPaths
+      }
+
+      length match {
+        case Some(None) => {
+          ???
+        }
+        case Some(Some(range)) => {
+          range match {
+            case Range(None, None) => ???
+            case Range(lower, None) => ???
+            case Range(None, upper) => ???
+            case Range(lower, upper) => {
+              val lowerValue = lower.get.value.toInt
+              val upperValue = upper.get.value.toInt
+              getDegreeRelationship(lowerValue, upperValue)
+            }
+          }
+        }
+      }
+    }
+
     override def estimateNodeLabel(labelName: String): Long = {
       allNodes.count(p => p.labels.contains(labelName))
     }
@@ -108,7 +230,7 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
       val relsMap: Seq[(String, TestRelationship)] = relsInput.map(x => {
         val (varname, input) = x
         currentRelId += 1
-        varname -> TestRelationship(currentRelId, nodeId(input.startNodeRef), nodeId(input.endNodeRef), input.types.headOption, input.props:_*)
+        varname -> TestRelationship(currentRelId, nodeId(input.startNodeRef), nodeId(input.endNodeRef), input.types.headOption, input.props: _*)
       }
       )
 

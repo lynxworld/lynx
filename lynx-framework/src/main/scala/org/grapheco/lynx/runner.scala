@@ -5,7 +5,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.FormatUtils
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.SemanticState
-import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, SemanticDirection}
+import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, Range, SemanticDirection}
 import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
 
 import scala.annotation.tailrec
@@ -173,6 +173,8 @@ trait GraphModel {
         relationshipFilter.matches(rel) && startNodeFilter.matches(startNode) && endNodeFilter.matches(endNode)
     }
   }
+
+  def pathsWithLength(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, length:Option[Option[Range]]):Seq[Seq[Seq[Seq[PathTriple]]]]
 
   def expand(nodeId: LynxId, direction: SemanticDirection): Iterator[PathTriple] = {
     val rels = direction match {
