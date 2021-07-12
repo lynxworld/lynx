@@ -150,6 +150,9 @@ case class PathTriple(startNode: LynxNode, storedRelation: LynxRelationship, end
 }
 
 trait GraphModel {
+  def getAllNodeCount(): Long = nodes().length
+
+  def getAllRelationshipsCount(): Long = relationships().length
 
   //estimate
   def estimateNodeLabel(labelName: String): Long

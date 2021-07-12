@@ -1,5 +1,5 @@
-import org.grapheco.lynx.LynxString
-import org.junit.Test
+import org.grapheco.lynx.{LynxString, LynxValue}
+import org.junit.{Assert, Test}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -35,6 +35,28 @@ class TestUnion {
         |UNION ALL
         |MATCH (n:Movie)
         |RETURN n.title AS name
-        |""".stripMargin)
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals("Anthony Hopkins", res(0)("name").asInstanceOf[LynxValue].value)
+    Assert.assertEquals("Helen Mirren", res(1)("name").asInstanceOf[LynxValue].value)
+    Assert.assertEquals("Hitchcock", res(2)("name").asInstanceOf[LynxValue].value)
+    Assert.assertEquals("Hitchcock", res(3)("name").asInstanceOf[LynxValue].value)
+
+  }
+
+  @Test
+  def combineTwoQueriesAndRemoveDuplicates(): Unit ={
+    val res = testBase.runOnDemoGraph(
+      """
+        |MATCH (n:Actor)
+        |RETURN n.name AS name
+        |UNION
+        |MATCH (n:Movie)
+        |RETURN n.title AS name
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals("Anthony Hopkins", res(0)("name").asInstanceOf[LynxValue].value)
+    Assert.assertEquals("Helen Mirren", res(1)("name").asInstanceOf[LynxValue].value)
+    Assert.assertEquals("Hitchcock", res(2)("name").asInstanceOf[LynxValue].value)
   }
 }
