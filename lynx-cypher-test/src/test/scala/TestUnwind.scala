@@ -1,5 +1,5 @@
-import org.grapheco.lynx.LynxString
-import org.junit.Test
+import org.grapheco.lynx.{LynxString, LynxValue}
+import org.junit.{Assert, Test}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -33,11 +33,83 @@ class TestUnwind {
   val testBase = new TestBase(nodesBuffer, relsBuffer)
 
   @Test
-  def creatingADistinctList(): Unit ={
-    testBase.runOnDemoGraph(
+  def unwindAList(): Unit = {
+    val res = testBase.runOnDemoGraph(
       """
         |UNWIND [1, 2, 3, null] AS x
         |RETURN x, 'val' AS y
-        |""".stripMargin)
+        |""".stripMargin).records().toArray
+    Assert.assertEquals(1, res(0)("x").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(2, res(1)("x").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(3, res(2)("x").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(null, res(3)("x").asInstanceOf[LynxValue].value)
+
+    Assert.assertEquals("val", res(0)("y").asInstanceOf[LynxValue].value)
+    Assert.assertEquals("val", res(1)("y").asInstanceOf[LynxValue].value)
+    Assert.assertEquals("val", res(2)("y").asInstanceOf[LynxValue].value)
+    Assert.assertEquals("val", res(3)("y").asInstanceOf[LynxValue].value)
+  }
+
+  @Test
+  def creatingADistinctList(): Unit ={
+    val res = testBase.runOnDemoGraph(
+      """
+        |WITH [1, 1, 2, 2] AS coll
+        |UNWIND coll AS x
+        |WITH DISTINCT x
+        |RETURN collect(x) AS setOfVals
+        |""".stripMargin).records().toArray
+    Assert.assertEquals(List(1, 2).map(LynxValue(_)), res(0)("setOfVals").asInstanceOf[LynxValue].value)
+  }
+
+  @Test
+  def usingUNWINDWithAnyExpressionReturningAList(): Unit ={
+    val res = testBase.runOnDemoGraph(
+      """
+        |WITH [1, 2] AS a,[3, 4] AS b
+        |UNWIND (a + b) AS x
+        |RETURN x
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(1, res(0)("x").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(2, res(1)("x").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(3, res(2)("x").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(4, res(3)("x").asInstanceOf[LynxValue].value)
+  }
+
+  @Test
+  def usingUNWINDWithAListOfLists(): Unit ={
+    val res = testBase.runOnDemoGraph(
+      """
+        |WITH [[1, 2],[3, 4], 5] AS nested
+        |UNWIND nested AS x
+        |UNWIND x AS y
+        |RETURN y
+        |""".stripMargin).records().toArray
+    Assert.assertEquals(1, res(0)("y").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(2, res(1)("y").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(3, res(2)("y").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(4, res(3)("y").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(5, res(4)("y").asInstanceOf[LynxValue].value)
+  }
+
+  @Test
+  def usingUNWINDWithEmptyList(): Unit ={
+    val res = testBase.runOnDemoGraph(
+      """
+        |UNWIND [] AS empty
+        |RETURN empty, 'literal_that_is_not_returned'
+        |""".stripMargin).records().toArray
+    Assert.assertEquals(0, res.length)
+  }
+
+  @Test
+  def usingUNWINDWithAnExpressionThatIsNotAList(): Unit ={
+    val res = testBase.runOnDemoGraph(
+      """
+        |UNWIND [] AS empty
+        |RETURN empty, 'literal_that_is_not_returned'
+        |""".stripMargin).records().toArray
+    Assert.assertEquals(0, res.length)
   }
 }

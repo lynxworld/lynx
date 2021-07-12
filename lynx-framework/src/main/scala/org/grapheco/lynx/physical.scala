@@ -385,7 +385,7 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
               rels.toList.map(a => LynxList(a.toList.map(b => LynxList(b.toList.map(c => LynxList(c.toList))))))
             }
 
-            Iterator(Seq(headAndLast._1, LynxList(degreePaths), headAndLast._2))
+            Iterator(Seq(headAndLast._1, LynxList(degreePaths), headAndLast._2)) // TODO: optimize
           }
           else Iterator.empty
         }

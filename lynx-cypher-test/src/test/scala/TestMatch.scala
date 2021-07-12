@@ -26,11 +26,13 @@ class TestMatch {
   val r6 = TestRelationship(6, 4, 7, Option("ACTED_IN"), Map("role"->LynxString("A.J. MacInerney")).toSeq:_*)
   val r7 = TestRelationship(7, 5, 7, Option("DIRECTED"))
 
+  val r8 = TestRelationship(8, 6, 1, Option("ACTED_IN"))
+  val r9 = TestRelationship(9, 6, 5, Option("ACTED_IN"))
 
   val nodesBuffer = new ArrayBuffer[TestNode]()
   val relsBuffer = new ArrayBuffer[TestRelationship]()
   nodesBuffer.append(n1, n2, n3, n4, n5, m1, m2)
-  relsBuffer.append(r1, r2, r3, r4, r5, r6, r7)
+  relsBuffer.append(r1, r2, r3, r4, r5, r6, r7, r8, r9)
 
   val testBase = new TestBase(nodesBuffer, relsBuffer)
 
@@ -184,14 +186,23 @@ class TestMatch {
   def relationshipVariableInVariableLengthRelationships(): Unit ={
     val records = testBase.runOnDemoGraph(
       """
-        |MATCH p = (actor {name: 'Charlie Sheen'})-[:ACTED_IN*2]-(co_actor)
-        |RETURN relationships(p)
+        |MATCH p = (actor {name: 'Charlie Sheen'})-[r:ACTED_IN*2]-(co_actor)
+        |RETURN p
         |""".stripMargin).records().toArray
     Assert.assertEquals(2, records.length)
 
     // should get:
     //[:ACTED_IN[0]{role:"Bud Fox"},:ACTED_IN[2]{role:"Gordon Gekko"}]
     //[:ACTED_IN[0]{role:"Bud Fox"},:ACTED_IN[1]{role:"Carl Fox"}]
+  }
+
+  @Test
+  def tmp(): Unit ={
+    testBase.runOnDemoGraph(
+      """
+        |MATCH p = (actor {name: 'Charlie Sheen'})-[r:ACTED_IN*1..3]->(co_actor)
+        |RETURN p
+        |""".stripMargin)
   }
 
   @Test
