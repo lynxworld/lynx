@@ -1,5 +1,6 @@
 package org.grapheco.lynx
 
+import org.grapheco.lynx.util.LynxDurationUtil
 import org.junit.function.ThrowingRunnable
 import org.junit.{Assert, Test}
 
@@ -37,7 +38,13 @@ class CallTest extends TestBase {
   @Test
   def testSumSimple(): Unit = {
     val rs = runOnDemoGraph("match (n) return sum(n.age)").records().next()("sum(n.age)")
-    Assert.assertEquals(LynxInteger(90), rs)
+    Assert.assertEquals(LynxDouble(90), rs)
+  }
+
+  @Test
+  def testSumEmpty(): Unit = {
+    val rs = runOnDemoGraph("match (n:notexists) return sum(n.age)").records().next()("sum(n.age)")
+    Assert.assertEquals(LynxDouble(0), rs)
   }
 
   @Test
@@ -53,11 +60,12 @@ class CallTest extends TestBase {
   }
 
   @Test
-  def testAvgDuration(): Unit = {
+  def testDuration(): Unit = {
     runOnDemoGraph("CREATE (:profile {works: duration('P18DT16H12M'), history: duration({years: 10.2, months: 5, days: 14, hours:16, minutes: 12})})")
     runOnDemoGraph("CREATE (:profile {works: duration('P10DT16H12M'), history: duration({seconds: 1, milliseconds: 123, microseconds: 456, nanoseconds: 789})})")
-    val rs = runOnDemoGraph("match (n:profile) return avg(n.works), avg(n.history)").records().next()("avg(n.works)")
-//    Assert.assertEquals(LynxDouble(90/4.0), rs)
+    val rs = runOnDemoGraph("match (n:profile) return avg(n.works), sum(n.history)").records().next()
+    Assert.assertEquals(LynxDurationUtil.parse("PT352H12M"), rs("avg(n.works)"))
+    Assert.assertEquals(LynxDurationUtil.parse("PT93304H12M1.123123725S"), rs("sum(n.history)"))
   }
 
   @Test

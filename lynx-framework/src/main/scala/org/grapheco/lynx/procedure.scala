@@ -184,20 +184,32 @@ class DefaultProcedures {
     }
   }
 
+  private def regularList(list: LynxList): (Int, LynxValue, List[LynxValue]) ={
+    val l = list.value.filter(_.value!=null)
+    if(l.isEmpty) {
+      (0, null, null)
+    }else{
+      (l.size, l.head, l.tail)
+    }
+  }
+
   @LynxProcedure(name = "sum")
-  def sum(inputs: LynxList): LynxNumber = {
-    inputs.value.map(_.asInstanceOf[LynxNumber]).reduce((a, b) => a + b)
+  def sum(inputs: LynxList): Any = {
+    val (cnt, head, tail) = regularList(inputs)
+    if (cnt==0) return 0.0
+    head match {
+      case h: LynxNumber => tail.asInstanceOf[List[LynxNumber]].foldLeft(h){(a, b) => a + b}.number.doubleValue()
+      case h: LynxDuration => tail.asInstanceOf[List[LynxDuration]].map(_.value).foldLeft(h.value){(a, b) => a.plus(b)}
+    }
   }
 
   @LynxProcedure(name = "avg")
   def avg(inputs: LynxList): Any = {
-    val cnt = inputs.value.size
+    val (cnt, head, tail) = regularList(inputs)
     if (cnt==0) return null
-    val head = inputs.value.head
-    val tails = inputs.value.tail
     head match {
-      case h: LynxNumber => tails.asInstanceOf[List[LynxNumber]].foldLeft(h){(a, b) => a + b}.number.doubleValue() / cnt
-      case h: LynxDuration => tails.asInstanceOf[List[LynxDuration]].map(_.value).foldLeft(h.value){(a, b) => a.plus(b)}.dividedBy(cnt)
+      case h: LynxNumber => tail.asInstanceOf[List[LynxNumber]].foldLeft(h){(a, b) => a + b}.number.doubleValue() / cnt
+      case h: LynxDuration => tail.asInstanceOf[List[LynxDuration]].map(_.value).foldLeft(h.value){(a, b) => a.plus(b)}.dividedBy(cnt)
     }
   }
 
