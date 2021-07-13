@@ -1,5 +1,5 @@
 import com.typesafe.scalalogging.LazyLogging
-import org.grapheco.lynx.{CallableProcedure, ContextualNodeInputRef, CypherRunner, DefaultProcedureRegistry, DefaultProcedures, GraphModel, LynxId, LynxInteger, LynxList, LynxNode, LynxRelationship, LynxResult, LynxType, LynxValue, NodeFilter, NodeInput, NodeInputRef, PathTriple, ProcedureRegistry, RelationshipFilter, RelationshipInput, StoredNodeInputRef}
+import org.grapheco.lynx.{CallableProcedure, ContextualNodeInputRef, CypherRunner, DefaultProcedureRegistry, DefaultProcedures, GraphModel, LynxId, LynxInteger, LynxList, LynxNode, LynxNull, LynxRelationship, LynxResult, LynxType, LynxValue, NodeFilter, NodeInput, NodeInputRef, PathTriple, ProcedureRegistry, RelationshipFilter, RelationshipInput, StoredNodeInputRef}
 import org.grapheco.lynx.util.Profiler
 import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, Range, SemanticDirection}
 import org.opencypher.v9_0.util.symbols.{CTInteger, CTString}
@@ -24,7 +24,7 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
 
   val model = new GraphModel {
 
-    override def pathsWithLength(leftNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, rightNodeFilter: NodeFilter, direction: SemanticDirection, length: Option[Option[Range]]): Seq[Seq[Seq[Seq[PathTriple]]]] = {
+    override def pathsWithLength(leftNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, rightNodeFilter: NodeFilter, direction: SemanticDirection, length: Option[Option[Range]]): Iterator[Seq[PathTriple]] = {
       /*
     length:
       [r:XXX] = None
@@ -56,91 +56,131 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
           )
         )
      */
+      def getPathHead(leftNodeFilter: NodeFilter, relsTriple: () => Iterator[PathTriple]): Iterator[Seq[PathTriple]] = {
+        relsTriple().filter(f => leftNodeFilter.matches(f.startNode)).map(Seq(_))
+      }
 
-      def getDegreeRelationship(lower: Int, upper: Int): Seq[Seq[Seq[Seq[PathTriple]]]] = {
+      def getPathMiddle(leftSide: Iterator[Seq[PathTriple]], relsTriple: () => Iterator[PathTriple]): Iterator[Seq[PathTriple]] = {
+        if (leftSide.nonEmpty) {
+          val res = leftSide.flatMap(leftTriple => {
+            relsTriple().filter(p => p.startNode == leftTriple.last.endNode).map(f => leftTriple ++ Seq(f))
+          })
+          res.toList.distinct.toIterator // check circle
+        }
+        else Iterator.empty
+      }
 
-        val relsTriple = relationships(relationshipFilter).toList
-        val searchedPaths = ArrayBuffer[Seq[Seq[Seq[PathTriple]]]]()
+      def getPathLast(leftList: Iterator[Seq[PathTriple]], rightNodeFilter: NodeFilter): Iterator[Seq[PathTriple]] = {
+        if (leftList.nonEmpty) {
+          leftList.filter(p => rightNodeFilter.matches(p.last.endNode))
+        }
+        else Iterator.empty
+      }
+
+      def getDegreeRelationship(lower: Int, upper: Int): Iterator[Seq[PathTriple]] = {
+        val searchedPaths = ArrayBuffer[Iterator[Seq[PathTriple]]]()
 
         for (degree <- lower to upper) {
           direction match {
             case SemanticDirection.OUTGOING => {
+              val relsTriple = () => relationships(relationshipFilter)
               degree match {
-                case 0 => ???
+                case 0 => {
+                  val res = relsTriple().filter(p => leftNodeFilter.matches(p.startNode)).map(f => Seq(PathTriple(f.startNode, null, f.startNode)))
+                  if (res.nonEmpty) searchedPaths += res
+                }
                 case 1 => {
-                  val d1 = getPathHead(leftNodeFilter)
-                  d1.map(degree => {
-                    degree.filter(p => rightNodeFilter.matches(p.last.endNode))
-                  }).filter(p => p.nonEmpty)
-
-                  if (d1.nonEmpty) searchedPaths += d1
+                  val d1 = getPathHead(leftNodeFilter, relsTriple)
+                  val res = d1.filter(p => rightNodeFilter.matches(p.head.endNode))
+                  if (res.nonEmpty) searchedPaths += res
                 }
                 case n => {
                   val middleNum = n - 1
-                  var left = getPathHead(leftNodeFilter)
+                  var left = getPathHead(leftNodeFilter, relsTriple)
                   for (i <- 1 to middleNum) {
-                    left = getPathMiddle(left)
+                    left = getPathMiddle(left, relsTriple)
                   }
                   val res = getPathLast(left, rightNodeFilter)
                   if (res.nonEmpty) searchedPaths += res
                 }
               }
             }
-            case SemanticDirection.INCOMING => ???
-            case SemanticDirection.BOTH => ???
-          }
-        }
-
-        def getPathHead(leftNodeFilter: NodeFilter): Seq[Seq[Seq[PathTriple]]] = {
-          Seq(Seq(relsTriple.filter(p => leftNodeFilter.matches(p.startNode))))
-        }
-
-        def getPathMiddle(leftList: Seq[Seq[Seq[PathTriple]]]): Seq[Seq[Seq[PathTriple]]] = {
-          if (leftList.nonEmpty) {
-            leftList.map(
-              degree => {
-                degree.flatMap{
-                  singleLinks =>{
-                    val findRight = relsTriple.filter(p => p.startNode == singleLinks.last.endNode).filter(p => !singleLinks.contains(p))
-                    if (findRight.nonEmpty){
-                      findRight.map(f => singleLinks ++ Seq(f))
-                    }
-                    else Seq.empty
-                  }
-                }.filter(p => p.nonEmpty)
+            case SemanticDirection.INCOMING => {
+              val relsTriple = () => {
+                val out = () => relationships(relationshipFilter)
+                relationships(relationshipFilter).filter(p => {
+                  val flag = out().filter(pout=>pout.startNode == p.endNode && pout.endNode == p.startNode)
+                  if (flag.nonEmpty) true
+                  else false
+                })
               }
-            )
-          }
-          else Seq.empty
-        }
-
-        def getPathLast(leftList: Seq[Seq[Seq[PathTriple]]], rightNodeFilter: NodeFilter): Seq[Seq[Seq[PathTriple]]] = {
-          leftList.map(
-            degree => {
-              degree.filter(
-                singleLinks => rightNodeFilter.matches(singleLinks.last.endNode)
-              )
+              degree match {
+                case 0 => {
+                  val res = nodes(leftNodeFilter).map(node => Seq(PathTriple(node, null, node)))
+                  if (res.nonEmpty) searchedPaths += res
+                }
+                case 1 => {
+                  val d1 = getPathHead(leftNodeFilter, relsTriple)
+                  val res = d1.filter(p => rightNodeFilter.matches(p.head.endNode))
+                  if (res.nonEmpty) searchedPaths += res
+                }
+                case n => {
+                  val middleNum = n - 1
+                  var left = getPathHead(leftNodeFilter, relsTriple)
+                  for (i <- 1 to middleNum) {
+                    left = getPathMiddle(left, relsTriple)
+                  }
+                  val res = getPathLast(left, rightNodeFilter)
+                  if (res.nonEmpty) searchedPaths += res
+                }
+              }
             }
-          ).filter(p => p.nonEmpty)
+            case SemanticDirection.BOTH => {
+              val relsTripleOut = () => relationships(relationshipFilter)
+              val relsTripleIn = () => {
+                val out = () => relationships(relationshipFilter)
+                relationships(relationshipFilter).filter(p => {
+                  val flag = out().filter(pout=>pout.startNode == p.endNode && pout.endNode == p.startNode)
+                  if (flag.nonEmpty) true
+                  else false
+                })
+              }
+              val relsTriple = () => {relsTripleOut() ++ relsTripleIn()}
+              degree match {
+               case 0 =>{
+                 val res = nodes(leftNodeFilter).map(node => Seq(PathTriple(node, null, node)))
+                 if (res.nonEmpty) searchedPaths += res
+               }
+               case 1 =>{
+                 val d1 = getPathHead(leftNodeFilter, relsTriple)
+                 val res = d1.filter(p => rightNodeFilter.matches(p.head.endNode))
+                 if (res.nonEmpty) searchedPaths += res
+               }
+               case n =>{
+                 val middleNum = n - 1
+                 var left = getPathHead(leftNodeFilter, relsTripleOut) ++ getPathHead(leftNodeFilter, relsTripleIn)
+                 for (i <- 1 to middleNum) {
+                   left = getPathMiddle(left, relsTriple)
+                 }
+                 val res = getPathLast(left, rightNodeFilter)
+                 if (res.nonEmpty) searchedPaths += res
+               }
+             }
+            }
+          }
         }
-
-        searchedPaths
+        val res = searchedPaths.foldLeft(Iterator[Seq[PathTriple]]())((res, iterator) => res ++ iterator)
+        res.toList.distinct.toIterator
       }
 
       length match {
-        case Some(None) => {
-          ???
-        }
+        case Some(None) => getDegreeRelationship(1, 10) // upper tmp impl
         case Some(Some(range)) => {
           range match {
-            case Range(None, None) => ???
-            case Range(lower, None) => ???
-            case Range(None, upper) => ???
-            case Range(lower, upper) => {
-              val lowerValue = lower.get.value.toInt
-              val upperValue = upper.get.value.toInt
-              getDegreeRelationship(lowerValue, upperValue)
-            }
+            case Range(None, None) => getDegreeRelationship(1, 10) // upper tmp impl
+            case Range(lower, None) => getDegreeRelationship(lower.get.value.toInt, 10) // upper tmp impl
+            case Range(None, upper) => getDegreeRelationship(1, upper.get.value.toInt)
+            case Range(lower, upper) => getDegreeRelationship(lower.get.value.toInt, upper.get.value.toInt)
           }
         }
       }

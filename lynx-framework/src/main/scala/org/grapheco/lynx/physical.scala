@@ -372,22 +372,14 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
       }
       else {
         () => {
-          val res:Seq[Seq[Seq[Seq[PathTriple]]]] = graphModel.pathsWithLength(
+          graphModel.pathsWithLength(
             NodeFilter(labels1.map(_.name), props1.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
             RelationshipFilter(types.map(_.name), props2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
             NodeFilter(labels3.map(_.name), props3.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-            direction,length)
-          //Seq(LynxNode, LynxList, LynxNode)
-          if (res.nonEmpty){
-            val headAndLast = (res.head.head.head.head.startNode, res.head.head.head.last.endNode)
-            val degreePaths = {
-              val rels = res.map(a => a.map(b => b.map(c => c.map(d => d.storedRelation))))
-              rels.toList.map(a => LynxList(a.toList.map(b => LynxList(b.toList.map(c => LynxList(c.toList))))))
-            }
-
-            Iterator(Seq(headAndLast._1, LynxList(degreePaths), headAndLast._2)) // TODO: optimize
-          }
-          else Iterator.empty
+            direction,length).map(
+            seqTriple =>
+              Seq(seqTriple.head.startNode, LynxList(seqTriple.map(f => f.storedRelation).toList), seqTriple.last.endNode)
+          )
         }
       }
     )
