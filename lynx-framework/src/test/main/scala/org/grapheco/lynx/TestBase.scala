@@ -293,7 +293,7 @@ class TestBase extends LazyLogging {
       all_rels --= all_rels.filter(_.id == id)
     }
 
-    override def pathsWithLength(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, length: Option[Option[expressions.Range]]): Seq[Seq[Seq[Seq[PathTriple]]]] = ???
+    override def pathsWithLength(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, length: Option[Option[expressions.Range]]): Iterator[Seq[PathTriple]] = ???
   }
 
   val runner = new CypherRunner(model) {

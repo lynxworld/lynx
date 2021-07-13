@@ -177,7 +177,7 @@ trait GraphModel {
     }
   }
 
-  def pathsWithLength(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, length:Option[Option[Range]]):Seq[Seq[Seq[Seq[PathTriple]]]]
+  def pathsWithLength(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, length:Option[Option[Range]]):Iterator[Seq[PathTriple]]
 
   def expand(nodeId: LynxId, direction: SemanticDirection): Iterator[PathTriple] = {
     val rels = direction match {
