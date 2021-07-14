@@ -156,7 +156,6 @@ class TestMatch {
         |RETURN movie.title
         |""".stripMargin).records().map(f => f("movie.title").asInstanceOf[LynxValue].value).toArray
 
-
     Assert.assertEquals(3, records.length)
     Assert.assertEquals(List("Wall Street", "The American President", "The American President"), records.toList)
   }
