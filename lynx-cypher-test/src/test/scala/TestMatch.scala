@@ -1,4 +1,4 @@
-import org.grapheco.lynx.{LynxList, LynxString, LynxValue}
+import org.grapheco.lynx.{LynxList, LynxRelationship, LynxString, LynxValue}
 import org.junit.{Assert, Test}
 
 import scala.collection.mutable.ArrayBuffer
@@ -26,13 +26,10 @@ class TestMatch {
   val r6 = TestRelationship(6, 4, 7, Option("ACTED_IN"), Map("role"->LynxString("A.J. MacInerney")).toSeq:_*)
   val r7 = TestRelationship(7, 5, 7, Option("DIRECTED"))
 
-  val r8 = TestRelationship(8, 6, 1, Option("ACTED_IN"))
-  val r9 = TestRelationship(9, 6, 5, Option("ACTED_IN"))
-
   val nodesBuffer = new ArrayBuffer[TestNode]()
   val relsBuffer = new ArrayBuffer[TestRelationship]()
   nodesBuffer.append(n1, n2, n3, n4, n5, m1, m2)
-  relsBuffer.append(r1, r2, r3, r4, r5, r6, r7, r8, r9)
+  relsBuffer.append(r1, r2, r3, r4, r5, r6, r7)
 
   val testBase = new TestBase(nodesBuffer, relsBuffer)
 
@@ -190,6 +187,11 @@ class TestMatch {
         |RETURN p
         |""".stripMargin).records().toArray
     Assert.assertEquals(2, records.length)
+    val link1 = records(0)("p").asInstanceOf[LynxValue].value.asInstanceOf[List[LynxValue]](1).value.asInstanceOf[List[LynxValue]](0).value.asInstanceOf[List[LynxValue]]
+    val link2 = records(1)("p").asInstanceOf[LynxValue].value.asInstanceOf[List[LynxValue]](1).value.asInstanceOf[List[LynxValue]](0).value.asInstanceOf[List[LynxValue]]
+
+    Assert.assertEquals(List(r4, r2), link1)
+    Assert.assertEquals(List(r4, r5), link2)
 
     // should get:
     //[:ACTED_IN[0]{role:"Bud Fox"},:ACTED_IN[2]{role:"Gordon Gekko"}]
