@@ -84,8 +84,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         (expr, idx) match {
           case (v@Variable(name), pe@ProcedureExpression(funcInov)) =>{
             ec.vars(name) match {
-              case node: LynxNode => node.property(eval(pe).value.asInstanceOf[LynxString].value).getOrElse(LynxNull)
-              case rel: LynxRelationship => rel.property(eval(pe).value.asInstanceOf[LynxString].value).getOrElse(LynxNull)
+              case hp: HasProperty => hp.property(eval(pe).value.asInstanceOf[LynxString].value).getOrElse(LynxNull)
             }
           }
         }
@@ -123,6 +122,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case And(lhs, rhs) =>
         LynxBoolean(Seq(lhs, rhs).forall(eval(_) == LynxBoolean(true)))
+
       case Multiply(lhs, rhs) =>{
         (lhs, rhs) match {
           case (pe@ProcedureExpression(funcInov), sdi@SignedDecimalIntegerLiteral(stringVal)) =>{
@@ -130,6 +130,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           }
         }
       }
+
       case NotEquals(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
           types.wrap(lvalue != rvalue))
@@ -191,8 +192,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case Property(src, PropertyKeyName(name)) =>
         eval(src) match {
           case LynxNull => LynxNull
-          case cn: LynxNode => cn.property(name).getOrElse(LynxNull)
-          case cr: LynxRelationship => cr.property(name).getOrElse(LynxNull)
+          case hp: HasProperty => hp.property(name).getOrElse(LynxNull)
           case time: LynxDateTime => time
         }
 
@@ -201,34 +201,15 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case Parameter(name, parameterType) =>
         types.wrap(ec.param(name))
 
-      case RegexMatch(lhs, rhs) =>{
-        (lhs, rhs) match {
-          case (pe@ProcedureExpression(funcInov), StringLiteral(value)) =>{
-            val regex = new Regex(value) // TODO: opt
-            val res = regex.findFirstMatchIn(eval(pe).value.toString)
-            if (res.isDefined) LynxBoolean(true)
-            else LynxBoolean(false)
-          }
-          case (Property(map, propertyKey), StringLiteral(value)) =>{
-            val regex = new Regex(value) // TODO: opt
-            map match {
-              case Variable(name) =>{
-                ec.vars(name) match {
-                  case node: LynxNode => {
-                    val res = regex.findFirstMatchIn(node.property(propertyKey.name).getOrElse("").toString)
-                    if (res.isDefined) LynxBoolean(true)
-                    else LynxBoolean(false)
-                  }
-                  case rel: LynxRelationship => {
-                    val res = regex.findFirstMatchIn(rel.property(propertyKey.name).getOrElse("").toString)
-                    if (res.isDefined) LynxBoolean(true)
-                    else LynxBoolean(false)
-                  }
-                }
-              }
-            }
-          }
+      case RegexMatch(lhs, StringLiteral(value)) =>{//todo not toString
+        val beMatched = lhs match {
+          case pe: ProcedureExpression => eval(pe).value.toString
+          case Property(Variable(name), propertyKey) => ec.vars(name).asInstanceOf[HasProperty].property(propertyKey.name).getOrElse("").toString
         }
+        val regex = new Regex(value) // TODO: opt
+        val res = regex.findFirstMatchIn(beMatched)
+        if (res.isDefined) LynxBoolean(true)
+        else LynxBoolean(false)
       }
 
       case StartsWith(lhs, rhs) =>{// TODO add string.startswith str test case
