@@ -196,7 +196,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           case time: LynxDateTime => time
         }
 
-      case In(lhs, rhs) => LynxBoolean(eval(rhs).asInstanceOf[LynxList].value.contains(eval(lhs)))
+      case In(lhs, rhs) => LynxBoolean(eval(rhs).asInstanceOf[LynxList].value.contains(eval(lhs)))//todo add literal in list[func] test case
 
       case Parameter(name, parameterType) =>
         types.wrap(ec.param(name))
@@ -230,48 +230,28 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           }
         }
       }
-      case StartsWith(lhs, rhs) =>{
+
+      case StartsWith(lhs, rhs) =>{// TODO add string.startswith str test case
         (lhs, rhs) match {
-          case (Property(map, propertyKey), StringLiteral(value)) =>{
-            map match {
-              case Variable(name) =>{
-                ec.vars(name) match {
-                  case node: LynxNode => LynxBoolean(node.property(propertyKey.name).getOrElse(LynxString("")).value.toString.startsWith(value))
-                  case rel: LynxRelationship => LynxBoolean(rel.property(propertyKey.name).getOrElse(LynxString("")).value.toString.startsWith(value))
-                }
-              }
-            }
-          }
+          case (Property(Variable(name), propertyKey), StringLiteral(value)) =>
+            LynxBoolean(ec.vars(name).asInstanceOf[HasProperty].property(propertyKey.name).getOrElse(LynxString("")).value.toString.startsWith(value))
         }
       }
-      case EndsWith(lhs, rhs) =>{
+
+      case EndsWith(lhs, rhs) =>{// TODO add string.endswith str test case
         (lhs, rhs) match {
-          case (Property(map, propertyKey), StringLiteral(value)) =>{
-            map match {
-              case Variable(name) =>{
-                ec.vars(name) match {
-                  case node: LynxNode => LynxBoolean(node.property(propertyKey.name).getOrElse(LynxString("")).value.toString.endsWith(value))
-                  case rel: LynxRelationship => LynxBoolean(rel.property(propertyKey.name).getOrElse(LynxString("")).value.toString.endsWith(value))
-                }
-              }
-            }
-          }
+          case (Property(Variable(name), propertyKey), StringLiteral(value)) =>
+            LynxBoolean(ec.vars(name).asInstanceOf[HasProperty].property(propertyKey.name).getOrElse(LynxString("")).value.toString.endsWith(value))
         }
       }
-      case Contains(lhs, rhs) =>{
+
+      case Contains(lhs, rhs) =>{// TODO add string.endswith str test case
         (lhs, rhs) match {
-          case (Property(map, propertyKey), StringLiteral(value)) =>{
-            map match {
-              case Variable(name) =>{
-                ec.vars(name) match {
-                  case node: LynxNode => LynxBoolean(node.property(propertyKey.name).getOrElse(LynxString("")).value.toString.contains(value))
-                  case rel: LynxRelationship => LynxBoolean(rel.property(propertyKey.name).getOrElse(LynxString("")).value.toString.contains(value))
-                }
-              }
-            }
-          }
+          case (Property(Variable(name), propertyKey), StringLiteral(value)) =>
+            LynxBoolean(ec.vars(name).asInstanceOf[HasProperty].property(propertyKey.name).getOrElse(LynxString("")).value.toString.contains(value))
         }
       }
+
       case CaseExpression(expression, alternatives, default) => {
         if (expression.isDefined){
           val evalValue = eval(expression.get)

@@ -167,19 +167,21 @@ trait LynxId {
   val value: Any
 }
 
-trait LynxNode extends LynxValue {
+trait HasProperty {
+  def property(name: String): Option[LynxValue]
+}
+
+trait LynxNode extends LynxValue with HasProperty {
   val id: LynxId
 
   def value = this
 
   def labels: Seq[String]
 
-  def property(name: String): Option[LynxValue]
-
   def cypherType = CTNode
 }
 
-trait LynxRelationship extends LynxValue {
+trait LynxRelationship extends LynxValue  with HasProperty {
   val id: LynxId
   val startNodeId: LynxId
   val endNodeId: LynxId
@@ -187,8 +189,6 @@ trait LynxRelationship extends LynxValue {
   def value = this
 
   def relationType: Option[String]
-
-  def property(name: String): Option[LynxValue]
 
   def cypherType = CTRelationship
 }
