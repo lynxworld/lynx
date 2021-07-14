@@ -67,7 +67,11 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
       def getBothPathMiddle(leftSide: Iterator[Seq[PathTriple]], relsTriple: () => Iterator[PathTriple]): Iterator[Seq[PathTriple]] = {
         if (leftSide.nonEmpty) {
           val res = leftSide.flatMap(leftTriple => {
-            relsTriple().filter(p => leftTriple.last.endNode == p.endNode || leftTriple.last.endNode == p.startNode)
+            relsTriple().filter(
+              p =>
+                leftTriple.last.endNode == p.endNode || leftTriple.last.endNode == p.startNode ||
+              leftTriple.last.startNode == p.startNode || leftTriple.last.startNode == p.endNode
+            )
               .filter(p => !leftTriple.contains(p))
               .map(f => leftTriple ++ Seq(f))
           })
@@ -151,8 +155,7 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
                  val middleNum = n - 1
                  val leftOut = getPathHead(leftNodeFilter, relsTriple).filter(p => rightNodeFilter.matches(p.head.endNode))
                  val leftIn = getPathHead(rightNodeFilter, relsTriple).filter(p => leftNodeFilter.matches(p.head.endNode))
-                 val tmp = (leftOut ++ leftIn).toList.distinct
-                 var left = tmp.toIterator
+                 var left = (leftOut ++ leftIn).toList.distinct.toIterator
                  for (i <- 1 to middleNum) {
                    left = getBothPathMiddle(left, relsTriple)
                  }
