@@ -2,13 +2,16 @@ package org.grapheco.lynx
 
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.{SemanticErrorDef, SemanticFeature, SemanticState}
+import org.opencypher.v9_0.expressions.{CaseExpression, FunctionInvocation, RegexMatch}
 import org.opencypher.v9_0.frontend.PlannerName
+import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPhase
+import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPhase.AST_REWRITE
 import org.opencypher.v9_0.frontend.phases.{AstRewriting, BaseContains, BaseContext, BaseState, CompilationPhaseTracer, InitialState, InternalNotificationLogger, Monitors, Parsing, SemanticAnalysis, SyntaxDeprecationWarnings, Transformer, devNullLogger, _}
 import org.opencypher.v9_0.rewriting.Deprecations.V2
 import org.opencypher.v9_0.rewriting.rewriters.Never
 import org.opencypher.v9_0.rewriting.{AstRewritingMonitor, RewriterStepSequencer}
 import org.opencypher.v9_0.util.spi.MapToPublicExceptions
-import org.opencypher.v9_0.util.{CypherException, InputPosition}
+import org.opencypher.v9_0.util.{CypherException, InputPosition, Rewriter, bottomUp, inSequence}
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
@@ -60,6 +63,23 @@ class DefaultQueryParser(runnerContext: CypherRunnerContext) extends QueryParser
       CNFNormalizer andThen
       LateAstRewriting andThen
       FunctionMapper(runnerContext)
+
+  case class FunctionMapper(runnerContext: CypherRunnerContext) extends Phase[BaseContext, BaseState, BaseState] {
+    override def phase: CompilationPhase = AST_REWRITE
+
+    override def description: String = "map functions to their procedure implementations"
+
+    override def process(from: BaseState, ignored: BaseContext): BaseState = {
+      val rewriter = inSequence(
+        bottomUp(Rewriter.lift {
+          case func: FunctionInvocation => ProcedureExpression(func)(runnerContext)
+        }))
+      val newStatement = from.statement().endoRewrite(rewriter)
+      from.withStatement(newStatement)
+    }
+
+    override def postConditions: Set[Condition] = Set.empty
+  }
 
   override def parse(query: String): (Statement, Map[String, Any], SemanticState) = {
     val startState = InitialState(query, None, new PlannerName {

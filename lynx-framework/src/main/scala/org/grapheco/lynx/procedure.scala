@@ -5,12 +5,8 @@ import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.func.{LynxProcedure, LynxProcedureArgument}
 import org.grapheco.lynx.util.{LynxDateTimeUtil, LynxDateUtil, LynxDurationUtil, LynxLocalDateTimeUtil, LynxLocalTimeUtil, LynxTimeUtil}
 import org.opencypher.v9_0.expressions.{Expression, FunctionInvocation}
-import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPhase
-import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPhase.AST_REWRITE
-import org.opencypher.v9_0.frontend.phases.{BaseContext, BaseState, Condition, Phase}
-import org.opencypher.v9_0.util.{InputPosition, Rewriter, bottomUp, inSequence}
+import org.opencypher.v9_0.util.InputPosition
 
-import java.time.Duration
 import scala.collection.mutable
 
 trait CallableProcedure {
@@ -116,23 +112,6 @@ case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runner
 
   override def findAggregate: Option[Expression] = funcInov.findAggregate
 
-}
-
-case class FunctionMapper(runnerContext: CypherRunnerContext) extends Phase[BaseContext, BaseState, BaseState] {
-  override def phase: CompilationPhase = AST_REWRITE
-
-  override def description: String = "map functions to their procedure implementations"
-
-  override def process(from: BaseState, ignored: BaseContext): BaseState = {
-    val rewriter = inSequence(
-      bottomUp(Rewriter.lift {
-        case func: FunctionInvocation => ProcedureExpression(func)(runnerContext)
-      }))
-    val newStatement = from.statement().endoRewrite(rewriter)
-    from.withStatement(newStatement)
-  }
-
-  override def postConditions: Set[Condition] = Set.empty
 }
 
 class DefaultProcedures {
