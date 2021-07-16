@@ -244,11 +244,11 @@ trait GraphModel {
     deleteFreeNodes(ids)
   }
 
-  def setNodeProperty(nodeId: LynxId, data: Array[(String ,LynxValue)], cleanExistProperties: Boolean = false): Option[LynxNode]
+  def setNodeProperty(nodeId: LynxId, data: Array[(String ,Any)], cleanExistProperties: Boolean = false): Option[LynxNode]
 
   def addNodeLabels(nodeId: LynxId, labels: Array[String]): Option[LynxNode]
 
-  def setRelationshipProperty(triple: Seq[LynxValue],  data: Array[(String ,AnyRef)]): Option[Seq[LynxValue]]
+  def setRelationshipProperty(triple: Seq[LynxValue],  data: Array[(String ,Any)]): Option[Seq[LynxValue]]
 
   def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String]): Option[Seq[LynxValue]]
 

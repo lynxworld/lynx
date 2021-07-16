@@ -918,7 +918,7 @@ case class PPTSetClause(var setItems: Seq[SetItem], mergeAction: Seq[MergeAction
               val Property(map, keyName) = property
               map match {
                 case v@Variable(name) => {
-                  val data = Array(keyName.name -> eval(literalExpr)(ctx.expressionContext.withVars(ctxMap)))
+                  val data = Array(keyName.name -> eval(literalExpr)(ctx.expressionContext.withVars(ctxMap)).value)
                   tmpNode = graphModel.setNodeProperty(tmpNode.id, data).get
                 }
                 case cp@CaseExpression(expression, alternatives, default) => {
@@ -926,7 +926,7 @@ case class PPTSetClause(var setItems: Seq[SetItem], mergeAction: Seq[MergeAction
                   res match {
                     case LynxNull => tmpNode = n.head.asInstanceOf[LynxNode]
                     case _ => {
-                      val data = Array(keyName.name -> eval(literalExpr)(ctx.expressionContext.withVars(ctxMap)))
+                      val data = Array(keyName.name -> eval(literalExpr)(ctx.expressionContext.withVars(ctxMap)).value)
                       tmpNode = graphModel.setNodeProperty(res.asInstanceOf[LynxNode].id, data).get
                     }
                   }
@@ -939,17 +939,15 @@ case class PPTSetClause(var setItems: Seq[SetItem], mergeAction: Seq[MergeAction
             case si@SetIncludingPropertiesFromMapItem(variable, expression) => {
               expression match {
                 case MapExpression(items) => {
-                  items.foreach(f => {
-                    val data = Array(f._1.name -> eval(f._2)(ctx.expressionContext.withVars(ctxMap)))
-                    tmpNode = graphModel.setNodeProperty(tmpNode.id, data).get
-                  })
+                  val data = items.map(f => f._1.name -> eval(f._2)(ctx.expressionContext.withVars(ctxMap)).value)
+                  tmpNode = graphModel.setNodeProperty(tmpNode.id, data.toArray).get
                 }
               }
             }
             case sep@SetExactPropertiesFromMapItem(variable, expression) => {
               expression match {
                 case MapExpression(items) => {
-                  val data = items.map(f => f._1.name -> eval(f._2)(ctx.expressionContext.withVars(ctxMap)))
+                  val data = items.map(f => f._1.name -> eval(f._2)(ctx.expressionContext.withVars(ctxMap)).value)
                   tmpNode = graphModel.setNodeProperty(tmpNode.id, data.toArray, true).get
                 }
               }
@@ -979,7 +977,7 @@ case class PPTSetClause(var setItems: Seq[SetItem], mergeAction: Seq[MergeAction
           setItems.foreach {
             case sp@SetPropertyItem(property, literalExpr) => {
               val Property(variable, keyName) = property
-              val data = Array(keyName.name -> mapExpressionValue(literalExpr, ctx, ctxMap))
+              val data = Array(keyName.name -> eval(literalExpr)(ctx.expressionContext.withVars(ctxMap)).value)
               triple = graphModel.setRelationshipProperty(triple, data).get
             }
             case sl@SetLabelItem(variable, labels) => {
@@ -989,7 +987,7 @@ case class PPTSetClause(var setItems: Seq[SetItem], mergeAction: Seq[MergeAction
               expression match {
                 case MapExpression(items) => {
                   items.foreach(f => {
-                    val data = Array(f._1.name -> mapExpressionValue(f._2, ctx, ctxMap))
+                    val data = Array(f._1.name -> eval(f._2)(ctx.expressionContext.withVars(ctxMap)).value)
                     triple = graphModel.setRelationshipProperty(triple, data).get
                   })
                 }
@@ -1002,24 +1000,6 @@ case class PPTSetClause(var setItems: Seq[SetItem], mergeAction: Seq[MergeAction
     })
 
     DataFrame.cached(schema, res.toSeq)
-  }
-
-  def mapExpressionValue(expression: Expression, ctx: ExecutionContext, ctxMap: Map[String, LynxValue]): AnyRef = {
-    eval(expression)(ctx.expressionContext.withVars(ctxMap))
-    //    expression match {
-    //      case n: Variable =>{
-    //        n.name
-    //      }
-    //      case l: Literal =>{
-    //        expression.asInstanceOf[Literal].value
-    //      }
-    //      case ll: ListLiteral =>{
-    //        expression.arguments.map(f => f.asInstanceOf[Literal].value).toArray
-    //      }
-    //      case pe@ProcedureExpression(funcInov) =>{
-    //        eval(pe)(ctx.expressionContext.withVars(ctxMap))
-    //      }
-    //    }
   }
 }
 
