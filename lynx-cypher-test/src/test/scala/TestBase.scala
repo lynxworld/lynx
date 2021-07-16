@@ -312,13 +312,13 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
     }
 
 
-    override def setNodeProperty(nodeId: LynxId, data: Array[(String, LynxValue)], cleanExistProperties: Boolean): Option[LynxNode] = {
+    override def setNodeProperty(nodeId: LynxId, data: Array[(String, Any)], cleanExistProperties: Boolean): Option[LynxNode] = {
       val record = allNodes.find(n => n.id == nodeId)
       if (record.isDefined) {
         val node = record.get
         val newNode = {
           if (cleanExistProperties) {
-            TestNode(node.id.value.asInstanceOf[Long], node.labels, data.toSeq: _*)
+            TestNode(node.id.value.asInstanceOf[Long], node.labels, data.map(f => (f._1, LynxValue(f._2))):_*)
           }
           else {
             val prop = mutable.Map(node.properties.toSeq: _*)
@@ -347,7 +347,7 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
       else None
     }
 
-    override def setRelationshipProperty(triple: Seq[LynxValue], data: Array[(String, AnyRef)]): Option[Seq[LynxValue]] = {
+    override def setRelationshipProperty(triple: Seq[LynxValue], data: Array[(String, Any)]): Option[Seq[LynxValue]] = {
       val rel = triple(1).asInstanceOf[LynxRelationship]
       val record = allRelationships.find(r => r.id == rel.id)
       if (record.isDefined) {
