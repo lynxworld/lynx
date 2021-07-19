@@ -22,17 +22,6 @@ case class ExpressionContext(executionContext: ExecutionContext, params: Map[Str
 }
 
 class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, procedures: ProcedureRegistry) extends ExpressionEvaluator {
-  protected def safeBinaryOp(lhs: Expression, rhs: Expression, op: (LynxValue, LynxValue) => LynxValue)(implicit ec: ExpressionContext): LynxValue = {
-    eval(lhs) match {
-      case LynxNull => LynxNull
-      case lvalue =>
-        (lvalue, eval(rhs)) match {
-          case (_, LynxNull) => LynxNull
-          case (lvalue, rvalue) => op(lvalue, rvalue)
-        }
-    }
-  }
-
   override def typeOf(expr: Expression, definedVarTypes: Map[String, LynxType]): LynxType = {
     expr match {
       case Parameter(name, parameterType) => parameterType
@@ -63,70 +52,71 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
     }
   }
 
-  def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue =
+  private def safeBinaryOp(lhs: Expression, rhs: Expression, op: (LynxValue, LynxValue) => LynxValue)(implicit ec: ExpressionContext): LynxValue = {
+    val l = eval(lhs)
+    if(l.value==null) return LynxNull
+    val r = eval(rhs)
+    if(r.value==null) return LynxNull
+    op(l, r)
+  }
+
+  override def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue = {
     expr match {
       case HasLabels(expression, labels) =>
         eval(expression) match {
-          case node: LynxNode => {
-            val labelsNode = node.labels
-            LynxBoolean(labels.forall(label => labelsNode.contains(label.name)))
-          }
+          case node: LynxNode => LynxBoolean(labels.forall(label => node.labels.contains(label.name)))
         }
 
-      case pe: PathExpression => {
-        evalPathStep(pe.step)
-      }
+      case pe: PathExpression => evalPathStep(pe.step)
 
-      case CountStar() => LynxInteger(ec.vars.size)
+      case CountStar() => LynxInteger(ec.vars.size)//todo wrong
 
         // bugs
-      case ContainerIndex(expr, idx) =>{
-        (expr, idx) match {
-          case (v@Variable(name), pe@ProcedureExpression(funcInov)) =>{
-            ec.vars(name) match {
-              case hp: HasProperty => hp.property(eval(pe).value.asInstanceOf[LynxString].value).getOrElse(LynxNull)
-            }
-          }
-        }
+      case ContainerIndex(expr, idx) =>{//todo what's this
+        {(eval(expr), eval(idx)) match {
+          case (hp: HasProperty, i: LynxString) => hp.property(i.value)
+        }}.getOrElse(LynxNull)
       }
 
       case fe: ProcedureExpression => {
-        if(fe.aggregating){
-          LynxValue(fe.args.map(eval(_)))
-        }else{
-          fe.procedure.call(fe.args.map(eval(_)))
-        }
+        if(fe.aggregating) LynxValue(fe.args.map(eval(_)))
+        else fe.procedure.call(fe.args.map(eval(_)))
       }
 
       case Add(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
           (lvalue, rvalue) match {
             case (a: LynxNumber, b: LynxNumber) => a + b
-            case (a: LynxString, b: LynxString) => LynxString(a.v + b.v)
+            case (a: LynxString, b: LynxString) => LynxString(a.value + b.value)
           })
 
       case Subtract(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
           (lvalue, rvalue) match {
-            case (a: LynxNumber, b: LynxNumber) => a - b
+            case (a: LynxNumber, b: LynxNumber) => a + b
           })
 
       case Ors(exprs) =>
-        LynxBoolean(exprs.exists(eval(_) == LynxBoolean(true)))
+        LynxBoolean(exprs.exists(eval(_).value == true))
 
       case Ands(exprs) =>
-        LynxBoolean(exprs.forall(eval(_) == LynxBoolean(true)))
+        LynxBoolean(exprs.forall(eval(_).value == true))
 
       case Or(lhs, rhs) =>
-        LynxBoolean(Seq(lhs, rhs).exists(eval(_) == LynxBoolean(true)))
+        LynxBoolean(Seq(lhs, rhs).exists(eval(_).value == true))
 
       case And(lhs, rhs) =>
-        LynxBoolean(Seq(lhs, rhs).forall(eval(_) == LynxBoolean(true)))
+        LynxBoolean(Seq(lhs, rhs).forall(eval(_).value == true))
 
-      case Multiply(lhs, rhs) =>{
-        (lhs, rhs) match {
-          case (pe@ProcedureExpression(funcInov), sdi@SignedDecimalIntegerLiteral(stringVal)) =>{
-            LynxDouble(eval(pe).value.asInstanceOf[Double] * sdi.value)
+      case sdi: SignedDecimalIntegerLiteral => LynxInteger(sdi.value)
+
+      case Multiply(lhs, rhs) =>{//todo add normal multi
+        (eval(lhs), eval(rhs)) match {
+          case (n: LynxNumber, m: LynxInteger) =>{//todo add aggregating multi
+            n match {
+              case d: LynxDouble => LynxDouble(d.value * m.value)
+              case d: LynxInteger => LynxInteger(d.value * m.value)
+            }
           }
         }
       }
@@ -261,6 +251,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       }
       case MapExpression(items) => LynxMap(items.map(it => it._1.name -> eval(it._2)).toMap)
     }
+  }
 
   override def evalGroup(expr: Expression)(ecs: Seq[ExpressionContext]): LynxValue = {
     val vls = LynxValue(ecs.map(eval(expr)(_).value.asInstanceOf[Seq[LynxValue]].head))//TODO fix head
