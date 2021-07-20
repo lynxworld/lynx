@@ -71,7 +71,8 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case CountStar() => LynxInteger(ec.vars.size)//todo wrong
 
-        // bugs
+        // bug
+        // this func deal with like: WHERE n[toLower(propname)] < 30
       case ContainerIndex(expr, idx) =>{//todo what's this
         {(eval(expr), eval(idx)) match {
           case (hp: HasProperty, i: LynxString) => hp.property(i.value)

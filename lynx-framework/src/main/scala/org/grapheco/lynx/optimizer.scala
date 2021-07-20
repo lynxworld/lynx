@@ -541,19 +541,21 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
     val labels = pattern.labels.map(l => l.name)
     val prop = pattern.properties.map({
       case MapExpression(items)=>{
-        items.map(p => {
-          p._2 match {
-            case Property(a, b) => p._1.name
-            case _ => p._1.name
+        items.map(
+          p =>{
+            p._2 match {
+              case b: Literal => (p._1.name, b.value)
+              case _ =>  (p._1.name, null)
+            }
           }
-        })
+        )
       }
     })
 
     if (labels.nonEmpty) labels.foreach(f => countArray += graphModel.estimateNodeLabel(f))
     else countArray += graphModel.getAllNodeCount()
 
-    if (prop.isDefined) prop.get.foreach(f => countArray += graphModel.estimateNodeProperty(f))
+    if (prop.isDefined) prop.get.foreach(f => countArray += graphModel.estimateNodeProperty(f._1, f._2))
     countArray.min
   }
 

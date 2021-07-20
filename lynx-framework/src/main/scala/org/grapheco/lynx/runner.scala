@@ -156,7 +156,7 @@ trait GraphModel {
 
   //estimate
   def estimateNodeLabel(labelName: String): Long
-  def estimateNodeProperty(propertyName: String): Long
+  def estimateNodeProperty(propertyName: String, value: AnyRef): Long
   def estimateRelationship(relType: String): Long
   /////////////
 
