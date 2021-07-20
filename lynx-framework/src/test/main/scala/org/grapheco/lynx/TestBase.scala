@@ -40,8 +40,15 @@ class TestBase extends LazyLogging {
       all_nodes.count(p => p.labels.contains(labelName))
     }
 
-    override def estimateNodeProperty(propertyName: String): Long = {
-      all_nodes.count(p => p.property(propertyName).isDefined)
+    override def estimateNodeProperty(propertyName: String, value: AnyRef): Long = {
+      all_nodes.count(p => {
+        val a = p.property(propertyName)
+        if (a.isDefined){
+          if (a.get.value == value) true
+          else false
+        }
+        else false
+      })
     }
 
     override def estimateRelationship(relType: String): Long = {
