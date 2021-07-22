@@ -199,7 +199,7 @@ case class PPTFilter(expr: Expression)(implicit in: PPTNode, val plannerContext:
       (record: Seq[LynxValue]) =>
         eval(expr)(ec.withVars(df.schema.map(_._1).zip(record).toMap)) match {
           case LynxBoolean(b) => b
-          case LynxNull => false
+          case LynxNull => false //todo check logic
         }
     }(ec)
   }
