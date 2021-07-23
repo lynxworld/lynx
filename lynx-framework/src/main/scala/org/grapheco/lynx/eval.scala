@@ -33,9 +33,6 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case _: DoubleLiteral => CTFloat
       case CountStar() => CTInteger
 
-      case pe: ProcedureExpression =>
-        pe.procedure.outputs.head._2
-
       case Variable(name) => definedVarTypes(name)
       case _ => CTAny
     }
@@ -52,12 +49,12 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
     }
   }
 
-  private def safeBinaryOp(lhs: Expression, rhs: Expression, op: (LynxValue, LynxValue) => LynxValue)(implicit ec: ExpressionContext): LynxValue = {
+  private def safeBinaryOp(lhs: Expression, rhs: Expression, op: (LynxValue, LynxValue) => LynxValue)(implicit ec: ExpressionContext): Option[LynxValue] = {
     val l = eval(lhs)
-    if(l.value==null) return LynxNull
+    if(l.value==null) return None
     val r = eval(rhs)
-    if(r.value==null) return LynxNull
-    op(l, r)
+    if(r.value==null) return None
+    Some(op(l, r))
   }
 
   override def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue = {
@@ -89,13 +86,13 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           (lvalue, rvalue) match {
             case (a: LynxNumber, b: LynxNumber) => a + b
             case (a: LynxString, b: LynxString) => LynxString(a.value + b.value)
-          })
+          }).getOrElse(LynxNull)
 
       case Subtract(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
           (lvalue, rvalue) match {
-            case (a: LynxNumber, b: LynxNumber) => a + b
-          })
+            case (a: LynxNumber, b: LynxNumber) => a - b
+          }).getOrElse(LynxNull)
 
       case Ors(exprs) =>
         LynxBoolean(exprs.exists(eval(_).value == true))
@@ -104,10 +101,10 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         LynxBoolean(exprs.forall(eval(_).value == true))
 
       case Or(lhs, rhs) =>
-        LynxBoolean(Seq(lhs, rhs).exists(eval(_).value == true))
+        LynxBoolean(eval(lhs).value == true || eval(rhs).value == true)
 
       case And(lhs, rhs) =>
-        LynxBoolean(Seq(lhs, rhs).forall(eval(_).value == true))
+        LynxBoolean(eval(lhs).value == true && eval(rhs).value == true)
 
       case sdi: SignedDecimalIntegerLiteral => LynxInteger(sdi.value)
 
@@ -122,13 +119,11 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         }
       }
 
-      case NotEquals(lhs, rhs) =>
-        safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
-          types.wrap(lvalue != rvalue))
+      case NotEquals(lhs, rhs) =>//todo add testcase: 1) n.name == null 2) n.nullname == 'some'
+        LynxValue(eval(lhs) != eval(rhs))
 
-      case Equals(lhs, rhs) =>
-        safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
-          types.wrap(lvalue == rvalue))
+      case Equals(lhs, rhs) =>//todo add testcase: 1) n.name == null 2) n.nullname == 'some'
+        LynxValue(eval(lhs) == eval(rhs))
 
       case GreaterThan(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) => {
@@ -136,7 +131,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
             case (a: LynxNumber, b: LynxNumber) => LynxBoolean(a.number.doubleValue() > b.number.doubleValue())
             case (a: LynxString, b: LynxString) => LynxBoolean(a.value > b.value)
           }
-        })
+        }).getOrElse(LynxNull)
 
       case GreaterThanOrEqual(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) => {
@@ -144,7 +139,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
             case (a: LynxNumber, b: LynxNumber) => LynxBoolean(a.number.doubleValue() >= b.number.doubleValue())
             case (a: LynxString, b: LynxString) => LynxBoolean(a.value >= b.value)
           }
-        })
+        }).getOrElse(LynxNull)
 
       case LessThan(lhs, rhs) =>
         eval(GreaterThan(rhs, lhs)(expr.position))
@@ -154,7 +149,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case Not(in) =>
         eval(in) match {
-          case LynxNull => LynxNull
+          case LynxNull => LynxBoolean(false)//todo add testcase
           case LynxBoolean(b) => LynxBoolean(!b)
         }
 
@@ -175,7 +170,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         types.wrap(v.value)
 
       case v: ListLiteral =>
-        LynxValue(v.expressions.map(e=>eval(e)))
+        LynxValue(v.expressions.map(eval(_)))
 
       case Variable(name) =>
         ec.vars(name)
@@ -187,40 +182,44 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           case time: LynxDateTime => time
         }
 
-      case In(lhs, rhs) => LynxBoolean(eval(rhs).asInstanceOf[LynxList].value.contains(eval(lhs)))//todo add literal in list[func] test case
+      case In(lhs, rhs) =>
+        eval(rhs) match {
+          case LynxList(list) => LynxBoolean(list.contains(eval(lhs)))//todo add literal in list[func] test case
+        }
 
       case Parameter(name, parameterType) =>
         types.wrap(ec.param(name))
 
-      case RegexMatch(lhs, StringLiteral(value)) =>{//todo not toString
-        val beMatched = lhs match {
-          case pe: ProcedureExpression => eval(pe).value.toString
-          case Property(Variable(name), propertyKey) => ec.vars(name).asInstanceOf[HasProperty].property(propertyKey.name).getOrElse("").toString
-        }
-        val regex = new Regex(value) // TODO: opt
-        val res = regex.findFirstMatchIn(beMatched)
-        if (res.isDefined) LynxBoolean(true)
-        else LynxBoolean(false)
-      }
-
-      case StartsWith(lhs, rhs) =>{// TODO add string.startswith str test case
-        (lhs, rhs) match {
-          case (Property(Variable(name), propertyKey), StringLiteral(value)) =>
-            LynxBoolean(ec.vars(name).asInstanceOf[HasProperty].property(propertyKey.name).getOrElse(LynxString("")).value.toString.startsWith(value))
+      case RegexMatch(lhs, rhs) =>{
+        (eval(lhs), eval(rhs)) match {
+          case (LynxString(str), LynxString(regStr)) => {
+            val regex = new Regex(regStr) // TODO: opt
+            val res = regex.findFirstMatchIn(str)
+            if (res.isDefined) LynxBoolean(true)
+            else LynxBoolean(false)
+          }
+          case (LynxNull, _) => LynxBoolean(false)
         }
       }
 
-      case EndsWith(lhs, rhs) =>{// TODO add string.endswith str test case
-        (lhs, rhs) match {
-          case (Property(Variable(name), propertyKey), StringLiteral(value)) =>
-            LynxBoolean(ec.vars(name).asInstanceOf[HasProperty].property(propertyKey.name).getOrElse(LynxString("")).value.toString.endsWith(value))
+      case StartsWith(lhs, rhs) =>{
+        (eval(lhs), eval(rhs)) match {
+          case (LynxString(str), LynxString(startStr)) =>  LynxBoolean(str.startsWith(startStr))
+          case (LynxNull, _) => LynxBoolean(false)
         }
       }
 
-      case Contains(lhs, rhs) =>{// TODO add string.endswith str test case
-        (lhs, rhs) match {
-          case (Property(Variable(name), propertyKey), StringLiteral(value)) =>
-            LynxBoolean(ec.vars(name).asInstanceOf[HasProperty].property(propertyKey.name).getOrElse(LynxString("")).value.toString.contains(value))
+      case EndsWith(lhs, rhs) =>{
+        (eval(lhs), eval(rhs)) match {
+          case (LynxString(str), LynxString(endStr)) =>  LynxBoolean(str.endsWith(endStr))
+          case (LynxNull, _) => LynxBoolean(false)
+        }
+      }
+
+      case Contains(lhs, rhs) =>{
+        (eval(lhs), eval(rhs)) match {
+          case (LynxString(str), LynxString(containsStr)) =>  LynxBoolean(str.contains(containsStr))
+          case (LynxNull, _) => LynxBoolean(false)
         }
       }
 
@@ -250,6 +249,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           else LynxNull
         }
       }
+
       case MapExpression(items) => LynxMap(items.map(it => it._1.name -> eval(it._2)).toMap)
     }
   }
