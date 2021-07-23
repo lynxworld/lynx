@@ -124,6 +124,19 @@ class DefaultProcedures {
     "lynx-0.3"
   }
 
+  // predicate functions
+  @LynxProcedure(name = "exists")
+  def exists(input: LynxValue): Boolean = {
+    input match {
+      case list: LynxList => ???
+      case _ => {
+        if (input.value != null) true
+        else false
+      }
+    }
+  }
+  // ====================
+
   @LynxProcedure(name = "nodes")
   def nodes(inputs: LynxList): List[LynxNode] = {
     def fetchNodeFromList(list: LynxList): LynxNode = {
@@ -152,14 +165,14 @@ class DefaultProcedures {
   @LynxProcedure(name = "length")
   def length(inputs: LynxList): Int = {
     val list: LynxList = inputs.value.tail.head.asInstanceOf[LynxList]
-    list.value.filter(value => value.isInstanceOf[LynxRelationship]).length
+    list.value.count(value => value.isInstanceOf[LynxRelationship])
   }
 
   @LynxProcedure(name = "size")
   def size(input: LynxValue): Int = {
     input match {
       case l: LynxList => l.value.size
-      case s: LynxString => s.value.size
+      case s: LynxString => s.value.length
     }
   }
 
