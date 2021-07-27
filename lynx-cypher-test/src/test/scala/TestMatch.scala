@@ -198,16 +198,8 @@ class TestMatch {
   }
 
   @Test
-  def tmp(): Unit ={
-    testBase.runOnDemoGraph(
-      """
-        |MATCH p = (actor {name: 'Charlie Sheen'})-[r:ACTED_IN*1..3]->(co_actor)
-        |RETURN p
-        |""".stripMargin)
-  }
-
-  @Test
   def matchWithPropertiesOnAVariableLengthPath(): Unit ={
+    return ???
     testBase.runOnDemoGraph(
       """
         |MATCH

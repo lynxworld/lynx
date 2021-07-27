@@ -102,12 +102,6 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
         }
         else Iterator.empty
       }
-      def getBothPathLast(leftList: Iterator[Seq[PathTriple]], rightNodeFilter: NodeFilter): Iterator[Seq[PathTriple]] = {
-        if (leftList.nonEmpty) {
-          leftList.filter(p => rightNodeFilter.matches(p.last.endNode)).filter(p => p.head.startNode != p.last.endNode)
-        }
-        else Iterator.empty
-      }
 
       def getDegreeRelationship(lower: Int, upper: Int): Iterator[Seq[PathTriple]] = {
         val searchedPaths = ArrayBuffer[Iterator[Seq[PathTriple]]]()
@@ -179,7 +173,7 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
                  for (i <- 1 to middleNum) {
                    left = getBothPathMiddle(left, relsTriple)
                  }
-                 val res = getBothPathLast(left, rightNodeFilter).toList.distinct.toIterator
+                 val res = getPathLast(left, rightNodeFilter).toList.distinct.toIterator
                  if (res.nonEmpty) searchedPaths += res
                }
              }
@@ -190,11 +184,11 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
       }
 
       length match {
-        case Some(None) => getDegreeRelationship(1, 10) // upper tmp impl
+        case Some(None) => getDegreeRelationship(1, Int.MaxValue)
         case Some(Some(range)) => {
           range match {
-            case Range(None, None) => getDegreeRelationship(1, 10) // upper tmp impl
-            case Range(lower, None) => getDegreeRelationship(lower.get.value.toInt, 10) // upper tmp impl
+            case Range(None, None) => getDegreeRelationship(1, Int.MaxValue)
+            case Range(lower, None) => getDegreeRelationship(lower.get.value.toInt, Int.MaxValue)
             case Range(None, upper) => getDegreeRelationship(1, upper.get.value.toInt)
             case Range(lower, upper) => getDegreeRelationship(lower.get.value.toInt, upper.get.value.toInt)
           }
