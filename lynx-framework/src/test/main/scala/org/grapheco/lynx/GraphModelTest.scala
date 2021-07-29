@@ -7,7 +7,7 @@ class GraphModelTest extends TestBase {
   @Test
   def testGraphModel(): Unit = {
     var rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), OUTGOING)
-    Assert.assertEquals(3, rs.size)
+    Assert.assertEquals(4, rs.size)
     rs.foreach {
       item =>
         val PathTriple(startNode, rel, endNode, _) = item
@@ -16,7 +16,7 @@ class GraphModelTest extends TestBase {
     }
 
     rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), INCOMING)
-    Assert.assertEquals(3, rs.size)
+    Assert.assertEquals(4, rs.size)
     rs.foreach {
       item =>
         val PathTriple(startNode, rel, endNode, _) = item
@@ -25,6 +25,6 @@ class GraphModelTest extends TestBase {
     }
 
     rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), BOTH)
-    Assert.assertEquals(6, rs.size)
+    Assert.assertEquals(8, rs.size)
   }
 }

@@ -2,7 +2,23 @@ package org.grapheco.lynx
 
 import org.junit.{Assert, Test}
 
+import scala.collection.mutable.ArrayBuffer
+
 class CypherQueryTest extends TestBase {
+
+  val n1 = TestNode(1, Seq("person", "leader"), "name" -> LynxValue("bluejoe"), "age" -> LynxValue(40))
+  val n2 = TestNode(2, Seq("person"), "name" -> LynxValue("alex"), "age" -> LynxValue(30))
+  val n3 = TestNode(3, Seq(), "name" -> LynxValue("CNIC"), "age" -> LynxValue(10))
+
+  val r1 = TestRelationship(1, 1, 2, Some("knows"))
+  val r2 = TestRelationship(2, 2, 3, Some("knows"))
+  val r3 = TestRelationship(3, 1, 3, None)
+
+  all_nodes.clear()
+  all_nodes.append(n1, n2, n3)
+  all_rels.clear()
+  all_rels.append(r1, r2, r3)
+
   @Test
   def testQueryUnit(): Unit = {
     var rs: LynxResult = null
@@ -161,18 +177,6 @@ class CypherQueryTest extends TestBase {
   }
 
   @Test
-  def testQueryMultiplePaths(): Unit = {
-    var rs = runOnDemoGraph("match ()-[r]-(n),(n)-[s]-() return r,s")
-    Assert.assertEquals(6, rs.records.size)
-
-    rs = runOnDemoGraph("match ()-[r]->(n),(n)-[s]-() return r,s")
-    Assert.assertEquals(3, rs.records.size)
-
-    rs = runOnDemoGraph("match (m)-[r]->(n),(n)-[s]->(x) return r,s")
-    Assert.assertEquals(1, rs.records.size)
-  }
-
-  @Test
   def testQueryMultipleMatchs(): Unit = {
     var rs = runOnDemoGraph("match ()-[r]-(n) match (n)-[s]-() return r,s")
     Assert.assertEquals(6, rs.records.size)
@@ -285,51 +289,6 @@ class CypherQueryTest extends TestBase {
   }
 
   @Test
-  def testQueryPathWithRelationType(): Unit = {
-    var rs = runOnDemoGraph("match ()-[r:KNOWS]-() return r")
-    Assert.assertEquals(4, rs.records.size)
-    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("r").asInstanceOf[LynxRelationship].id.value)
-    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(1).apply("r").asInstanceOf[LynxRelationship].id.value)
-    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(2).apply("r").asInstanceOf[LynxRelationship].id.value)
-    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(3).apply("r").asInstanceOf[LynxRelationship].id.value)
-
-    rs = runOnDemoGraph("match ()-[r:NON_EXISTING]-() return r")
-    Assert.assertEquals(0, rs.records.size)
-
-    rs = runOnDemoGraph("match (n)-[r:KNOWS]-(m) return n,r,m")
-    Assert.assertEquals(4, rs.records.size)
-    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("r").asInstanceOf[LynxRelationship].id.value)
-    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(1).apply("r").asInstanceOf[LynxRelationship].id.value)
-    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(2).apply("r").asInstanceOf[LynxRelationship].id.value)
-    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(3).apply("r").asInstanceOf[LynxRelationship].id.value)
-    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
-    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(0).apply("m").asInstanceOf[LynxNode].id.value)
-    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(1).apply("n").asInstanceOf[LynxNode].id.value)
-    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(1).apply("m").asInstanceOf[LynxNode].id.value)
-    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(2).apply("n").asInstanceOf[LynxNode].id.value)
-    Assert.assertEquals(3.toLong, rs.records.toSeq.apply(2).apply("m").asInstanceOf[LynxNode].id.value)
-    Assert.assertEquals(3.toLong, rs.records.toSeq.apply(3).apply("n").asInstanceOf[LynxNode].id.value)
-    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(3).apply("m").asInstanceOf[LynxNode].id.value)
-
-    rs = runOnDemoGraph("match (n:person)-[r:KNOWS]->(m) return n,r,m")
-    Assert.assertEquals(2, rs.records.size)
-    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
-    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(0).apply("m").asInstanceOf[LynxNode].id.value)
-    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(1).apply("n").asInstanceOf[LynxNode].id.value)
-    Assert.assertEquals(3.toLong, rs.records.toSeq.apply(1).apply("m").asInstanceOf[LynxNode].id.value)
-
-    rs = runOnDemoGraph("match (n)-[r:KNOWS]->(m:person) return n,r,m")
-    Assert.assertEquals(1, rs.records.size)
-    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
-    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(0).apply("m").asInstanceOf[LynxNode].id.value)
-
-    rs = runOnDemoGraph("match (n:leader)-[r:KNOWS]->(m) return n,r,m")
-    Assert.assertEquals(1, rs.records.size)
-    Assert.assertEquals(1.toLong, rs.records.toSeq.apply(0).apply("n").asInstanceOf[LynxNode].id.value)
-    Assert.assertEquals(2.toLong, rs.records.toSeq.apply(0).apply("m").asInstanceOf[LynxNode].id.value)
-  }
-
-  @Test
   def testQueryPathWithNodeLabel(): Unit = {
     var rs = runOnDemoGraph("match (n:person)-[r]->(m) return n,r,m")
     Assert.assertEquals(3, rs.records.size)
@@ -387,47 +346,5 @@ class CypherQueryTest extends TestBase {
 
     Assert.assertEquals(2.toLong, rs.records.toSeq.apply(1).apply("m").asInstanceOf[LynxNode].id.value)
     Assert.assertEquals(1.toLong, rs.records.toSeq.apply(1).apply("n").asInstanceOf[LynxNode].id.value)
-  }
-  @Test
-  def testQueryOrderBy(): Unit = {
-    var rs1 = runOnDemoGraph("create (n1:test{age:10,name:5}),(n2:test{age:10,name:4}),(n3:test{age:11,name:3})")
-    var rs2 = runOnDemoGraph("match (n:test) return n.age,n.name  order by n.age desc, n.name")
-    var rs3 = runOnDemoGraph("match (n) return  count(n.name),count(n.age)")
-   // var rs = runOnDemoGraph("match (n) return n.age  limit 1")
-  }
-  @Test
-  def testQueryCaseWhen(): Unit = {
-    var rs1 = runOnDemoGraph("create (n1:test{age:9,name:'CodeBaby'}),(n2:test{age:10,name:'BlueJoy'}),(n3:test{age:18,name:'OldWang'})")
-    var rs = runOnDemoGraph("match (n:test) WITH n.age as age, CASE WHEN n.age < 10 THEN 'Child' WHEN n.age <16 THEN 'Teenager' ELSE 'Adult' END AS hood,n.name as name RETURN age,name,hood order by age desc,name")
-  }
-
-  @Test
-  def testFunction(): Unit ={
-    runOnDemoGraph("return toInterger('345')")
-  }
-
-  @Test
-  def testFunction23(): Unit ={
-    runOnDemoGraph("return 2,toInterger('345'), date('2018-05-06')")
-  }
-
-  @Test
-  def testmatch(): Unit ={
-    runOnDemoGraph("match (n{name:'alex'}) return n")
-  }
-
-  @Test
-  def testmatchxing(): Unit ={
-    runOnDemoGraph("match data =(:leader)-[:KNOWS*3..2]->() return data")
-  }
-
-  @Test
-  def testmatchxing2(): Unit ={
-    runOnDemoGraph("match (n:leader)-[:KNOWS*3..2]->() return n")
-  }
-
-  @Test
-  def testMatchIn(): Unit = {
-    runOnDemoGraph("match (n) where n.name in ['Alice', 'Bob']")
   }
 }

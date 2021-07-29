@@ -103,7 +103,7 @@ class CypherCreateTest extends TestBase {
     Assert.assertEquals(Seq("place"), all_nodes(NODE_SIZE + 1).labels)
 
     Assert.assertEquals("livesIn", all_rels(REL_SIZE).relationType.get)
-    Assert.assertEquals(all_nodes(NODE_SIZE + 1).id.value, all_rels(REL_SIZE).startId)
+    Assert.assertEquals(all_nodes(NODE_SIZE).id.value, all_rels(REL_SIZE).startId)
     Assert.assertEquals(all_nodes(NODE_SIZE + 1).id.value, all_rels(REL_SIZE).endId)
   }
 
@@ -121,7 +121,7 @@ class CypherCreateTest extends TestBase {
     Assert.assertEquals(Seq("place"), all_nodes(NODE_SIZE + 1).labels)
 
     Assert.assertEquals("livesIn", all_rels(REL_SIZE).relationType.get)
-    Assert.assertEquals(all_nodes(NODE_SIZE + 1).id.value, all_rels(REL_SIZE).startId)
+    Assert.assertEquals(all_nodes(NODE_SIZE).id.value, all_rels(REL_SIZE).startId)
     Assert.assertEquals(all_nodes(NODE_SIZE + 1).id.value, all_rels(REL_SIZE).endId)
   }
 
@@ -145,28 +145,6 @@ class CypherCreateTest extends TestBase {
   }
 
   @Test
-  def testMatchToCreateRelation(): Unit = {
-    var rs = runOnDemoGraph("match (m:person {name:'bluejoe'}),(n {name:'CNIC'}) CREATE (m)-[r:WORKS_FOR]->(n) return m,r,n")
-    Assert.assertEquals(NODE_SIZE, all_nodes.size)
-    Assert.assertEquals(REL_SIZE + 1, all_rels.size)
-
-    Assert.assertEquals("WORKS_FOR", all_rels(REL_SIZE).relationType.get)
-    Assert.assertEquals(1.toLong, all_rels(REL_SIZE).startId)
-    Assert.assertEquals(3.toLong, all_rels(REL_SIZE).endId)
-  }
-
-  @Test
-  def testMatchToCreateMultipleRelation(): Unit = {
-    var rs = runOnDemoGraph("match (m:person),(n {name:'CNIC'}) CREATE (m)-[r:WORKS_FOR]->(n) return m,r,n")
-    Assert.assertEquals(NODE_SIZE, all_nodes.size)
-    Assert.assertEquals(REL_SIZE + 2, all_rels.size) //2 persons
-
-    Assert.assertEquals("WORKS_FOR", all_rels(REL_SIZE).relationType.get)
-    Assert.assertEquals(1.toLong, all_rels(REL_SIZE).startId)
-    Assert.assertEquals(3.toLong, all_rels(REL_SIZE).endId)
-  }
-
-  @Test
   def testMatchToCreateMultipleNodesAndRelations(): Unit = {
     var rs = runOnDemoGraph("match (m:person) CREATE (n {name: 'God', age: 10000}), (n)-[r:LOVES]->(m) return n,r,m")
     Assert.assertEquals(NODE_SIZE + 2, all_nodes.size)
@@ -183,26 +161,6 @@ class CypherCreateTest extends TestBase {
     Assert.assertEquals(1.toLong, all_rels(REL_SIZE).endId)
 
     Assert.assertEquals("LOVES", all_rels(REL_SIZE + 1).relationType.get)
-    Assert.assertEquals((NODE_SIZE + 2).toLong, all_rels(REL_SIZE + 1).startId)
-    Assert.assertEquals(2.toLong, all_rels(REL_SIZE + 1).endId)
-  }
-
-  @Test
-  def testMatchToCreateMultipleNodesAndRelationsWithExpr(): Unit = {
-    var rs = runOnDemoGraph("match (m:person) CREATE (n {name: 'clone of '+m.name, age: m.age+1}), (n)-[r:IS_CLONE_OF]->(m) return n,r,m")
-    Assert.assertEquals(NODE_SIZE + 2, all_nodes.size)
-    Assert.assertEquals(REL_SIZE + 2, all_rels.size)
-
-    Assert.assertEquals(LynxString("clone of bluejoe"), all_nodes(NODE_SIZE).properties("name"))
-    Assert.assertEquals(LynxInteger(41), all_nodes(NODE_SIZE).properties("age"))
-
-    Assert.assertEquals(LynxString("clone of alex"), all_nodes(NODE_SIZE + 1).properties("name"))
-    Assert.assertEquals(LynxInteger(31), all_nodes(NODE_SIZE + 1).properties("age"))
-
-    Assert.assertEquals("IS_CLONE_OF", all_rels(REL_SIZE).relationType.get)
-    Assert.assertEquals((NODE_SIZE + 1).toLong, all_rels(REL_SIZE).startId)
-    Assert.assertEquals(1.toLong, all_rels(REL_SIZE).endId)
-    Assert.assertEquals("IS_CLONE_OF", all_rels(REL_SIZE + 1).relationType.get)
     Assert.assertEquals((NODE_SIZE + 2).toLong, all_rels(REL_SIZE + 1).startId)
     Assert.assertEquals(2.toLong, all_rels(REL_SIZE + 1).endId)
   }
