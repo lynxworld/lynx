@@ -191,11 +191,6 @@ class CallTest extends TestBase {
   }
 
   @Test
-  def testDegrees(): Unit ={
-    Assert.assertEquals(LynxDouble(179.9998479605043), runOnDemoGraph(s"return degrees(3.14159) as value").records().next()("value"))
-  }
-
-  @Test
   def testHaversin(): Unit ={
     Assert.assertEquals(LynxDouble(0.06120871905481362), runOnDemoGraph("return haversin(0.5) as value").records().next()("value"))
   }
@@ -269,18 +264,10 @@ class CallTest extends TestBase {
     Assert.assertEquals(LynxString("el"), runOnDemoGraph("return substring('hello', 1, 2) as value").records().next()("value"))
   }
   @Test
-  def testId(): Unit ={
-    Assert.assertEquals(LynxInteger(4), runOnDemoGraph("match (n) where n.name='Bob' return id(n)").records().next()("id(n)"))
-  }
-  @Test
   def testTo(): Unit ={
     Assert.assertEquals(LynxInteger(10), runOnDemoGraph("return toInteger('10.2') as value").records().next()("value"))
     Assert.assertEquals(LynxDouble(10.2), runOnDemoGraph("return toFloat('10.2') as value").records().next()("value"))
     Assert.assertEquals(LynxBoolean(false), runOnDemoGraph("return toBoolean('false') as value").records().next()("value"))
-  }
-  @Test
-  def testType(): Unit ={
-    Assert.assertEquals(LynxString("knows"), runOnDemoGraph("match (n)-[r]->(m) where id(m)=2 return type(r) as value").records().next()("value"))
   }
 
   // TODO: bug
