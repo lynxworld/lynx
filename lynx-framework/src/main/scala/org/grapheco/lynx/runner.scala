@@ -107,7 +107,7 @@ case class PhysicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runne
 }
 
 //TODO: context.context??
-case class ExecutionContext(physicalPlannerContext: PhysicalPlannerContext, statement: Statement, queryParameters: Map[String, Any], tx: LynxTransaction) {
+case class ExecutionContext(physicalPlannerContext: PhysicalPlannerContext, statement: Statement, queryParameters: Map[String, Any], tx: LynxTransaction = new LynxTransaction {}) {
   val expressionContext = ExpressionContext(this, queryParameters.map(x => x._1 -> physicalPlannerContext.runnerContext.typeSystem.wrap(x._2)))
 }
 
