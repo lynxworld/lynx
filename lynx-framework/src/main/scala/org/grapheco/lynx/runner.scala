@@ -30,6 +30,63 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 
   def compile(query: String): (Statement, Map[String, Any], SemanticState) = queryParser.parse(query)
 
+  def run(query: String, param: Map[String, Any], tx: LynxTransaction): LynxResult = {
+    val (statement, param2, state) = queryParser.parse(query)
+    logger.debug(s"AST tree: ${statement}")
+
+    val logicalPlannerContext = LogicalPlannerContext(param ++ param2, runnerContext)
+    val logicalPlan = logicalPlanner.plan(statement, logicalPlannerContext)
+    logger.info(s"logical plan: \r\n${logicalPlan.pretty}")
+
+    val physicalPlannerContext = PhysicalPlannerContext(param ++ param2, runnerContext)
+    val physicalPlan = physicalPlanner.plan(logicalPlan)(physicalPlannerContext)
+    logger.info(s"physical plan: \r\n${physicalPlan.pretty}")
+
+    val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan, physicalPlannerContext)
+    logger.info(s"optimized physical plan: \r\n${optimizedPhysicalPlan.pretty}")
+
+    val ctx = ExecutionContextWithTx(physicalPlannerContext, statement, param ++ param2, tx)
+    val df = optimizedPhysicalPlan.execute(ctx)
+
+    new LynxResult() with PlanAware {
+      val schema = df.schema
+      val columnNames = schema.map(_._1)
+
+      override def show(limit: Int): Unit =
+        FormatUtils.printTable(columnNames,
+          df.records.take(limit).toSeq.map(_.map(_.value)))
+
+      override def columns(): Seq[String] = columnNames
+
+      override def records(): Iterator[Map[String, Any]] = df.records.map(columnNames.zip(_).toMap)
+
+      override def getASTStatement(): (Statement, Map[String, Any]) = (statement, param2)
+
+      override def getLogicalPlan(): LPTNode = logicalPlan
+
+      override def getPhysicalPlan(): PPTNode = physicalPlan
+
+      override def getOptimizerPlan(): PPTNode = optimizedPhysicalPlan
+
+      override def cache(): LynxResult = {
+        val source = this
+        val cached = df.records.toSeq
+
+        new LynxResult {
+          override def show(limit: Int): Unit = FormatUtils.printTable(columnNames,
+            cached.take(limit).toSeq.map(_.map(_.value)))
+
+          override def cache(): LynxResult = this
+
+          override def columns(): Seq[String] = columnNames
+
+          override def records(): Iterator[Map[String, Any]] = cached.map(columnNames.zip(_).toMap).iterator
+
+        }
+      }
+    }
+  }
+
   def run(query: String, param: Map[String, Any]): LynxResult = {
     val (statement, param2, state) = queryParser.parse(query)
     logger.debug(s"AST tree: ${statement}")
@@ -109,6 +166,9 @@ case class PhysicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runne
 case class ExecutionContext(physicalPlannerContext: PhysicalPlannerContext, statement: Statement, queryParameters: Map[String, Any]) {
   val expressionContext = ExpressionContext(this, queryParameters.map(x => x._1 -> physicalPlannerContext.runnerContext.typeSystem.wrap(x._2)))
 }
+
+case class ExecutionContextWithTx(override val physicalPlannerContext: PhysicalPlannerContext, override val statement: Statement, override val queryParameters: Map[String, Any], tx: LynxTransaction)
+  extends ExecutionContext(physicalPlannerContext, statement, queryParameters)
 
 trait LynxResult {
   def show(limit: Int = 20): Unit
