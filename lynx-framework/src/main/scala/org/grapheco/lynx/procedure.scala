@@ -60,7 +60,8 @@ class DefaultProcedureRegistry(types: TypeSystem, classes: Class[_]*) extends Pr
 
         //TODO: N-tuples
         val outputs = Seq("value" -> types.typeOf(met.getReturnType))
-        register(an.name(), inputs, outputs, (args) => types.wrap(met.invoke(host, args: _*)))
+        register(an.name(), inputs, outputs, (args) =>
+          types.wrap(met.invoke(host, args.map(types.unwrap(_).asInstanceOf[Object]): _*)))
       }
     })
   }
@@ -74,6 +75,7 @@ class DefaultProcedureRegistry(types: TypeSystem, classes: Class[_]*) extends Pr
     register(name, inputs0.size, new CallableProcedure() {
       override val inputs: Seq[(String, LynxType)] = inputs0
       override val outputs: Seq[(String, LynxType)] = outputs0
+
       override def call(args: Seq[LynxValue]): LynxValue = LynxValue(call0(args))
     })
   }
@@ -142,9 +144,11 @@ class DefaultProcedures {
     def fetchNodeFromList(list: LynxList): LynxNode = {
       list.value.filter(item => item.isInstanceOf[LynxNode]).head.asInstanceOf[LynxNode]
     }
+
     def fetchListFromList(list: LynxList): LynxList = {
       list.value.filter(item => item.isInstanceOf[LynxList]).head.asInstanceOf[LynxList]
     }
+
     val list = fetchListFromList(inputs)
     if (list.value.nonEmpty) List(fetchNodeFromList(inputs)) ++ nodes(fetchListFromList(inputs))
     else List(fetchNodeFromList(inputs))
@@ -225,53 +229,53 @@ class DefaultProcedures {
     math.pow(x.value, n.value).toInt
   }
 
-  @LynxProcedure(name="date")
+  @LynxProcedure(name = "date")
   def date(inputs: LynxValue): LynxDate = {
     LynxDateUtil.parse(inputs).asInstanceOf[LynxDate]
   }
 
-  @LynxProcedure(name="date")
+  @LynxProcedure(name = "date")
   def date(): LynxDate = {
     LynxDateUtil.now()
   }
 
 
-  @LynxProcedure(name="datetime")
+  @LynxProcedure(name = "datetime")
   def datetime(inputs: LynxValue): LynxDateTime = {
     LynxDateTimeUtil.parse(inputs).asInstanceOf[LynxDateTime]
   }
 
-  @LynxProcedure(name="datetime")
+  @LynxProcedure(name = "datetime")
   def datetime(): LynxDateTime = {
     LynxDateTimeUtil.now()
   }
 
-  @LynxProcedure(name="localdatetime")
+  @LynxProcedure(name = "localdatetime")
   def localDatetime(inputs: LynxValue): LynxLocalDateTime = {
     LynxLocalDateTimeUtil.parse(inputs).asInstanceOf[LynxLocalDateTime]
   }
 
-  @LynxProcedure(name="localdatetime")
+  @LynxProcedure(name = "localdatetime")
   def localDatetime(): LynxLocalDateTime = {
     LynxLocalDateTimeUtil.now()
   }
 
-  @LynxProcedure(name="time")
+  @LynxProcedure(name = "time")
   def time(inputs: LynxValue): LynxTime = {
     LynxTimeUtil.parse(inputs).asInstanceOf[LynxTime]
   }
 
-  @LynxProcedure(name="time")
+  @LynxProcedure(name = "time")
   def time(): LynxTime = {
     LynxTimeUtil.now()
   }
 
-  @LynxProcedure(name="localtime")
+  @LynxProcedure(name = "localtime")
   def localTime(inputs: LynxValue): LynxLocalTime = {
     LynxLocalTimeUtil.parse(inputs).asInstanceOf[LynxLocalTime]
   }
 
-  @LynxProcedure(name="localtime")
+  @LynxProcedure(name = "localtime")
   def localTime(): LynxLocalTime = {
     LynxLocalTimeUtil.now()
   }
@@ -285,7 +289,7 @@ class DefaultProcedures {
   }
 
   // math functions
-  @LynxProcedure(name= "abs")
+  @LynxProcedure(name = "abs")
   def abs(x: LynxNumber): LynxNumber = {
     x match {
       case i: LynxInteger => LynxInteger(math.abs(i.value))
@@ -293,139 +297,139 @@ class DefaultProcedures {
     }
   }
 
-  @LynxProcedure(name= "ceil")
+  @LynxProcedure(name = "ceil")
   def ceil(x: LynxNumber): Double = {
     math.ceil(x.number.doubleValue())
   }
 
-  @LynxProcedure(name= "floor")
+  @LynxProcedure(name = "floor")
   def floor(x: LynxNumber): Double = {
-   math.floor(x.number.doubleValue())
+    math.floor(x.number.doubleValue())
   }
 
-  @LynxProcedure(name= "rand")
+  @LynxProcedure(name = "rand")
   def rand(): Double = {
     math.random()
   }
 
-  @LynxProcedure(name= "round")
+  @LynxProcedure(name = "round")
   def round(x: LynxNumber): Long = {
     math.round(x.number.doubleValue())
   }
 
-  @LynxProcedure(name= "round")
+  @LynxProcedure(name = "round")
   def round(x: LynxNumber, precision: LynxInteger): Double = {
     val base = math.pow(10, precision.value)
     math.round(base * x.number.doubleValue()).toDouble / base
   }
 
-  @LynxProcedure(name= "sign")
+  @LynxProcedure(name = "sign")
   def sign(x: LynxNumber): Double = {
-   math.signum(x.number.doubleValue())
+    math.signum(x.number.doubleValue())
   }
 
-  @LynxProcedure(name= "e")
+  @LynxProcedure(name = "e")
   def e(): Double = {
-   Math.E
+    Math.E
   }
 
-  @LynxProcedure(name= "exp")
+  @LynxProcedure(name = "exp")
   def exp(x: LynxNumber): Double = {
     math.exp(x.number.doubleValue())
   }
 
-  @LynxProcedure(name= "log")
+  @LynxProcedure(name = "log")
   def log(x: LynxNumber): Double = {
-   math.log(x.number.doubleValue())
+    math.log(x.number.doubleValue())
   }
 
-  @LynxProcedure(name= "log10")
+  @LynxProcedure(name = "log10")
   def log10(x: LynxNumber): Double = {
     math.log10(x.number.doubleValue())
   }
 
-  @LynxProcedure(name= "sqrt")
+  @LynxProcedure(name = "sqrt")
   def sqrt(x: LynxNumber): Double = {
-   math.sqrt(x.number.doubleValue())
+    math.sqrt(x.number.doubleValue())
   }
 
-  @LynxProcedure(name= "acos")
+  @LynxProcedure(name = "acos")
   def acos(x: LynxNumber): Double = {
-   math.acos(x.number.doubleValue())
+    math.acos(x.number.doubleValue())
   }
 
-  @LynxProcedure(name= "asin")
+  @LynxProcedure(name = "asin")
   def asin(x: LynxNumber): Double = {
     math.asin(x.number.doubleValue())
   }
 
-  @LynxProcedure(name= "atan")
+  @LynxProcedure(name = "atan")
   def atan(x: LynxNumber): Double = {
-   math.atan(x.number.doubleValue())
+    math.atan(x.number.doubleValue())
   }
 
-  @LynxProcedure(name= "atan2")
+  @LynxProcedure(name = "atan2")
   def atan2(x: LynxNumber, y: LynxNumber): Double = {
     math.atan2(x.number.doubleValue(), y.number.doubleValue())
   }
 
-  @LynxProcedure(name= "cos")
+  @LynxProcedure(name = "cos")
   def cos(x: LynxNumber): Double = {
-   math.cos(x.number.doubleValue())
+    math.cos(x.number.doubleValue())
   }
 
-  @LynxProcedure(name= "cot")
+  @LynxProcedure(name = "cot")
   def cot(x: LynxNumber): Double = {
     1.0 / math.tan(x.number.doubleValue())
   }
 
-  @LynxProcedure(name= "degrees")
+  @LynxProcedure(name = "degrees")
   def degrees(x: LynxNumber): Double = {
     math.toDegrees(x.number.doubleValue())
   }
 
-  @LynxProcedure(name= "haversin")
+  @LynxProcedure(name = "haversin")
   def haversin(x: LynxNumber): Double = {
     (1.0d - math.cos(x.number.doubleValue())) / 2
   }
 
-  @LynxProcedure(name= "pi")
+  @LynxProcedure(name = "pi")
   def pi(): Double = {
-   Math.PI
+    Math.PI
   }
 
-  @LynxProcedure(name= "radians")
+  @LynxProcedure(name = "radians")
   def radians(x: LynxNumber): Double = {
     math.toRadians(x.number.doubleValue())
   }
 
-  @LynxProcedure(name= "sin")
+  @LynxProcedure(name = "sin")
   def sin(x: LynxNumber): Double = {
     math.sin(x.number.doubleValue())
   }
 
-  @LynxProcedure(name= "tan")
+  @LynxProcedure(name = "tan")
   def tan(x: LynxNumber): Double = {
-   math.tan(x.number.doubleValue())
+    math.tan(x.number.doubleValue())
   }
 
   // list function
-  @LynxProcedure(name= "labels")
+  @LynxProcedure(name = "labels")
   def labels(x: LynxNode): Seq[String] = {
     x.labels
   }
 
   // scalar functions
-  @LynxProcedure(name= "id")
+  @LynxProcedure(name = "id")
   def id(x: LynxValue): Long = {
     x match {
       case n: LynxNode => n.id.value.asInstanceOf[Long]
       case r: LynxRelationship => r.id.value.asInstanceOf[Long]
-      case _ => throw new LynxFunctionException("id can only used on node and relationship")
+      case _ => throw new LynxProcedureException("id can only used on node and relationship")
     }
   }
 
-  @LynxProcedure(name= "toInteger")
+  @LynxProcedure(name = "toInteger")
   def toInteger(x: LynxValue): LynxValue = {
     x match {
       case n: LynxNumber => LynxInteger(n.number.intValue())
@@ -437,11 +441,11 @@ class DefaultProcedures {
         }
         else LynxNull
       }
-      case _ => throw new LynxFunctionException("toInteger conversion failure")
+      case _ => throw new LynxProcedureException("toInteger conversion failure")
     }
   }
 
-  @LynxProcedure(name= "toFloat")
+  @LynxProcedure(name = "toFloat")
   def toFloat(x: LynxValue): LynxValue = {
     x match {
       case n: LynxNumber => LynxDouble(n.number.floatValue())
@@ -451,11 +455,11 @@ class DefaultProcedures {
         if (res.matches()) LynxDouble(str.toDouble)
         else LynxNull
       }
-      case _ => throw new LynxFunctionException("toFloat conversion failure")
+      case _ => throw new LynxProcedureException("toFloat conversion failure")
     }
   }
 
-  @LynxProcedure(name= "toBoolean")
+  @LynxProcedure(name = "toBoolean")
   def toBoolean(x: LynxValue): LynxValue = {
     x match {
       case r: LynxString => {
@@ -464,11 +468,11 @@ class DefaultProcedures {
         if (res.matches()) LynxValue(str.toBoolean)
         else LynxNull
       }
-      case _ => throw new LynxFunctionException("toBoolean conversion failure")
+      case _ => throw new LynxProcedureException("toBoolean conversion failure")
     }
   }
 
-  @LynxProcedure(name= "type")
+  @LynxProcedure(name = "type")
   def getType(x: LynxValue): LynxValue = {
     x match {
       case r: LynxRelationship => {
@@ -476,69 +480,69 @@ class DefaultProcedures {
         if (t.isDefined) LynxValue(t.get)
         else LynxNull
       }
-      case _ => throw new LynxFunctionException("type can only used on relationship")
+      case _ => throw new LynxProcedureException("type can only used on relationship")
     }
   }
 
 
   // string functions
-  @LynxProcedure(name= "left")
+  @LynxProcedure(name = "left")
   def left(x: LynxString, endIndex: LynxInteger): String = {
     val str = x.value
     if (endIndex.value.toInt < str.length) str.substring(0, endIndex.value.toInt)
     else str
   }
 
-  @LynxProcedure(name= "right")
+  @LynxProcedure(name = "right")
   def right(x: LynxString, endIndex: LynxInteger): String = {
     val str = x.value
     if (endIndex.value.toInt < str.length) str.substring(endIndex.value.toInt - 1)
     else str
   }
 
-  @LynxProcedure(name= "ltrim")
+  @LynxProcedure(name = "ltrim")
   def ltrim(x: LynxString): String = {
     val str = x.value
     if (str == "" || str == null) str
     else x.value.replaceAll(s"^[  ]+", "")
   }
 
-  @LynxProcedure(name= "rtrim")
+  @LynxProcedure(name = "rtrim")
   def rtrim(x: LynxString): String = {
     val str = x.value
     if (str == "" || str == null) str
     else x.value.replaceAll(s"[　 ]+$$", "")
-}
+  }
 
-  @LynxProcedure(name= "trim")
+  @LynxProcedure(name = "trim")
   def trim(x: LynxString): String = {
     val str = x.value
     if (str == "" || str == null) str
     else str.trim
   }
 
-  @LynxProcedure(name= "replace")
+  @LynxProcedure(name = "replace")
   def replace(x: LynxString, search: LynxString, replace: LynxString): String = {
     val str = x.value
     if (str == "" || str == null) str
     else str.replaceAll(search.value, replace.value)
   }
 
-  @LynxProcedure(name= "reverse")
+  @LynxProcedure(name = "reverse")
   def reverse(x: LynxString): String = {
     val str = x.value
     if (str == "" || str == null) str
     else str.reverse
   }
 
-  @LynxProcedure(name= "split")
+  @LynxProcedure(name = "split")
   def split(x: LynxString, regex: LynxString): Array[String] = {
     val str = x.value
     if (str == "" || str == null) Array(str)
     else str.split(regex.value)
   }
 
-  @LynxProcedure(name= "substring")
+  @LynxProcedure(name = "substring")
   def substring(x: LynxString, left: LynxInteger, length: LynxInteger): String = {
     val str = x.value
     if (str == "" || str == null) str
@@ -549,29 +553,29 @@ class DefaultProcedures {
     }
   }
 
-  @LynxProcedure(name= "substring")
+  @LynxProcedure(name = "substring")
   def substring(x: LynxString, left: LynxInteger): String = {
     val str = x.value
     if (str == "" || str == null) str
     else str.substring(left.value.toInt)
   }
 
-  @LynxProcedure(name= "toLower")
+  @LynxProcedure(name = "toLower")
   def toLower(x: LynxString): String = {
     x.value.toLowerCase
   }
 
-  @LynxProcedure(name= "toUpper")
+  @LynxProcedure(name = "toUpper")
   def toUpper(x: LynxString): String = {
     x.value.toUpperCase
   }
 
-  @LynxProcedure(name= "toString")
+  @LynxProcedure(name = "toString")
   def toString(x: LynxValue): String = {
     x.value.toString
   }
 }
 
-class LynxFunctionException(msg: String) extends LynxException{
+class LynxProcedureException(msg: String) extends LynxException {
   override def getMessage: String = msg
 }
