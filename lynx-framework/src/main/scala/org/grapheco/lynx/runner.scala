@@ -30,7 +30,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 
   def compile(query: String): (Statement, Map[String, Any], SemanticState) = queryParser.parse(query)
 
-  def run(query: String, param: Map[String, Any], tx: LynxTransaction): LynxResult = {
+  def run(query: String, param: Map[String, Any], tx: LynxTransaction = new LynxTransaction {}): LynxResult = {
     val (statement, param2, state) = queryParser.parse(query)
     logger.debug(s"AST tree: ${statement}")
 
@@ -200,17 +200,18 @@ trait GraphModel {
     )
   }
 
-  def copyNode(srcNode:LynxNode, maskNode: LynxNode): Seq[LynxValue]
+  def copyNode(srcNode:LynxNode, maskNode: LynxNode, tx: LynxTransaction = new LynxTransaction {}): Seq[LynxValue]
 
-  def mergeNode(nodeFilter: NodeFilter, forceToCreate: Boolean): LynxNode
-  def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode:LynxNode, rightNode: LynxNode, direction: SemanticDirection, forceToCreate: Boolean): PathTriple
+  def mergeNode(nodeFilter: NodeFilter, forceToCreate: Boolean, tx: LynxTransaction = new LynxTransaction {}): LynxNode
+  def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode:LynxNode, rightNode: LynxNode, direction: SemanticDirection, forceToCreate: Boolean, tx: LynxTransaction = new LynxTransaction {}): PathTriple
 
   def createElements[T](
                          nodesInput: Seq[(String, NodeInput)],
                          relsInput: Seq[(String, RelationshipInput)],
-                         onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T): T
+                         onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T,
+                         tx: LynxTransaction = new LynxTransaction {}): T
 
-  def createIndex(labelName: LabelName, properties: List[PropertyKeyName]): Unit
+  def createIndex(labelName: LabelName, properties: List[PropertyKeyName], tx: LynxTransaction = new LynxTransaction {}): Unit
 
   def getIndexes(): Array[(LabelName, List[PropertyKeyName])]
 
@@ -220,19 +221,19 @@ trait GraphModel {
 
   def filterNodesWithRelations(nodesIDs: Seq[LynxId]): Seq[LynxId]
 
-  def deleteRelation(id: LynxId): Unit
+  def deleteRelation(id: LynxId, tx: LynxTransaction = new LynxTransaction {}): Unit
 
-  def deleteRelations(ids: Iterator[LynxId]): Unit
+  def deleteRelations(ids: Iterator[LynxId], tx: LynxTransaction = new LynxTransaction {}): Unit
 
-  def deleteRelationsOfNodes(nodesIDs: Seq[LynxId]): Unit
+  def deleteRelationsOfNodes(nodesIDs: Seq[LynxId], tx: LynxTransaction = new LynxTransaction {}): Unit
 
-  def deleteFreeNodes(nodesIDs: Seq[LynxId]): Unit
+  def deleteFreeNodes(nodesIDs: Seq[LynxId], tx: LynxTransaction = new LynxTransaction {}): Unit
 
-  def deleteNode(id: LynxId, forced: Boolean): Unit = {
-    deleteNodes(Seq(id).toIterator, forced)
+  def deleteNode(id: LynxId, forced: Boolean, tx: LynxTransaction = new LynxTransaction {}): Unit = {
+    deleteNodes(Seq(id).toIterator, forced, tx)
   }
 
-  def deleteNodes(nodesIDs: Iterator[LynxId], forced: Boolean): Unit = {
+  def deleteNodes(nodesIDs: Iterator[LynxId], forced: Boolean, tx: LynxTransaction = new LynxTransaction {}): Unit = {
     val ids = nodesIDs.toSeq //TODO fix the risk of out of memory
     val hasRelNodes = filterNodesWithRelations(ids)
     if(!forced){
@@ -245,21 +246,21 @@ trait GraphModel {
     deleteFreeNodes(ids)
   }
 
-  def setNodeProperty(nodeId: LynxId, data: Array[(String ,Any)], cleanExistProperties: Boolean = false): Option[LynxNode]
+  def setNodeProperty(nodeId: LynxId, data: Array[(String ,Any)], cleanExistProperties: Boolean = false, tx: LynxTransaction = new LynxTransaction {}): Option[LynxNode]
 
-  def addNodeLabels(nodeId: LynxId, labels: Array[String]): Option[LynxNode]
+  def addNodeLabels(nodeId: LynxId, labels: Array[String], tx: LynxTransaction = new LynxTransaction {}): Option[LynxNode]
 
-  def setRelationshipProperty(triple: Seq[LynxValue],  data: Array[(String ,Any)]): Option[Seq[LynxValue]]
+  def setRelationshipProperty(triple: Seq[LynxValue],  data: Array[(String ,Any)], tx: LynxTransaction = new LynxTransaction {}): Option[Seq[LynxValue]]
 
-  def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String]): Option[Seq[LynxValue]]
+  def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String], tx: LynxTransaction = new LynxTransaction {}): Option[Seq[LynxValue]]
 
-  def removeNodeProperty(nodeId: LynxId, data: Array[String]): Option[LynxNode]
+  def removeNodeProperty(nodeId: LynxId, data: Array[String], tx: LynxTransaction = new LynxTransaction {}): Option[LynxNode]
 
-  def removeNodeLabels(nodeId: LynxId, labels: Array[String]): Option[LynxNode]
+  def removeNodeLabels(nodeId: LynxId, labels: Array[String], tx: LynxTransaction = new LynxTransaction {}): Option[LynxNode]
 
-  def removeRelationshipProperty(triple: Seq[LynxValue],  data: Array[String]): Option[Seq[LynxValue]]
+  def removeRelationshipProperty(triple: Seq[LynxValue],  data: Array[String], tx: LynxTransaction = new LynxTransaction {}): Option[Seq[LynxValue]]
 
-  def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String]): Option[Seq[LynxValue]]
+  def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String], tx: LynxTransaction = new LynxTransaction {}): Option[Seq[LynxValue]]
 
 }
 
