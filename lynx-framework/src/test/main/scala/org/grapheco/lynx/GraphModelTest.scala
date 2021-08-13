@@ -6,7 +6,7 @@ import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOI
 class GraphModelTest extends TestBase {
   @Test
   def testGraphModel(): Unit = {
-    var rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), OUTGOING)
+    var rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), OUTGOING, None)
     Assert.assertEquals(4, rs.size)
     rs.foreach {
       item =>
@@ -15,7 +15,7 @@ class GraphModelTest extends TestBase {
         Assert.assertEquals(rel.endNodeId, endNode.id)
     }
 
-    rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), INCOMING)
+    rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), INCOMING, None)
     Assert.assertEquals(4, rs.size)
     rs.foreach {
       item =>
@@ -24,7 +24,7 @@ class GraphModelTest extends TestBase {
         Assert.assertEquals(rel.endNodeId, startNode.id)
     }
 
-    rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), BOTH)
+    rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), BOTH, None)
     Assert.assertEquals(8, rs.size)
   }
 }

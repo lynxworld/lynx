@@ -17,7 +17,7 @@ class CypherCreateTest extends TestBase {
     Assert.assertEquals(REL_SIZE, all_rels.size)
 
     //should invoke CREATE even if result not retrieved
-    runner.run("CREATE (n)", Map.empty)
+    runner.run("CREATE (n)", Map.empty, None)
     Assert.assertEquals(NODE_SIZE + 3, all_nodes.size)
     Assert.assertEquals(REL_SIZE, all_rels.size)
   }
@@ -33,7 +33,7 @@ class CypherCreateTest extends TestBase {
     Assert.assertEquals(REL_SIZE, all_rels.size)
 
     //should invoke CREATE even if result not retrieved
-    runner.run("CREATE (n),(m)", Map.empty)
+    runner.run("CREATE (n),(m)", Map.empty, None)
     Assert.assertEquals(NODE_SIZE + 6, all_nodes.size)
     Assert.assertEquals(REL_SIZE, all_rels.size)
   }

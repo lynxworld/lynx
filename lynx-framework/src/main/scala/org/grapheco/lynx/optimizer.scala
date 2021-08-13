@@ -542,14 +542,14 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
     })
 
     if (labels.nonEmpty) labels.foreach(f => countArray += graphModel.estimateNodeLabel(f))
-    else countArray += graphModel.getAllNodeCount()
+    else countArray += graphModel.getAllNodeCount(None)
 
     if (prop.isDefined) prop.get.foreach(f => countArray += graphModel.estimateNodeProperty(f._1, f._2))
     countArray.min
   }
 
   def estimateRelationshipRow(rel: RelationshipPattern, left: NodePattern, right: NodePattern, graphModel: GraphModel): Long = {
-    if (rel.types.isEmpty) graphModel.getAllRelationshipsCount()
+    if (rel.types.isEmpty) graphModel.getAllRelationshipsCount(None)
     else graphModel.estimateRelationship(rel.types.head.name)
   }
 
