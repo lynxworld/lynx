@@ -30,7 +30,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 
   def compile(query: String): (Statement, Map[String, Any], SemanticState) = queryParser.parse(query)
 
-  def run(query: String, param: Map[String, Any], tx: LynxTransaction = new LynxTransaction {}): LynxResult = {
+  def run(query: String, param: Map[String, Any], tx: Option[LynxTransaction]): LynxResult = {
     val (statement, param2, state) = queryParser.parse(query)
     logger.debug(s"AST tree: ${statement}")
 
@@ -107,7 +107,7 @@ case class PhysicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runne
 }
 
 //TODO: context.context??
-case class ExecutionContext(physicalPlannerContext: PhysicalPlannerContext, statement: Statement, queryParameters: Map[String, Any], tx: LynxTransaction = new LynxTransaction {}) {
+case class ExecutionContext(physicalPlannerContext: PhysicalPlannerContext, statement: Statement, queryParameters: Map[String, Any], tx: Option[LynxTransaction]) {
   val expressionContext = ExpressionContext(this, queryParameters.map(x => x._1 -> physicalPlannerContext.runnerContext.typeSystem.wrap(x._2)))
 }
 
@@ -151,9 +151,9 @@ case class PathTriple(startNode: LynxNode, storedRelation: LynxRelationship, end
 }
 
 trait GraphModel {
-  def getAllNodeCount(): Long = nodes().length
+  def getAllNodeCount(tx: Option[LynxTransaction]): Long = nodes(tx).length
 
-  def getAllRelationshipsCount(): Long = relationships().length
+  def getAllRelationshipsCount(tx: Option[LynxTransaction]): Long = relationships(tx).length
 
   //estimate
   def estimateNodeLabel(labelName: String): Long
@@ -161,15 +161,17 @@ trait GraphModel {
   def estimateRelationship(relType: String): Long
   /////////////
 
-  def relationships(): Iterator[PathTriple]
-  def relationships(relationshipFilter: RelationshipFilter): Iterator[PathTriple] = relationships().filter(f => relationshipFilter.matches(f.storedRelation))
+  def relationships(tx: Option[LynxTransaction]): Iterator[PathTriple]
+  def relationships(relationshipFilter: RelationshipFilter, tx: Option[LynxTransaction]): Iterator[PathTriple] =
+    relationships(tx).filter(f => relationshipFilter.matches(f.storedRelation))
 
-  def paths(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {
+  def paths(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter,
+            direction: SemanticDirection, tx: Option[LynxTransaction]): Iterator[PathTriple] = {
     val rels = direction match {
-      case BOTH => relationships().flatMap(item =>
+      case BOTH => relationships(tx).flatMap(item =>
         Seq(item, item.revert))
-      case INCOMING => relationships().map(_.revert)
-      case OUTGOING => relationships()
+      case INCOMING => relationships(tx).map(_.revert)
+      case OUTGOING => relationships(tx)
     }
 
     rels.filter {
@@ -178,21 +180,21 @@ trait GraphModel {
     }
   }
 
-  def pathsWithLength(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, length:Option[Option[Range]]):Iterator[Seq[PathTriple]]
+  def pathsWithLength(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, length:Option[Option[Range]], tx: Option[LynxTransaction]):Iterator[Seq[PathTriple]]
 
-  def expand(nodeId: LynxId, direction: SemanticDirection): Iterator[PathTriple] = {
+  def expand(nodeId: LynxId, direction: SemanticDirection, tx: Option[LynxTransaction]): Iterator[PathTriple] = {
     val rels = direction match {
-      case BOTH => relationships().flatMap(item =>
+      case BOTH => relationships(tx).flatMap(item =>
         Seq(item, item.revert))
-      case INCOMING => relationships().map(_.revert)
-      case OUTGOING => relationships()
+      case INCOMING => relationships(tx).map(_.revert)
+      case OUTGOING => relationships(tx)
     }
 
     rels.filter(_.startNode.id == nodeId)
   }
 
-  def expand(nodeId: LynxId, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {
-    expand(nodeId, direction).filter(
+  def expand(nodeId: LynxId, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, tx: Option[LynxTransaction]): Iterator[PathTriple] = {
+    expand(nodeId, direction, tx).filter(
       item => {
         val PathTriple(_, rel, endNode, _) = item
         relationshipFilter.matches(rel) && endNodeFilter.matches(endNode)
@@ -200,67 +202,67 @@ trait GraphModel {
     )
   }
 
-  def copyNode(srcNode:LynxNode, maskNode: LynxNode, tx: LynxTransaction = new LynxTransaction {}): Seq[LynxValue]
+  def copyNode(srcNode:LynxNode, maskNode: LynxNode, tx: Option[LynxTransaction]): Seq[LynxValue]
 
-  def mergeNode(nodeFilter: NodeFilter, forceToCreate: Boolean, tx: LynxTransaction = new LynxTransaction {}): LynxNode
-  def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode:LynxNode, rightNode: LynxNode, direction: SemanticDirection, forceToCreate: Boolean, tx: LynxTransaction = new LynxTransaction {}): PathTriple
+  def mergeNode(nodeFilter: NodeFilter, forceToCreate: Boolean, tx: Option[LynxTransaction]): LynxNode
+  def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode:LynxNode, rightNode: LynxNode, direction: SemanticDirection, forceToCreate: Boolean, tx: Option[LynxTransaction]): PathTriple
 
   def createElements[T](
                          nodesInput: Seq[(String, NodeInput)],
                          relsInput: Seq[(String, RelationshipInput)],
                          onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T,
-                         tx: LynxTransaction = new LynxTransaction {}): T
+                         tx: Option[LynxTransaction]): T
 
-  def createIndex(labelName: LabelName, properties: List[PropertyKeyName], tx: LynxTransaction = new LynxTransaction {}): Unit
+  def createIndex(labelName: LabelName, properties: List[PropertyKeyName], tx: Option[LynxTransaction]): Unit
 
-  def getIndexes(): Array[(LabelName, List[PropertyKeyName])]
+  def getIndexes(tx: Option[LynxTransaction]): Array[(LabelName, List[PropertyKeyName])]
 
-  def nodes(): Iterator[LynxNode]
+  def nodes(tx: Option[LynxTransaction]): Iterator[LynxNode]
 
-  def nodes(nodeFilter: NodeFilter): Iterator[LynxNode] = nodes().filter(nodeFilter.matches(_))
+  def nodes(nodeFilter: NodeFilter, tx: Option[LynxTransaction]): Iterator[LynxNode] = nodes(tx).filter(nodeFilter.matches(_))
 
-  def filterNodesWithRelations(nodesIDs: Seq[LynxId]): Seq[LynxId]
+  def filterNodesWithRelations(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Seq[LynxId]
 
-  def deleteRelation(id: LynxId, tx: LynxTransaction = new LynxTransaction {}): Unit
+  def deleteRelation(id: LynxId, tx: Option[LynxTransaction]): Unit
 
-  def deleteRelations(ids: Iterator[LynxId], tx: LynxTransaction = new LynxTransaction {}): Unit
+  def deleteRelations(ids: Iterator[LynxId], tx: Option[LynxTransaction]): Unit
 
-  def deleteRelationsOfNodes(nodesIDs: Seq[LynxId], tx: LynxTransaction = new LynxTransaction {}): Unit
+  def deleteRelationsOfNodes(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Unit
 
-  def deleteFreeNodes(nodesIDs: Seq[LynxId], tx: LynxTransaction = new LynxTransaction {}): Unit
+  def deleteFreeNodes(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Unit
 
-  def deleteNode(id: LynxId, forced: Boolean, tx: LynxTransaction = new LynxTransaction {}): Unit = {
+  def deleteNode(id: LynxId, forced: Boolean, tx: Option[LynxTransaction]): Unit = {
     deleteNodes(Seq(id).toIterator, forced, tx)
   }
 
-  def deleteNodes(nodesIDs: Iterator[LynxId], forced: Boolean, tx: LynxTransaction = new LynxTransaction {}): Unit = {
+  def deleteNodes(nodesIDs: Iterator[LynxId], forced: Boolean, tx: Option[LynxTransaction]): Unit = {
     val ids = nodesIDs.toSeq //TODO fix the risk of out of memory
-    val hasRelNodes = filterNodesWithRelations(ids)
+    val hasRelNodes = filterNodesWithRelations(ids, tx)
     if(!forced){
       if(hasRelNodes.nonEmpty){
         throw ConstrainViolatedException(s"deleting ${hasRelNodes.size} referred nodes")
       }
     }else{
-      deleteRelationsOfNodes(hasRelNodes)
+      deleteRelationsOfNodes(hasRelNodes, tx)
     }
-    deleteFreeNodes(ids)
+    deleteFreeNodes(ids, tx)
   }
 
-  def setNodeProperty(nodeId: LynxId, data: Array[(String ,Any)], cleanExistProperties: Boolean = false, tx: LynxTransaction = new LynxTransaction {}): Option[LynxNode]
+  def setNodeProperty(nodeId: LynxId, data: Array[(String ,Any)], cleanExistProperties: Boolean = false, tx: Option[LynxTransaction]): Option[LynxNode]
 
-  def addNodeLabels(nodeId: LynxId, labels: Array[String], tx: LynxTransaction = new LynxTransaction {}): Option[LynxNode]
+  def addNodeLabels(nodeId: LynxId, labels: Array[String], tx: Option[LynxTransaction]): Option[LynxNode]
 
-  def setRelationshipProperty(triple: Seq[LynxValue],  data: Array[(String ,Any)], tx: LynxTransaction = new LynxTransaction {}): Option[Seq[LynxValue]]
+  def setRelationshipProperty(triple: Seq[LynxValue],  data: Array[(String ,Any)], tx: Option[LynxTransaction]): Option[Seq[LynxValue]]
 
-  def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String], tx: LynxTransaction = new LynxTransaction {}): Option[Seq[LynxValue]]
+  def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String], tx: Option[LynxTransaction]): Option[Seq[LynxValue]]
 
-  def removeNodeProperty(nodeId: LynxId, data: Array[String], tx: LynxTransaction = new LynxTransaction {}): Option[LynxNode]
+  def removeNodeProperty(nodeId: LynxId, data: Array[String], tx: Option[LynxTransaction]): Option[LynxNode]
 
-  def removeNodeLabels(nodeId: LynxId, labels: Array[String], tx: LynxTransaction = new LynxTransaction {}): Option[LynxNode]
+  def removeNodeLabels(nodeId: LynxId, labels: Array[String], tx: Option[LynxTransaction]): Option[LynxNode]
 
-  def removeRelationshipProperty(triple: Seq[LynxValue],  data: Array[String], tx: LynxTransaction = new LynxTransaction {}): Option[Seq[LynxValue]]
+  def removeRelationshipProperty(triple: Seq[LynxValue],  data: Array[String], tx: Option[LynxTransaction]): Option[Seq[LynxValue]]
 
-  def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String], tx: LynxTransaction = new LynxTransaction {}): Option[Seq[LynxValue]]
+  def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String], tx: Option[LynxTransaction]): Option[Seq[LynxValue]]
 
 }
 

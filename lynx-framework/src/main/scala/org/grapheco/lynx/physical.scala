@@ -251,7 +251,7 @@ case class PPTExpandPath(rel: RelationshipPattern, rightNode: NodePattern)(impli
             record0.last.asInstanceOf[LynxNode].id,
             RelationshipFilter(types.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
             NodeFilter(labels2.map(_.name), properties2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-            direction)
+            direction, ctx.tx)
             .map(triple =>
               record0 ++ Seq(triple.storedRelation, triple.endNode))
             .filter(item => {
@@ -286,9 +286,9 @@ case class PPTNodeScan(pattern: NodePattern)(implicit val plannerContext: Physic
 
     DataFrame(Seq(var0.name -> CTNode), () => {
       val nodes = if (labels.isEmpty) {
-        graphModel.nodes(NodeFilter(Seq.empty, properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)))
+        graphModel.nodes(NodeFilter(Seq.empty, properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)), ctx.tx)
       } else
-        graphModel.nodes(NodeFilter(labels.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)))
+        graphModel.nodes(NodeFilter(labels.map(_.name), properties.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)), ctx.tx)
 
       nodes.map(Seq(_))
     })
@@ -364,7 +364,7 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
             NodeFilter(labels1.map(_.name), props1.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
             RelationshipFilter(types.map(_.name), props2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
             NodeFilter(labels3.map(_.name), props3.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-            direction).map(
+            direction, ctx.tx).map(
             triple =>
               Seq(triple.startNode, triple.storedRelation, triple.endNode)
           )
@@ -376,7 +376,7 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
             NodeFilter(labels1.map(_.name), props1.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
             RelationshipFilter(types.map(_.name), props2.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
             NodeFilter(labels3.map(_.name), props3.map(eval(_).asInstanceOf[LynxMap].value).getOrElse(Map.empty)),
-            direction,length).map(
+            direction,length, ctx.tx).map(
             seqTriple =>
               Seq(seqTriple.head.startNode, LynxList(seqTriple.map(f => f.storedRelation).toList), seqTriple.last.endNode)
           )
