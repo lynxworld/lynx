@@ -36,14 +36,14 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 
     val logicalPlannerContext = LogicalPlannerContext(param ++ param2, runnerContext)
     val logicalPlan = logicalPlanner.plan(statement, logicalPlannerContext)
-    logger.info(s"logical plan: \r\n${logicalPlan.pretty}")
+    logger.debug(s"logical plan: \r\n${logicalPlan.pretty}")
 
     val physicalPlannerContext = PhysicalPlannerContext(param ++ param2, runnerContext)
     val physicalPlan = physicalPlanner.plan(logicalPlan)(physicalPlannerContext)
-    logger.info(s"physical plan: \r\n${physicalPlan.pretty}")
+    logger.debug(s"physical plan: \r\n${physicalPlan.pretty}")
 
-    val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan, physicalPlannerContext)
-    logger.info(s"optimized physical plan: \r\n${optimizedPhysicalPlan.pretty}")
+    val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan, physicalPlannerContext, tx)
+    logger.debug(s"optimized physical plan: \r\n${optimizedPhysicalPlan.pretty}")
 
     val ctx = ExecutionContext(physicalPlannerContext, statement, param ++ param2, tx)
     val df = optimizedPhysicalPlan.execute(ctx)
@@ -157,7 +157,7 @@ trait GraphModel {
 
   //estimate
   def estimateNodeLabel(labelName: String): Long
-  def estimateNodeProperty(propertyName: String, value: AnyRef): Long
+  def estimateNodeProperty(labelName: String, propertyName: String, value: AnyRef): Long
   def estimateRelationship(relType: String): Long
   /////////////
 
