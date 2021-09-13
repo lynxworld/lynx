@@ -200,7 +200,7 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
       allNodes.count(p => p.labels.contains(labelName))
     }
 
-    override def estimateNodeProperty(propertyName: String, value: AnyRef): Long = {
+    override def estimateNodeProperty(labelName: String, propertyName: String, value: AnyRef): Long = {
       allNodes.count(p => {
         val a = p.property(propertyName)
         if (a.isDefined){
