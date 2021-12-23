@@ -1,15 +1,11 @@
-package org.grapheco.lynx
+ package org.grapheco.lynx
 
 import java.util.regex.Pattern
-
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.func.{LynxProcedure, LynxProcedureArgument}
-import org.grapheco.lynx.util.{LynxDateTimeUtil, LynxDateUtil, LynxLocalDateTimeUtil, LynxLocalTimeUtil, LynxTimeUtil}
+import org.grapheco.lynx.util.{LynxDateTimeUtil, LynxDateUtil, LynxDurationUtil, LynxLocalDateTimeUtil, LynxLocalTimeUtil, LynxTimeUtil}
 import org.opencypher.v9_0.expressions.{Expression, FunctionInvocation}
-import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPhase
-import org.opencypher.v9_0.frontend.phases.CompilationPhaseTracer.CompilationPhase.AST_REWRITE
-import org.opencypher.v9_0.frontend.phases.{BaseContext, BaseState, Condition, Phase}
-import org.opencypher.v9_0.util.{InputPosition, Rewriter, bottomUp, inSequence}
+import org.opencypher.v9_0.util.InputPosition
 
 import scala.collection.mutable
 
@@ -64,8 +60,7 @@ class DefaultProcedureRegistry(types: TypeSystem, classes: Class[_]*) extends Pr
 
         //TODO: N-tuples
         val outputs = Seq("value" -> types.typeOf(met.getReturnType))
-        register(an.name(), inputs, outputs, (args) =>
-          types.wrap(met.invoke(host, args.map(types.unwrap(_).asInstanceOf[Object]): _*)))
+        register(an.name(), inputs, outputs, (args) => types.wrap(met.invoke(host, args: _*)))
       }
     })
   }
@@ -120,23 +115,6 @@ case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runner
 
 }
 
-case class FunctionMapper(runnerContext: CypherRunnerContext) extends Phase[BaseContext, BaseState, BaseState] {
-  override def phase: CompilationPhase = AST_REWRITE
-
-  override def description: String = "map functions to their procedure implementations"
-
-  override def process(from: BaseState, ignored: BaseContext): BaseState = {
-    val rewriter = inSequence(
-      bottomUp(Rewriter.lift {
-        case func: FunctionInvocation => ProcedureExpression(func)(runnerContext)
-      }))
-    val newStatement = from.statement().endoRewrite(rewriter)
-    from.withStatement(newStatement)
-  }
-
-  override def postConditions: Set[Condition] = Set.empty
-}
-
 class DefaultProcedures {
 
   val booleanPattern = Pattern.compile("true|false", Pattern.CASE_INSENSITIVE)
@@ -146,6 +124,19 @@ class DefaultProcedures {
   def lynx(): String = {
     "lynx-0.3"
   }
+
+  // predicate functions
+  @LynxProcedure(name = "exists")
+  def exists(input: LynxValue): Boolean = {
+    input match {
+      case list: LynxList => ???
+      case _ => {
+        if (input.value != null) true
+        else false
+      }
+    }
+  }
+  // ====================
 
   @LynxProcedure(name = "nodes")
   def nodes(inputs: LynxList): List[LynxNode] = {
@@ -177,25 +168,49 @@ class DefaultProcedures {
   @LynxProcedure(name = "length")
   def length(inputs: LynxList): Int = {
     val list: LynxList = inputs.value.tail.head.asInstanceOf[LynxList]
-    list.value.filter(value => value.isInstanceOf[LynxRelationship]).length
+    list.value.count(value => value.isInstanceOf[LynxRelationship])
   }
 
   @LynxProcedure(name = "size")
   def size(input: LynxValue): Int = {
     input match {
       case l: LynxList => l.value.size
-      case s: LynxString => s.value.size
+      case s: LynxString => s.value.length
+    }
+  }
+
+  private def regularList(list: LynxList): (Int, LynxValue, List[LynxValue]) ={
+    val l = list.value.filter(_.value!=null)
+    if(l.isEmpty) {
+      (0, null, null)
+    }else{
+      (l.size, l.head, l.tail)
     }
   }
 
   @LynxProcedure(name = "sum")
-  def sum(inputs: LynxList): LynxNumber = {
-    inputs.value.map(_.asInstanceOf[LynxNumber]).reduce((a, b) => a + b)
+  def sum(inputs: LynxList): Any = {
+    val (cnt, head, tail) = regularList(inputs)
+    if (cnt==0) return 0.0
+    head match {
+      case h: LynxNumber => tail.asInstanceOf[List[LynxNumber]].foldLeft(h){(a, b) => a + b}.number.doubleValue()
+      case h: LynxDuration => tail.asInstanceOf[List[LynxDuration]].map(_.value).foldLeft(h.value){(a, b) => a.plus(b)}
+    }
   }
 
   @LynxProcedure(name = "avg")
-  def avg(inputs: LynxList): Double = {
-    inputs.value.map(_.asInstanceOf[LynxNumber]).reduce((a, b) => a + b).number.doubleValue() / inputs.value.size
+  def avg(inputs: LynxList): Any = {
+    val (cnt, head, tail) = regularList(inputs)
+    if (cnt==0) return null
+    head match {
+      case h: LynxNumber => tail.asInstanceOf[List[LynxNumber]].foldLeft(h){(a, b) => a + b}.number.doubleValue() / cnt
+      case h: LynxDuration => tail.asInstanceOf[List[LynxDuration]].map(_.value).foldLeft(h.value){(a, b) => a.plus(b)}.dividedBy(cnt)
+    }
+  }
+
+  @LynxProcedure(name = "collect")
+  def collect(inputs: LynxList): LynxList = {
+    inputs
   }
 
   @LynxProcedure(name = "max")
@@ -264,6 +279,13 @@ class DefaultProcedures {
     LynxLocalTimeUtil.now()
   }
 
+  @LynxProcedure(name="duration")
+  def duration(input: LynxValue): LynxDuration = {
+    input match {
+      case LynxString(v) => LynxDurationUtil.parse(v)
+      case LynxMap(v) => LynxDurationUtil.parse(v.asInstanceOf[Map[String, LynxNumber]].mapValues(_.number.doubleValue()))
+    }
+  }
 
   // math functions
   @LynxProcedure(name = "abs")
