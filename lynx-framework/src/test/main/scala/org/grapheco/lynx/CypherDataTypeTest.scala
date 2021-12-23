@@ -93,4 +93,12 @@ class CypherDataTypeTest extends TestBase {
     Assert.assertEquals(OffsetTime.parse("21:40:32.142+01:00"),
       r1.get("n.born").get.asInstanceOf[LynxTime].value)
   }
+
+  @Test
+  def testDurationType(): Unit = {
+    runOnDemoGraph("CREATE (Keanu:person {name:'time1', works: duration('P14DT16H12M'), history: duration({years: 10.2, months: 5, days: 14, hours:16, minutes: 12, seconds: 1, milliseconds: 123, microseconds: 456, nanoseconds: 789})})")
+    val r1 = runOnDemoGraph("match (n:person{name:'time1'}) return n.works, n.history").records().next()
+//    Assert.assertEquals(OffsetTime.parse("21:40:32.142+01:00"),
+//      r1.get("n.born").get.asInstanceOf[LynxTime].value)
+  }
 }

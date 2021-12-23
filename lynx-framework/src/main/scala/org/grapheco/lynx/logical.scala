@@ -79,18 +79,38 @@ case class LPTCreateTranslator(c: Create) extends LPTNodeTranslator {
 }
 
 case class LPTCreate(c: Create)(val in: Option[LPTNode]) extends LPTNode {
+  override val children: Seq[LPTNode] = in.toSeq
 }
+
+//////////////merge//////////////////////
+case class LPTMergeTranslator(m: Merge) extends LPTNodeTranslator {
+  def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
+    val matchInfo = Match(false, m.pattern, Seq.empty, m.where)(m.position)
+    val mergeIn = LPTMatchTranslator(matchInfo).translate(in)
+    val mergeInfo = LPTMerge(m)(Option(mergeIn))
+
+    if (m.actions.nonEmpty) LPTMergeAction(m.actions)(Option(mergeInfo))
+    else mergeInfo
+  }
+}
+case class LPTMerge(m: Merge)(val in: Option[LPTNode]) extends LPTNode {
+  override val children: Seq[LPTNode] = in.toSeq
+}
+case class LPTMergeAction(m: Seq[MergeAction])(val in: Option[LPTNode]) extends LPTNode {
+  override val children: Seq[LPTNode] = in.toSeq
+}
+///////////////////////////////////////
 
 
 //////////////////Delete////////////////
-case class LPTDeleteTranslator(d: Delete) extends LPTNodeTranslator {
+case class LPTDeleteTranslator(delete: Delete) extends LPTNodeTranslator {
   override def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode =
-    LPTDelete(d)(in)
+    LPTDelete(delete)(in.get)
 }
 
-case class LPTDelete(d: Delete)(val in: Option[LPTNode]) extends LPTNode {
+case class LPTDelete(delete: Delete)(val in: LPTNode) extends LPTNode {
+  override val children: Seq[LPTNode] = Seq(in)
 }
-
 ///////////////////////////////////////
 
 
@@ -101,10 +121,8 @@ case class LPTSetClauseTranslator(s: SetClause) extends LPTNodeTranslator {
 }
 
 case class LPTSetClause(d: SetClause)(val in: Option[LPTNode]) extends LPTNode {
-  override val children: Seq[LPTNode] = {
-    if (in.isDefined) Seq(in.get)
-    else Seq()
-  }
+  override val children: Seq[LPTNode] = in.toSeq
+
 }
 ///////////////////////////////////////
 
@@ -115,10 +133,7 @@ case class LPTRemoveTranslator(r: Remove) extends LPTNodeTranslator {
 }
 
 case class LPTRemove(r: Remove)(val in: Option[LPTNode]) extends LPTNode {
-  override val children: Seq[LPTNode] = {
-    if (in.isDefined) Seq(in.get)
-    else Seq()
-  }
+  override val children: Seq[LPTNode] = in.toSeq
 }
 /////////////////////////////////////
 
@@ -134,6 +149,7 @@ case class LPTQueryPartTranslator(part: QueryPart) extends LPTNodeTranslator {
               case w: With => LPTWithTranslator(w)
               case m: Match => LPTMatchTranslator(m)
               case c: Create => LPTCreateTranslator(c)
+              case m: Merge => LPTMergeTranslator(m)
               case d: Delete => LPTDeleteTranslator(d)
               case s: SetClause => LPTSetClauseTranslator(s)
               case r: Remove => LPTRemoveTranslator(r)
@@ -230,8 +246,8 @@ case class LPTWithTranslator(w: With) extends LPTNodeTranslator {
             LPTProjectTranslator(ri),
             LPTWhereTranslator(where),
             LPTSkipTranslator(skip),
-            LPTLimitTranslator(limit),
             LPTOrderByTranslator(orderBy),
+            LPTLimitTranslator(limit),
             LPTSelectTranslator(ri),
             LPTDistinctTranslator(distinct)
           )).translate(in)
@@ -290,7 +306,7 @@ case class LPTDistinct()(val in: LPTNode) extends LPTNode {
 }
 
 ///////////////////////////////////////
-case class LPTJoin()(val a: LPTNode, val b: LPTNode) extends LPTNode {
+case class LPTJoin(val isSingleMatch: Boolean)(val a: LPTNode, val b: LPTNode) extends LPTNode {
   override val children: Seq[LPTNode] = Seq(a, b)
 }
 
@@ -304,12 +320,12 @@ case class LPTMatchTranslator(m: Match) extends LPTNodeTranslator {
     //run match
     val Match(optional, Pattern(patternParts: Seq[PatternPart]), hints, where: Option[Where]) = m
     val parts = patternParts.map(matchPatternPart(_)(plannerContext))
-    val matched = (parts.drop(1)).foldLeft(parts.head)((a, b) => LPTJoin()(a, b))
+    val matched = parts.drop(1).foldLeft(parts.head)((a, b) => LPTJoin(true)(a, b))
     val filtered = LPTWhereTranslator(where).translate(Some(matched))
 
     in match {
       case None => filtered
-      case Some(left) => LPTJoin()(left, filtered)
+      case Some(left) => LPTJoin(false)(left, filtered)
     }
   }
 
@@ -342,4 +358,5 @@ case class LPTMatchTranslator(m: Match) extends LPTNodeTranslator {
     }
   }
 }
+
 case class UnknownASTNodeException(node: ASTNode) extends LynxException

@@ -1,8 +1,7 @@
 package org.grapheco.lynx
 
-import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
-
-import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTDate, CTDateTime, CTLocalDateTime, CTTime, CTLocalTime, CTFloat, CTInteger, CTList, CTMap, CTNode, CTRelationship, CTString, CypherType}
+import java.time.{Duration, LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
+import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTDate, CTDateTime, CTDuration, CTFloat, CTInteger, CTList, CTLocalDateTime, CTLocalTime, CTMap, CTNode, CTRelationship, CTString, CTTime, CypherType}
 
 trait LynxValue {
   def value: Any
@@ -152,6 +151,12 @@ case class LynxTime(offsetTime: OffsetTime) extends LynxTemporalValue {
   def cypherType: LynxType = CTTime
 }
 
+case class LynxDuration(duration: Duration) extends LynxTemporalValue {
+  def value = duration
+
+  def cypherType: LynxType = CTDuration
+}
+
 object LynxNull extends LynxValue {
   override def value: Any = null
 
@@ -162,19 +167,21 @@ trait LynxId {
   val value: Any
 }
 
-trait LynxNode extends LynxValue {
+trait HasProperty {
+  def property(name: String): Option[LynxValue]
+}
+
+trait LynxNode extends LynxValue with HasProperty {
   val id: LynxId
 
   def value = this
 
   def labels: Seq[String]
 
-  def property(name: String): Option[LynxValue]
-
   def cypherType = CTNode
 }
 
-trait LynxRelationship extends LynxValue {
+trait LynxRelationship extends LynxValue  with HasProperty {
   val id: LynxId
   val startNodeId: LynxId
   val endNodeId: LynxId
@@ -182,8 +189,6 @@ trait LynxRelationship extends LynxValue {
   def value = this
 
   def relationType: Option[String]
-
-  def property(name: String): Option[LynxValue]
 
   def cypherType = CTRelationship
 }

@@ -5,11 +5,11 @@ import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.FormatUtils
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.SemanticState
-import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, SemanticDirection}
+import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, Range, SemanticDirection}
 import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
 
 import scala.annotation.tailrec
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable
 
 case class CypherRunnerContext(typeSystem: TypeSystem,
                                procedureRegistry: ProcedureRegistry,
@@ -30,7 +30,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 
   def compile(query: String): (Statement, Map[String, Any], SemanticState) = queryParser.parse(query)
 
-  def run(query: String, param: Map[String, Any]): LynxResult = {
+  def run(query: String, param: Map[String, Any], tx: Option[LynxTransaction]): LynxResult = {
     val (statement, param2, state) = queryParser.parse(query)
     logger.debug(s"AST tree: ${statement}")
 
@@ -42,10 +42,10 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
     val physicalPlan = physicalPlanner.plan(logicalPlan)(physicalPlannerContext)
     logger.debug(s"physical plan: \r\n${physicalPlan.pretty}")
 
-    val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan, physicalPlannerContext)
+    val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan, physicalPlannerContext, tx)
     logger.debug(s"optimized physical plan: \r\n${optimizedPhysicalPlan.pretty}")
 
-    val ctx = ExecutionContext(physicalPlannerContext, statement, param ++ param2)
+    val ctx = ExecutionContext(physicalPlannerContext, statement, param ++ param2, tx)
     val df = optimizedPhysicalPlan.execute(ctx)
 
     new LynxResult() with PlanAware {
@@ -66,6 +66,8 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 
       override def getPhysicalPlan(): PPTNode = physicalPlan
 
+      override def getOptimizerPlan(): PPTNode = optimizedPhysicalPlan
+
       override def cache(): LynxResult = {
         val source = this
         val cached = df.records.toSeq
@@ -84,6 +86,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
       }
     }
   }
+
 }
 
 //TODO: LogicalPlannerContext vs. PhysicalPlannerContext?
@@ -100,11 +103,11 @@ object PhysicalPlannerContext {
     new PhysicalPlannerContext(queryParameters.map(x => x._1 -> runnerContext.typeSystem.wrap(x._2).cypherType).toSeq, runnerContext)
 }
 
-case class PhysicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runnerContext: CypherRunnerContext) {
+case class PhysicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runnerContext: CypherRunnerContext, var pptContext: mutable.Map[String, Any]=mutable.Map.empty) {
 }
 
 //TODO: context.context??
-case class ExecutionContext(physicalPlannerContext: PhysicalPlannerContext, statement: Statement, queryParameters: Map[String, Any]) {
+case class ExecutionContext(physicalPlannerContext: PhysicalPlannerContext, statement: Statement, queryParameters: Map[String, Any], tx: Option[LynxTransaction]) {
   val expressionContext = ExpressionContext(this, queryParameters.map(x => x._1 -> physicalPlannerContext.runnerContext.typeSystem.wrap(x._2)))
 }
 
@@ -124,11 +127,13 @@ trait PlanAware {
   def getLogicalPlan(): LPTNode
 
   def getPhysicalPlan(): PPTNode
+
+  def getOptimizerPlan(): PPTNode
 }
 
 case class NodeFilter(labels: Seq[String], properties: Map[String, LynxValue]) {
   def matches(node: LynxNode): Boolean = (labels, node.labels) match {
-    case (Seq(), _) => properties.forall(p => node.property(p._1).orNull.equals(p._2))
+    case (Seq(), _) => properties.forall(p => node.property(p._1).getOrElse(None).equals(p._2))
     case (_, nodeLabels) => labels.forall(nodeLabels.contains(_)) && properties.forall(p => node.property(p._1).getOrElse(None).equals(p._2))
   }
 }
@@ -146,14 +151,27 @@ case class PathTriple(startNode: LynxNode, storedRelation: LynxRelationship, end
 }
 
 trait GraphModel {
-  def relationships(): Iterator[PathTriple]
+  def getAllNodeCount(tx: Option[LynxTransaction]): Long = nodes(tx).length
 
-  def paths(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {
+  def getAllRelationshipsCount(tx: Option[LynxTransaction]): Long = relationships(tx).length
+
+  //estimate
+  def estimateNodeLabel(labelName: String): Long
+  def estimateNodeProperty(labelName: String, propertyName: String, value: AnyRef): Long
+  def estimateRelationship(relType: String): Long
+  /////////////
+
+  def relationships(tx: Option[LynxTransaction]): Iterator[PathTriple]
+  def relationships(relationshipFilter: RelationshipFilter, tx: Option[LynxTransaction]): Iterator[PathTriple] =
+    relationships(tx).filter(f => relationshipFilter.matches(f.storedRelation))
+
+  def paths(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter,
+            direction: SemanticDirection, tx: Option[LynxTransaction]): Iterator[PathTriple] = {
     val rels = direction match {
-      case BOTH => relationships().flatMap(item =>
+      case BOTH => relationships(tx).flatMap(item =>
         Seq(item, item.revert))
-      case INCOMING => relationships().map(_.revert)
-      case OUTGOING => relationships()
+      case INCOMING => relationships(tx).map(_.revert)
+      case OUTGOING => relationships(tx)
     }
 
     rels.filter {
@@ -162,19 +180,21 @@ trait GraphModel {
     }
   }
 
-  def expand(nodeId: LynxId, direction: SemanticDirection): Iterator[PathTriple] = {
+  def pathsWithLength(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, length:Option[Option[Range]], tx: Option[LynxTransaction]):Iterator[Seq[PathTriple]]
+
+  def expand(nodeId: LynxId, direction: SemanticDirection, tx: Option[LynxTransaction]): Iterator[PathTriple] = {
     val rels = direction match {
-      case BOTH => relationships().flatMap(item =>
+      case BOTH => relationships(tx).flatMap(item =>
         Seq(item, item.revert))
-      case INCOMING => relationships().map(_.revert)
-      case OUTGOING => relationships()
+      case INCOMING => relationships(tx).map(_.revert)
+      case OUTGOING => relationships(tx)
     }
 
     rels.filter(_.startNode.id == nodeId)
   }
 
-  def expand(nodeId: LynxId, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection): Iterator[PathTriple] = {
-    expand(nodeId, direction).filter(
+  def expand(nodeId: LynxId, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, tx: Option[LynxTransaction]): Iterator[PathTriple] = {
+    expand(nodeId, direction, tx).filter(
       item => {
         val PathTriple(_, rel, endNode, _) = item
         relationshipFilter.matches(rel) && endNodeFilter.matches(endNode)
@@ -182,53 +202,67 @@ trait GraphModel {
     )
   }
 
+  def copyNode(srcNode:LynxNode, maskNode: LynxNode, tx: Option[LynxTransaction]): Seq[LynxValue]
+
+  def mergeNode(nodeFilter: NodeFilter, forceToCreate: Boolean, tx: Option[LynxTransaction]): LynxNode
+  def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode:LynxNode, rightNode: LynxNode, direction: SemanticDirection, forceToCreate: Boolean, tx: Option[LynxTransaction]): PathTriple
+
   def createElements[T](
                          nodesInput: Seq[(String, NodeInput)],
                          relsInput: Seq[(String, RelationshipInput)],
-                         onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T): T
+                         onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T,
+                         tx: Option[LynxTransaction]): T
 
-  def createIndex(labelName: LabelName, properties: List[PropertyKeyName]): Unit
+  def createIndex(labelName: LabelName, properties: List[PropertyKeyName], tx: Option[LynxTransaction]): Unit
 
-  def getIndexes(): Array[(LabelName, List[PropertyKeyName])]
+  def getIndexes(tx: Option[LynxTransaction]): Array[(LabelName, List[PropertyKeyName])]
 
-  def nodes(): Iterator[LynxNode]
+  def nodes(tx: Option[LynxTransaction]): Iterator[LynxNode]
 
-  def nodes(nodeFilter: NodeFilter): Iterator[LynxNode] = nodes().filter(nodeFilter.matches(_))
+  def nodes(nodeFilter: NodeFilter, tx: Option[LynxTransaction]): Iterator[LynxNode] = nodes(tx).filter(nodeFilter.matches(_))
 
-  def filterNodesWithRelations(nodesIDs: Seq[LynxId]): Seq[LynxId]
+  def filterNodesWithRelations(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Seq[LynxId]
 
-  def deleteRelationsOfNodes(nodesIDs: Seq[LynxId]): Unit
+  def deleteRelation(id: LynxId, tx: Option[LynxTransaction]): Unit
 
-  def deleteFreeNodes(nodesIDs: Seq[LynxId]): Unit
+  def deleteRelations(ids: Iterator[LynxId], tx: Option[LynxTransaction]): Unit
 
-  def deleteNodes(nodesIDs: Iterator[LynxId], forced: Boolean): Unit = {
+  def deleteRelationsOfNodes(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Unit
+
+  def deleteFreeNodes(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Unit
+
+  def deleteNode(id: LynxId, forced: Boolean, tx: Option[LynxTransaction]): Unit = {
+    deleteNodes(Seq(id).toIterator, forced, tx)
+  }
+
+  def deleteNodes(nodesIDs: Iterator[LynxId], forced: Boolean, tx: Option[LynxTransaction]): Unit = {
     val ids = nodesIDs.toSeq //TODO fix the risk of out of memory
-    val hasRelNodes = filterNodesWithRelations(ids)
+    val hasRelNodes = filterNodesWithRelations(ids, tx)
     if(!forced){
       if(hasRelNodes.nonEmpty){
         throw ConstrainViolatedException(s"deleting ${hasRelNodes.size} referred nodes")
       }
     }else{
-      deleteRelationsOfNodes(hasRelNodes)
+      deleteRelationsOfNodes(hasRelNodes, tx)
     }
-    deleteFreeNodes(ids)
+    deleteFreeNodes(ids, tx)
   }
 
-  def setNodeProperty(nodeId: LynxId, data: Array[(String ,AnyRef)], withReturn: Boolean = true): Option[Seq[LynxValue]]
+  def setNodeProperty(nodeId: LynxId, data: Array[(String ,Any)], cleanExistProperties: Boolean = false, tx: Option[LynxTransaction]): Option[LynxNode]
 
-  def addNodeLabels(nodeId: LynxId, labels: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+  def addNodeLabels(nodeId: LynxId, labels: Array[String], tx: Option[LynxTransaction]): Option[LynxNode]
 
-  def setRelationshipProperty(triple: Seq[LynxValue],  data: Array[(String ,AnyRef)], withReturn: Boolean = true): Option[Seq[LynxValue]]
+  def setRelationshipProperty(triple: Seq[LynxValue],  data: Array[(String ,Any)], tx: Option[LynxTransaction]): Option[Seq[LynxValue]]
 
-  def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+  def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String], tx: Option[LynxTransaction]): Option[Seq[LynxValue]]
 
-  def removeNodeProperty(nodeId: LynxId, data: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+  def removeNodeProperty(nodeId: LynxId, data: Array[String], tx: Option[LynxTransaction]): Option[LynxNode]
 
-  def removeNodeLabels(nodeId: LynxId, labels: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+  def removeNodeLabels(nodeId: LynxId, labels: Array[String], tx: Option[LynxTransaction]): Option[LynxNode]
 
-  def removeRelationshipProperty(triple: Seq[LynxValue],  data: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+  def removeRelationshipProperty(triple: Seq[LynxValue],  data: Array[String], tx: Option[LynxTransaction]): Option[Seq[LynxValue]]
 
-  def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String], withReturn: Boolean = true): Option[Seq[LynxValue]]
+  def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String], tx: Option[LynxTransaction]): Option[Seq[LynxValue]]
 
 }
 
@@ -237,7 +271,7 @@ trait TreeNode {
   val children: Seq[SerialType] = Seq.empty
 
   def pretty: String = {
-    val lines = new ArrayBuffer[String]
+    val lines = new mutable.ArrayBuffer[String]
 
     @tailrec
     def recTreeToString(toPrint: List[TreeNode], prefix: String, stack: List[List[TreeNode]]): Unit = {
