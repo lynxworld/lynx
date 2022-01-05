@@ -167,10 +167,9 @@ class TestBase extends LazyLogging {
       nodesIDs.foreach(id => all_rels --= all_rels.filter(rel => rel.startNodeId==id || rel.endNodeId==id))
     }
 
-    override def deleteFreeNodes(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Unit = {
+    override def deleteNodes(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Unit = {
       nodesIDs.foreach(id => all_nodes --= all_nodes.filter(_.id==id))
     }
-
 
     override def setNodeProperty(nodeId: LynxId, data: Array[(String, Any)], cleanExistProperties: Boolean, tx: Option[LynxTransaction]): Option[LynxNode] = {
       val record = all_nodes.find(n => n.id == nodeId)

@@ -229,13 +229,11 @@ trait GraphModel {
 
   def deleteRelationsOfNodes(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Unit
 
-  def deleteFreeNodes(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Unit
-
-  def deleteNode(id: LynxId, forced: Boolean, tx: Option[LynxTransaction]): Unit = {
-    deleteNodes(Seq(id).toIterator, forced, tx)
-  }
-
-  def deleteNodes(nodesIDs: Iterator[LynxId], forced: Boolean, tx: Option[LynxTransaction]): Unit = {
+  /**
+   * Delete Lynx Nodes Safely.
+   * @param forced if we deleted the nodes as well as all its  relations
+   */
+  def deleteNodesSafely(nodesIDs: Iterator[LynxId], forced: Boolean, tx: Option[LynxTransaction]): Unit = {
     val ids = nodesIDs.toSeq //TODO fix the risk of out of memory
     val hasRelNodes = filterNodesWithRelations(ids, tx)
     if(!forced){
@@ -245,7 +243,17 @@ trait GraphModel {
     }else{
       deleteRelationsOfNodes(hasRelNodes, tx)
     }
-    deleteFreeNodes(ids, tx)
+    deleteNodes(ids, tx)
+  }
+
+  /**
+   * Delete Lynx Nodes. No need to consider it has relations or not, as it will
+   * be called by method: deleteNodesSafely.
+   */
+  def deleteNodes(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Unit
+
+  def deleteNodeSafely(id: LynxId, forced: Boolean, tx: Option[LynxTransaction]): Unit = {
+    deleteNodesSafely(Seq(id).toIterator, forced, tx)
   }
 
   def setNodeProperty(nodeId: LynxId, data: Array[(String ,Any)], cleanExistProperties: Boolean = false, tx: Option[LynxTransaction]): Option[LynxNode]
