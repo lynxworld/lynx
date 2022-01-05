@@ -872,7 +872,7 @@ case class PPTDelete(delete: Delete)(implicit val in: PPTNode, val plannerContex
             val toBeDeleted = row.apply(colSchema._2)
             toBeDeleted.asInstanceOf[LynxNode].id
           })
-          graphModel.deleteNodes(nodeIDs, delete.forced, ctx.tx)
+          graphModel.deleteNodesSafely(nodeIDs, delete.forced, ctx.tx)
         }
       }
     })

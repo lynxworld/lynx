@@ -13,17 +13,6 @@
     </modules>
     <properties/>
 
-    <distributionManagement>
-        <snapshotRepository>
-            <id>sdc</id>
-            <url>http://10.0.82.220:8081/repository/maven-snapshots/</url>
-        </snapshotRepository>
-        <repository>
-            <id>sdc</id>
-            <url>http://10.0.82.220:8081/repository/maven-releases</url>
-        </repository>
-    </distributionManagement>
-
     <build>
         <plugins>
             <plugin>

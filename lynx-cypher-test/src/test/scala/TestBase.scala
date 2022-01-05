@@ -326,10 +326,9 @@ class TestBase(allNodes: ArrayBuffer[TestNode], allRelationships: ArrayBuffer[Te
       nodesIDs.foreach(id => allRelationships --= allRelationships.filter(rel => rel.startNodeId == id || rel.endNodeId == id))
     }
 
-    override def deleteFreeNodes(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Unit = {
+    override def deleteNodes(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Unit = {
       nodesIDs.foreach(id => allNodes --= allNodes.filter(_.id == id))
     }
-
 
     override def setNodeProperty(nodeId: LynxId, data: Array[(String, Any)], cleanExistProperties: Boolean, tx: Option[LynxTransaction]): Option[LynxNode] = {
       val record = allNodes.find(n => n.id == nodeId)
