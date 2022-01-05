@@ -256,21 +256,21 @@ trait GraphModel {
     deleteNodesSafely(Seq(id).toIterator, forced, tx)
   }
 
-  def setNodeProperty(nodeId: LynxId, data: Array[(String ,Any)], cleanExistProperties: Boolean = false, tx: Option[LynxTransaction]): Option[LynxNode]
+  def setNodeProperty(nodeId: LynxId, data: Array[(String ,Any)], cleanExistProperties: Boolean = false, tx: Option[LynxTransaction]): LynxNode
 
-  def addNodeLabels(nodeId: LynxId, labels: Array[String], tx: Option[LynxTransaction]): Option[LynxNode]
+  def addNodeLabels(nodeId: LynxId, labels: Array[String], tx: Option[LynxTransaction]): LynxNode
 
-  def setRelationshipProperty(triple: Seq[LynxValue],  data: Array[(String ,Any)], tx: Option[LynxTransaction]): Option[Seq[LynxValue]]
+  def setRelationshipProperty(rel: LynxRelationship,  data: Array[(String ,Any)], tx: Option[LynxTransaction]): LynxValue
 
-  def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String], tx: Option[LynxTransaction]): Option[Seq[LynxValue]]
+  def setRelationshipTypes(rel: LynxRelationship, labels: Array[String], tx: Option[LynxTransaction]): LynxValue
 
-  def removeNodeProperty(nodeId: LynxId, data: Array[String], tx: Option[LynxTransaction]): Option[LynxNode]
+  def removeNodeProperty(nodeId: LynxId, data: Array[String], tx: Option[LynxTransaction]): LynxNode
 
-  def removeNodeLabels(nodeId: LynxId, labels: Array[String], tx: Option[LynxTransaction]): Option[LynxNode]
+  def removeNodeLabels(nodeId: LynxId, labels: Array[String], tx: Option[LynxTransaction]): LynxNode
 
-  def removeRelationshipProperty(triple: Seq[LynxValue],  data: Array[String], tx: Option[LynxTransaction]): Option[Seq[LynxValue]]
+  def removeRelationshipProperty(rel: LynxRelationship,  data: Array[String], tx: Option[LynxTransaction]): LynxValue
 
-  def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String], tx: Option[LynxTransaction]): Option[Seq[LynxValue]]
+  def removeRelationshipType(rel: LynxRelationship, labels: Array[String], tx: Option[LynxTransaction]): LynxValue
 
 }
 

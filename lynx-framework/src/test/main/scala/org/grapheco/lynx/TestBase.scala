@@ -44,7 +44,7 @@ class TestBase extends LazyLogging {
       all_nodes.filter(l => l.labels.contains(labelName)).count(p => {
 
         val a = p.property(propertyName)
-        if (a.isDefined){
+        if (a.isDefined) {
           if (a.get.value == value) true
           else false
         }
@@ -58,21 +58,21 @@ class TestBase extends LazyLogging {
 
     override def copyNode(srcNode: LynxNode, maskNode: LynxNode, tx: Option[LynxTransaction]): Seq[LynxValue] = {
       val _maskNode = maskNode.asInstanceOf[TestNode]
-      val newSrcNode = TestNode(srcNode.id.value.asInstanceOf[Long], _maskNode.labels, _maskNode.properties.toSeq:_*)
+      val newSrcNode = TestNode(srcNode.id.value.asInstanceOf[Long], _maskNode.labels, _maskNode.properties.toSeq: _*)
       val index = all_nodes.indexWhere(p => p.id == srcNode.id)
       all_nodes(index) = newSrcNode
       Seq(newSrcNode, maskNode)
     }
 
     override def mergeNode(nodeFilter: NodeFilter, forceToCreate: Boolean, tx: Option[LynxTransaction]): LynxNode = {
-      if (forceToCreate){
+      if (forceToCreate) {
         val node = TestNode(all_nodes.size + 1, nodeFilter.labels, nodeFilter.properties.toSeq: _*)
         all_nodes.append(node)
         node
       }
       else {
         val checkMerged = nodes(nodeFilter, None)
-        if (checkMerged.nonEmpty){
+        if (checkMerged.nonEmpty) {
           checkMerged.next()
         }
         else {
@@ -105,10 +105,10 @@ class TestBase extends LazyLogging {
     }
 
     override def createElements[T](
-      nodesInput: Seq[(String, NodeInput)],
-      relsInput: Seq[(String, RelationshipInput)],
-      onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T,
-      tx: Option[LynxTransaction]): T = {
+                                    nodesInput: Seq[(String, NodeInput)],
+                                    relsInput: Seq[(String, RelationshipInput)],
+                                    onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T,
+                                    tx: Option[LynxTransaction]): T = {
 
       var currentNodeId = all_nodes.size
       var currentRelId = all_rels.size
@@ -129,7 +129,7 @@ class TestBase extends LazyLogging {
       val relsMap: Seq[(String, TestRelationship)] = relsInput.map(x => {
         val (varname, input) = x
         currentRelId += 1
-        varname -> TestRelationship(currentRelId, nodeId(input.startNodeRef), nodeId(input.endNodeRef), input.types.headOption, input.props:_*)
+        varname -> TestRelationship(currentRelId, nodeId(input.startNodeRef), nodeId(input.endNodeRef), input.types.headOption, input.props: _*)
       }
       )
 
@@ -160,143 +160,120 @@ class TestBase extends LazyLogging {
     }
 
     override def filterNodesWithRelations(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Seq[LynxId] = {
-      nodesIDs.filter(id => all_rels.filter(rel => rel.startNodeId==id || rel.endNodeId==id).nonEmpty)
+      nodesIDs.filter(id => all_rels.filter(rel => rel.startNodeId == id || rel.endNodeId == id).nonEmpty)
     }
 
     override def deleteRelationsOfNodes(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Unit = {
-      nodesIDs.foreach(id => all_rels --= all_rels.filter(rel => rel.startNodeId==id || rel.endNodeId==id))
+      nodesIDs.foreach(id => all_rels --= all_rels.filter(rel => rel.startNodeId == id || rel.endNodeId == id))
     }
 
     override def deleteNodes(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Unit = {
-      nodesIDs.foreach(id => all_nodes --= all_nodes.filter(_.id==id))
+      nodesIDs.foreach(id => all_nodes --= all_nodes.filter(_.id == id))
     }
 
-    override def setNodeProperty(nodeId: LynxId, data: Array[(String, Any)], cleanExistProperties: Boolean, tx: Option[LynxTransaction]): Option[LynxNode] = {
+    override def setNodeProperty(nodeId: LynxId, data: Array[(String, Any)], cleanExistProperties: Boolean, tx: Option[LynxTransaction]): LynxNode = {
       val record = all_nodes.find(n => n.id == nodeId)
-      if (record.isDefined) {
-        val node = record.get
-        val newNode = {
-          if (cleanExistProperties){
-            TestNode(node.id.value.asInstanceOf[Long], node.labels, data.map(f => (f._1, LynxValue(f._2))):_*)
-          }
-          else {
-            val prop = mutable.Map(node.properties.toSeq:_*)
-            data.foreach(f => {
-              prop(f._1) = LynxValue(f._2)
-            })
-            TestNode(node.id.value.asInstanceOf[Long], node.labels, prop.toSeq: _*)
-          }
+      val node = record.get
+      val newNode = {
+        if (cleanExistProperties) {
+          TestNode(node.id.value.asInstanceOf[Long], node.labels, data.map(f => (f._1, LynxValue(f._2))): _*)
         }
-        val index = all_nodes.indexWhere(p => p == node)
-        all_nodes(index) = newNode
-        Option(newNode)
-      }
-      else None
-    }
-
-    override def addNodeLabels(nodeId: LynxId, labels: Array[String], tx: Option[LynxTransaction]): Option[LynxNode] = {
-      val record = all_nodes.find(n => n.id == nodeId)
-      if (record.isDefined){
-        val node = record.get
-        val newNode = TestNode(node.id.value.asInstanceOf[Long], (node.labels ++ labels).distinct, node.properties.toSeq:_*)
-        all_nodes -= node
-        all_nodes += newNode
-        Option(newNode)
-      }
-      else None
-    }
-
-    override def setRelationshipProperty(triple: Seq[LynxValue], data: Array[(String ,Any)], tx: Option[LynxTransaction]): Option[Seq[LynxValue]] = {
-      val rel = triple(1).asInstanceOf[LynxRelationship]
-      val record = all_rels.find(r => r.id == rel.id)
-      if (record.isDefined){
-        val relation = record.get
-        val property = scala.collection.mutable.Map(relation.properties.toSeq:_*)
-        data.foreach(f => property(f._1) = LynxValue(f._2))
-        val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, relation.relationType, property.toMap.toSeq:_*)
-        all_rels -= relation
-        all_rels += newRelationship
-        Option(Seq(triple.head, newRelationship, triple(2)))
-      }
-      else None
-    }
-
-    override def setRelationshipTypes(triple: Seq[LynxValue], labels: Array[String], tx: Option[LynxTransaction]): Option[Seq[LynxValue]] = {
-      val rel = triple(1).asInstanceOf[LynxRelationship]
-      val record = all_rels.find(r => r.id == rel.id)
-      if (record.isDefined){
-        val relation = record.get
-        val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, Option(labels.head), relation.properties.toSeq:_*)
-        all_rels -= relation
-        all_rels += newRelationship
-        Option(Seq(triple.head, newRelationship, triple(2)))
-      }
-      else None
-    }
-
-    override def removeNodeProperty(nodeId: LynxId, data: Array[String], tx: Option[LynxTransaction]): Option[LynxNode] = {
-      val record = all_nodes.find(n => n.id == nodeId)
-      if (record.isDefined){
-        val node = record.get
-        val property = scala.collection.mutable.Map(node.properties.toSeq:_*)
-        data.foreach(f => {if (property.contains(f)) property -= f} )
-        val newNode = TestNode(node.id.value.asInstanceOf[Long], node.labels, property.toSeq:_*)
-        all_nodes -= node
-        all_nodes += newNode
-        Option(newNode)
-      }
-      else None
-    }
-
-    override def removeNodeLabels(nodeId: LynxId, labels: Array[String], tx: Option[LynxTransaction]): Option[LynxNode] = {
-      val record = all_nodes.find(n => n.id == nodeId)
-      if (record.isDefined){
-        val node = record.get
-        val newNode = TestNode(node.id.value.asInstanceOf[Long], (node.labels.toBuffer -- labels), node.properties.toSeq:_*)
-        all_nodes -= node
-        all_nodes += newNode
-        Option(newNode)
-      }
-      else None
-    }
-
-    override def removeRelationshipProperty(triple: Seq[LynxValue], data: Array[String], tx: Option[LynxTransaction]): Option[Seq[LynxValue]] = {
-      val rel = triple(1).asInstanceOf[LynxRelationship]
-      val record = all_rels.find(r => r.id == rel.id)
-      if (record.isDefined){
-        val relation = record.get
-        val property = scala.collection.mutable.Map(relation.properties.toSeq:_*)
-        data.foreach(f => {if (property.contains(f)) property -= f} )
-        val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, relation.relationType, property.toMap.toSeq:_*)
-        all_rels -= relation
-        all_rels += newRelationship
-        Option(Seq(triple.head, newRelationship, triple(2)))
-      }
-      else None
-    }
-
-    override def removeRelationshipType(triple: Seq[LynxValue], labels: Array[String], tx: Option[LynxTransaction]): Option[Seq[LynxValue]] = {
-      val rel = triple(1).asInstanceOf[LynxRelationship]
-      val record = all_rels.find(r => r.id == rel.id)
-      if (record.isDefined){
-        val relation = record.get
-        val newType: Option[String] = {
-          if (relation.relationType.get == labels.head) None
-          else Option(relation.relationType.get)
+        else {
+          val prop = mutable.Map(node.properties.toSeq: _*)
+          data.foreach(f => {
+            prop(f._1) = LynxValue(f._2)
+          })
+          TestNode(node.id.value.asInstanceOf[Long], node.labels, prop.toSeq: _*)
         }
-        val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, newType, relation.properties.toSeq:_*)
-        all_rels -= relation
-        all_rels += newRelationship
-        Option(Seq(triple.head, newRelationship, triple(2)))
       }
-      else None
+      val index = all_nodes.indexWhere(p => p == node)
+      all_nodes(index) = newNode
+      newNode
+    }
+
+    override def addNodeLabels(nodeId: LynxId, labels: Array[String], tx: Option[LynxTransaction]): LynxNode = {
+      val record = all_nodes.find(n => n.id == nodeId)
+      val node = record.get
+      val newNode = TestNode(node.id.value.asInstanceOf[Long], (node.labels ++ labels).distinct, node.properties.toSeq: _*)
+      all_nodes -= node
+      all_nodes += newNode
+      newNode
+    }
+
+    override def setRelationshipProperty(rel: LynxRelationship, data: Array[(String, Any)], tx: Option[LynxTransaction]): LynxValue = {
+      val record = all_rels.find(r => r.id == rel.id)
+      val relation = record.get
+      val property = scala.collection.mutable.Map(relation.properties.toSeq: _*)
+      data.foreach(f => property(f._1) = LynxValue(f._2))
+      val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, relation.relationType, property.toMap.toSeq: _*)
+      all_rels -= relation
+      all_rels += newRelationship
+      newRelationship
+    }
+
+    override def setRelationshipTypes(rel: LynxRelationship, labels: Array[String], tx: Option[LynxTransaction]): LynxValue = {
+      val record = all_rels.find(r => r.id == rel.id)
+      val relation = record.get
+      val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, Option(labels.head), relation.properties.toSeq: _*)
+      all_rels -= relation
+      all_rels += newRelationship
+      newRelationship
+    }
+
+    override def removeNodeProperty(nodeId: LynxId, data: Array[String], tx: Option[LynxTransaction]): LynxNode = {
+      val record = all_nodes.find(n => n.id == nodeId)
+      val node = record.get
+      val property = scala.collection.mutable.Map(node.properties.toSeq: _*)
+      data.foreach(f => {
+        if (property.contains(f)) property -= f
+      })
+      val newNode = TestNode(node.id.value.asInstanceOf[Long], node.labels, property.toSeq: _*)
+      all_nodes -= node
+      all_nodes += newNode
+      newNode
+    }
+
+    override def removeNodeLabels(nodeId: LynxId, labels: Array[String], tx: Option[LynxTransaction]): LynxNode = {
+      val record = all_nodes.find(n => n.id == nodeId)
+      val node = record.get
+      val newNode = TestNode(node.id.value.asInstanceOf[Long], (node.labels.toBuffer -- labels), node.properties.toSeq: _*)
+      all_nodes -= node
+      all_nodes += newNode
+      newNode
+    }
+
+    override def removeRelationshipProperty(rel: LynxRelationship, data: Array[String], tx: Option[LynxTransaction]): LynxValue = {
+      val record = all_rels.find(r => r.id == rel.id)
+      val relation = record.get
+      val property = scala.collection.mutable.Map(relation.properties.toSeq: _*)
+      data.foreach(f => {
+        if (property.contains(f)) property -= f
+      })
+      val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, relation.relationType, property.toMap.toSeq: _*)
+      all_rels -= relation
+      all_rels += newRelationship
+      newRelationship
+    }
+
+    override def removeRelationshipType(rel: LynxRelationship, labels: Array[String], tx: Option[LynxTransaction]): LynxValue = {
+      val record = all_rels.find(r => r.id == rel.id)
+      val relation = record.get
+      val newType: Option[String] = {
+        if (relation.relationType.get == labels.head) None
+        else Option(relation.relationType.get)
+      }
+      val newRelationship = TestRelationship(relation.id0, relation.startId, relation.endId, newType, relation.properties.toSeq: _*)
+      all_rels -= relation
+      all_rels += newRelationship
+      newRelationship
     }
 
     override def deleteRelations(ids: Iterator[LynxId], tx: Option[LynxTransaction]): Unit = {
-      ids.foreach(rid =>{
+      ids.foreach(rid => {
         deleteRelation(rid, None)
       })
     }
+
     override def deleteRelation(id: LynxId, tx: Option[LynxTransaction]): Unit = {
       all_rels --= all_rels.filter(_.id == id)
     }
@@ -320,7 +297,7 @@ class TestBase extends LazyLogging {
       override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
       override val outputs: Seq[(String, LynxType)] = Seq("number" -> CTInteger)
 
-      override def call(args: Seq[LynxValue]): LynxValue=
+      override def call(args: Seq[LynxValue]): LynxValue =
         LynxInteger(args.head.value.toString.toInt)
     })
   }
@@ -334,6 +311,7 @@ class TestBase extends LazyLogging {
       rs
     }
   }
+
   protected def runOnDemoGraph2(query: String, param: Map[String, Any] = Map.empty[String, Any]): LynxResult = {
     runner.compile(query)
     Profiler.timing {
