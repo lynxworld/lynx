@@ -92,15 +92,18 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 //TODO: LogicalPlannerContext vs. PhysicalPlannerContext?
 object LogicalPlannerContext {
   def apply(queryParameters: Map[String, Any], runnerContext: CypherRunnerContext): LogicalPlannerContext =
-    new LogicalPlannerContext(queryParameters.map(x => x._1 -> runnerContext.typeSystem.wrap(x._2).cypherType).toSeq, runnerContext)
+    new LogicalPlannerContext(
+      queryParameters.mapValues(runnerContext.typeSystem.wrap).mapValues(_.cypherType).toSeq,
+      runnerContext)
 }
 
-case class LogicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runnerContext: CypherRunnerContext) {
-}
+case class LogicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runnerContext: CypherRunnerContext)
 
 object PhysicalPlannerContext {
   def apply(queryParameters: Map[String, Any], runnerContext: CypherRunnerContext): PhysicalPlannerContext =
-    new PhysicalPlannerContext(queryParameters.map(x => x._1 -> runnerContext.typeSystem.wrap(x._2).cypherType).toSeq, runnerContext)
+    new PhysicalPlannerContext(
+      queryParameters.mapValues(runnerContext.typeSystem.wrap).mapValues(_.cypherType).toSeq,
+      runnerContext)
 }
 
 case class PhysicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runnerContext: CypherRunnerContext, var pptContext: mutable.Map[String, Any]=mutable.Map.empty) {
@@ -131,146 +134,265 @@ trait PlanAware {
   def getOptimizerPlan(): PPTNode
 }
 
+/**
+ * labels note: the node with both LABEL1 and LABEL2 labels.
+ * @param labels label names
+ * @param properties filter property names
+ */
 case class NodeFilter(labels: Seq[String], properties: Map[String, LynxValue]) {
-  def matches(node: LynxNode): Boolean = (labels, node.labels) match {
-    case (Seq(), _) => properties.forall(p => node.property(p._1).getOrElse(None).equals(p._2))
-    case (_, nodeLabels) => labels.forall(nodeLabels.contains(_)) && properties.forall(p => node.property(p._1).getOrElse(None).equals(p._2))
-  }
+  def matches(node: LynxNode): Boolean = labels.forall(node.labels.map(_.name).contains) &&
+    properties.forall { case (propertyName, value) => node.property(propertyName).exists(value.equals) }
 }
 
+/**
+ * types note: the relationship of type TYPE1 or of type TYPE2.
+ * @param types type names
+ * @param properties filter property names
+ */
 case class RelationshipFilter(types: Seq[String], properties: Map[String, LynxValue]) {
-  def matches(rel: LynxRelationship): Boolean = (types, rel.relationType) match {
+  def matches(relationship: LynxRelationship): Boolean = ((types, relationship.relationType) match {
     case (Seq(), _) => true
     case (_, None) => false
-    case (_, Some(relationType)) => types.contains(relationType)
-  }
+    case (_, Some(typeName)) => types.map(LynxRelationshipType.fromName).contains(typeName) // TODO: how to parse String to RelationshipType
+  }) && properties.forall { case (propertyName, value) => relationship.property(propertyName).exists(value.equals) }
 }
 
 case class PathTriple(startNode: LynxNode, storedRelation: LynxRelationship, endNode: LynxNode, reverse: Boolean = false) {
-  def revert = PathTriple(endNode, storedRelation, startNode, !reverse)
+  def revert: PathTriple = PathTriple(endNode, storedRelation, startNode, !reverse)
 }
 
-trait GraphModel {
-  def getAllNodeCount(tx: Option[LynxTransaction]): Long = nodes(tx).length
+trait Statistics {
 
-  def getAllRelationshipsCount(tx: Option[LynxTransaction]): Long = relationships(tx).length
+  def nodeNumber: Long
 
-  //estimate
-  def estimateNodeLabel(labelName: String): Long
-  def estimateNodeProperty(labelName: String, propertyName: String, value: AnyRef): Long
-  def estimateRelationship(relType: String): Long
-  /////////////
+  def nodeNumberOfLabel(labelName: LynxNodeLabel): Long
 
-  def relationships(tx: Option[LynxTransaction]): Iterator[PathTriple]
-  def relationships(relationshipFilter: RelationshipFilter, tx: Option[LynxTransaction]): Iterator[PathTriple] =
-    relationships(tx).filter(f => relationshipFilter.matches(f.storedRelation))
+  def nodeNumberOfProperty(labelName: LynxNodeLabel, propertyName: LynxPropertyKey, value: LynxValue): Long
 
-  def paths(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter,
-            direction: SemanticDirection, tx: Option[LynxTransaction]): Iterator[PathTriple] = {
-    val rels = direction match {
-      case BOTH => relationships(tx).flatMap(item =>
-        Seq(item, item.revert))
-      case INCOMING => relationships(tx).map(_.revert)
-      case OUTGOING => relationships(tx)
+  def relationshipNumber: Long
+
+  def relationshipNumberOfType(typeName: LynxRelationshipType): Long
+}
+
+case class Index(labelName: LynxNodeLabel, properties: Set[LynxPropertyKey])
+
+trait IndexManager {
+
+  def createIndex(index: Index): Unit
+
+  def dropIndex(index: Index): Unit
+
+  def indexes: Array[Index]
+}
+
+trait WriteTask {
+
+  def createElements[T](nodesInput: Seq[(String, NodeInput)],
+                        relationshipsInput: Seq[(String, RelationshipInput)],
+                        onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T): T
+
+  def deleteRelations(ids: Iterator[LynxId]): Unit
+
+  def deleteNodes(ids: Seq[LynxId]): Unit
+
+  def setNodesProperties(nodeIds: Iterator[LynxId], data: Array[(LynxPropertyKey ,Any)], cleanExistProperties: Boolean = false): LynxNode
+
+  def setNodesLabels(nodeIds: Iterator[LynxId], labels: Array[LynxNodeLabel]): LynxNode
+
+  def setRelationshipsProperties(relationships: Iterator[LynxRelationship],  data: Array[(LynxPropertyKey ,Any)]): LynxValue
+
+  def setRelationshipsType(relationships: Iterator[LynxRelationship], typeName: LynxRelationshipType): LynxValue
+
+  def removeNodesProperties(nodeIds: Iterator[LynxId], data: Array[LynxPropertyKey]): LynxNode
+
+  def removeNodesLabels(nodeIds: Iterator[LynxId], labels: Array[LynxNodeLabel]): LynxNode
+
+  def removeRelationshipsProperties(relationships: Iterator[LynxRelationship],  data: Array[LynxPropertyKey]): LynxValue
+
+  def removeRelationshipsType(relationships: Iterator[LynxRelationship], typeName: LynxRelationshipType): LynxValue
+
+  def commit: Boolean
+
+}
+
+
+trait GraphModel{
+
+  /**
+   *
+   * @return
+   */
+  def statistics: Statistics = new Statistics {
+    override def nodeNumber: Long = 0
+
+    override def nodeNumberOfLabel(labelName: LynxNodeLabel): Long = 0
+
+    override def nodeNumberOfProperty(labelName: LynxNodeLabel, propertyName: LynxPropertyKey, value: LynxValue): Long = 0
+
+    override def relationshipNumber: Long = 0
+
+    override def relationshipNumberOfType(typeName: LynxRelationshipType): Long = 0
+  }
+
+  /**
+   *
+   * @return
+   */
+  def indexManager: IndexManager = new IndexManager {
+    override def createIndex(index: Index): Unit = throw NoIndexManagerException(s"There is no index manager to handle index creation")
+
+    override def dropIndex(index: Index): Unit = throw NoIndexManagerException(s"There is no index manager to handle index dropping")
+
+    override def indexes: Array[Index] = Array.empty
+  }
+
+  /**
+   *
+   * @return
+   */
+  def writeTask: WriteTask
+
+  /*
+    Parse the name string to value of labels, types and propertyKeys
+   */
+  def toLabel(name: String): LynxNodeLabel = LynxNodeLabel.fromName(name)
+
+  def toType(name: String): LynxRelationshipType = LynxRelationshipType.fromName(name)
+
+  def toPropertyKey(name: String): LynxPropertyKey = LynxPropertyKey.fromName(name)
+
+  /**
+   *
+   * @return
+   */
+  def nodes(): Iterator[LynxNode]
+
+  def nodes(nodeFilter: NodeFilter): Iterator[LynxNode] = nodes().filter(nodeFilter.matches)
+
+  /**
+   *
+   * @return
+   */
+  def relationships(): Iterator[PathTriple]
+
+  def relationships(relationshipFilter: RelationshipFilter): Iterator[PathTriple] = relationships().filter(f => relationshipFilter.matches(f.storedRelation))
+
+  def nodeCount: Long = nodes().length
+
+  def relationshipsCount: Long = relationships().length
+
+  /*
+    Create and delete of nodes and relationships.
+    Write operations about label, type and property.
+   */
+  def createElements[T](nodesInput: Seq[(String, NodeInput)],
+                        relationshipsInput: Seq[(String, RelationshipInput)],
+                        onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T): T =
+    this.writeTask.createElements(nodesInput, relationshipsInput, onCreated)
+
+  def deleteRelations(ids: Iterator[LynxId]): Unit = this.writeTask.deleteRelations(ids)
+
+  def deleteNodes(ids: Seq[LynxId]): Unit = this.writeTask.deleteNodes(ids)
+
+  def setNodesProperties(nodeIds: Iterator[LynxId], data: Array[(String ,Any)], cleanExistProperties: Boolean = false): LynxNode =
+    this.writeTask.setNodesProperties(nodeIds, data.map(kv => (toPropertyKey(kv._1), kv._2)), cleanExistProperties)
+
+  def setNodesLabels(nodeIds: Iterator[LynxId], labels: Array[String]): LynxNode =
+    this.writeTask.setNodesLabels(nodeIds, labels.map(toLabel))
+
+  def setRelationshipsProperties(relationships: Iterator[LynxRelationship],  data: Array[(String ,Any)]): LynxValue =
+    this.writeTask.setRelationshipsProperties(relationships, data.map(kv => (toPropertyKey(kv._1), kv._2)))
+
+  def setRelationshipsType(relationships: Iterator[LynxRelationship], theType: String): LynxValue =
+    this.writeTask.setRelationshipsType(relationships, toType(theType))
+
+  def removeNodesProperties(nodeIds: Iterator[LynxId], data: Array[String]): LynxNode =
+    this.writeTask.removeNodesProperties(nodeIds, data.map(toPropertyKey))
+
+  def removeNodesLabels(nodeIds: Iterator[LynxId], labels: Array[String]): LynxNode =
+    this.writeTask.removeNodesLabels(nodeIds, labels.map(toLabel))
+
+  def removeRelationshipsProperties(relationships: Iterator[LynxRelationship],  data: Array[String]): LynxValue =
+    this.writeTask.removeRelationshipsProperties(relationships, data.map(toPropertyKey))
+
+  def removeRelationshipType(relationships: Iterator[LynxRelationship], theType: String): LynxValue =
+    this.writeTask.removeRelationshipsType(relationships, toType(theType))
+
+  def deleteNodesSafely(nodesIDs: Iterator[LynxId], forced: Boolean): Unit = {
+    val ids = nodesIDs.toSet
+    val affectedRelationships = relationships().map(_.storedRelation)
+      .filter(rel => ids.contains(rel.startNodeId) || ids.contains(rel.endNodeId))
+    if (affectedRelationships.nonEmpty) {
+      if (forced)
+        deleteRelations(affectedRelationships.map(_.id))
+      else
+        throw ConstrainViolatedException(s"deleting referred nodes")
     }
+    deleteNodes(ids.toSeq)
+  }
 
-    rels.filter {
+  def commit: Boolean = this.writeTask.commit
+
+  /*
+    Path query and expand of node.
+    TODO: length
+   */
+  def paths(startNodeFilter: NodeFilter,
+            relationshipFilter: RelationshipFilter,
+            endNodeFilter: NodeFilter,
+            direction: SemanticDirection,
+            length: (Int, Int)): Iterator[PathTriple] =
+    (direction match {
+      case BOTH => relationships().flatMap(item =>
+        Seq(item, item.revert))
+      case INCOMING => relationships().map(_.revert)
+      case OUTGOING => relationships()
+    }).filter {
       case PathTriple(startNode, rel, endNode, _) =>
         relationshipFilter.matches(rel) && startNodeFilter.matches(startNode) && endNodeFilter.matches(endNode)
     }
-  }
 
-  def pathsWithLength(startNodeFilter: NodeFilter, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, length:Option[Option[Range]], tx: Option[LynxTransaction]):Iterator[Seq[PathTriple]]
-
-  def expand(nodeId: LynxId, direction: SemanticDirection, tx: Option[LynxTransaction]): Iterator[PathTriple] = {
-    val rels = direction match {
-      case BOTH => relationships(tx).flatMap(item =>
+  def expand(nodeId: LynxId, direction: SemanticDirection): Iterator[PathTriple] = {
+    (direction match {
+      case BOTH => relationships().flatMap(item =>
         Seq(item, item.revert))
-      case INCOMING => relationships(tx).map(_.revert)
-      case OUTGOING => relationships(tx)
+      case INCOMING => relationships().map(_.revert)
+      case OUTGOING => relationships()
+    }).filter(_.startNode.id == nodeId)
+  }
+
+  def expand(nodeId: LynxId,
+             relationshipFilter: RelationshipFilter,
+             endNodeFilter: NodeFilter,
+             direction: SemanticDirection ): Iterator[PathTriple] =
+    expand(nodeId, direction).filter { pathTriple =>
+      relationshipFilter.matches(pathTriple.storedRelation) && endNodeFilter.matches(pathTriple.endNode)
     }
 
-    rels.filter(_.startNode.id == nodeId)
-  }
-
-  def expand(nodeId: LynxId, relationshipFilter: RelationshipFilter, endNodeFilter: NodeFilter, direction: SemanticDirection, tx: Option[LynxTransaction]): Iterator[PathTriple] = {
-    expand(nodeId, direction, tx).filter(
-      item => {
-        val PathTriple(_, rel, endNode, _) = item
-        relationshipFilter.matches(rel) && endNodeFilter.matches(endNode)
-      }
-    )
-  }
-
-  def copyNode(srcNode:LynxNode, maskNode: LynxNode, tx: Option[LynxTransaction]): Seq[LynxValue]
-
-  def mergeNode(nodeFilter: NodeFilter, forceToCreate: Boolean, tx: Option[LynxTransaction]): LynxNode
-  def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode:LynxNode, rightNode: LynxNode, direction: SemanticDirection, forceToCreate: Boolean, tx: Option[LynxTransaction]): PathTriple
-
-  def createElements[T](
-                         nodesInput: Seq[(String, NodeInput)],
-                         relsInput: Seq[(String, RelationshipInput)],
-                         onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T,
-                         tx: Option[LynxTransaction]): T
-
-  def createIndex(labelName: LabelName, properties: List[PropertyKeyName], tx: Option[LynxTransaction]): Unit
-
-  def getIndexes(tx: Option[LynxTransaction]): Array[(LabelName, List[PropertyKeyName])]
-
-  def nodes(tx: Option[LynxTransaction]): Iterator[LynxNode]
-
-  def nodes(nodeFilter: NodeFilter, tx: Option[LynxTransaction]): Iterator[LynxNode] = nodes(tx).filter(nodeFilter.matches(_))
-
-  def filterNodesWithRelations(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Seq[LynxId]
-
-  def deleteRelation(id: LynxId, tx: Option[LynxTransaction]): Unit
-
-  def deleteRelations(ids: Iterator[LynxId], tx: Option[LynxTransaction]): Unit
-
-  def deleteRelationsOfNodes(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Unit
-
-  /**
-   * Delete Lynx Nodes Safely.
-   * @param forced if we deleted the nodes as well as all its  relations
+  /*
+    Operations of indexes
    */
-  def deleteNodesSafely(nodesIDs: Iterator[LynxId], forced: Boolean, tx: Option[LynxTransaction]): Unit = {
-    val ids = nodesIDs.toSeq //TODO fix the risk of out of memory
-    val hasRelNodes = filterNodesWithRelations(ids, tx)
-    if(!forced){
-      if(hasRelNodes.nonEmpty){
-        throw ConstrainViolatedException(s"deleting ${hasRelNodes.size} referred nodes")
-      }
-    }else{
-      deleteRelationsOfNodes(hasRelNodes, tx)
-    }
-    deleteNodes(ids, tx)
-  }
 
-  /**
-   * Delete Lynx Nodes. No need to consider it has relations or not, as it will
-   * be called by method: deleteNodesSafely.
+  def createIndex(labelName: String, properties: Set[String]): Unit =
+    this.indexManager.createIndex(Index(toLabel(labelName), properties.map(toPropertyKey)))
+
+  def dropIndex(labelName: String, properties: Set[String]): Unit =
+    this.indexManager.dropIndex(Index(toLabel(labelName), properties.map(toPropertyKey)))
+
+  def indexes: Array[(String, Set[String])] =
+    this.indexManager.indexes.map{ case Index(label, properties) => (label.name, properties.map(_.name))}
+
+  /*
+    Operations of estimating count.
    */
-  def deleteNodes(nodesIDs: Seq[LynxId], tx: Option[LynxTransaction]): Unit
+  def estimateNodeLabel(labelName: String): Long =
+    this.statistics.nodeNumberOfLabel(toLabel(labelName))
 
-  def deleteNodeSafely(id: LynxId, forced: Boolean, tx: Option[LynxTransaction]): Unit = {
-    deleteNodesSafely(Seq(id).toIterator, forced, tx)
-  }
+  def estimateNodeProperty(labelName: String, propertyName: String, value: AnyRef): Long =
+    this.statistics.nodeNumberOfProperty(toLabel(labelName), toPropertyKey(propertyName), LynxValue(value))
 
-  def setNodeProperty(nodeId: LynxId, data: Array[(String ,Any)], cleanExistProperties: Boolean = false, tx: Option[LynxTransaction]): LynxNode
-
-  def addNodeLabels(nodeId: LynxId, labels: Array[String], tx: Option[LynxTransaction]): LynxNode
-
-  def setRelationshipProperty(rel: LynxRelationship,  data: Array[(String ,Any)], tx: Option[LynxTransaction]): LynxValue
-
-  def setRelationshipTypes(rel: LynxRelationship, labels: Array[String], tx: Option[LynxTransaction]): LynxValue
-
-  def removeNodeProperty(nodeId: LynxId, data: Array[String], tx: Option[LynxTransaction]): LynxNode
-
-  def removeNodeLabels(nodeId: LynxId, labels: Array[String], tx: Option[LynxTransaction]): LynxNode
-
-  def removeRelationshipProperty(rel: LynxRelationship,  data: Array[String], tx: Option[LynxTransaction]): LynxValue
-
-  def removeRelationshipType(rel: LynxRelationship, labels: Array[String], tx: Option[LynxTransaction]): LynxValue
+  def estimateRelationship(relType: String): Long =
+    this.statistics.relationshipNumberOfType(toType(relType))
 
 }
 
@@ -316,5 +438,9 @@ case class ConstrainViolatedException(msg: String) extends LynxException {
 }
 
 case class ProcedureUnregisteredException(msg: String) extends LynxException {
+  override def getMessage: String = msg
+}
+
+case class NoIndexManagerException(msg: String) extends LynxException {
   override def getMessage: String = msg
 }

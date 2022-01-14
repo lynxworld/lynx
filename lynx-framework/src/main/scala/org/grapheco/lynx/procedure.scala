@@ -415,7 +415,7 @@ class DefaultProcedures {
   // list function
   @LynxProcedure(name = "labels")
   def labels(x: LynxNode): Seq[String] = {
-    x.labels
+    x.labels.map(_.name)
   }
 
   // scalar functions

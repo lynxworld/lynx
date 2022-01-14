@@ -549,11 +549,11 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
       }
       else minLabelAndCount._2
     }
-    else graphModel.getAllNodeCount(tx)
+    else graphModel.nodeCount
   }
 
   def estimateRelationshipRow(rel: RelationshipPattern, left: NodePattern, right: NodePattern, graphModel: GraphModel, tx: Option[LynxTransaction]): Long = {
-    if (rel.types.isEmpty) graphModel.getAllRelationshipsCount(None)
+    if (rel.types.isEmpty) graphModel.relationshipsCount
     else graphModel.estimateRelationship(rel.types.head.name)
   }
 
