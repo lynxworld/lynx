@@ -1,7 +1,9 @@
 package org.grapheco.lynx
 
+import org.grapheco.lynx
+
 import java.time.{Duration, LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
-import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTDate, CTDateTime, CTDuration, CTFloat, CTInteger, CTList, CTLocalDateTime, CTLocalTime, CTMap, CTNode, CTRelationship, CTString, CTTime, CypherType}
+import org.opencypher.v9_0.util.symbols.{BooleanType, CTAny, CTBoolean, CTDate, CTDateTime, CTDuration, CTFloat, CTInteger, CTList, CTLocalDateTime, CTLocalTime, CTMap, CTNode, CTRelationship, CTString, CTTime, CypherType, DateTimeType, DateType, FloatType, IntegerType, NodeType, RelationshipType, StringType}
 
 trait LynxValue {
   def value: Any
@@ -27,7 +29,7 @@ trait LynxNumber extends LynxValue {
 }
 
 case class LynxInteger(v: Long) extends LynxNumber {
-  def value = v
+  def value: Long = v
 
   def number: Number = v
 
@@ -53,15 +55,15 @@ case class LynxInteger(v: Long) extends LynxNumber {
 
   override def <=(lynxValue: LynxValue): Boolean = this.value <= lynxValue.asInstanceOf[LynxInteger].value
 
-  def cypherType = CTInteger
+  def cypherType: IntegerType = CTInteger
 }
 
 case class LynxDouble(v: Double) extends LynxNumber {
-  def value = v
+  def value: Double = v
 
   def number: Number = v
 
-  def cypherType = CTFloat
+  def cypherType: FloatType = CTFloat
 
   def +(that: LynxNumber): LynxNumber = {
     that match {
@@ -87,9 +89,9 @@ case class LynxDouble(v: Double) extends LynxNumber {
 }
 
 case class LynxString(v: String) extends LynxValue {
-  def value = v
+  def value: String = v
 
-  def cypherType = CTString
+  def cypherType: StringType = CTString
 
   override def >(lynxValue: LynxValue): Boolean = this.value > lynxValue.asInstanceOf[LynxString].value
 
@@ -101,21 +103,21 @@ case class LynxString(v: String) extends LynxValue {
 }
 
 case class LynxBoolean(v: Boolean) extends LynxValue {
-  def value = v
+  def value: Boolean = v
 
-  def cypherType = CTBoolean
+  def cypherType: BooleanType = CTBoolean
 }
 
 trait LynxCompositeValue extends LynxValue
 
 case class LynxList(v: List[LynxValue]) extends LynxCompositeValue {
-  override def value = v
+  override def value: List[LynxValue] = v
 
   override def cypherType: CypherType = CTList(CTAny)
 }
 
 case class LynxMap(v: Map[String, LynxValue]) extends LynxCompositeValue {
-  override def value = v
+  override def value: Map[String, LynxValue] = v
 
   override def cypherType: CypherType = CTMap
 }
@@ -123,36 +125,36 @@ case class LynxMap(v: Map[String, LynxValue]) extends LynxCompositeValue {
 trait LynxTemporalValue extends LynxValue
 
 case class LynxDate(localDate: LocalDate) extends LynxTemporalValue {
-  def value = localDate
-  def cypherType = CTDate
+  def value: LocalDate = localDate
+  def cypherType: DateType = CTDate
 }
 
 case class LynxDateTime(zonedDateTime: ZonedDateTime) extends LynxTemporalValue {
-  def value = zonedDateTime
+  def value: ZonedDateTime = zonedDateTime
 
-  def cypherType = CTDateTime
+  def cypherType: DateTimeType = CTDateTime
 }
 
 case class LynxLocalDateTime(localDateTime: LocalDateTime) extends LynxTemporalValue {
-  def value = localDateTime
+  def value: LocalDateTime = localDateTime
 
   def cypherType: LynxType = CTLocalDateTime
 }
 
 case class LynxLocalTime(localTime: LocalTime) extends LynxTemporalValue {
-  def value = localTime
+  def value: LocalTime = localTime
 
   def cypherType: LynxType = CTLocalTime
 }
 
 case class LynxTime(offsetTime: OffsetTime) extends LynxTemporalValue {
-  def value = offsetTime
+  def value: OffsetTime = offsetTime
 
   def cypherType: LynxType = CTTime
 }
 
 case class LynxDuration(duration: Duration) extends LynxTemporalValue {
-  def value = duration
+  def value: Duration = duration
 
   def cypherType: LynxType = CTDuration
 }
@@ -167,18 +169,36 @@ trait LynxId {
   val value: Any
 }
 
+object LynxNodeLabel {
+  def fromName(name: String): LynxNodeLabel =
+    new LynxNodeLabel(name) {override val name: String = name}
+}
+abstract case class LynxNodeLabel(value: Any) {val name: String}
+
+object LynxRelationshipType {
+  def fromName(name: String): LynxRelationshipType =
+    new LynxRelationshipType(name) {override val name: String = name}
+}
+abstract case class LynxRelationshipType(value: Any) {val name: String}
+
+object LynxPropertyKey {
+  def fromName(name: String): LynxPropertyKey =
+    new LynxPropertyKey(name) {override val name: String = name}
+}
+abstract case class LynxPropertyKey(value: Any) {val name: String}
+
 trait HasProperty {
-  def property(name: String): Option[LynxValue]
+  def property(propertyKey: String): Option[LynxValue]
 }
 
 trait LynxNode extends LynxValue with HasProperty {
   val id: LynxId
 
-  def value = this
+  def value: LynxNode = this
 
-  def labels: Seq[String]
+  def labels: Seq[LynxNodeLabel]
 
-  def cypherType = CTNode
+  def cypherType: NodeType = CTNode
 }
 
 trait LynxRelationship extends LynxValue  with HasProperty {
@@ -186,11 +206,11 @@ trait LynxRelationship extends LynxValue  with HasProperty {
   val startNodeId: LynxId
   val endNodeId: LynxId
 
-  def value = this
+  def value: LynxRelationship = this
 
-  def relationType: Option[String]
+  def relationType: Option[LynxRelationshipType]
 
-  def cypherType = CTRelationship
+  def cypherType: RelationshipType = CTRelationship
 }
 
 object LynxValue {

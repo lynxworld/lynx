@@ -29,12 +29,13 @@ class TestBase extends LazyLogging {
     TestRelationship(4, 3, 4, Some("KNOWS")),
     TestRelationship(3, 1, 3, None)
   )
-  val allIndex = ArrayBuffer[(LabelName, List[PropertyKeyName])]()
+  val allIndex = ArrayBuffer[(LynxNodeLabel, List[PropertyKeyName])]()
 
   val NODE_SIZE = all_nodes.size
   val REL_SIZE = all_rels.size
 
   val model = new GraphModel {
+
 
     override def estimateNodeLabel(labelName: String): Long = {
       all_nodes.count(p => p.labels.contains(labelName))
@@ -56,53 +57,6 @@ class TestBase extends LazyLogging {
       all_rels.count(p => p.relationType.get == relType)
     }
 
-    override def copyNode(srcNode: LynxNode, maskNode: LynxNode, tx: Option[LynxTransaction]): Seq[LynxValue] = {
-      val _maskNode = maskNode.asInstanceOf[TestNode]
-      val newSrcNode = TestNode(srcNode.id.value.asInstanceOf[Long], _maskNode.labels, _maskNode.properties.toSeq: _*)
-      val index = all_nodes.indexWhere(p => p.id == srcNode.id)
-      all_nodes(index) = newSrcNode
-      Seq(newSrcNode, maskNode)
-    }
-
-    override def mergeNode(nodeFilter: NodeFilter, forceToCreate: Boolean, tx: Option[LynxTransaction]): LynxNode = {
-      if (forceToCreate) {
-        val node = TestNode(all_nodes.size + 1, nodeFilter.labels, nodeFilter.properties.toSeq: _*)
-        all_nodes.append(node)
-        node
-      }
-      else {
-        val checkMerged = nodes(nodeFilter, None)
-        if (checkMerged.nonEmpty) {
-          checkMerged.next()
-        }
-        else {
-          val node = TestNode(all_nodes.size + 1, nodeFilter.labels, nodeFilter.properties.toSeq: _*)
-          all_nodes.append(node)
-          node
-        }
-      }
-    }
-
-    override def mergeRelationship(relationshipFilter: RelationshipFilter, leftNode: LynxNode, rightNode: LynxNode, direction: SemanticDirection, forceToCreate: Boolean, tx: Option[LynxTransaction]): PathTriple = {
-      val relationship = direction match {
-        case SemanticDirection.INCOMING => {
-          val r1 = TestRelationship(all_rels.size + 1, rightNode.id.value.asInstanceOf[Long], leftNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq: _*)
-          all_rels.append(r1)
-          r1
-        }
-        case SemanticDirection.OUTGOING => {
-          val r1 = TestRelationship(all_rels.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq: _*)
-          all_rels.append(r1)
-          r1
-        }
-        case SemanticDirection.BOTH => {
-          val r1 = TestRelationship(all_rels.size + 1, leftNode.id.value.asInstanceOf[Long], rightNode.id.value.asInstanceOf[Long], relationshipFilter.types.headOption, relationshipFilter.properties.toSeq: _*)
-          all_rels.append(r1)
-          r1
-        }
-      }
-      PathTriple(leftNode, relationship, rightNode)
-    }
 
     override def createElements[T](
                                     nodesInput: Seq[(String, NodeInput)],
@@ -151,11 +105,11 @@ class TestBase extends LazyLogging {
         PathTriple(nodeAt(rel.startId).get, rel, nodeAt(rel.endId).get)
       ).iterator
 
-    override def createIndex(labelName: LabelName, properties: List[PropertyKeyName], tx: Option[LynxTransaction]): Unit = {
+    override def createIndex(labelName: LynxNodeLabel, properties: List[PropertyKeyName], tx: Option[LynxTransaction]): Unit = {
       allIndex += Tuple2(labelName, properties)
     }
 
-    override def getIndexes(tx: Option[LynxTransaction]): Array[(LabelName, List[PropertyKeyName])] = {
+    override def getIndexes(tx: Option[LynxTransaction]): Array[(LynxNodeLabel, List[PropertyKeyName])] = {
       allIndex.toArray
     }
 
@@ -326,7 +280,7 @@ class TestBase extends LazyLogging {
 case class TestLynxId(value: Long) extends LynxId {
 }
 
-case class TestNode(longId: Long, labels: Seq[String], props: (String, LynxValue)*) extends LynxNode {
+case class TestNode(longId: Long, labels: Seq[LynxNodeLabel], props: (String, LynxValue)*) extends LynxNode {
   lazy val properties = props.toMap
   override val id: LynxId = TestLynxId(longId)
 
