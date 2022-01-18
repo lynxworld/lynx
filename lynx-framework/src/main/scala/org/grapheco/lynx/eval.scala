@@ -61,7 +61,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
     expr match {
       case HasLabels(expression, labels) =>
         eval(expression) match {
-          case node: LynxNode => LynxBoolean(labels.forall(label => node.labels.map(_.name).contains(label.name)))
+          case node: LynxNode => LynxBoolean(labels.forall(label => node.labels.map(_.value).contains(label.name)))
         }
 
       case pe: PathExpression => evalPathStep(pe.step)
@@ -72,7 +72,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         // this func deal with like: WHERE n[toLower(propname)] < 30
       case ContainerIndex(expr, idx) =>{//fixme: what's this
         {(eval(expr), eval(idx)) match {
-          case (hp: HasProperty, i: LynxString) => hp.property(i.value)
+          case (hp: HasProperty, i: LynxString) => hp.property(LynxPropertyKey(i.value))
         }}.getOrElse(LynxNull)
       }
 
@@ -178,7 +178,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case Property(src, PropertyKeyName(name)) =>
         eval(src) match {
           case LynxNull => LynxNull
-          case hp: HasProperty => hp.property(name).getOrElse(LynxNull)
+          case hp: HasProperty => hp.property(LynxPropertyKey(name)).getOrElse(LynxNull)
           case time: LynxDateTime => time
         }
 
