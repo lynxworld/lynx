@@ -169,26 +169,14 @@ trait LynxId {
   val value: Any
 }
 
-object LynxNodeLabel {
-  def fromName(name: String): LynxNodeLabel =
-    new LynxNodeLabel(name) {override val name: String = name}
-}
-abstract case class LynxNodeLabel(value: Any) {val name: String}
+case class LynxNodeLabel(value: String)
 
-object LynxRelationshipType {
-  def fromName(name: String): LynxRelationshipType =
-    new LynxRelationshipType(name) {override val name: String = name}
-}
-abstract case class LynxRelationshipType(value: Any) {val name: String}
+case class LynxRelationshipType(value: String)
 
-object LynxPropertyKey {
-  def fromName(name: String): LynxPropertyKey =
-    new LynxPropertyKey(name) {override val name: String = name}
-}
-abstract case class LynxPropertyKey(value: Any) {val name: String}
+case class LynxPropertyKey(value: String)
 
 trait HasProperty {
-  def property(propertyKey: String): Option[LynxValue]
+  def property(propertyKey: LynxPropertyKey): Option[LynxValue]
 }
 
 trait LynxNode extends LynxValue with HasProperty {
