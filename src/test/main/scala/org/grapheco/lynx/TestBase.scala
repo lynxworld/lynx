@@ -70,9 +70,11 @@ class TestBase extends LazyLogging {
           case ContextualNodeInputRef(valueName) => nodesMap(valueName).id
         }
 
-        val relationshipsMap: Map[String, TestRelationship] = relationshipsInput.toMap.mapValues(input =>
-          TestRelationship(relationshipId, localNodeRef(input.startNodeRef),
-            localNodeRef(input.endNodeRef), input.types.headOption,input.props.toMap))
+        val relationshipsMap: Map[String, TestRelationship] = relationshipsInput.toMap.map{
+          case (valueName,input) =>
+            valueName -> TestRelationship(relationshipId, localNodeRef(input.startNodeRef),
+              localNodeRef(input.endNodeRef), input.types.headOption,input.props.toMap)
+        })
 
         _nodesBuffer ++= nodesMap.map{ case (_, node) => (node.id, node)}
         _relationshipsBuffer ++= relationshipsMap.map{ case (_, relationship) => (relationship.id, relationship)}
