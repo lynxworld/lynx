@@ -8,9 +8,6 @@
     <artifactId>lynx</artifactId>
     <packaging>pom</packaging>
     <version>0.4-SNAPSHOT</version>
-    <modules>
-        <module>lynx-framework</module>
-    </modules>
     <properties/>
 
     <build>
@@ -129,4 +126,33 @@
             </plugin>
         </plugins>
     </build>
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.7</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.1</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/com.typesafe.scala-logging/scala-logging -->
+        <dependency>
+            <groupId>com.typesafe.scala-logging</groupId>
+            <artifactId>scala-logging_2.12</artifactId>
+            <version>3.8.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+            <version>1.6.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.opencypher</groupId>
+            <artifactId>front-end-9.0</artifactId>
+            <version>9.0.20190305</version>
+        </dependency>
+    </dependencies>
 </project>
