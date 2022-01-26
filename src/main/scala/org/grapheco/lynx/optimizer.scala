@@ -9,11 +9,11 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 trait PhysicalPlanOptimizer {
-  def optimize(plan: PPTNode, ppc: PhysicalPlannerContext, tx: Option[LynxTransaction]): PPTNode
+  def optimize(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode
 }
 
 trait PhysicalPlanOptimizerRule {
-  def apply(plan: PPTNode, ppc: PhysicalPlannerContext, tx: Option[LynxTransaction]): PPTNode
+  def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode
 
   def optimizeBottomUp(node: PPTNode, ops: PartialFunction[PPTNode, PPTNode]*): PPTNode = {
     val childrenOptimized = node.withChildren(node.children.map(child => optimizeBottomUp(child, ops: _*)))
@@ -32,14 +32,14 @@ class DefaultPhysicalPlanOptimizer(runnerContext: CypherRunnerContext) extends P
     JoinTableSizeEstimateRule
   )
 
-  def optimize(plan: PPTNode, ppc: PhysicalPlannerContext, tx: Option[LynxTransaction]): PPTNode = {
-    rules.foldLeft(plan)((optimized, rule) => rule.apply(optimized, ppc, tx))
+  def optimize(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = {
+    rules.foldLeft(plan)((optimized, rule) => rule.apply(optimized, ppc))
   }
 }
 
 object RemoveNullProject extends PhysicalPlanOptimizerRule {
 
-  override def apply(plan: PPTNode, ppc: PhysicalPlannerContext, tx: Option[LynxTransaction]): PPTNode = optimizeBottomUp(plan,
+  override def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = optimizeBottomUp(plan,
     {
       case pnode: PPTNode =>
         pnode.children match {
@@ -62,7 +62,7 @@ object RemoveNullProject extends PhysicalPlanOptimizerRule {
  *        NodePattern(n)                                                         NodePattern(n: label='xxx')
  */
 object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
-  override def apply(plan: PPTNode, ppc: PhysicalPlannerContext, tx: Option[LynxTransaction]): PPTNode = optimizeBottomUp(plan, {
+  override def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = optimizeBottomUp(plan, {
     case pnode: PPTNode => {
       pnode.children match {
         case Seq(pf@PPTFilter(exprs)) => {
@@ -491,7 +491,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     else pj
   }
 
-  override def apply(plan: PPTNode, ppc: PhysicalPlannerContext, tx: Option[LynxTransaction]): PPTNode = optimizeBottomUp(plan,
+  override def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = optimizeBottomUp(plan,
     {
       case pnode: PPTNode =>
         pnode.children match {
@@ -511,12 +511,12 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
  */
 object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
 
-  override def apply(plan: PPTNode, ppc: PhysicalPlannerContext, tx: Option[LynxTransaction]): PPTNode = optimizeBottomUp(plan,
+  override def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = optimizeBottomUp(plan,
     {
       case pnode: PPTNode => {
         pnode.children match {
           case Seq(pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex)) => {
-            val res = joinRecursion(pj, ppc, isSingleMatch, tx)
+            val res = joinRecursion(pj, ppc, isSingleMatch)
             pnode.withChildren(Seq(res))
           }
           case _ => pnode
@@ -525,7 +525,7 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
     }
   )
 
-  def estimateNodeRow(pattern: NodePattern, graphModel: GraphModel, tx: Option[LynxTransaction]): Long = {
+  def estimateNodeRow(pattern: NodePattern, graphModel: GraphModel): Long = {
     val countMap = mutable.Map[String, Long]()
     val labels = pattern.labels.map(l => l.name)
     val prop = pattern.properties.map({
@@ -552,41 +552,41 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
     else graphModel.nodeCount
   }
 
-  def estimateRelationshipRow(rel: RelationshipPattern, left: NodePattern, right: NodePattern, graphModel: GraphModel, tx: Option[LynxTransaction]): Long = {
+  def estimateRelationshipRow(rel: RelationshipPattern, left: NodePattern, right: NodePattern, graphModel: GraphModel): Long = {
     if (rel.types.isEmpty) graphModel.relationshipsCount
     else graphModel.estimateRelationship(rel.types.head.name)
   }
 
-  def estimate(table: PPTNode, ppc: PhysicalPlannerContext, tx: Option[LynxTransaction]): Long = {
+  def estimate(table: PPTNode, ppc: PhysicalPlannerContext): Long = {
     table match {
-      case ps@PPTNodeScan(pattern) => estimateNodeRow(pattern, ppc.runnerContext.graphModel, tx)
-      case pr@PPTRelationshipScan(rel, left, right) => estimateRelationshipRow(rel, left, right, ppc.runnerContext.graphModel, tx)
+      case ps@PPTNodeScan(pattern) => estimateNodeRow(pattern, ppc.runnerContext.graphModel)
+      case pr@PPTRelationshipScan(rel, left, right) => estimateRelationshipRow(rel, left, right, ppc.runnerContext.graphModel)
     }
   }
 
-  def estimateTableSize(parent: PPTJoin, table1: PPTNode, table2: PPTNode, ppc: PhysicalPlannerContext, tx: Option[LynxTransaction]): PPTNode = {
-    val estimateTable1 = estimate(table1, ppc, tx)
-    val estimateTable2 = estimate(table2, ppc, tx)
+  def estimateTableSize(parent: PPTJoin, table1: PPTNode, table2: PPTNode, ppc: PhysicalPlannerContext): PPTNode = {
+    val estimateTable1 = estimate(table1, ppc)
+    val estimateTable2 = estimate(table2, ppc)
     if (estimateTable1 <= estimateTable2) PPTJoin(parent.filterExpr, parent.isSingleMatch, 1)(table1, table2, ppc)
     else PPTJoin(parent.filterExpr, parent.isSingleMatch, 0)(table1, table2, ppc)
   }
 
-  def joinRecursion(parent: PPTJoin, ppc: PhysicalPlannerContext, isSingleMatch: Boolean, tx: Option[LynxTransaction]): PPTNode = {
+  def joinRecursion(parent: PPTJoin, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PPTNode = {
     val t1 = parent.children.head
     val t2 = parent.children.last
 
     val table1 = t1 match {
-      case pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => joinRecursion(pj, ppc, isSingleMatch, tx)
+      case pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => joinRecursion(pj, ppc, isSingleMatch)
       case pm@PPTMerge(mergeSchema, mergeOps) => {
-        val res = joinRecursion(pm.children.head.asInstanceOf[PPTJoin], ppc, isSingleMatch, tx)
+        val res = joinRecursion(pm.children.head.asInstanceOf[PPTJoin], ppc, isSingleMatch)
         pm.withChildren(Seq(res))
       }
       case _ => t1
     }
     val table2 = t2 match {
-      case pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => joinRecursion(pj, ppc, isSingleMatch, tx)
+      case pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => joinRecursion(pj, ppc, isSingleMatch)
       case pm@PPTMerge(mergeSchema, mergeOps) => {
-        val res = joinRecursion(pm.children.head.asInstanceOf[PPTJoin], ppc, isSingleMatch, tx)
+        val res = joinRecursion(pm.children.head.asInstanceOf[PPTJoin], ppc, isSingleMatch)
         pm.withChildren(Seq(res))
       }
       case _ => t2
@@ -594,7 +594,7 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
 
     if ((table1.isInstanceOf[PPTNodeScan] || table1.isInstanceOf[PPTRelationshipScan])
       && (table2.isInstanceOf[PPTNodeScan] || table2.isInstanceOf[PPTRelationshipScan])) {
-      estimateTableSize(parent, table1, table2, ppc, tx)
+      estimateTableSize(parent, table1, table2, ppc)
     }
     else PPTJoin(parent.filterExpr, parent.isSingleMatch, parent.bigTableIndex)(table1, table2, ppc)
   }
