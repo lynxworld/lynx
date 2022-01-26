@@ -184,7 +184,7 @@ class TestBase extends LazyLogging {
   protected def runOnDemoGraph(query: String, param: Map[String, Any] = Map.empty[String, Any]): LynxResult = {
     //runner.compile(query)
     Profiler.timing {
-      val rs = runner.run(query, param, None).cache()
+      val rs = runner.run(query, param).cache()
       rs.show()
       rs
     }

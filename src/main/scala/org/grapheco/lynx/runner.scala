@@ -30,7 +30,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 
   def compile(query: String): (Statement, Map[String, Any], SemanticState) = queryParser.parse(query)
 
-  def run(query: String, param: Map[String, Any], tx: Option[LynxTransaction]): LynxResult = {
+  def run(query: String, param: Map[String, Any]): LynxResult = {
     val (statement, param2, state) = queryParser.parse(query)
     logger.debug(s"AST tree: ${statement}")
 
@@ -42,10 +42,10 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
     val physicalPlan = physicalPlanner.plan(logicalPlan)(physicalPlannerContext)
     logger.debug(s"physical plan: \r\n${physicalPlan.pretty}")
 
-    val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan, physicalPlannerContext, tx)
+    val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan, physicalPlannerContext)
     logger.debug(s"optimized physical plan: \r\n${optimizedPhysicalPlan.pretty}")
 
-    val ctx = ExecutionContext(physicalPlannerContext, statement, param ++ param2, tx)
+    val ctx = ExecutionContext(physicalPlannerContext, statement, param ++ param2)
     val df = optimizedPhysicalPlan.execute(ctx)
     graphModel.commit()
 
@@ -112,7 +112,7 @@ case class PhysicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runne
 }
 
 //TODO: context.context??
-case class ExecutionContext(physicalPlannerContext: PhysicalPlannerContext, statement: Statement, queryParameters: Map[String, Any], tx: Option[LynxTransaction]) {
+case class ExecutionContext(physicalPlannerContext: PhysicalPlannerContext, statement: Statement, queryParameters: Map[String, Any]) {
   val expressionContext = ExpressionContext(this, queryParameters.map(x => x._1 -> physicalPlannerContext.runnerContext.typeSystem.wrap(x._2)))
 }
 
