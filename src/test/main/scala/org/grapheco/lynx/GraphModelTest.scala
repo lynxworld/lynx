@@ -20,7 +20,7 @@ class GraphModelTest extends TestBase {
 
   @Test
   def testGraphModel(): Unit = {
-    var rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), OUTGOING, (0, 0))
+    var rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), OUTGOING, Some(0), Some(0))
     Assert.assertEquals(4, rs.size)
     rs.foreach {
       item =>
@@ -29,7 +29,7 @@ class GraphModelTest extends TestBase {
         Assert.assertEquals(rel.endNodeId, endNode.id)
     }
 
-    rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), INCOMING, (0, 0))
+    rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), INCOMING, Some(0), Some(0))
     Assert.assertEquals(4, rs.size)
     rs.foreach {
       item =>
@@ -38,7 +38,7 @@ class GraphModelTest extends TestBase {
         Assert.assertEquals(rel.endNodeId, startNode.id)
     }
 
-    rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), BOTH, (0, 0))
+    rs = model.paths(NodeFilter(Seq.empty, Map.empty), RelationshipFilter(Seq.empty, Map.empty), NodeFilter(Seq.empty, Map.empty), BOTH, Some(0), Some(0))
     Assert.assertEquals(8, rs.size)
   }
 }

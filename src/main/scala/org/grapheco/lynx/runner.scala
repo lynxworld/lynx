@@ -47,7 +47,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 
     val ctx = ExecutionContext(physicalPlannerContext, statement, param ++ param2)
     val df = optimizedPhysicalPlan.execute(ctx)
-    graphModel.commit()
+    graphModel.write.commit
 
 
     new LynxResult() with PlanAware {
@@ -159,60 +159,189 @@ case class RelationshipFilter(types: Seq[LynxRelationshipType], properties: Map[
   }) && properties.forall { case (propertyName, value) => relationship.property(propertyName).exists(value.equals) }
 }
 
+/**
+ * A triplet of path.
+ * @param startNode start node
+ * @param storedRelation the relation from start-node to end-node
+ * @param endNode end node
+ * @param reverse If true, it means it is in reverse order
+ */
 case class PathTriple(startNode: LynxNode, storedRelation: LynxRelationship, endNode: LynxNode, reverse: Boolean = false) {
   def revert: PathTriple = PathTriple(endNode, storedRelation, startNode, !reverse)
 }
 
+/**
+ * Recording the number of nodes and relationships under various conditions for optimization.
+ */
 trait Statistics {
 
-  def nodeNumber: Long
+  /**
+   * Count the number of nodes.
+   * @return The number of nodes
+   */
+  def numNode: Long
 
-  def nodeNumberOfLabel(labelName: LynxNodeLabel): Long
+  /**
+   * Count the number of nodes containing specified label.
+   * @param labelName The label to contained
+   * @return The number of nodes meeting conditions
+   */
+  def numNodeByLabel(labelName: LynxNodeLabel): Long
 
-  def nodeNumberOfProperty(labelName: LynxNodeLabel, propertyName: LynxPropertyKey, value: LynxValue): Long
+  /**
+   * Count the number of nodes containing specified label and property.
+   * @param labelName The label to contained
+   * @param propertyName The property to contained
+   * @param value The value of this property
+   * @return The number of nodes meeting conditions
+   */
+  def numNodeByProperty(labelName: LynxNodeLabel, propertyName: LynxPropertyKey, value: LynxValue): Long
 
-  def relationshipNumber: Long
+  /**
+   * Count the number of relationships.
+   * @return The number of relationships
+   */
+  def numRelationship: Long
 
-  def relationshipNumberOfType(typeName: LynxRelationshipType): Long
+  /**
+   * Count the number of relationships have specified type.
+   * @param typeName The type
+   * @return The number of relationships meeting conditions.
+   */
+  def numRelationshipByType(typeName: LynxRelationshipType): Long
 }
 
+/**
+ * An index consists of a label and several properties.
+ * eg: Index("Person", Set("name"))
+ * @param labelName The label
+ * @param properties The properties, Non repeatable.
+ */
 case class Index(labelName: LynxNodeLabel, properties: Set[LynxPropertyKey])
 
+/**
+ * Manage index creation and deletion.
+ */
 trait IndexManager {
 
+  /**
+   * Create Index.
+   * @param index The index to create
+   */
   def createIndex(index: Index): Unit
 
+  /**
+   * Drop Index.
+   * @param index The index to drop
+   */
   def dropIndex(index: Index): Unit
 
+  /**
+   * Get all indexes.
+   * @return all indexes
+   */
   def indexes: Array[Index]
 }
 
+/**
+ * Create and delete of nodes and relationships.
+ * Write operations on label, type and property.
+ */
 trait WriteTask {
 
+  /**
+   * Create elements, including nodes and relationships.
+   * @param nodesInput A series of nodes to be created. (the name of this node, the value of this node)
+   * @param relationshipsInput A series of relationships to be created. (the name of this relationship, the value of this relationship)
+   * @param onCreated A callback function that needs input the created nodes and relationships
+   * @tparam T Return type of onCreated
+   * @return Return value of onCreated
+   */
   def createElements[T](nodesInput: Seq[(String, NodeInput)],
                         relationshipsInput: Seq[(String, RelationshipInput)],
                         onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T): T
 
+  /**
+   * Delete relations.
+   * @param ids the ids of relations to deleted
+   */
   def deleteRelations(ids: Iterator[LynxId]): Unit
 
+  /**
+   * Delete nodes. No need to consider whether the node has relationships.
+   * @param ids the ids of nodes to deleted
+   */
   def deleteNodes(ids: Seq[LynxId]): Unit
 
+  /**
+   * Set properties of nodes.
+   * @param nodeIds The ids of nodes to modified
+   * @param data An array of key value pairs that represent the properties and values to be modified
+   * @param cleanExistProperties If it is true, properties will be overwritten; otherwise, properties will be modified
+   * @return These nodes after modifying the properties
+   */
   def setNodesProperties(nodeIds: Iterator[LynxId], data: Array[(LynxPropertyKey ,Any)], cleanExistProperties: Boolean = false): Iterator[Option[LynxNode]]
 
+  /**
+   * Add labels to nodes.
+   * @param nodeIds The ids of nodes to modified
+   * @param labels The labels to added
+   * @return These nodes after adding labels
+   */
   def setNodesLabels(nodeIds: Iterator[LynxId], labels: Array[LynxNodeLabel]): Iterator[Option[LynxNode]]
 
+  /**
+   * Set properties of relationships.
+   * @param relationshipIds The ids of relationships to modified
+   * @param data An array of key value pairs that represent the properties and values to be modified
+   * @return These relationships after modifying the properties
+   */
   def setRelationshipsProperties(relationshipIds: Iterator[LynxId],  data: Array[(LynxPropertyKey ,Any)]): Iterator[Option[LynxRelationship]]
 
+  /**
+   * Set type of relationships.
+   * @param relationshipIds The ids of relationships to modified
+   * @param typeName The type to set
+   * @return These relationships after set the type
+   */
   def setRelationshipsType(relationshipIds: Iterator[LynxId], typeName: LynxRelationshipType): Iterator[Option[LynxRelationship]]
 
+  /**
+   * Remove properties of nodes.
+   * @param nodeIds The ids of nodes to modified
+   * @param data An array of properties to be removed
+   * @return These nodes after modifying the properties
+   */
   def removeNodesProperties(nodeIds: Iterator[LynxId], data: Array[LynxPropertyKey]): Iterator[Option[LynxNode]]
 
+  /**
+   * Remove labels from nodes.
+   * @param nodeIds The ids of nodes to modified
+   * @param labels The labels to removed
+   * @return These nodes after removing labels
+   */
   def removeNodesLabels(nodeIds: Iterator[LynxId], labels: Array[LynxNodeLabel]): Iterator[Option[LynxNode]]
 
+  /**
+   * Remove properties of relationships.
+   * @param relationshipIds The ids of relationships to modified
+   * @param data An array of properties to be removed
+   * @return These relationships after modifying the properties
+   */
   def removeRelationshipsProperties(relationshipIds: Iterator[LynxId],  data: Array[LynxPropertyKey]): Iterator[Option[LynxRelationship]]
 
+  /**
+   * Remove type of relationships.
+   * @param relationshipIds The ids of relationships to modified
+   * @param typeName The type to removed
+   * @return These relationships after removing the type
+   */
   def removeRelationshipsType(relationshipIds: Iterator[LynxId], typeName: LynxRelationshipType): Iterator[Option[LynxRelationship]]
 
+  /**
+   * Commit write tasks. It is called at the end of the statement.
+   * @return Is it successful?
+   */
   def commit: Boolean
 
 }
@@ -221,24 +350,31 @@ trait WriteTask {
 trait GraphModel{
 
   /**
-   *
-   * @return
+   * A Statistics object needs to be returned.
+   * In the default implementation, those number is obtained through traversal and filtering.
+   * You can override the default implementation.
+   * @return The Statistics object
    */
   def statistics: Statistics = new Statistics {
-    override def nodeNumber: Long = 0
+    override def numNode: Long = nodes().length
 
-    override def nodeNumberOfLabel(labelName: LynxNodeLabel): Long = 0
+    override def numNodeByLabel(labelName: LynxNodeLabel): Long = nodes(NodeFilter(Seq(labelName), Map.empty)).length
 
-    override def nodeNumberOfProperty(labelName: LynxNodeLabel, propertyName: LynxPropertyKey, value: LynxValue): Long = 0
+    override def numNodeByProperty(labelName: LynxNodeLabel, propertyName: LynxPropertyKey, value: LynxValue): Long =
+      nodes(NodeFilter(Seq(labelName), Map(propertyName->value))).length
 
-    override def relationshipNumber: Long = 0
+    override def numRelationship: Long = relationships().length
 
-    override def relationshipNumberOfType(typeName: LynxRelationshipType): Long = 0
+    override def numRelationshipByType(typeName: LynxRelationshipType): Long =
+      relationships(RelationshipFilter(Seq(typeName), Map.empty)).length
   }
 
   /**
-   *
-   * @return
+   * An IndexManager object needs to be returned.
+   * In the default implementation, the returned indexes is empty,
+   * and the addition and deletion of any index will throw an exception.
+   * You need override the default implementation.
+   * @return The IndexManager object
    */
   def indexManager: IndexManager = new IndexManager {
     override def createIndex(index: Index): Unit = throw NoIndexManagerException(s"There is no index manager to handle index creation")
@@ -249,92 +385,110 @@ trait GraphModel{
   }
 
   /**
-   *
-   * @return
+   * An WriteTask object needs to be returned.
+   * There is no default implementation, you must override it.
+   * @return The WriteTask object
    */
-  def writeTask: WriteTask
+  def write: WriteTask
 
   /**
-   *
-   * @return
+   * All nodes.
+   * @return An Iterator of all nodes.
    */
   def nodes(): Iterator[LynxNode]
 
+  /**
+   * All nodes with a filter.
+   * @param nodeFilter The filter
+   * @return An Iterator of all nodes after filter.
+   */
   def nodes(nodeFilter: NodeFilter): Iterator[LynxNode] = nodes().filter(nodeFilter.matches)
 
   /**
-   *
-   * @return
+   * Return all relationships as PathTriple.
+   * @return An Iterator of PathTriple
    */
   def relationships(): Iterator[PathTriple]
 
+  /**
+   * Return all relationships as PathTriple with a filter.
+   * @param relationshipFilter The filter
+   * @return An Iterator of PathTriple after filter
+   */
   def relationships(relationshipFilter: RelationshipFilter): Iterator[PathTriple] = relationships().filter(f => relationshipFilter.matches(f.storedRelation))
 
-  def nodeCount: Long = nodes().length
 
-  def relationshipsCount: Long = relationships().length
-
-  /*
-    Create and delete of nodes and relationships.
-    Write operations about label, type and property.
-   */
   def createElements[T](nodesInput: Seq[(String, NodeInput)],
                         relationshipsInput: Seq[(String, RelationshipInput)],
                         onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T): T =
-    this.writeTask.createElements(nodesInput, relationshipsInput, onCreated)
+    this.write.createElements(nodesInput, relationshipsInput, onCreated)
 
-  def deleteRelations(ids: Iterator[LynxId]): Unit = this.writeTask.deleteRelations(ids)
+  def deleteRelations(ids: Iterator[LynxId]): Unit = this.write.deleteRelations(ids)
 
-  def deleteNodes(ids: Seq[LynxId]): Unit = this.writeTask.deleteNodes(ids)
+  def deleteNodes(ids: Seq[LynxId]): Unit = this.write.deleteNodes(ids)
 
   def setNodesProperties(nodeIds: Iterator[LynxId], data: Array[(String ,Any)], cleanExistProperties: Boolean = false): Iterator[Option[LynxNode]]  =
-    this.writeTask.setNodesProperties(nodeIds, data.map(kv => (LynxPropertyKey(kv._1), kv._2)), cleanExistProperties)
+    this.write.setNodesProperties(nodeIds, data.map(kv => (LynxPropertyKey(kv._1), kv._2)), cleanExistProperties)
 
   def setNodesLabels(nodeIds: Iterator[LynxId], labels: Array[String]): Iterator[Option[LynxNode]]  =
-    this.writeTask.setNodesLabels(nodeIds, labels.map(LynxNodeLabel))
+    this.write.setNodesLabels(nodeIds, labels.map(LynxNodeLabel))
 
   def setRelationshipsProperties(relationshipIds: Iterator[LynxId],  data: Array[(String ,Any)]): Iterator[Option[LynxRelationship]] =
-    this.writeTask.setRelationshipsProperties(relationshipIds, data.map(kv => (LynxPropertyKey(kv._1), kv._2)))
+    this.write.setRelationshipsProperties(relationshipIds, data.map(kv => (LynxPropertyKey(kv._1), kv._2)))
 
   def setRelationshipsType(relationshipIds: Iterator[LynxId], theType: String): Iterator[Option[LynxRelationship]] =
-    this.writeTask.setRelationshipsType(relationshipIds, LynxRelationshipType(theType))
+    this.write.setRelationshipsType(relationshipIds, LynxRelationshipType(theType))
 
   def removeNodesProperties(nodeIds: Iterator[LynxId], data: Array[String]): Iterator[Option[LynxNode]]  =
-    this.writeTask.removeNodesProperties(nodeIds, data.map(LynxPropertyKey))
+    this.write.removeNodesProperties(nodeIds, data.map(LynxPropertyKey))
 
   def removeNodesLabels(nodeIds: Iterator[LynxId], labels: Array[String]): Iterator[Option[LynxNode]] =
-    this.writeTask.removeNodesLabels(nodeIds, labels.map(LynxNodeLabel))
+    this.write.removeNodesLabels(nodeIds, labels.map(LynxNodeLabel))
 
   def removeRelationshipsProperties(relationshipIds: Iterator[LynxId],  data: Array[String]): Iterator[Option[LynxRelationship]] =
-    this.writeTask.removeRelationshipsProperties(relationshipIds, data.map(LynxPropertyKey))
+    this.write.removeRelationshipsProperties(relationshipIds, data.map(LynxPropertyKey))
 
   def removeRelationshipType(relationshipIds: Iterator[LynxId], theType: String): Iterator[Option[LynxRelationship]] =
-    this.writeTask.removeRelationshipsType(relationshipIds, LynxRelationshipType(theType))
+    this.write.removeRelationshipsType(relationshipIds, LynxRelationshipType(theType))
 
+  /**
+   * Delete nodes in a safe way, and handle nodes with relationships in a special way.
+   * @param nodesIDs The ids of nodes to deleted
+   * @param forced When some nodes have relationships,
+   *               if it is true, delete any related relationships,
+   *               otherwise throw an exception
+   */
   def deleteNodesSafely(nodesIDs: Iterator[LynxId], forced: Boolean): Unit = {
     val ids = nodesIDs.toSet
     val affectedRelationships = relationships().map(_.storedRelation)
       .filter(rel => ids.contains(rel.startNodeId) || ids.contains(rel.endNodeId))
     if (affectedRelationships.nonEmpty) {
       if (forced)
-        deleteRelations(affectedRelationships.map(_.id))
+        this.write.deleteRelations(affectedRelationships.map(_.id))
       else
         throw ConstrainViolatedException(s"deleting referred nodes")
     }
-    deleteNodes(ids.toSeq)
+    this.write.deleteNodes(ids.toSeq)
   }
 
-  def commit(): Boolean = this.writeTask.commit
+  def commit(): Boolean = this.write.commit
 
-  /*
-    Path query and expand of node.
-    TODO: length
+  /**
+   * Get the paths that meets the conditions
+   * @param startNodeFilter Filter condition of starting node
+   * @param relationshipFilter Filter conditions for relationships
+   * @param endNodeFilter Filter condition of ending node
+   * @param direction Direction of relationships, INCOMING, OUTGOING or BOTH
+   * @param upperLimit Upper limit of relationship length
+   * @param lowerLimit Lower limit of relationship length
+   * @return The paths
    */
   def paths(startNodeFilter: NodeFilter,
             relationshipFilter: RelationshipFilter,
             endNodeFilter: NodeFilter,
             direction: SemanticDirection,
-            length: (Int, Int)): Iterator[PathTriple] =
+            upperLimit: Option[Int],
+            lowerLimit: Option[Int]): Iterator[PathTriple] =
     (direction match {
       case BOTH => relationships().flatMap(item =>
         Seq(item, item.revert))
@@ -345,6 +499,12 @@ trait GraphModel{
         relationshipFilter.matches(rel) && startNodeFilter.matches(startNode) && endNodeFilter.matches(endNode)
     }
 
+  /**
+   * Take a node as the starting or ending node and expand in a certain direction.
+   * @param nodeId The id of this node
+   * @param direction The direction of expansion, INCOMING, OUTGOING or BOTH
+   * @return Triples after expansion
+   */
   def expand(nodeId: LynxId, direction: SemanticDirection): Iterator[PathTriple] = {
     (direction match {
       case BOTH => relationships().flatMap(item =>
@@ -354,6 +514,14 @@ trait GraphModel{
     }).filter(_.startNode.id == nodeId)
   }
 
+  /**
+   * Take a node as the starting or ending node and expand in a certain direction with some filter.
+   * @param nodeId The id of this node
+   * @param relationshipFilter conditions for relationships
+   * @param endNodeFilter Filter condition of ending node
+   * @param direction The direction of expansion, INCOMING, OUTGOING or BOTH
+   * @return Triples after expansion and filter
+   */
   def expand(nodeId: LynxId,
              relationshipFilter: RelationshipFilter,
              endNodeFilter: NodeFilter,
@@ -362,31 +530,33 @@ trait GraphModel{
       relationshipFilter.matches(pathTriple.storedRelation) && endNodeFilter.matches(pathTriple.endNode)
     }
 
+}
+
+case class GraphModelHelper(graphModel: GraphModel) {
   /*
     Operations of indexes
    */
 
   def createIndex(labelName: String, properties: Set[String]): Unit =
-    this.indexManager.createIndex(Index(LynxNodeLabel(labelName), properties.map(LynxPropertyKey)))
+    this.graphModel.indexManager.createIndex(Index(LynxNodeLabel(labelName), properties.map(LynxPropertyKey)))
 
   def dropIndex(labelName: String, properties: Set[String]): Unit =
-    this.indexManager.dropIndex(Index(LynxNodeLabel(labelName), properties.map(LynxPropertyKey)))
+    this.graphModel.indexManager.dropIndex(Index(LynxNodeLabel(labelName), properties.map(LynxPropertyKey)))
 
   def indexes: Array[(String, Set[String])] =
-    this.indexManager.indexes.map{ case Index(label, properties) => (label.value, properties.map(_.value))}
+    this.graphModel.indexManager.indexes.map{ case Index(label, properties) => (label.value, properties.map(_.value))}
 
   /*
     Operations of estimating count.
    */
   def estimateNodeLabel(labelName: String): Long =
-    this.statistics.nodeNumberOfLabel(LynxNodeLabel(labelName))
+    this.graphModel.statistics.numNodeByLabel(LynxNodeLabel(labelName))
 
   def estimateNodeProperty(labelName: String, propertyName: String, value: AnyRef): Long =
-    this.statistics.nodeNumberOfProperty(LynxNodeLabel(labelName),LynxPropertyKey(propertyName), LynxValue(value))
+    this.graphModel.statistics.numNodeByProperty(LynxNodeLabel(labelName),LynxPropertyKey(propertyName), LynxValue(value))
 
   def estimateRelationship(relType: String): Long =
-    this.statistics.relationshipNumberOfType(LynxRelationshipType(relType))
-
+    this.graphModel.statistics.numRelationshipByType(LynxRelationshipType(relType))
 }
 
 trait TreeNode {

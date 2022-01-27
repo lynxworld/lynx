@@ -364,10 +364,10 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
     //      [r:XXX*..3] = Some(Some(Range(None, 3)))
     //      [r:XXX*1..] = Some(Some(Range(1, None)))
     //      [r:XXX*1..3] = Some(Some(Range(1, 3)))
-    def parseRange(range: Option[Option[Range]]): (Int, Int) = range match {
-      case None => (Int.MaxValue, Int.MaxValue) //0 => INF
-      case Some(None) => (1, Int.MaxValue)
-      case Some(Some(Range(a, b))) => (a.map(_.value.toInt).getOrElse(1), b.map(_.value.toInt).getOrElse(Int.MaxValue))
+    val (lowerLimit, upperLimit) = length match {
+      case None => (None, None)
+      case Some(None) => (Some(1), None)
+      case Some(Some(Range(a, b))) => (a.map(_.value.toInt), b.map(_.value.toInt))
     }
 
     DataFrame(schema,
@@ -376,7 +376,7 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
           NodeFilter(labels1.map(_.name).map(LynxNodeLabel), props1.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
           RelationshipFilter(types.map(_.name).map(LynxRelationshipType), props2.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
           NodeFilter(labels3.map(_.name).map(LynxNodeLabel), props3.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
-          direction, parseRange(length)).map(
+          direction, upperLimit, lowerLimit).map(
           triple =>
             Seq(triple.startNode, triple.storedRelation, triple.endNode)
         )
