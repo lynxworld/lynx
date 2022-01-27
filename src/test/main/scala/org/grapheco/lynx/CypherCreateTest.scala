@@ -3,6 +3,18 @@ package org.grapheco.lynx
 import org.junit.{Assert, Test}
 import org.grapheco.lynx.NameParser._
 class CypherCreateTest extends TestBase {
+  runOnDemoGraph(
+    """
+      |Create
+      |(a:person:leader{name:"bluejoe", age: 40, gender:"male"}),
+      |(b:person{name:"Alice", age: 30, gender:"female"}),
+      |(c{name:"Bob", age: 10, gender:"male"}),
+      |(d{name:"Bob2", age: 10, gender:"male"}),
+      |(a)-[:KNOWS{years:5}]->(b),
+      |(b)-[:KNOWS{years:4}]->(c),
+      |(c)-[:KNOWS]->(d),
+      |(a)-[]->(c)
+      |""".stripMargin)
   val NODE_SIZE: Int = all_nodes.size
   val REL_SIZE: Int = all_rels.size
   @Test
@@ -96,10 +108,10 @@ class CypherCreateTest extends TestBase {
 
     Assert.assertEquals(LynxString("God"), all_nodes(NODE_SIZE).property("name").get)
     Assert.assertEquals(LynxInteger(10000), all_nodes(NODE_SIZE).property("age").get)
-    Assert.assertEquals(Seq("person"), all_nodes(NODE_SIZE).labels)
+    Assert.assertEquals(Seq("person"), all_nodes(NODE_SIZE).labels.map(_.value))
 
     Assert.assertEquals(LynxString("heaven"), all_nodes(NODE_SIZE + 1).property("name").get)
-    Assert.assertEquals(Seq("place"), all_nodes(NODE_SIZE + 1).labels)
+    Assert.assertEquals(Seq("place"), all_nodes(NODE_SIZE + 1).labels.map(_.value))
 
     Assert.assertEquals("livesIn", all_rels(REL_SIZE).relationType.get.value)
     Assert.assertEquals(all_nodes(NODE_SIZE).id.value, all_rels(REL_SIZE).startNodeId.value)
@@ -114,10 +126,10 @@ class CypherCreateTest extends TestBase {
 
     Assert.assertEquals(LynxString("God"), all_nodes(NODE_SIZE).property("name").get)
     Assert.assertEquals(LynxInteger(10000), all_nodes(NODE_SIZE).property("age").get)
-    Assert.assertEquals(Seq("person"), all_nodes(NODE_SIZE).labels)
+    Assert.assertEquals(Seq("person"), all_nodes(NODE_SIZE).labels.map(_.value))
 
     Assert.assertEquals(LynxString("heaven"), all_nodes(NODE_SIZE + 1).property("name").get)
-    Assert.assertEquals(Seq("place"), all_nodes(NODE_SIZE + 1).labels)
+    Assert.assertEquals(Seq("place"), all_nodes(NODE_SIZE + 1).labels.map(_.value))
 
     Assert.assertEquals("livesIn", all_rels(REL_SIZE).relationType.get.value)
     Assert.assertEquals(all_nodes(NODE_SIZE).id.value, all_rels(REL_SIZE).startNodeId.value)
@@ -145,7 +157,7 @@ class CypherCreateTest extends TestBase {
 
   @Test
   def testMatchToCreateMultipleNodesAndRelations(): Unit = {
-    var rs = runOnDemoGraph("match (m:person) CREATE (n {name: 'God', age: 10000}), (n)-[r:LOVES]->(m) return n,r,m")
+    var rs = runOnDemoGraph("match (m:person) CREATE (n {name: 'God', age: 10000}), (n)-[r:LOVES]->(m) return n,r,m").show()
     Assert.assertEquals(NODE_SIZE + 2, all_nodes.size)
     Assert.assertEquals(REL_SIZE + 2, all_rels.size)
 

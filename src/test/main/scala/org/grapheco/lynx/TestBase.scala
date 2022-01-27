@@ -128,7 +128,7 @@ class TestBase extends LazyLogging {
       }
     }
 
-    override def writeTask: WriteTask = _writeTask
+    override def write: WriteTask = _writeTask
 
     override def indexManager: IndexManager = new IndexManager {
       override def createIndex(index: Index): Unit = _index += index
@@ -139,17 +139,17 @@ class TestBase extends LazyLogging {
     }
 
     override def statistics: Statistics = new Statistics {
-      override def nodeNumber: Long = nodes().length
+      override def numNode: Long = nodes().length
 
-      override def nodeNumberOfLabel(labelName: LynxNodeLabel): Long =
+      override def numNodeByLabel(labelName: LynxNodeLabel): Long =
         all_nodes.count(_.labels.contains(labelName))
 
-      override def nodeNumberOfProperty(labelName: LynxNodeLabel, propertyName: LynxPropertyKey, value: LynxValue): Long =
+      override def numNodeByProperty(labelName: LynxNodeLabel, propertyName: LynxPropertyKey, value: LynxValue): Long =
         nodes(NodeFilter(Seq(labelName), Map(propertyName->value))).length
 
-      override def relationshipNumber: Long = relationships().length
+      override def numRelationship: Long = relationships().length
 
-      override def relationshipNumberOfType(typeName: LynxRelationshipType): Long =
+      override def numRelationshipByType(typeName: LynxRelationshipType): Long =
         all_rels.count(_.relationType.forall(typeName.equals))
     }
 

@@ -5,6 +5,8 @@ import org.grapheco.lynx
 import java.time.{Duration, LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
 import org.opencypher.v9_0.util.symbols.{BooleanType, CTAny, CTBoolean, CTDate, CTDateTime, CTDuration, CTFloat, CTInteger, CTList, CTLocalDateTime, CTLocalTime, CTMap, CTNode, CTRelationship, CTString, CTTime, CypherType, DateTimeType, DateType, FloatType, IntegerType, NodeType, RelationshipType, StringType}
 
+import scala.language.implicitConversions
+
 trait LynxValue {
   def value: Any
 
