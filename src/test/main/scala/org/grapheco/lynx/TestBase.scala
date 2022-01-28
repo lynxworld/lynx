@@ -116,9 +116,21 @@ class TestBase extends LazyLogging {
         updateRelationships(relationshipIds, old => TestRelationship(old.id, old.startNodeId, old.endNodeId, None, old.props))
 
       override def commit: Boolean = {
-        all_nodes ++= this._nodesBuffer.values.toArray.sortBy(_.id.value)
+        val index_nodes = all_nodes.map(_.id.value)
+        val index_relationships = all_rels.map(_.id.value)
+        this._nodesBuffer.toArray.sortBy(_._1.value).map{
+          case (id, node) => ( index_nodes.indexOf(id.value), node)
+        }.foreach {
+          case (-1, node) => all_nodes += node
+          case (index, node) => all_nodes.update(index, node)
+        }
         all_nodes --= all_nodes.filter(n => _nodesToDelete.contains(n.id))
-        all_rels ++= _relationshipsBuffer.values.toArray.sortBy(_.id.value)
+        this._relationshipsBuffer.toArray.sortBy(_._1.value).map{
+          case (id, rel) => ( index_relationships.indexOf(id.value), rel)
+        }.foreach {
+          case (-1, rel) => all_rels += rel
+          case (index, rel) => all_rels.update(index, rel)
+        }
         all_rels --= all_rels.filter(r => _relationshipsToDelete.contains(r.id))
         _nodesBuffer.clear()
         _nodesToDelete.clear()
