@@ -542,10 +542,10 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
     })
 
     if (labels.nonEmpty) {
-      val minLabelAndCount = labels.map(label => (label, graphModel.estimateNodeLabel(label))).minBy(f => f._2)
+      val minLabelAndCount = labels.map(label => (label, graphModel._helper.estimateNodeLabel(label))).minBy(f => f._2)
 
       if (prop.isDefined) {
-        prop.get.map(f => graphModel.estimateNodeProperty(minLabelAndCount._1, f._1, f._2)).min
+        prop.get.map(f => graphModel._helper.estimateNodeProperty(minLabelAndCount._1, f._1, f._2)).min
       }
       else minLabelAndCount._2
     }
@@ -554,7 +554,7 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
 
   def estimateRelationshipRow(rel: RelationshipPattern, left: NodePattern, right: NodePattern, graphModel: GraphModel): Long = {
     if (rel.types.isEmpty) graphModel.statistics.numRelationship
-    else graphModel.estimateRelationship(rel.types.head.name)
+    else graphModel._helper.estimateRelationship(rel.types.head.name)
   }
 
   def estimate(table: PPTNode, ppc: PhysicalPlannerContext): Long = {

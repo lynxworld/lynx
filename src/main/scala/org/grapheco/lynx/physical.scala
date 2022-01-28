@@ -478,7 +478,7 @@ case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: Proced
 case class PPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName])(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
-    graphModel.createIndex(labelName.name, properties.map(_.name).toSet)
+    graphModel._helper.createIndex(labelName.name, properties.map(_.name).toSet)
     DataFrame.empty
   }
 
