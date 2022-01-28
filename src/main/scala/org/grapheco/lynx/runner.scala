@@ -530,13 +530,16 @@ trait GraphModel{
       relationshipFilter.matches(pathTriple.storedRelation) && endNodeFilter.matches(pathTriple.endNode)
     }
 
+  /**
+   * GraphHelper
+   */
+  val _helper: GraphModelHelper = GraphModelHelper(this)
 }
 
 case class GraphModelHelper(graphModel: GraphModel) {
   /*
     Operations of indexes
    */
-
   def createIndex(labelName: String, properties: Set[String]): Unit =
     this.graphModel.indexManager.createIndex(Index(LynxNodeLabel(labelName), properties.map(LynxPropertyKey)))
 
