@@ -1,0 +1,38 @@
+Licensed to Lynx under one or more contributor license
+agreements. See the NOTICE file distributed with this work
+for additional information regarding copyright ownership.
+Lynx licenses this file to you under the Apache License,
+Version 2.0 (the "License"); you may not use this file
+except in compliance with the License.  You may obtain a
+copy of the License at the following location:
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+
+This project includes:
+  Apache Commons Lang under Apache License, Version 2.0
+  Hamcrest Core under New BSD License
+  JUnit under Eclipse Public License 1.0
+  Log4j under The Apache Software License, Version 2.0
+  lynx under Apache License, Version 2.0
+  openCypher AST for the Cypher Query Language under Apache License, Version 2.0
+  openCypher Expressions under Apache License, Version 2.0
+  openCypher Front End under Apache License, Version 2.0
+  openCypher Parser under Apache License, Version 2.0
+  openCypher Rewriting under Apache License, Version 2.0
+  openCypher Utils under Apache License, Version 2.0
+  parboiled-core under Apache 2
+  parboiled-scala under Apache 2
+  Scala Compiler under BSD 3-Clause
+  Scala Library under BSD 3-Clause
+  scala-logging under Apache 2.0 License
+  scalacheck under BSD-style
+  SLF4J API Module under MIT License
+  SLF4J LOG4J-12 Binding under MIT License
+  test-interface under BSD
