@@ -977,26 +977,26 @@ case class PPTSetClause(var setItems: Seq[SetItem], mergeAction: Seq[MergeAction
         }
         // set relationship
         case 3 => {
-          val triple = n
+          var triple = n
           setItems.foreach {
             case sp@SetPropertyItem(property, literalExpr) => {
               val Property(variable, keyName) = property
               val data = Array(keyName.name -> eval(literalExpr)(ctx.expressionContext.withVars(ctxMap)).value)
               val newRel = graphModel.setRelationshipsProperties(Iterator(triple(1).asInstanceOf[LynxRelationship].id), data).next().get
-              Seq(triple.head, newRel, triple.last)
+              triple = Seq(triple.head, newRel, triple.last)
             }
             case sl@SetLabelItem(variable, labels) => {
               // TODO: An relation is able to have multi-type ???
-              val newRel = graphModel.setRelationshipsType(Iterator(triple(1).asInstanceOf[LynxRelationship].id), labels.map(f => f.name).toArray.head)
-              Seq(triple.head, newRel, triple.last)
+              val newRel = graphModel.setRelationshipsType(Iterator(triple(1).asInstanceOf[LynxRelationship].id), labels.map(f => f.name).toArray.head).next().get
+              triple = Seq(triple.head, newRel, triple.last)
             }
             case si@SetIncludingPropertiesFromMapItem(variable, expression) => {
               expression match {
                 case MapExpression(items) => {
                   items.foreach(f => {
                     val data = Array(f._1.name -> eval(f._2)(ctx.expressionContext.withVars(ctxMap)).value)
-                    val newRel = graphModel.setRelationshipsProperties(Iterator(triple(1).asInstanceOf[LynxRelationship].id), data)
-                    Seq(triple.head, newRel, triple.last)
+                    val newRel = graphModel.setRelationshipsProperties(Iterator(triple(1).asInstanceOf[LynxRelationship].id), data).next().get
+                    triple = Seq(triple.head, newRel, triple.last)
                   })
                 }
               }
