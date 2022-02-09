@@ -1030,7 +1030,6 @@ case class PPTRemove(removeItems: Seq[RemoveItem])(implicit val in: PPTNode, val
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
-    val isWithReturn = ctx.expressionContext.executionContext.statement.returnColumns.nonEmpty
     val res = df.records.map(n => {
       n.size match {
         case 1 => {
@@ -1064,8 +1063,7 @@ case class PPTRemove(removeItems: Seq[RemoveItem])(implicit val in: PPTNode, val
         }
       }
     })
-    if (isWithReturn) DataFrame(schema, () => res)
-    else DataFrame.empty
+    DataFrame.cached(schema, res.toSeq)
   }
 }
 

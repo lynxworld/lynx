@@ -104,13 +104,13 @@ class TestBase extends LazyLogging {
         updateRelationships(relationshipIds, old => TestRelationship(old.id, old.startNodeId, old.endNodeId, Some(typeName), old.props))
 
       override def removeNodesProperties(nodeIds: Iterator[LynxId], data: Array[LynxPropertyKey]): Iterator[Option[LynxNode]] =
-        updateNodes(nodeIds, old => TestNode(old.id, old.labels, old.props.filterNot(data.contains)))
+        updateNodes(nodeIds, old => TestNode(old.id, old.labels, old.props.filterNot(p => data.contains(p._1))))
 
       override def removeNodesLabels(nodeIds: Iterator[LynxId], labels: Array[LynxNodeLabel]): Iterator[Option[LynxNode]] =
         updateNodes(nodeIds, old => TestNode(old.id, old.labels.filterNot(labels.contains), old.props))
 
       override def removeRelationshipsProperties(relationshipIds: Iterator[LynxId], data: Array[LynxPropertyKey]): Iterator[Option[LynxRelationship]] =
-        updateRelationships(relationshipIds, old => TestRelationship(old.id, old.startNodeId, old.endNodeId, old.relationType, old.props.filterNot(data.contains)))
+        updateRelationships(relationshipIds, old => TestRelationship(old.id, old.startNodeId, old.endNodeId, old.relationType, old.props.filterNot(p => data.contains(p._1))))
 
       override def removeRelationshipsType(relationshipIds: Iterator[LynxId], typeName: LynxRelationshipType): Iterator[Option[LynxRelationship]] =
         updateRelationships(relationshipIds, old => TestRelationship(old.id, old.startNodeId, old.endNodeId, None, old.props))
