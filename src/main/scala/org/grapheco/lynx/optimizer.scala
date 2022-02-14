@@ -2,7 +2,7 @@ package org.grapheco.lynx
 
 import org.grapheco.lynx.RemoveNullProject.optimizeBottomUp
 import org.opencypher.v9_0.ast.AliasedReturnItem
-import org.opencypher.v9_0.expressions.{Ands, Equals, Expression, FunctionInvocation, HasLabels, In, LabelName, Literal, LogicalVariable, MapExpression, NodePattern, Not, Ors, PatternExpression, Property, PropertyKeyName, RelationshipPattern, Variable}
+import org.opencypher.v9_0.expressions.{Ands, Equals, Expression, FunctionInvocation, HasLabels, In, LabelName, Literal, LogicalVariable, MapExpression, NodePattern, Not, Ors, PatternExpression, Property, PropertyKeyName, RegexMatch, RelationshipPattern, Variable}
 import org.opencypher.v9_0.util.InputPosition
 
 import scala.collection.mutable
@@ -57,9 +57,9 @@ object RemoveNullProject extends PhysicalPlanOptimizerRule {
  * rule to PUSH the nodes or relationships' property and label in PPTFilter to NodePattern or RelationshipPattern
  * LEAVE other expressions or operations in PPTFilter.
  * like:
- *      PPTFilter(where node.age>10 or node.age<5 and n.label='xxx')           PPTFilter(where node.age>10 or node.age<5)
- *        ||                                                           ===>      ||
- *        NodePattern(n)                                                         NodePattern(n: label='xxx')
+ * PPTFilter(where node.age>10 or node.age<5 and n.label='xxx')           PPTFilter(where node.age>10 or node.age<5)
+ * ||                                                           ===>      ||
+ * NodePattern(n)                                                         NodePattern(n: label='xxx')
  */
 object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
   override def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = optimizeBottomUp(plan, {
@@ -92,11 +92,11 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
     pj.withChildren(res)
   }
 
-  def pptFilterThenJoinPushDown(propMap: mutable.Map[String, Option[Expression]],
-                                   labelMap: mutable.Map[String, Seq[LabelName]],
-                                   pj: PPTJoin, ppc: PhysicalPlannerContext): PPTNode = {
+  def pptFilterThenJoinPushDown(propMap: Map[String, Option[Expression]],
+                                labelMap: Map[String, Seq[LabelName]],
+                                pj: PPTJoin, ppc: PhysicalPlannerContext): PPTNode = {
     val res = pj.children.map {
-      case pn@PPTNodeScan(pattern) => PPTNodeScan(getNewNodePattern(pattern, labelMap.toMap, propMap.toMap))(ppc)
+      case pn@PPTNodeScan(pattern) => PPTNodeScan(getNewNodePattern(pattern, labelMap, propMap))(ppc)
       case pjj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => pptFilterThenJoinPushDown(propMap, labelMap, pjj, ppc)
       case f => f
     }
@@ -104,11 +104,7 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
   }
 
   def pptFilterThenJoin(parent: PPTFilter, pj: PPTJoin, ppc: PhysicalPlannerContext): (Seq[PPTNode], Boolean) = {
-    val propertyMap: mutable.Map[String, Option[Expression]] = mutable.Map.empty
-    val labelMap: mutable.Map[String, Seq[LabelName]] = mutable.Map.empty
-    val notPushDown: ArrayBuffer[Expression] = ArrayBuffer()
-
-    extractParamsFromFilterExpression(propertyMap, labelMap, parent.expr, notPushDown)
+    val (labelMap, propertyMap, notPushDown) = extractFromFilterExpression(parent.expr)
 
     val res = pptFilterThenJoinPushDown(propertyMap, labelMap, pj, ppc)
 
@@ -122,15 +118,47 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
     }
   }
 
-  def extractParamsFromFilterExpression(propMap: mutable.Map[String, Option[Expression]],
+  def extractFromFilterExpression(expression: Expression): (Map[String, Seq[LabelName]], Map[String, Option[Expression]], Seq[Expression]) = {
+    val propertyMap: mutable.Map[String, Option[Expression]] = mutable.Map.empty
+    val labelMap: mutable.Map[String, Seq[LabelName]] = mutable.Map.empty
+    val notPushDown: ArrayBuffer[Expression] = ArrayBuffer.empty
+    val propItems: mutable.Map[String, ArrayBuffer[(PropertyKeyName, Expression)]] = mutable.Map.empty
+    val regexPattern: mutable.Map[String, ArrayBuffer[RegexMatch]] = mutable.Map.empty
+
+    extractParamsFromFilterExpression(expression, labelMap, propItems, regexPattern, notPushDown)
+
+    propItems.foreach {
+      case (name, exprs) =>
+        exprs.size match {
+          case 0 => {}
+          case _ => {
+            propertyMap += name -> Option(MapExpression(List(exprs: _*))(InputPosition(0, 0, 0)))
+//            if (regexPattern.isEmpty) propertyMap += name -> Option(MapExpression(List(exprs: _*))(InputPosition(0, 0, 0)))
+//            else {
+//              val regexSet: Set[Expression] = regexPattern(name).toSet
+//              val mpSet: Set[Expression] = Set(MapExpression(List(exprs: _*))(InputPosition(0, 0, 0)))
+//
+//              propertyMap += name -> Option(Ands(mpSet ++ regexSet)(InputPosition(0, 0, 0)))
+//            }
+          }
+        }
+    }
+
+    (labelMap.toMap, propertyMap.toMap, notPushDown)
+  }
+
+  def extractParamsFromFilterExpression(filters: Expression,
                                         labelMap: mutable.Map[String, Seq[LabelName]],
-                                        filters: Expression,
+                                        propMap: mutable.Map[String, ArrayBuffer[(PropertyKeyName, Expression)]],
+                                        regexPattern: mutable.Map[String, ArrayBuffer[RegexMatch]],
                                         notPushDown: ArrayBuffer[Expression]): Unit = {
+
     filters match {
       case e@Equals(Property(expr, pkn), rhs) => {
         expr match {
-          case Variable(name) =>{
-            propMap += name -> Option(MapExpression(List((pkn, rhs)))(InputPosition(0, 0, 0)))
+          case Variable(name) => {
+            if (propMap.contains(name)) propMap(name).append((pkn, rhs))
+            else propMap += name -> ArrayBuffer((pkn, rhs))
           }
         }
       }
@@ -141,7 +169,18 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
           }
         }
       }
-      case a@Ands(andExpress) => andExpress.foreach(exp => extractParamsFromFilterExpression(propMap, labelMap, exp, notPushDown))
+//      case rj@RegexMatch(lhs, rhs) => {
+//        lhs match {
+//          case p@Property(expr, propertyKeyName) =>{
+//            expr match {
+//              case Variable(n) =>
+//                if (regexPattern.contains(n)) regexPattern(n).append(rj)
+//                else regexPattern += n -> ArrayBuffer(rj)
+//            }
+//          }
+//        }
+//      }
+      case a@Ands(andExpress) => andExpress.foreach(exp => extractParamsFromFilterExpression(exp, labelMap, propMap, regexPattern, notPushDown))
       case other => notPushDown += other
     }
   }
@@ -245,14 +284,10 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
         }
       }
       case andExpr@Ands(expressions) => {
-        val nodeLabels = mutable.Map[String, Seq[LabelName]]()
-        val nodeProperties: mutable.Map[String, Option[Expression]] = mutable.Map.empty
-        val otherExpressions = ArrayBuffer[Expression]()
+        val (nodeLabels, nodeProperties, otherExpressions) = extractFromFilterExpression(andExpr)
 
-        extractParamsFromFilterExpression(nodeProperties, nodeLabels, andExpr, otherExpressions)
-
-        val leftPattern = getNewNodePattern(left, nodeLabels.toMap, nodeProperties.toMap)
-        val rightPattern = getNewNodePattern(right, nodeLabels.toMap, nodeProperties.toMap)
+        val leftPattern = getNewNodePattern(left, nodeLabels, nodeProperties)
+        val rightPattern = getNewNodePattern(right, nodeLabels, nodeProperties)
 
         if (otherExpressions.isEmpty) (leftPattern, rightPattern, Set(), true)
         else {
@@ -270,13 +305,9 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
 
   def expandPathPushDown(expression: Expression, right: NodePattern,
                          pep: PPTExpandPath, ppc: PhysicalPlannerContext): (PPTNode, Set[Expression]) = {
-    val nodeLabels = mutable.Map[String, Seq[LabelName]]()
-    val nodeProperties: mutable.Map[String, Option[Expression]] = mutable.Map.empty
-    val otherExpressions = ArrayBuffer[Expression]()
+    val (nodeLabels, nodeProperties, otherExpressions) = extractFromFilterExpression(expression)
 
-    extractParamsFromFilterExpression(nodeProperties, nodeLabels, expression, otherExpressions)
-
-    val topExpandPath = bottomUpExpandPath(nodeLabels.toMap, nodeProperties.toMap, pep, ppc)
+    val topExpandPath = bottomUpExpandPath(nodeLabels, nodeProperties, pep, ppc)
 
     if (otherExpressions.isEmpty) (topExpandPath, Set())
     else {
@@ -321,14 +352,9 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
   }
 
   def handleNodeAndsExpression(andExpr: Expression, pattern: NodePattern): (NodePattern, Set[Expression], Boolean) = {
+    val (pushLabels, propertiesMap, notPushDown) = extractFromFilterExpression(andExpr)
 
-    val propertiesMap: mutable.Map[String, Option[Expression]] = mutable.Map.empty
-    val pushLabels: mutable.Map[String, Seq[LabelName]] = mutable.Map.empty
-    val notPushDown: ArrayBuffer[Expression] = ArrayBuffer.empty
-
-    extractParamsFromFilterExpression(propertiesMap, pushLabels, andExpr, notPushDown)
-
-    val newNodePattern = getNewNodePattern(pattern, pushLabels.toMap, propertiesMap.toMap)
+    val newNodePattern = getNewNodePattern(pattern, pushLabels, propertiesMap)
 
     if (notPushDown.size > 1) (newNodePattern, Set(Ands(notPushDown.toSet)(InputPosition(0, 0, 0))), true)
     else (newNodePattern, notPushDown.toSet, true)
@@ -339,10 +365,10 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
  * rule to check is there any reference property between two match clause
  * if there is any reference property, extract it to PPTJoin().
  * like:
- *    PPTJoin()                                             PPTJoin(m.city == n.city)
- *      ||                                    ====>           ||
- *      match (n:person{name:'alex'})                         match (n:person{name:'alex'})
- *      match (m:person where m.city=n.city})                 match (m:person)
+ * PPTJoin()                                             PPTJoin(m.city == n.city)
+ * ||                                    ====>           ||
+ * match (n:person{name:'alex'})                         match (n:person{name:'alex'})
+ * match (m:person where m.city=n.city})                 match (m:person)
  */
 object JoinReferenceRule extends PhysicalPlanOptimizerRule {
   def checkNodeReference(pattern: NodePattern): (Seq[((LogicalVariable, PropertyKeyName), Expression)], Option[NodePattern]) = {
