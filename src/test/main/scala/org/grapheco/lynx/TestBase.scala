@@ -62,19 +62,19 @@ class TestBase extends LazyLogging {
       override def createElements[T](nodesInput: Seq[(String, NodeInput)],
                                      relationshipsInput: Seq[(String, RelationshipInput)],
                                      onCreated: (Seq[(String, LynxNode)], Seq[(String, LynxRelationship)]) => T): T = {
-        val nodesMap: Map[String, TestNode] = nodesInput.toMap
-          .map{case (valueName,input) => valueName -> TestNode(nodeId, input.labels, input.props.toMap)}
+        val nodesMap: Map[String, TestNode] = nodesInput
+          .map{case (valueName,input) => valueName -> TestNode(nodeId, input.labels, input.props.toMap)}.toMap
 
         def localNodeRef(ref: NodeInputRef): TestId = ref match {
           case StoredNodeInputRef(id) => id
           case ContextualNodeInputRef(valueName) => nodesMap(valueName).id
         }
 
-        val relationshipsMap: Map[String, TestRelationship] = relationshipsInput.toMap.map{
+        val relationshipsMap: Map[String, TestRelationship] = relationshipsInput.map{
           case (valueName,input) =>
             valueName -> TestRelationship(relationshipId, localNodeRef(input.startNodeRef),
               localNodeRef(input.endNodeRef), input.types.headOption,input.props.toMap)
-        }
+        }.toMap
 
         _nodesBuffer ++= nodesMap.map{ case (_, node) => (node.id, node)}
         _relationshipsBuffer ++= relationshipsMap.map{ case (_, relationship) => (relationship.id, relationship)}
