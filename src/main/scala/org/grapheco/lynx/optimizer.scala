@@ -481,6 +481,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
       case pj1@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => {
         joinRecursion(pj1, ppc, isSingleMatch)
       }
+      case pu@PPTUnwind(expr, variable) => pu
     }
     (newTable, referenceProperty)
   }

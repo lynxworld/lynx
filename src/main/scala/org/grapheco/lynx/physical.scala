@@ -3,10 +3,11 @@ package org.grapheco.lynx
 import org.grapheco.lynx
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions.{NodePattern, RelationshipChain, _}
-import org.opencypher.v9_0.util.symbols.{CTAny, CTNode, CTRelationship, CypherType, CTList}
+import org.opencypher.v9_0.util.symbols.{CTAny, CTList, CTNode, CTPath, CTRelationship, CypherType}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.language.postfixOps
 
 trait PPTNode extends TreeNode {
   override type SerialType = PPTNode
@@ -72,6 +73,7 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case li@LPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName]) => PPTCreateIndex(labelName, properties)(plannerContext)
       case sc@LPTSetClause(d) => PPTSetClauseTranslator(d.items).translate(sc.in.map(plan(_)))(plannerContext)
       case lr@LPTRemove(r) => PPTRemoveTranslator(r.items).translate(lr.in.map(plan(_)))(plannerContext)
+      case lu@LPTUnwind(u) => PPTUnwindTranslator(u.expression, u.variable).translate(lu.in.map(plan(_)))(plannerContext)
     }
   }
 }
@@ -849,6 +851,12 @@ case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[CreateElemen
   }
 }
 
+/**
+ * The DELETE clause is used to delete graph elements — nodes, relationships or paths.
+ * @param delete
+ * @param in
+ * @param plannerContext
+ */
 case class PPTDelete(delete: Delete)(implicit val in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override val children: Seq[PPTNode] = Seq(in)
 
@@ -856,30 +864,28 @@ case class PPTDelete(delete: Delete)(implicit val in: PPTNode, val plannerContex
 
   override val schema: Seq[(String, LynxType)] = Seq.empty
 
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = { // TODO so many bugs !
     val df = in.execute(ctx)
-    val schema1: Map[String, (CypherType, Int)] = df.schema.zipWithIndex.map(x => x._1._1 -> (x._1._2, x._2)).toMap
-    delete.expressions.map(expr => {
-      val colSchema = schema1(expr.asInstanceOf[Variable].name)
-      colSchema._1 match {
-        case CTRelationship => {
-          val relIDs = df.records.map(row => {
-            val toBeDeleted = row.apply(colSchema._2)
-            toBeDeleted.asInstanceOf[LynxRelationship].id
-          })
-          graphModel.deleteRelations(relIDs)
-        }
-        case CTNode => {
-          val nodeIDs = df.records.map(row => {
-            val toBeDeleted = row.apply(colSchema._2)
-            toBeDeleted.asInstanceOf[LynxNode].id
-          })
-          graphModel.deleteNodesSafely(nodeIDs, delete.forced)
-        }
+    delete.expressions foreach { exp =>
+      val projected = df.project(Seq(("delete", exp)))(ctx.expressionContext)
+      val (_, elementType) = projected.schema.head
+      elementType match {
+        case CTNode => graphModel.deleteNodesSafely(
+          dropNull(projected.records) map {_.asInstanceOf[LynxNode].id}, delete.forced)
+        case CTRelationship => graphModel.deleteRelations(
+          dropNull(projected.records) map {_.asInstanceOf[LynxRelationship].id})
+        case CTPath =>
+        case _ => throw SyntaxErrorException(s"expected Node, Path pr Relationship, but a ${elementType}")
       }
-    })
+    }
+
+    def dropNull(values: Iterator[Seq[LynxValue]]): Iterator[LynxValue] =
+      values.flatMap(_.headOption.filterNot(LynxNull.equals))
+
     DataFrame.empty
   }
+
+
 }
 
 //////// SET ///////
@@ -1069,6 +1075,44 @@ case class PPTRemove(removeItems: Seq[RemoveItem])(implicit val in: PPTNode, val
 
 ////////////////////////////
 
+/////////UNWIND//////////////
+case class PPTUnwindTranslator(expression: Expression, variable: Variable) extends PPTNodeTranslator {
+  override def translate(in: Option[PPTNode])(implicit ppc: PhysicalPlannerContext): PPTNode = {
+    PPTUnwind( expression, variable)(in, ppc)
+  }
+}
+
+case class PPTUnwind(expression: Expression, variable: Variable)(implicit val in: Option[PPTNode], val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode{
+  override val children: Seq[PPTNode] = in.toSeq
+
+  override val schema: Seq[(String, LynxType)] = in.map(_.schema).getOrElse(Seq.empty) ++ Seq((variable.name, CTAny)) // TODO it is CTAny?
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame =  // fixme
+    in map {inNode =>
+      val df = inNode.execute(ctx) // dataframe of in
+      val colName = schema map {case (name, _) => name}
+      DataFrame(schema, () => df.records flatMap { record =>
+          val recordCtx = ctx.expressionContext.withVars(colName zip(record) toMap)
+          val rsl = (expressionEvaluator.eval(expression)(recordCtx) match {
+            case list: LynxList => list.value
+            case element: LynxValue => List(element)
+          }) map { element=> record :+ element}
+          rsl
+        })
+//      df.project(, Seq((variable.name, expression)))(ctx.expressionContext).records
+//        .flatten.flatMap{
+//        case list: LynxList => list.value
+//        case element: LynxValue => List(element)
+//      }.map(lv => Seq(lv))
+    } getOrElse {
+      DataFrame(schema, ()=>
+        eval(expression)(ctx.expressionContext).asInstanceOf[LynxList].value.toIterator map(lv => Seq(lv)))
+    }
+
+  override def withChildren(children0: Seq[PPTNode]): PPTUnwind = PPTUnwind(expression, variable)(children0.headOption, plannerContext)
+}
+////////////////////////////
+
 case class NodeInput(labels: Seq[LynxNodeLabel], props: Seq[(LynxPropertyKey, LynxValue)]) {
 
 }
@@ -1084,3 +1128,5 @@ case class StoredNodeInputRef(id: LynxId) extends NodeInputRef
 case class ContextualNodeInputRef(varname: String) extends NodeInputRef
 
 case class UnresolvableVarException(var0: Option[LogicalVariable]) extends LynxException
+
+case class SyntaxErrorException(msg: String) extends LynxException

@@ -8,6 +8,7 @@ import org.opencypher.v9_0.expressions.{Expression, FunctionInvocation}
 import org.opencypher.v9_0.util.InputPosition
 
 import scala.collection.mutable
+import scala.language.postfixOps
 
 trait CallableProcedure {
   val inputs: Seq[(String, LynxType)]
@@ -138,26 +139,7 @@ class DefaultProcedures {
   }
   // ====================
 
-  @LynxProcedure(name = "nodes")
-  def nodes(inputs: LynxList): List[LynxNode] = {
-    def fetchNodeFromList(list: LynxList): LynxNode = {
-      list.value.filter(item => item.isInstanceOf[LynxNode]).head.asInstanceOf[LynxNode]
-    }
 
-    def fetchListFromList(list: LynxList): LynxList = {
-      list.value.filter(item => item.isInstanceOf[LynxList]).head.asInstanceOf[LynxList]
-    }
-
-    val list = fetchListFromList(inputs)
-    if (list.value.nonEmpty) List(fetchNodeFromList(inputs)) ++ nodes(fetchListFromList(inputs))
-    else List(fetchNodeFromList(inputs))
-  }
-
-  @LynxProcedure(name = "relationships")
-  def relationships(inputs: LynxList): List[LynxRelationship] = {
-    val list: LynxList = inputs.value.tail.head.asInstanceOf[LynxList]
-    list.value.filter(value => value.isInstanceOf[LynxRelationship]).asInstanceOf[List[LynxRelationship]].reverse
-  }
 
   //user should opt the count implementation at their own project
   @LynxProcedure(name = "count")
@@ -413,10 +395,72 @@ class DefaultProcedures {
   }
 
   // list function
-  @LynxProcedure(name = "labels")
-  def labels(x: LynxNode): Seq[String] = {
-    x.labels.map(_.value)
+
+  /**
+   * Returns a list containing the string representations
+   * for all the property names of a node, relationship, or map.
+   * @param x A node, relationship, or map
+   * @return property names
+   */
+  @LynxProcedure(name = "keys")
+  def keys(x: LynxValue): List[String] = x match {
+    case n: LynxNode => n.keys.toList.map(_.value)
+    case r: LynxRelationship => r.keys.toList.map(_.value)
+    case m: LynxMap => m.value.keys.toList
+    case _ => throw new LynxProcedureException("keys() can only used on node, relationship and map.")
   }
+
+  /**
+   * Returns a list containing the string representations for all the labels of a node.
+   * @param x The node
+   * @return labels
+   */
+  @LynxProcedure(name = "labels")
+  def labels(x: LynxNode): Seq[String] = x.labels.map(_.value)
+
+  /**
+   * Returns a list containing all the nodes in a path.
+   * @param inputs path
+   * @return nodes
+   */
+  @LynxProcedure(name = "nodes")
+  def nodes(inputs: LynxList): List[LynxNode] = {
+    def fetchNodeFromList(list: LynxList): LynxNode = {
+      list.value.filter(item => item.isInstanceOf[LynxNode]).head.asInstanceOf[LynxNode]
+    }
+
+    def fetchListFromList(list: LynxList): LynxList = {
+      list.value.filter(item => item.isInstanceOf[LynxList]).head.asInstanceOf[LynxList]
+    }
+
+    val list = fetchListFromList(inputs)
+    if (list.value.nonEmpty) List(fetchNodeFromList(inputs)) ++ nodes(fetchListFromList(inputs))
+    else List(fetchNodeFromList(inputs))
+  }
+
+  /**
+   * Returns a list comprising all integer values within a specified range. TODO
+   * @param inputs
+   * @return
+   */
+  @LynxProcedure(name = "range")
+  def range(start: LynxInteger, end: LynxInteger): LynxList = range(start, end, LynxInteger(1))
+
+  @LynxProcedure(name = "range")
+  def range(start: LynxInteger, end: LynxInteger, step: LynxInteger): LynxList =
+    LynxList((start.value to end.value by step.value).toList map LynxInteger)
+
+  /**
+   * Returns a list containing all the relationships in a path.
+   * @param inputs path
+   * @return relationships
+   */
+  @LynxProcedure(name = "relationships")
+  def relationships(inputs: LynxList): List[LynxRelationship] = {
+    val list: LynxList = inputs.value.tail.head.asInstanceOf[LynxList]
+    list.value.filter(value => value.isInstanceOf[LynxRelationship]).asInstanceOf[List[LynxRelationship]].reverse
+  }
+
 
   // scalar functions
   @LynxProcedure(name = "id")
@@ -427,6 +471,19 @@ class DefaultProcedures {
       case _ => throw new LynxProcedureException("id can only used on node and relationship")
     }
   }
+
+  /**
+   * Returns a map containing all the properties of a node or relationship
+   * @param x A node or relationship
+   * @return All properties
+   */
+  @LynxProcedure(name =  "properties")
+  def properties(x: LynxValue): LynxMap = x match {
+    case n: LynxNode => LynxMap(n.keys map ( k => k.value -> n.property(k).getOrElse(LynxNull)) toMap)
+    case r: LynxRelationship => LynxMap(r.keys map ( k => k.value -> r.property(k).getOrElse(LynxNull)) toMap)
+    case _ => throw new LynxProcedureException("properties() can only used on node or relationship.")
+  }
+
 
   @LynxProcedure(name = "toInteger")
   def toInteger(x: LynxValue): LynxValue = {
@@ -570,8 +627,9 @@ class DefaultProcedures {
   }
 
   @LynxProcedure(name = "toString")
-  def toString(x: LynxValue): String = {
-    x.value.toString
+  def toString(x: LynxValue): String = x match {
+//    case dr: LynxDuration => dr.toString
+    case _ => x.value.toString
   }
 }
 

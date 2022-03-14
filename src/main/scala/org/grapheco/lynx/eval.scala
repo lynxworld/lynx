@@ -1,7 +1,8 @@
 package org.grapheco.lynx
 
 import org.opencypher.v9_0.expressions._
-import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTString, CypherType}
+import org.opencypher.v9_0.expressions.functions.{Collect, Id}
+import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTList, CTString, CypherType, ListType}
 
 import scala.util.matching.Regex
 
@@ -25,14 +26,22 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
   override def typeOf(expr: Expression, definedVarTypes: Map[String, LynxType]): LynxType = {
     expr match {
       case Parameter(name, parameterType) => parameterType
-
+//TODO there are too many situations not considered.
       //literal
       case _: BooleanLiteral => CTBoolean
       case _: StringLiteral => CTString
       case _: IntegerLiteral => CTInteger
       case _: DoubleLiteral => CTFloat
       case CountStar() => CTInteger
-
+      case ProcedureExpression(funcInov) => funcInov.function match {
+        case Collect => CTList(typeOf(funcInov.args.head, definedVarTypes))
+        case Id => CTInteger
+        case _ => CTAny
+      }
+      case ContainerIndex(expr, _) => typeOf(expr, definedVarTypes) match {
+        case ListType(cypherType) => cypherType
+        case _ => CTAny
+      }
       case Variable(name) => definedVarTypes(name)
       case _ => CTAny
     }
@@ -73,6 +82,9 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case ContainerIndex(expr, idx) =>{//fixme: what's this
         {(eval(expr), eval(idx)) match {
           case (hp: HasProperty, i: LynxString) => hp.property(LynxPropertyKey(i.value))
+          case (lm: LynxMap, key: LynxString) => lm.value.get(key.value)
+          case (lm: LynxList, i: LynxInteger) => lm.value.lift(i.value.toInt)
+//          case (lm: LynxMap, index: LynxInteger) => lm.value.values.toList.lift(index.value.toInt)
         }}.getOrElse(LynxNull)
       }
 
@@ -86,6 +98,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           (lvalue, rvalue) match {
             case (a: LynxNumber, b: LynxNumber) => a + b
             case (a: LynxString, b: LynxString) => LynxString(a.value + b.value)
+            case (a: LynxList, b: LynxList) => LynxList(a.value ++ b.value)
           }).getOrElse(LynxNull)
 
       case Subtract(lhs, rhs) =>

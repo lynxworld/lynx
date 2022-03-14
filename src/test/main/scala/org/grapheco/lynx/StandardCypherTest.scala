@@ -1,11 +1,11 @@
-package org.grapheco.lynx.test
+package org.grapheco.lynx
 
-import org.grapheco.lynx._
 import org.junit.jupiter.api.{DynamicTest, TestFactory}
-import org.opencypher.tools.tck.api.{CypherTCK, CypherValueRecords, Graph, QueryType, SideEffectQuery}
+import org.opencypher.tools.tck.api.{CypherTCK, CypherValueRecords, Graph, QueryType}
 import org.opencypher.tools.tck.values._
 
 import scala.collection.JavaConverters._
+import scala.language.{implicitConversions, postfixOps}
 /**
  * @program: lynx
  * @description:
@@ -16,11 +16,11 @@ class StandardCypherTest{
 
   @TestFactory
   def testStandardTck(): java.util.Collection[DynamicTest] ={
-    val tckScenarios = CypherTCK.allTckScenarios
+    val allTckScenarios = CypherTCK.allTckScenarios
 
-    def emptyGraph(): Graph = new MyGraph
+    def emptyGraph: Graph = new TestGraph
 
-    val dynamicTests = tckScenarios.map{
+    val dynamicTests = allTckScenarios take 100 map{
       scenario =>
         val name = scenario.name
         val executable = scenario(emptyGraph)
@@ -30,26 +30,30 @@ class StandardCypherTest{
   }
 }
 
-class MyGraph() extends Graph{
-  val db = new TestBase
+class TestGraph extends TestBase with Graph {
+
   override def execute(query: String, params: Map[String, CypherValue], meta: QueryType): (Graph, Result) = {
-    val res = db.runner.run(query, params.map(kv => (kv._1, cypherValue2ScalaValue(kv._2))))
-    val result = resultFromValueRecords(CypherValueRecords(res.columns().toList, res.records().toList.map(m => m.map(kv => (kv._1, lynxValue2CypherValue(kv._2))))))
-    (this, result)
+    println(query, params)
+    val scalaParams = params.mapValues(cypherValue2ScalaValue)
+
+    val lynxResult = this.runner.run(query, scalaParams)
+
+    (this, CypherValueRecords(
+      lynxResult.columns().toList,
+      lynxResult.records().map(_.mapValues(lynxValue2CypherValue)).toList
+    ))
   }
 
-  def lynxValue2CypherValue(value: Any): CypherValue ={
+  implicit def lynxValue2CypherValue(value: Any): CypherValue ={
     value match {
-      case node: db.TestNode => {
-        val labels = node.labels.map(l => l.value).toSet
-        val props = CypherPropertyMap(node.props.map(kv => (kv._1.value, lynxValue2CypherValue(kv._2))))
-        CypherNode(labels, props)
-      }
-      case relation: db.TestRelationship => {
-        val rType = relation.relationType.get.value
-        val props = CypherPropertyMap(relation.props.map(kv => (kv._1.value, lynxValue2CypherValue(kv._2))))
-        CypherRelationship(rType, props)
-      }
+      case node: TestNode => CypherNode(
+        node.labels.map(_.value).toSet,
+        CypherPropertyMap(node.props.map{ case(propName, lynxValue) => (propName.value, lynxValue2CypherValue(lynxValue))})
+      )
+      case relation: TestRelationship => CypherRelationship(
+        relation.relationType.map(_.value).getOrElse(""),
+        CypherPropertyMap(relation.props.map{ case(propName, lynxValue) => (propName.value, lynxValue2CypherValue(lynxValue))})
+      )
       case LynxBoolean(v) => CypherBoolean(v)
       case LynxDouble(v) => CypherFloat(v)
       case LynxDuration(duration) => CypherString(duration.toString)
@@ -75,7 +79,8 @@ class MyGraph() extends Graph{
       case CypherRelationship(relType, properties) => ???
       case CypherNull => null
       case CypherString(s) => s
-      case CypherPropertyMap(properties) => properties.map(kv => (kv._1, cypherValue2ScalaValue(kv._2)))
+//      case CypherPropertyMap(properties) => properties.map(kv => (kv._1, cypherValue2ScalaValue(kv._2)))
+      case CypherPropertyMap(properties) => properties mapValues cypherValue2ScalaValue
     }
   }
 }

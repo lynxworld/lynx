@@ -1,6 +1,6 @@
 package org.grapheco.lynx
 
-import org.opencypher.v9_0.ast.{AliasedReturnItem, Clause, Create, CreateIndex, CreateUniquePropertyConstraint, Delete, Limit, Match, Merge, MergeAction, OrderBy, PeriodicCommitHint, ProcedureResult, ProcedureResultItem, Query, QueryPart, Remove, Return, ReturnItem, ReturnItems, ReturnItemsDef, SetClause, SingleQuery, Skip, SortItem, Statement, UnresolvedCall, Where, With}
+import org.opencypher.v9_0.ast.{AliasedReturnItem, Clause, Create, CreateIndex, CreateUniquePropertyConstraint, Delete, Limit, Match, Merge, MergeAction, OrderBy, PeriodicCommitHint, ProcedureResult, ProcedureResultItem, Query, QueryPart, Remove, Return, ReturnItem, ReturnItems, ReturnItemsDef, SetClause, SingleQuery, Skip, SortItem, Statement, UnresolvedCall, Unwind, Where, With}
 import org.opencypher.v9_0.expressions.{EveryPath, Expression, FunctionInvocation, FunctionName, LabelName, LogicalVariable, Namespace, NodePattern, Pattern, PatternElement, PatternPart, ProcedureName, Property, PropertyKeyName, RelationshipChain, RelationshipPattern, Variable}
 import org.opencypher.v9_0.util.{ASTNode, InputPosition}
 
@@ -137,24 +137,38 @@ case class LPTRemove(r: Remove)(val in: Option[LPTNode]) extends LPTNode {
 }
 /////////////////////////////////////
 
+//////////////UNWIND//////////////////
+case class LPTUnwindTranslator(u: Unwind) extends LPTNodeTranslator {
+  override def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode =
+//    in match {
+//      case None => LPTUnwind(u)(None)
+//      case Some(left) => LPTJoin(isSingleMatch = false)(left, LPTUnwind(u)(in))
+//    }
+    LPTUnwind(u)(in)
+}
+
+case class LPTUnwind(u: Unwind)(val in: Option[LPTNode]) extends LPTNode {
+  override val children: Seq[LPTNode] = in.toSeq
+}
+/////////////////////////////////////
+
 case class LPTQueryPartTranslator(part: QueryPart) extends LPTNodeTranslator {
   def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
     part match {
       case SingleQuery(clauses: Seq[Clause]) =>
         PipedTranslators(
-          clauses.map(
-            _ match {
-              case c: UnresolvedCall => LPTProcedureCallTranslator(c)
-              case r: Return => LPTReturnTranslator(r)
-              case w: With => LPTWithTranslator(w)
-              case m: Match => LPTMatchTranslator(m)
-              case c: Create => LPTCreateTranslator(c)
-              case m: Merge => LPTMergeTranslator(m)
-              case d: Delete => LPTDeleteTranslator(d)
-              case s: SetClause => LPTSetClauseTranslator(s)
-              case r: Remove => LPTRemoveTranslator(r)
-            }
-          )
+          clauses.map {
+            case c: UnresolvedCall => LPTProcedureCallTranslator(c)
+            case r: Return => LPTReturnTranslator(r)
+            case w: With => LPTWithTranslator(w)
+            case u: Unwind => LPTUnwindTranslator(u)
+            case m: Match => LPTMatchTranslator(m)
+            case c: Create => LPTCreateTranslator(c)
+            case m: Merge => LPTMergeTranslator(m)
+            case d: Delete => LPTDeleteTranslator(d)
+            case s: SetClause => LPTSetClauseTranslator(s)
+            case r: Remove => LPTRemoveTranslator(r)
+          }
         ).translate(in)
     }
   }

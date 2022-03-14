@@ -19,6 +19,8 @@ trait LynxValue {
   def <(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
 
   def <=(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
+
+  override def toString: String = this.value.toString
 }
 
 trait LynxNumber extends LynxValue {
@@ -128,6 +130,7 @@ trait LynxTemporalValue extends LynxValue
 
 case class LynxDate(localDate: LocalDate) extends LynxTemporalValue {
   def value: LocalDate = localDate
+
   def cypherType: DateType = CTDate
 }
 
@@ -158,6 +161,42 @@ case class LynxTime(offsetTime: OffsetTime) extends LynxTemporalValue {
 case class LynxDuration(duration: Duration) extends LynxTemporalValue {
   def value: Duration = duration
 
+  override def toString: String = {
+    val seconds = value.getSeconds
+    val nanos = value.getNano
+    if (value eq Duration.ZERO) return "PT0S"
+    val _hours = seconds / 3600
+    val minutes = ((seconds % 3600) / 60).toInt
+    val secs = (seconds % 60).toInt
+    val years = _hours / 262800
+    val months = (_hours % 262800) / 720
+    val days = (_hours % 720) / 24
+    val hours = _hours % 24
+    val buf = new StringBuilder(24)
+    buf.append("P")
+    if (years != 0) buf.append(years).append('Y')
+    if (months != 0) buf.append(months).append('M')
+    if (days != 0) buf.append(days).append('D')
+    buf.append("T")
+    if (hours != 0) buf.append(hours).append('H')
+    if (minutes != 0) buf.append(minutes).append('M')
+    if (secs == 0 && nanos == 0 && buf.length > 2) return buf.toString
+    if (secs < 0 && nanos > 0) if (secs == -1) buf.append("-0")
+    else buf.append(secs + 1)
+    else buf.append(secs)
+    if (nanos > 0) {
+      val pos = buf.length
+      if (secs < 0) buf.append(2 * 1000000000L - nanos)
+      else buf.append(nanos + 1000000000L)
+      while ( {
+        buf.charAt(buf.length - 1) == '0'
+      }) buf.setLength(buf.length - 1)
+      buf.setCharAt(pos, '.')
+    }
+    buf.append('S')
+    buf.toString
+  }
+
   def cypherType: LynxType = CTDuration
 }
 
@@ -170,11 +209,15 @@ object LynxNull extends LynxValue {
 trait LynxId {
   val value: Any
 }
-object NameParser{
+
+object NameParser {
   implicit def parseLabelName(name: String): LynxNodeLabel = LynxNodeLabel(name)
+
   implicit def parseTypeName(name: String): LynxRelationshipType = LynxRelationshipType(name)
+
   implicit def parseKeyName(name: String): LynxPropertyKey = LynxPropertyKey(name)
 }
+
 case class LynxNodeLabel(value: String)
 
 case class LynxRelationshipType(value: String)
@@ -182,6 +225,8 @@ case class LynxRelationshipType(value: String)
 case class LynxPropertyKey(value: String)
 
 trait HasProperty {
+  def keys: Seq[LynxPropertyKey]
+
   def property(propertyKey: LynxPropertyKey): Option[LynxValue]
 }
 
@@ -195,7 +240,7 @@ trait LynxNode extends LynxValue with HasProperty {
   def cypherType: NodeType = CTNode
 }
 
-trait LynxRelationship extends LynxValue  with HasProperty {
+trait LynxRelationship extends LynxValue with HasProperty {
   val id: LynxId
   val startNodeId: LynxId
   val endNodeId: LynxId

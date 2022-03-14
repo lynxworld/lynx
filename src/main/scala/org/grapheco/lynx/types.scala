@@ -37,8 +37,7 @@ class DefaultTypeSystem extends TypeSystem {
     case v: LocalTime => LynxLocalTime(v)
     case v: OffsetTime => LynxTime(v)
     case v: Duration => LynxDuration(v)
-    case v: Iterable[Any] => LynxList(v.map(wrap(_)).toList)
-    case v: Map[String, Any] => LynxMap(v.map(x => x._1 -> wrap(x._2)))
+    case v: Map[String, Any] => LynxMap(v.mapValues(wrap))
     case v: Array[Int] => LynxList(v.map(wrap(_)).toList)
     case v: Array[Long] => LynxList(v.map(wrap(_)).toList)
     case v: Array[Double] => LynxList(v.map(wrap(_)).toList)
@@ -46,6 +45,7 @@ class DefaultTypeSystem extends TypeSystem {
     case v: Array[Boolean] => LynxList(v.map(wrap(_)).toList)
     case v: Array[String] => LynxList(v.map(wrap(_)).toList)
     case v: Array[Any] => LynxList(v.map(wrap(_)).toList)
+    case v: Iterable[Any] => LynxList(v.map(wrap(_)).toList)
     case _ => throw InvalidValueException(value)
   }
 }

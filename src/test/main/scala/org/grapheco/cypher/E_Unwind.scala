@@ -1,7 +1,8 @@
 package org.grapheco.cypher
 
-import org.grapheco.lynx.{LynxNode, LynxNodeLabel, LynxPropertyKey, LynxRelationship, LynxRelationshipType, LynxValue, NodeInput, RelationshipInput, StoredNodeInputRef, TestBase}
+import org.grapheco.lynx.{DataFrame, LynxInteger, LynxList, LynxNode, LynxNodeLabel, LynxPropertyKey, LynxRelationship, LynxRelationshipType, LynxValue, NodeInput, RelationshipInput, StoredNodeInputRef, TestBase}
 import org.junit.{Assert, Before, Test}
+import org.opencypher.v9_0.util.symbols.CTAny
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -59,9 +60,9 @@ class E_Unwind extends TestBase{
         |UNWIND [1, 2, 3, null] AS x
         |RETURN x, 'val' AS y
         |""".stripMargin).records().toArray
-    Assert.assertEquals(1, res(0)("x").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(2, res(1)("x").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(3, res(2)("x").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(1L, res(0)("x").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(2L, res(1)("x").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(3L, res(2)("x").asInstanceOf[LynxValue].value)
     Assert.assertEquals(null, res(3)("x").asInstanceOf[LynxValue].value)
 
     Assert.assertEquals("val", res(0)("y").asInstanceOf[LynxValue].value)
@@ -91,10 +92,10 @@ class E_Unwind extends TestBase{
         |RETURN x
         |""".stripMargin).records().toArray
 
-    Assert.assertEquals(1, res(0)("x").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(2, res(1)("x").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(3, res(2)("x").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(4, res(3)("x").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(1L, res(0)("x").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(2L, res(1)("x").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(3L, res(2)("x").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(4L, res(3)("x").asInstanceOf[LynxValue].value)
   }
 
   @Test
@@ -106,11 +107,11 @@ class E_Unwind extends TestBase{
         |UNWIND x AS y
         |RETURN y
         |""".stripMargin).records().toArray
-    Assert.assertEquals(1, res(0)("y").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(2, res(1)("y").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(3, res(2)("y").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(4, res(3)("y").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(5, res(4)("y").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(1L, res(0)("y").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(2L, res(1)("y").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(3L, res(2)("y").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(4L, res(3)("y").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(5L, res(4)("y").asInstanceOf[LynxValue].value)
   }
 
   @Test

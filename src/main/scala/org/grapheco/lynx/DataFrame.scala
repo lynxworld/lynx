@@ -118,10 +118,10 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
 
   override def project(df: DataFrame, columns: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame = {
     val schema1 = df.schema
-    val schema2 = columns.map(col =>
-      col._1 -> expressionEvaluator.typeOf(col._2, schema1.toMap)
-    )
-    val colNames = schema1.map(_._1)
+    val schema2 = columns.map{
+      case (name, expression) => name -> expressionEvaluator.typeOf(expression, schema1.toMap)}
+
+    val colNames = schema1.map {case (name, lynxType) => name}
 
     DataFrame(schema2,
       () => df.records.map(

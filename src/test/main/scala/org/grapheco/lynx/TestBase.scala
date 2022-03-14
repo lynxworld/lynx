@@ -206,6 +206,8 @@ class TestBase extends LazyLogging {
 
   case class TestNode(id: TestId, labels: Seq[LynxNodeLabel], props: Map[LynxPropertyKey, LynxValue]) extends LynxNode{
     override def property(propertyKey: LynxPropertyKey): Option[LynxValue] = props.get(propertyKey)
+
+    override def keys: Seq[LynxPropertyKey] = props.keys.toSeq
   }
 
   case class TestRelationship(id: TestId,
@@ -214,5 +216,6 @@ class TestBase extends LazyLogging {
                               relationType: Option[LynxRelationshipType],
                               props: Map[LynxPropertyKey, LynxValue]) extends LynxRelationship {
     override def property(propertyKey: LynxPropertyKey): Option[LynxValue] = props.get(propertyKey)
+    override def keys: Seq[LynxPropertyKey] = props.keys.toSeq
   }
 }
