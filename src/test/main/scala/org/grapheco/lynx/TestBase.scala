@@ -202,7 +202,9 @@ class TestBase extends LazyLogging {
     }
   }
 
-  case class TestId(value: Long) extends LynxId
+  case class TestId(value: Long) extends LynxId {
+    override def toLynxInteger: LynxInteger = LynxInteger(value)
+  }
 
   case class TestNode(id: TestId, labels: Seq[LynxNodeLabel], props: Map[LynxPropertyKey, LynxValue]) extends LynxNode{
     override def property(propertyKey: LynxPropertyKey): Option[LynxValue] = props.get(propertyKey)

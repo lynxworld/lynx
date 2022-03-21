@@ -422,6 +422,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     }
   }
 
+  // TODO rewrite
   def joinReferenceRule(table: PPTNode, ppc: PhysicalPlannerContext): (PPTNode, Seq[((LogicalVariable, PropertyKeyName), Expression)]) = {
     var referenceProperty = Seq[((LogicalVariable, PropertyKeyName), Expression)]()
     val newTable = table match {
@@ -474,18 +475,20 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
       case pc@PPTCreateUnit(items) => pc
 
       case pf@PPTFilter(expr) => {
-        val tmp = joinReferenceRule(pf.children.head, ppc)
-        referenceProperty ++= tmp._2
-        pf.withChildren(Seq(tmp._1))
+        val (children, refProp) = joinReferenceRule(pf.children.head, ppc)
+        referenceProperty ++= refProp
+        pf.withChildren(Seq(children))
       }
       case pj1@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => {
         joinRecursion(pj1, ppc, isSingleMatch)
       }
       case pu@PPTUnwind(expr, variable) => pu
+      case pd@PPTDistinct() => pd
     }
     (newTable, referenceProperty)
   }
 
+  // TODO rewrite
   def joinRecursion(pj: PPTJoin, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PPTNode = {
     var table1 = pj.children.head
     var table2 = pj.children.last

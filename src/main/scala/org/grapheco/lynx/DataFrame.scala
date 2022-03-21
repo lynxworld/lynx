@@ -106,7 +106,6 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
     val schema2 = columns.map { column =>
       column._2.getOrElse(column._1) -> schema1(column._1)._1
     }
-
     DataFrame(
       schema2,
       () => df.records.map {
@@ -153,8 +152,11 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
               aggregatings.map(col => expressionEvaluator.evalGroup(col._2)(aggregatingCtxs))
             }
           }).toIterator
-        } else {
-          Iterator(aggregatings.map(col => expressionEvaluator.evalGroup(col._2)(Seq())))
+        } else { // TODO: if one column is empty, the dataframe show be empty too?
+          if (schema2.size == 1)
+            Iterator(aggregatings.map(col => expressionEvaluator.evalGroup(col._2)(Seq())))
+          else
+          Iterator.empty
         }
       }
     )

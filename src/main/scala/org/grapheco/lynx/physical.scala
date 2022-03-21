@@ -440,7 +440,9 @@ case class PPTAggregation(aggregations: Seq[ReturnItem], groupings: Seq[ReturnIt
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
-    df.groupBy(groupings.map(x => x.name -> x.expression), aggregations.map(x => x.name -> x.expression))(ctx.expressionContext)
+    val ed = df.groupBy(groupings.map(x => x.name -> x.expression), aggregations.map(x => x.name -> x.expression))(ctx.expressionContext)
+    println(ed.records.toList)
+    ed
   }
 }
 

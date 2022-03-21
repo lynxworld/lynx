@@ -8,7 +8,6 @@ import org.opencypher.v9_0.expressions.{Expression, FunctionInvocation}
 import org.opencypher.v9_0.util.InputPosition
 
 import scala.collection.mutable
-import scala.language.postfixOps
 
 trait CallableProcedure {
   val inputs: Seq[(String, LynxType)]
@@ -88,11 +87,11 @@ case class UnknownProcedureException(prefix: List[String], name: String) extends
 }
 
 case class WrongNumberOfArgumentsException(signature: String, sizeExpected: Int, sizeActual: Int) extends LynxException {
-  override def getMessage: String = s"Wrong number of arguments of $signature(), expected: $sizeExpected, actual: $sizeActual"
+  override def getMessage: String = s"Wrong number of arguments of $signature(), expected: $sizeExpected, actual: ${sizeActual}."
 }
 
 case class WrongArgumentException(argName: String, expectedType: LynxType, actualType: LynxType) extends LynxException {
-  override def getMessage: String = s"Wrong argument of $argName, expected: $expectedType, actual: ${actualType}"
+  override def getMessage: String = s"Wrong argument of $argName, expected: $expectedType, actual: ${actualType}."
 }
 
 case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runnerContext: CypherRunnerContext) extends Expression with LazyLogging {
@@ -119,46 +118,250 @@ case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runner
 class DefaultProcedures {
 
   val booleanPattern = Pattern.compile("true|false", Pattern.CASE_INSENSITIVE)
-  val numberPattern = Pattern.compile("-?[0-9]+.?[0-9]+")
+  val numberPattern = Pattern.compile("-?[0-9]+.?[0-9]*")
 
   @LynxProcedure(name = "lynx")
   def lynx(): String = {
     "lynx-0.3"
   }
 
-  // predicate functions
+  ///////////////////////////////////////////////////////////////////////////
+  // Predicate functions
+  ///////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Returns true if the specified property exists in the node, relationship or map.
+   * @param property A property (in the form 'variable.prop')
+   * @return A Boolean
+   */
   @LynxProcedure(name = "exists")
-  def exists(input: LynxValue): Boolean = {
-    input match {
-      case list: LynxList => ???
-      case _ => {
-        if (input.value != null) true
-        else false
-      }
+  def exists(property: LynxValue): Boolean = {
+    property match {
+      case list: LynxList => ??? // TODO how to judge a list?
+      case _ => property.value != null
     }
   }
-  // ====================
+
+  ///////////////////////////////////////////////////////////////////////////
+  // Scalar functions
+  ///////////////////////////////////////////////////////////////////////////
+
+//  @LynxProcedure(name = "coalesce")
+//  def coalesce()
+
+//  /**
+//   * Returns the end node of a relationship.
+//   * Considerations:
+//   *   endNode(null) returns null
+//   * @param relationship An expression that returns a relationship.
+//   * @return A Node.
+//   */
+//  @LynxProcedure(name = "endNode")
+//  def endNode(relationship: LynxRelationship): LynxNode = {
+//
+//  }
 
 
+  /**
+   * Returns the first element in a list.
+   * Considerations:
+   * - head(null) returns null.
+   * - If the first element in list is null, head(list) will return null.
+   * @param list An expression that returns a list.
+   * @return The type of the value returned will be that of the first element of list.
+   */
+  @LynxProcedure(name = "head")
+  def head(list: LynxList): LynxValue = {
+    list.v.headOption.getOrElse(LynxNull)
+  }
 
-  //user should opt the count implementation at their own project
+  /**
+   * Returns the id of a relationship or node.
+   * Considerations:
+   * - id(null) returns null.
+   * @param x An expression that returns a node or a relationship.
+   * @return An Integer
+   */
+  @LynxProcedure(name = "id")
+  def id(x: LynxValue): LynxInteger = x match {
+    case n: LynxNode => n.id.toLynxInteger
+    case r: LynxRelationship => r.id.toLynxInteger
+    case _ => throw new LynxProcedureException("id() can only used on node or relationship.")
+  }
+
+  /**
+   * Returns the last element in a list.
+   * Considerations:
+   * - last(null) returns null.
+   * - If the last element in list is null, last(list) will return null.
+   * @param list An expression that returns a list.
+   * @return The type of the value returned will be that of the last element of list.
+   */
+  @LynxProcedure(name = "last")
+  def last(list: LynxList): LynxValue = {
+    list.v.lastOption.getOrElse(LynxNull)
+  }
+
+  /**
+   * Returns the length of a path.
+   * Considerations:
+   * - length(null) returns null.
+   * @param path An expression that returns a path.
+   * @return An Integer
+   */
+  @LynxProcedure(name = "length")
+  def length(path: LynxList): LynxInteger = { //fixme how to calculate the length of a path
+    LynxInteger(path.v.size)
+  }
+
+  /**
+   * Returns a map containing all the properties of a node or relationship.
+   * If the argument is already a map, it is returned unchanged.
+   * Consideration:
+   * - properties(null) returns null
+   * @param x An expression that returns a node, a relationship, or a map.
+   * @return A Map
+   */
+  @LynxProcedure(name = "properties")
+  def properties(x: LynxValue): LynxMap = x match {
+    case n: LynxNode => LynxMap(n.keys.map( k => k.value -> n.property(k).getOrElse(LynxNull)).toMap)
+    case r: LynxRelationship => LynxMap(r.keys.map( k => k.value -> r.property(k).getOrElse(LynxNull)).toMap)
+    case m: LynxMap => m
+    case _ => throw new LynxProcedureException("properties() can only used on node, relationship or map.")
+  }
+
+  /**
+   * Returns the number of elements in a list.
+   * Considerations:
+   * - size(null) returns null.
+   * @param list An expression that returns a list.
+   * @return An Integer.
+   */
+  @LynxProcedure(name = "size")
+  def size(list: LynxList): LynxInteger = {
+    LynxInteger(list.value.size)
+  }
+
+  // TODO size() applied to pattern expression
+
+  /**
+   * size() applied to string: returns the size of a string value
+   * @param string An expression that returns a string value.
+   * @return An Integer.
+   */
+  @LynxProcedure(name = "size")
+  def size(string: LynxString): LynxInteger = {
+    LynxInteger(string.value.length)
+  }
+
+//  @LynxProcedure(name = "startNode")
+//  def startNode(lynxRelationship: LynxRelationship): LynxNode = {
+//
+//  }
+
+  /**
+   * Will return the same value during one entire query, even for long-running queries.
+   * TODO how to ensure same value during one entire query?
+   * @return An Integer
+   */
+  @LynxProcedure(name = "timestamp")
+  def timestamp(): LynxInteger = {
+    LynxInteger(System.currentTimeMillis())
+  }
+
+  /**
+   * Converts a string value to a boolean value.
+   * Considerations:
+   * - toBoolean(null returns null.
+   * - if expression is a boolean value, it will be returned unchanged.
+   * - if the parsing fails, null will be returned.
+   * @param x An expression that returns a boolean or string value.
+   * @return A Boolean
+   */
+  @LynxProcedure(name = "toBoolean")
+  def toBoolean(x: LynxValue): LynxValue = {
+    x match {
+      case LynxString(str) => {
+        val res = booleanPattern.matcher(str)
+        if (res.matches()) LynxValue(str.toBoolean)
+        else LynxNull
+      }
+      case b: LynxBoolean => b
+      case _ => throw new LynxProcedureException("toBoolean conversion failure")
+    }
+  }
+
+  /**
+   * Converts an integer or string value to a floating point number.
+   * Considerations:
+   * - toFloat(null) returns null
+   * - If expression is a floating point number, it will be returned unchanged.
+   * - If the parsing fails, null will be returned
+   * @param x An expression that returns a numeric or string value.
+   * @return A Float
+   */
+  @LynxProcedure(name = "toFloat")
+  def toFloat(x: LynxValue): LynxValue = {
+    x match {
+      case d: LynxDouble => d
+      case i: LynxInteger => LynxDouble(i.number.doubleValue())
+      case r: LynxString => {
+        val str = r.value
+        val res = numberPattern.matcher(str)
+        if (res.matches()) LynxDouble(str.toDouble)
+        else LynxNull
+      }
+      case _ => throw new LynxProcedureException("toFloat conversion failure")
+    }
+  }
+
+  /**
+   * Converts a floating point or string value to an integer value
+   * COnsiderations:
+   * - toInteger(null) returns null.
+   * - If expression is an integer value, it will be returned unchanged.
+   * - If the parsing fails, null will be returned.
+   * @param x An expression that returns a numeric or string value.
+   * @return An Integer.
+   */
+  @LynxProcedure(name = "toInteger")
+  def toInteger(x: LynxValue): LynxValue = {
+    x match {
+      case i: LynxInteger => i
+      case d: LynxDouble => LynxInteger(d.number.intValue())
+      case LynxString(str) =>
+        if (numberPattern.matcher(str).matches()) LynxInteger(str.toDouble.toInt)
+        else LynxNull
+      case _ => throw new LynxProcedureException("toInteger conversion failure")
+    }
+  }
+
+  /**
+   * Returns the string representation of the relationship type.
+   * @param x An expression that returns a relationship.
+   * @return A String
+   */
+  @LynxProcedure(name = "type")
+  def getType(x: LynxRelationship): LynxString = {
+    x.relationType.map(_.value).map(LynxString).getOrElse(LynxString(""))
+//    x match {
+//      case r: LynxRelationship => {
+//        val t = r.relationType
+//        if (t.isDefined) LynxValue(t.get)
+//        else LynxNull
+//      }
+//      case _ => throw new LynxProcedureException("type can only used on relationship")
+//    }
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // Predicate functions
+  ///////////////////////////////////////////////////////////////////////////
+
+  //TODO user should opt the count implementation at their own project
   @LynxProcedure(name = "count")
   def count(inputs: LynxList): Int = {
     inputs.value.size
-  }
-
-  @LynxProcedure(name = "length")
-  def length(inputs: LynxList): Int = {
-    val list: LynxList = inputs.value.tail.head.asInstanceOf[LynxList]
-    list.value.count(value => value.isInstanceOf[LynxRelationship])
-  }
-
-  @LynxProcedure(name = "size")
-  def size(input: LynxValue): Int = {
-    input match {
-      case l: LynxList => l.value.size
-      case s: LynxString => s.value.length
-    }
   }
 
   private def regularList(list: LynxList): (Int, LynxValue, List[LynxValue]) ={
@@ -170,16 +373,16 @@ class DefaultProcedures {
     }
   }
 
-  @LynxProcedure(name = "sum")
-  def sum(inputs: LynxList): Any = {
-    val (cnt, head, tail) = regularList(inputs)
-    if (cnt==0) return 0.0
-    head match {
-      case h: LynxNumber => tail.asInstanceOf[List[LynxNumber]].foldLeft(h){(a, b) => a + b}.number.doubleValue()
-      case h: LynxDuration => tail.asInstanceOf[List[LynxDuration]].map(_.value).foldLeft(h.value){(a, b) => a.plus(b)}
-    }
-  }
+  /*
+    Aggregating functions
+    These functions take multiple values as arguments, and calculate and return an aggregated value from them.
+   */
 
+  /**
+   * Returns the average of a set of numeric values.
+   * @param inputs
+   * @return
+   */
   @LynxProcedure(name = "avg")
   def avg(inputs: LynxList): Any = {
     val (cnt, head, tail) = regularList(inputs)
@@ -195,14 +398,36 @@ class DefaultProcedures {
     inputs
   }
 
+  /**
+   * Returns the maximum value in a set of values.
+   * @param inputs
+   * @return
+   */
   @LynxProcedure(name = "max")
-  def max(inputs: LynxList): LynxNumber = {
-    inputs.value.map(_.asInstanceOf[LynxNumber]).reduce((a, b) => if (a > b) a else b)
+  def max(inputs: LynxValue): LynxValue = inputs match {
+    case ll: LynxList => ll.max
+    case LynxNull => LynxNull
   }
 
+  /**
+   * Returns the minimum value in a set of values.
+   * @param inputs An expression returning a set containing any combination of property types and lists thereof.
+   * @return A property type, or a list, depending on the values returned by expression.
+   */
   @LynxProcedure(name = "min")
-  def min(inputs: LynxList): LynxNumber = {
-    inputs.value.map(_.asInstanceOf[LynxNumber]).reduce((a, b) => if (a > b) b else a)
+  def min(inputs: LynxValue): LynxValue = inputs match {
+    case ll: LynxList => ll.min
+    case LynxNull => LynxNull
+  }
+
+  @LynxProcedure(name = "sum")
+  def sum(inputs: LynxList): Any = {
+    val (cnt, head, tail) = regularList(inputs)
+    if (cnt==0) return 0.0
+    head match {
+      case h: LynxNumber => tail.asInstanceOf[List[LynxNumber]].foldLeft(h){(a, b) => a + b}.number.doubleValue()
+      case h: LynxDuration => tail.asInstanceOf[List[LynxDuration]].map(_.value).foldLeft(h.value){(a, b) => a.plus(b)}
+    }
   }
 
   @LynxProcedure(name = "power")
@@ -460,86 +685,6 @@ class DefaultProcedures {
     val list: LynxList = inputs.value.tail.head.asInstanceOf[LynxList]
     list.value.filter(value => value.isInstanceOf[LynxRelationship]).asInstanceOf[List[LynxRelationship]].reverse
   }
-
-
-  // scalar functions
-  @LynxProcedure(name = "id")
-  def id(x: LynxValue): Long = {
-    x match {
-      case n: LynxNode => n.id.value.asInstanceOf[Long]
-      case r: LynxRelationship => r.id.value.asInstanceOf[Long]
-      case _ => throw new LynxProcedureException("id can only used on node and relationship")
-    }
-  }
-
-  /**
-   * Returns a map containing all the properties of a node or relationship
-   * @param x A node or relationship
-   * @return All properties
-   */
-  @LynxProcedure(name =  "properties")
-  def properties(x: LynxValue): LynxMap = x match {
-    case n: LynxNode => LynxMap(n.keys map ( k => k.value -> n.property(k).getOrElse(LynxNull)) toMap)
-    case r: LynxRelationship => LynxMap(r.keys map ( k => k.value -> r.property(k).getOrElse(LynxNull)) toMap)
-    case _ => throw new LynxProcedureException("properties() can only used on node or relationship.")
-  }
-
-
-  @LynxProcedure(name = "toInteger")
-  def toInteger(x: LynxValue): LynxValue = {
-    x match {
-      case n: LynxNumber => LynxInteger(n.number.intValue())
-      case r: LynxString => {
-        val str = r.value
-        val res = numberPattern.matcher(str)
-        if (res.matches()) {
-          LynxInteger(str.toDouble.toInt)
-        }
-        else LynxNull
-      }
-      case _ => throw new LynxProcedureException("toInteger conversion failure")
-    }
-  }
-
-  @LynxProcedure(name = "toFloat")
-  def toFloat(x: LynxValue): LynxValue = {
-    x match {
-      case n: LynxNumber => LynxDouble(n.number.floatValue())
-      case r: LynxString => {
-        val str = r.value
-        val res = numberPattern.matcher(str)
-        if (res.matches()) LynxDouble(str.toDouble)
-        else LynxNull
-      }
-      case _ => throw new LynxProcedureException("toFloat conversion failure")
-    }
-  }
-
-  @LynxProcedure(name = "toBoolean")
-  def toBoolean(x: LynxValue): LynxValue = {
-    x match {
-      case r: LynxString => {
-        val str = r.value
-        val res = booleanPattern.matcher(str)
-        if (res.matches()) LynxValue(str.toBoolean)
-        else LynxNull
-      }
-      case _ => throw new LynxProcedureException("toBoolean conversion failure")
-    }
-  }
-
-  @LynxProcedure(name = "type")
-  def getType(x: LynxValue): LynxValue = {
-    x match {
-      case r: LynxRelationship => {
-        val t = r.relationType
-        if (t.isDefined) LynxValue(t.get)
-        else LynxNull
-      }
-      case _ => throw new LynxProcedureException("type can only used on relationship")
-    }
-  }
-
 
   // string functions
   @LynxProcedure(name = "left")

@@ -177,6 +177,13 @@
             <artifactId>tck-api_2.12</artifactId>
             <version>1.0.0-1.0.0-M14</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/com.github.tototoshi/scala-csv -->
+        <dependency>
+            <groupId>com.github.tototoshi</groupId>
+            <artifactId>scala-csv_2.12</artifactId>
+            <version>1.3.10</version>
+        </dependency>
+
     </dependencies>
     <profiles>
         <profile>
