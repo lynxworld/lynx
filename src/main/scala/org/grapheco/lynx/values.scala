@@ -167,11 +167,11 @@ case class LynxList(v: List[LynxValue]) extends LynxCompositeValue {
     }
   }
 
-  lazy val dropedNull = v.filterNot(LynxNull.equals)
+  lazy val droppedNull: Seq[LynxValue] = v.filterNot(LynxNull.equals)
 
-  def min: LynxValue = if (dropedNull.isEmpty) LynxNull else dropedNull.min(ordering)
+  def min: LynxValue = if (droppedNull.isEmpty) LynxNull else droppedNull.min(ordering)
 
-  def max: LynxValue = if (dropedNull.isEmpty) LynxNull else dropedNull.max(ordering)
+  def max: LynxValue = if (droppedNull.isEmpty) LynxNull else droppedNull.max(ordering)
 }
 
 case class LynxMap(v: Map[String, LynxValue]) extends LynxCompositeValue {
@@ -214,6 +214,10 @@ case class LynxTime(offsetTime: OffsetTime) extends LynxTemporalValue {
 
 case class LynxDuration(duration: Duration) extends LynxTemporalValue {
   def value: Duration = duration
+
+  def +(that: LynxDuration): LynxDuration = LynxDuration(value.plus(that.value))
+
+  def -(that: LynxDuration): LynxDuration = LynxDuration(value.minus(that.value))
 
   override def toString: String = {
     val seconds = value.getSeconds

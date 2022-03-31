@@ -7,6 +7,7 @@ import org.grapheco.lynx.util.{LynxDateTimeUtil, LynxDateUtil, LynxDurationUtil,
 import org.opencypher.v9_0.expressions.{Expression, FunctionInvocation}
 import org.opencypher.v9_0.util.InputPosition
 
+import java.time.Duration
 import scala.collection.mutable
 
 trait CallableProcedure {
@@ -94,7 +95,11 @@ case class WrongArgumentException(argName: String, expectedType: LynxType, actua
   override def getMessage: String = s"Wrong argument of $argName, expected: $expectedType, actual: ${actualType}."
 }
 
-case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runnerContext: CypherRunnerContext) extends Expression with LazyLogging {
+ case class LynxProcedureException(msg: String) extends LynxException {
+   override def getMessage: String = msg
+ }
+
+ case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runnerContext: CypherRunnerContext) extends Expression with LazyLogging {
   val procedure: CallableProcedure = runnerContext.procedureRegistry.getProcedure(funcInov.namespace.parts, funcInov.functionName.name, funcInov.args.size).getOrElse(throw ProcedureUnregisteredException(funcInov.name))
   val args: Seq[Expression] = funcInov.args
   val aggregating: Boolean = funcInov.containsAggregate
@@ -186,7 +191,7 @@ class DefaultProcedures {
   def id(x: LynxValue): LynxInteger = x match {
     case n: LynxNode => n.id.toLynxInteger
     case r: LynxRelationship => r.id.toLynxInteger
-    case _ => throw new LynxProcedureException("id() can only used on node or relationship.")
+    case _ => throw LynxProcedureException("id() can only used on node or relationship.")
   }
 
   /**
@@ -227,7 +232,7 @@ class DefaultProcedures {
     case n: LynxNode => LynxMap(n.keys.map( k => k.value -> n.property(k).getOrElse(LynxNull)).toMap)
     case r: LynxRelationship => LynxMap(r.keys.map( k => k.value -> r.property(k).getOrElse(LynxNull)).toMap)
     case m: LynxMap => m
-    case _ => throw new LynxProcedureException("properties() can only used on node, relationship or map.")
+    case _ => throw LynxProcedureException("properties() can only used on node, relationship or map.")
   }
 
   /**
@@ -287,7 +292,7 @@ class DefaultProcedures {
         else LynxNull
       }
       case b: LynxBoolean => b
-      case _ => throw new LynxProcedureException("toBoolean conversion failure")
+      case _ => throw LynxProcedureException("toBoolean conversion failure")
     }
   }
 
@@ -311,7 +316,7 @@ class DefaultProcedures {
         if (res.matches()) LynxDouble(str.toDouble)
         else LynxNull
       }
-      case _ => throw new LynxProcedureException("toFloat conversion failure")
+      case _ => throw LynxProcedureException("toFloat conversion failure")
     }
   }
 
@@ -332,7 +337,7 @@ class DefaultProcedures {
       case LynxString(str) =>
         if (numberPattern.matcher(str).matches()) LynxInteger(str.toDouble.toInt)
         else LynxNull
-      case _ => throw new LynxProcedureException("toInteger conversion failure")
+      case _ => throw LynxProcedureException("toInteger conversion failure")
     }
   }
 
@@ -355,58 +360,72 @@ class DefaultProcedures {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // Predicate functions
+  // Aggregating functions
+  // These functions take multiple values as arguments, and calculate and return an aggregated value from them.
   ///////////////////////////////////////////////////////////////////////////
 
-  //TODO user should opt the count implementation at their own project
-  @LynxProcedure(name = "count")
-  def count(inputs: LynxList): Int = {
-    inputs.value.size
-  }
-
-  private def regularList(list: LynxList): (Int, LynxValue, List[LynxValue]) ={
-    val l = list.value.filter(_.value!=null)
-    if(l.isEmpty) {
-      (0, null, null)
-    }else{
-      (l.size, l.head, l.tail)
-    }
-  }
-
-  /*
-    Aggregating functions
-    These functions take multiple values as arguments, and calculate and return an aggregated value from them.
-   */
-
   /**
-   * Returns the average of a set of numeric values.
-   * @param inputs
-   * @return
+   * Returns the average of a set of numeric values
+   * Considerations:
+   * - avg(null) returns null
+   * @param inputs An expression returning a set of numeric values.
+   * @return Either an Integer or a Float, depending on the values
+   *         returned by expression and whether or not the calculation overflows
    */
   @LynxProcedure(name = "avg")
-  def avg(inputs: LynxList): Any = {
-    val (cnt, head, tail) = regularList(inputs)
-    if (cnt==0) return null
-    head match {
-      case h: LynxNumber => tail.asInstanceOf[List[LynxNumber]].foldLeft(h){(a, b) => a + b}.number.doubleValue() / cnt
-      case h: LynxDuration => tail.asInstanceOf[List[LynxDuration]].map(_.value).foldLeft(h.value){(a, b) => a.plus(b)}.dividedBy(cnt)
+  def avg(inputs: LynxList): LynxValue = {
+    val dropNull = inputs.value.filterNot(LynxNull.equals)
+    val firstIsNum = dropNull.headOption.map{
+      case _ :LynxNumber => true
+      case _ :LynxDuration => false
+      case v :LynxValue => throw LynxProcedureException(s"avg() can only handle numerical values, duration, and null. Got ${v}")
     }
+    if (firstIsNum.isDefined) {
+      var numSum = 0.0
+      var durSum = Duration.ZERO
+      dropNull.foreach{ v =>
+        if (v.isInstanceOf[LynxNumber] || v.isInstanceOf[LynxDuration]) {
+          if (v.isInstanceOf[LynxNumber] == firstIsNum.get) {
+            if (firstIsNum.get) { numSum += v.asInstanceOf[LynxNumber].number.doubleValue()}
+            else { durSum = durSum.plus(v.asInstanceOf[LynxDuration].duration)}
+          } else { throw LynxProcedureException("avg() cannot mix number and duration")}
+        } else { throw LynxProcedureException(s"avg() can only handle numerical values, duration, and null. Got ${v}")}
+      }
+      if (firstIsNum.get) { LynxDouble(numSum / dropNull.length)}
+      else { LynxDuration(durSum.dividedBy(dropNull.length))}
+    } else { LynxNull }
   }
 
+  /**
+   * Returns a list containing the values returned by an expression.
+   * Using this function aggregates data by amalgamating multiple records or values into a single list
+   * @param inputs An expression returning a set of values.
+   * @return A list containing heterogeneous elements;
+   *         the types of the elements are determined by the values returned by expression.
+   */
   @LynxProcedure(name = "collect")
-  def collect(inputs: LynxList): LynxList = {
+  def collect(inputs: LynxList): LynxList = { //TODO other considerations
     inputs
   }
 
   /**
+   * Returns the number of values or records, and appears in two variants:
+   * @param inputs An expression
+   * @return An Integer
+   */
+  @LynxProcedure(name = "count") //TODO count() is complex
+  def count(inputs: LynxList): LynxInteger = {
+    LynxInteger(inputs.value.length)
+  }
+
+  /**
    * Returns the maximum value in a set of values.
-   * @param inputs
-   * @return
+   * @param inputs An expression returning a set containing any combination of property types and lists thereof.
+   * @return A property type, or a list, depending on the values returned by expression.
    */
   @LynxProcedure(name = "max")
-  def max(inputs: LynxValue): LynxValue = inputs match {
-    case ll: LynxList => ll.max
-    case LynxNull => LynxNull
+  def max(inputs: LynxList): LynxValue = {
+    inputs.max
   }
 
   /**
@@ -415,19 +434,51 @@ class DefaultProcedures {
    * @return A property type, or a list, depending on the values returned by expression.
    */
   @LynxProcedure(name = "min")
-  def min(inputs: LynxValue): LynxValue = inputs match {
-    case ll: LynxList => ll.min
-    case LynxNull => LynxNull
+  def min(inputs: LynxList): LynxValue = {
+    inputs.min
   }
 
+  /**
+   *  returns the percentile of the given value over a group, with a percentile from 0.0 to 1.0.
+   *  It uses a linear interpolation method, calculating a weighted average between two values if
+   *  the desired percentile lies between them. For nearest values using a rounding method, see percentileDisc.
+   * @param inputs A numeric expression.
+   * @param percentile A numeric value between 0.0 and 1.0
+   * @return A Double.
+   */
+  @LynxProcedure(name = "percentileCont")
+  def percentileCont(inputs: LynxList, percentile: LynxDouble): LynxDouble ={ // TODO implement it.
+    LynxDouble(0)
+  }
+
+  // percentileDisc, stDev, stDevP
+
+  /**
+   *
+   * @param inputs
+   * @return
+   */
   @LynxProcedure(name = "sum")
   def sum(inputs: LynxList): Any = {
-    val (cnt, head, tail) = regularList(inputs)
-    if (cnt==0) return 0.0
-    head match {
-      case h: LynxNumber => tail.asInstanceOf[List[LynxNumber]].foldLeft(h){(a, b) => a + b}.number.doubleValue()
-      case h: LynxDuration => tail.asInstanceOf[List[LynxDuration]].map(_.value).foldLeft(h.value){(a, b) => a.plus(b)}
+    val dropNull = inputs.value.filterNot(LynxNull.equals)
+    val firstIsNum = dropNull.headOption.map{
+      case _ :LynxNumber => true
+      case _ :LynxDuration => false
+      case v :LynxValue => throw LynxProcedureException(s"sum() can only handle numerical values, duration, and null. Got ${v}")
     }
+    if (firstIsNum.isDefined) {
+      var numSum = 0.0
+      var durSum = Duration.ZERO
+      dropNull.foreach{ v =>
+        if (v.isInstanceOf[LynxNumber] || v.isInstanceOf[LynxDuration]) {
+          if (v.isInstanceOf[LynxNumber] == firstIsNum.get) {
+            if (firstIsNum.get) { numSum += v.asInstanceOf[LynxNumber].number.doubleValue()}
+            else { durSum = durSum.plus(v.asInstanceOf[LynxDuration].duration)}
+          } else { throw LynxProcedureException("sum() cannot mix number and duration")}
+        } else { throw LynxProcedureException(s"sum() can only handle numerical values, duration, and null. Got ${v}")}
+      }
+      if (firstIsNum.get) LynxDouble(numSum) else LynxDuration(durSum)
+    } else { LynxNull }
   }
 
   @LynxProcedure(name = "power")
@@ -778,6 +829,3 @@ class DefaultProcedures {
   }
 }
 
-class LynxProcedureException(msg: String) extends LynxException {
-  override def getMessage: String = msg
-}
