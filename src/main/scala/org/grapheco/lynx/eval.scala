@@ -1,5 +1,10 @@
 package org.grapheco.lynx
 
+import org.grapheco.lynx.types.{LynxValue, TypeSystem}
+import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
+import org.grapheco.lynx.types.property.{LynxBoolean, LynxDouble, LynxInteger, LynxNull, LynxNumber, LynxString}
+import org.grapheco.lynx.types.structural.{HasProperty, LynxNode, LynxPropertyKey}
+import org.grapheco.lynx.types.time.LynxDateTime
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.expressions.functions.{Collect, Id}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTList, CTString, CypherType, ListType}

@@ -3,6 +3,8 @@ package org.grapheco.lynx
 
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.FormatUtils
+import org.grapheco.lynx.types.structural.{LynxId, LynxNode, LynxNodeLabel, LynxPropertyKey, LynxRelationship, LynxRelationshipType}
+import org.grapheco.lynx.types.{DefaultTypeSystem, LynxValue, TypeSystem}
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.SemanticState
 import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, Range, SemanticDirection}

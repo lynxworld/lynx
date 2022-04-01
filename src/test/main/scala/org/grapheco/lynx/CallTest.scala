@@ -1,6 +1,8 @@
 package org.grapheco.lynx
 
 import org.grapheco.lynx.util.LynxDurationUtil
+import org.grapheco.lynx.types.composite.LynxList
+import org.grapheco.lynx.types.property.{LynxBoolean, LynxDouble, LynxInteger, LynxNull, LynxString}
 import org.junit.function.ThrowingRunnable
 import org.junit.{Assert, Test}
 

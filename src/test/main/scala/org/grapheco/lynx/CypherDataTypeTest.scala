@@ -1,6 +1,10 @@
 package org.grapheco.lynx
 
+import org.grapheco.lynx.types.composite.LynxList
+import org.grapheco.lynx.types.property.LynxInteger
+import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxLocalDateTime, LynxLocalTime, LynxTime}
 import org.junit.{Assert, Test}
+
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
 

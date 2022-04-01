@@ -1,5 +1,8 @@
 package org.grapheco.lynx
 
+import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.property.LynxNull
+import org.grapheco.lynx.types.structural.LynxRelationship
 import org.opencypher.v9_0.expressions.Expression
 import org.opencypher.v9_0.util.symbols.CypherType
 

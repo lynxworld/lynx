@@ -1,5 +1,8 @@
 package org.grapheco.lynx
 
+import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
+import org.grapheco.lynx.types.property.{LynxBoolean, LynxDouble, LynxInteger, LynxString}
+import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxDuration, LynxLocalDateTime, LynxLocalTime, LynxTime}
 import org.junit.jupiter.api.{DynamicTest, TestFactory}
 import org.opencypher.tools.tck.api.{CypherTCK, CypherValueRecords, Graph, QueryType}
 import org.opencypher.tools.tck.values._

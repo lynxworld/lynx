@@ -1,9 +1,13 @@
-package org.grapheco.lynx
+package org.grapheco.lynx.types
 
-import java.time.{Duration, LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
-import org.opencypher.v9_0.expressions.{BooleanLiteral, CountStar, DoubleLiteral, FunctionInvocation, IntegerLiteral, Parameter, StringLiteral, Variable}
-import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTString, CypherType}
+import org.grapheco.lynx.LynxType
+import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
+import org.grapheco.lynx.types.property._
+import org.grapheco.lynx.types.time._
+import org.opencypher.v9_0.expressions.{BooleanLiteral, DoubleLiteral, IntegerLiteral, StringLiteral}
+import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTInteger, CTString, CypherType}
 
+import java.time._
 import scala.collection.mutable
 
 trait TypeSystem {

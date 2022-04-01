@@ -2,6 +2,10 @@ package org.grapheco.lynx
 
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.util.Profiler
+import org.grapheco.lynx.types.composite.LynxList
+import org.grapheco.lynx.types.property.LynxInteger
+import org.grapheco.lynx.types.structural.{LynxId, LynxNode, LynxNodeLabel, LynxPropertyKey, LynxRelationship, LynxRelationshipType}
+import org.grapheco.lynx.types.LynxValue
 import org.opencypher.v9_0.util.symbols.{CTInteger, CTString}
 
 import scala.collection.mutable

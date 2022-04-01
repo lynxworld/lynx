@@ -1,5 +1,6 @@
 package org.grapheco.lynx
-import org.grapheco.lynx.NameParser._
+import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.NameParser._
 import org.junit.{Assert, Test}
 import org.junit.function.ThrowingRunnable
 

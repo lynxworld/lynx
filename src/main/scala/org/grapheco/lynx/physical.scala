@@ -1,6 +1,10 @@
 package org.grapheco.lynx
 
 import org.grapheco.lynx
+import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
+import org.grapheco.lynx.types.property.{LynxBoolean, LynxNull}
+import org.grapheco.lynx.types.structural.{LynxId, LynxNode, LynxNodeLabel, LynxPropertyKey, LynxRelationship, LynxRelationshipType}
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions.{NodePattern, RelationshipChain, _}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTList, CTNode, CTPath, CTRelationship, CypherType}

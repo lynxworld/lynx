@@ -1,5 +1,6 @@
 package org.grapheco.lynx
 
+import org.grapheco.lynx.types.property.LynxInteger
 import org.junit.{Assert, Test}
 
 class CypherJoinTest extends TestBase {
