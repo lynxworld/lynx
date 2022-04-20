@@ -14,4 +14,6 @@ object LynxNull extends LynxValue {
   override def value: Any = null
 
   override def cypherType: CypherType = CTAny
+
+  override def toString: String = "null"
 }

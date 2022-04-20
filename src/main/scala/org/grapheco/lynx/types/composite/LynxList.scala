@@ -60,7 +60,7 @@ case class LynxList(v: List[LynxValue]) extends LynxCompositeValue {
               case (false, false) => 0
             }
           }
-          case (_, _) => 0 //TODO any other situations?
+          case (_, _) => 0 //TODO any other considerations?
         }
       } else x_level - y_level
     }

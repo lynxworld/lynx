@@ -14,7 +14,7 @@ import scala.util.matching.Regex
 trait ExpressionEvaluator {
   def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue
 
-  def evalGroup(expr: Expression)(ecs: Seq[ExpressionContext]): LynxValue
+  def aggregateEval(expr: Expression)(ecs: Seq[ExpressionContext]): LynxValue
 
   def typeOf(expr: Expression, definedVarTypes: Map[String, LynxType]): LynxType
 }
@@ -80,7 +80,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case pe: PathExpression => evalPathStep(pe.step)
 
-      case CountStar() => LynxInteger(ec.vars.size)//fixme: wrong
+//      case CountStar() => LynxInteger(ec.vars.size)//fixme: wrong
 
         // bug
         // this func deal with like: WHERE n[toLower(propname)] < 30
@@ -93,7 +93,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         }}.getOrElse(LynxNull)
       }
 
-      case fe: ProcedureExpression => {
+      case fe: ProcedureExpression => { //TODO move aggregating to other place
         if(fe.aggregating) LynxValue(fe.args.map(eval(_)))
         else fe.procedure.call(fe.args.map(eval(_)))
       }
@@ -124,7 +124,8 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case And(lhs, rhs) =>
         LynxBoolean(eval(lhs).value == true && eval(rhs).value == true)
 
-      case sdi: SignedDecimalIntegerLiteral => LynxInteger(sdi.value)
+      case sdi: IntegerLiteral => LynxInteger(sdi.value)
+
 
       case Multiply(lhs, rhs) =>{//todo add normal multi
         (eval(lhs), eval(rhs)) match {
@@ -272,10 +273,19 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
     }
   }
 
-  override def evalGroup(expr: Expression)(ecs: Seq[ExpressionContext]): LynxValue = {
-    val vls = LynxValue(ecs.map(eval(expr)(_).value.asInstanceOf[Seq[LynxValue]].head))//TODO fix head
+
+  override def aggregateEval(expr: Expression)(ecs: Seq[ExpressionContext]): LynxValue = {
     expr match {
-      case fe: ProcedureExpression => fe.procedure.call(Seq(vls))
+      case fe: ProcedureExpression =>
+        if (fe.aggregating) {
+          val argsList = ecs.map(eval(fe.args.head)(_)).toList //todo: ".head": any multi-args situation?
+          fe.procedure.call(Seq(LynxList(argsList)))
+        } else {
+          throw LynxProcedureException("aggregate by nonAggregating procedure.")
+        }
+      case CountStar() => LynxInteger(ecs.length)
+
     }
+
   }
 }

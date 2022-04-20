@@ -27,6 +27,7 @@ trait LynxValue {
 
   def <=(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
 
+//  override def toString: String = "a"
 }
 
 object LynxValue {

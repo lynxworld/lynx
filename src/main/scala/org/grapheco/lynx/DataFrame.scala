@@ -1,6 +1,7 @@
 package org.grapheco.lynx
 
 import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.LynxNull
 import org.grapheco.lynx.types.structural.LynxRelationship
 import org.opencypher.v9_0.expressions.Expression
@@ -9,20 +10,22 @@ import org.opencypher.v9_0.util.symbols.CypherType
 trait DataFrame {
   def schema: Seq[(String, LynxType)]
 
+  def columnsName: Seq[String] = schema.map(_._1)
+
   def records: Iterator[Seq[LynxValue]]
 }
 
 object DataFrame {
   def empty: DataFrame = DataFrame(Seq.empty, () => Iterator.empty)
 
-  def apply(schema0: Seq[(String, LynxType)], records0: () => Iterator[Seq[LynxValue]]) =
+  def apply(schema0: Seq[(String, LynxType)], records0: () => Iterator[Seq[LynxValue]]): DataFrame =
     new DataFrame {
-      override def schema = schema0
+      override def schema: Seq[(String, LynxType)] = schema0
 
-      override def records = records0()
+      override def records: Iterator[Seq[LynxValue]] = records0()
     }
 
-  def cached(schema0: Seq[(String, LynxType)], records: Seq[Seq[LynxValue]]) =
+  def cached(schema0: Seq[(String, LynxType)], records: Seq[Seq[LynxValue]]): DataFrame =
     apply(schema0, () => records.iterator)
 
   def unit(columns: Seq[(String, Expression)])(implicit expressionEvaluator: ExpressionEvaluator, ctx: ExpressionContext): DataFrame = {
@@ -44,7 +47,7 @@ trait DataFrameOperator {
 
   def project(df: DataFrame, columns: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame
 
-  def groupBy(df: DataFrame, grouppingItems: Seq[(String, Expression)], aggregatingItems: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame
+  def groupBy(df: DataFrame, groupings: Seq[(String, Expression)], aggregations: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame
 
   def skip(df: DataFrame, num: Int): DataFrame
 
@@ -135,39 +138,39 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
     )
   }
 
-  override def groupBy(df: DataFrame, grouppings: Seq[(String, Expression)], aggregatings: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame = {
+  // TODO rewrite it.
+  override def groupBy(df: DataFrame, groupings: Seq[(String, Expression)], aggregations: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame = {
+
+    // match (n:nothislabel) return count(n)
     val schema1 = df.schema
-    val schema2 = (grouppings ++ aggregatings).map(col =>
+    val schema2 = (groupings ++ aggregations).map(col =>
       col._1 -> expressionEvaluator.typeOf(col._2, schema1.toMap)
     )
-    val colNames = schema1.map(_._1)
-    DataFrame(schema2,
-      () => {
-        val recordGroups = df.records.map(record => {
-          val nameValues = colNames.zip(record).toMap
-          val recordCtx = ctx.withVars(nameValues)
-          grouppings.map(col => expressionEvaluator.eval(col._2)(recordCtx)) -> recordCtx
-        }).toTraversable.groupBy(_._1)
-        if (recordGroups.nonEmpty) {
-          recordGroups.map(groupKey2AggregateValues => {
-            groupKey2AggregateValues._1 ++ {
-              val aggregatingCtxs = groupKey2AggregateValues._2.toSeq.map(_._2)
-              aggregatings.map(col => expressionEvaluator.evalGroup(col._2)(aggregatingCtxs))
+    val columnsName = df.columnsName
+
+    DataFrame(schema2, () => {
+      if (groupings.nonEmpty) {
+        df.records.map { record =>
+          val recordCtx = ctx.withVars(columnsName.zip(record).toMap)
+          groupings.map(col => expressionEvaluator.eval(col._2)(recordCtx)) -> recordCtx
+        } // (groupingValue: Seq[LynxValue] -> recordCtx: ExpressionContext)
+          .toSeq.groupBy(_._1) // #group by 'groupingValue'.
+          .mapValues(_.map(_._2)) // #trans to: (groupingValue: Seq[LynxValue] -> recordsCtx: Seq[ExpressionContext])
+          .map { case (groupingValue, recordsCtx) => // #aggragate: (groupingValues & aggregationValues): Seq[LynxValue]
+            groupingValue ++ {
+              aggregations.map { case(name, expr) => expressionEvaluator.aggregateEval(expr)(recordsCtx) }
             }
-          }).toIterator
-        } else { // TODO: if one column is empty, the dataframe show be empty too?
-          if (schema2.size == 1)
-            Iterator(aggregatings.map(col => expressionEvaluator.evalGroup(col._2)(Seq())))
-          else
-          Iterator.empty
-        }
+          }.toIterator
+      } else {
+        val allRecordsCtx = df.records.map{record => ctx.withVars(columnsName.zip(record).toMap)}.toSeq
+        Iterator(aggregations.map{ case(name, expr) => expressionEvaluator.aggregateEval(expr)(allRecordsCtx)})
       }
-    )
+    })
   }
 
   override def filter(df: DataFrame, predicate: (Seq[LynxValue]) => Boolean)(ctx: ExpressionContext): DataFrame = {
     DataFrame(df.schema,
-      () => df.records.filter(predicate(_))
+      () => df.records.filter(predicate)
     )
   }
 
@@ -250,8 +253,8 @@ trait DataFrameOps {
   def project(columns: Seq[(String, Expression)])(implicit ctx: ExpressionContext): DataFrame =
     operator.project(srcFrame, columns)(ctx)
 
-  def groupBy(grouppings: Seq[(String, Expression)], aggregatings: Seq[(String, Expression)])(implicit ctx: ExpressionContext): DataFrame =
-    operator.groupBy(srcFrame, grouppings, aggregatings)(ctx)
+  def groupBy(groupings: Seq[(String, Expression)], aggregations: Seq[(String, Expression)])(implicit ctx: ExpressionContext): DataFrame =
+    operator.groupBy(srcFrame, groupings, aggregations)(ctx)
 
   def join(b: DataFrame, isSingleMatch: Boolean, bigTableIndex: Int): DataFrame = operator.join(srcFrame, b, isSingleMatch, bigTableIndex)
 

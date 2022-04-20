@@ -1,5 +1,6 @@
 package org.grapheco.lynx
 
+import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property.{LynxBoolean, LynxDouble, LynxInteger, LynxString}
 import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxDuration, LynxLocalDateTime, LynxLocalTime, LynxTime}
@@ -15,7 +16,9 @@ import scala.language.{implicitConversions, postfixOps}
  * @author: LiamGao
  * @create: 2022-03-02 10:09
  */
-class StandardCypherTest{
+class StandardCypherTest extends LazyLogging{
+
+  val skip_duration = 195
 
   @TestFactory
   def testStandardTck(): java.util.Collection[DynamicTest] ={
@@ -23,7 +26,7 @@ class StandardCypherTest{
 
     def emptyGraph: Graph = new TestGraph
 
-    val dynamicTests = allTckScenarios take 100 map{
+    val dynamicTests = allTckScenarios.slice(skip_duration, skip_duration + 100) map{
       scenario =>
         val name = scenario.name
         val executable = scenario(emptyGraph)
