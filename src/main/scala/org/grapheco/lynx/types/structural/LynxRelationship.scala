@@ -12,5 +12,5 @@ trait LynxRelationship extends LynxValue with HasProperty {
 
   def relationType: Option[LynxRelationshipType]
 
-  def cypherType: RelationshipType = CTRelationship
+  def lynxType: RelationshipType = CTRelationship
 }

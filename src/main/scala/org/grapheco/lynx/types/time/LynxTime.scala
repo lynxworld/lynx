@@ -15,5 +15,5 @@ import java.time.OffsetTime
 case class LynxTime(offsetTime: OffsetTime) extends LynxTemporalValue {
   def value: OffsetTime = offsetTime
 
-  def cypherType: LynxType = CTTime
+  def lynxType: LynxType = CTTime
 }

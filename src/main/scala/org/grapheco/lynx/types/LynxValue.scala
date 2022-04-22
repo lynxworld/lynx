@@ -2,7 +2,7 @@ package org.grapheco.lynx.types
 
 import org.grapheco.lynx.LynxType
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
-import org.grapheco.lynx.types.property.{LynxBoolean, LynxDouble, LynxInteger, LynxNull, LynxString}
+import org.grapheco.lynx.types.property.{LynxBoolean, LynxFloat, LynxInteger, LynxNull, LynxString}
 import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxLocalDateTime, LynxLocalTime, LynxTime}
 
 import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
@@ -17,7 +17,7 @@ import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime
 trait LynxValue {
   def value: Any
 
-  def cypherType: LynxType
+  def lynxType: LynxType
 
   def >(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
 
@@ -38,8 +38,8 @@ object LynxValue {
     case v: Int => LynxInteger(v)
     case v: Long => LynxInteger(v)
     case v: String => LynxString(v)
-    case v: Double => LynxDouble(v)
-    case v: Float => LynxDouble(v)
+    case v: Double => LynxFloat(v)
+    case v: Float => LynxFloat(v)
     case v: LocalDate => LynxDate(v)
     case v: ZonedDateTime => LynxDateTime(v)
     case v: LocalDateTime => LynxLocalDateTime(v)

@@ -2,7 +2,7 @@ package org.grapheco.lynx
 
 import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
-import org.grapheco.lynx.types.property.{LynxBoolean, LynxDouble, LynxInteger, LynxString}
+import org.grapheco.lynx.types.property.{LynxBoolean, LynxFloat, LynxInteger, LynxString}
 import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxDuration, LynxLocalDateTime, LynxLocalTime, LynxTime}
 import org.junit.jupiter.api.{DynamicTest, TestFactory}
 import org.opencypher.tools.tck.api.{CypherTCK, CypherValueRecords, Graph, QueryType}
@@ -61,7 +61,7 @@ class TestGraph extends TestBase with Graph {
         CypherPropertyMap(relation.props.map{ case(propName, lynxValue) => (propName.value, lynxValue2CypherValue(lynxValue))})
       )
       case LynxBoolean(v) => CypherBoolean(v)
-      case LynxDouble(v) => CypherFloat(v)
+      case LynxFloat(v) => CypherFloat(v)
       case LynxDuration(duration) => CypherString(duration.toString)
       case LynxInteger(v) => CypherInteger(v)
       case LynxList(v) => CypherOrderedList(v.map(lynxValue2CypherValue))

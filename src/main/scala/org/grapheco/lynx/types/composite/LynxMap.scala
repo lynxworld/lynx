@@ -13,5 +13,5 @@ import org.opencypher.v9_0.util.symbols.{CTMap, CypherType}
 case class LynxMap(v: Map[String, LynxValue]) extends LynxCompositeValue {
   override def value: Map[String, LynxValue] = v
 
-  override def cypherType: CypherType = CTMap
+  override def lynxType: CypherType = CTMap
 }

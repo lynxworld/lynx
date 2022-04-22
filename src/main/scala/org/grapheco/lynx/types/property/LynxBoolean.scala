@@ -13,5 +13,5 @@ import org.opencypher.v9_0.util.symbols.{BooleanType, CTBoolean}
 case class LynxBoolean(v: Boolean) extends LynxValue {
   def value: Boolean = v
 
-  def cypherType: BooleanType = CTBoolean
+  def lynxType: BooleanType = CTBoolean
 }

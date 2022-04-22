@@ -14,5 +14,5 @@ import java.time.ZonedDateTime
 case class LynxDateTime(zonedDateTime: ZonedDateTime) extends LynxTemporalValue {
   def value: ZonedDateTime = zonedDateTime
 
-  def cypherType: DateTimeType = CTDateTime
+  def lynxType: DateTimeType = CTDateTime
 }

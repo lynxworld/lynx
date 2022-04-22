@@ -13,7 +13,7 @@ import org.opencypher.v9_0.util.symbols.{CTAny, CypherType}
 object LynxNull extends LynxValue {
   override def value: Any = null
 
-  override def cypherType: CypherType = CTAny
+  override def lynxType: CypherType = CTAny
 
   override def toString: String = "null"
 }

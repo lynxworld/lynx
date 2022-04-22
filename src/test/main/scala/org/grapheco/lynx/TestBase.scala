@@ -1,6 +1,8 @@
 package org.grapheco.lynx
 
 import com.typesafe.scalalogging.LazyLogging
+import org.grapheco.lynx.procedure.functions.TimeFunctions
+import org.grapheco.lynx.procedure.{CallableProcedure, DefaultProcedureRegistry, ProcedureRegistry}
 import org.grapheco.lynx.util.Profiler
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.{LynxInteger, LynxNull}
@@ -177,10 +179,8 @@ class TestBase extends LazyLogging {
   }
 
   val runner: CypherRunner = new CypherRunner(model) {
-    val myfun = new DefaultProcedureRegistry(types, classOf[DefaultProcedures])
-    override lazy val procedures: ProcedureRegistry = myfun
 
-    myfun.register("test.authors", 0, new CallableProcedure {
+    procedures.register("test.authors", 0, new CallableProcedure {
       override val inputs: Seq[(String, LynxType)] = Seq()
       override val outputs: Seq[(String, LynxType)] = Seq("name" -> CTString)
 
@@ -188,7 +188,7 @@ class TestBase extends LazyLogging {
         LynxList(List(LynxValue("bluejoe"), LynxValue("lzx"), LynxValue("airzihao")))
     })
 
-    myfun.register("toInterger", 1, new CallableProcedure {
+    procedures.register("toInterger", 1, new CallableProcedure {
       override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
       override val outputs: Seq[(String, LynxType)] = Seq("number" -> CTInteger)
 

@@ -1,7 +1,7 @@
 package org.grapheco.lynx.types.composite
 
 import org.grapheco.lynx.types._
-import org.grapheco.lynx.types.property.{LynxDouble, LynxInteger, LynxNull, LynxNumber, LynxString}
+import org.grapheco.lynx.types.property.{LynxFloat, LynxInteger, LynxNull, LynxNumber, LynxString}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTList, CypherType}
 
 /**
@@ -14,7 +14,7 @@ import org.opencypher.v9_0.util.symbols.{CTAny, CTList, CypherType}
 case class LynxList(v: List[LynxValue]) extends LynxCompositeValue {
   override def value: List[LynxValue] = v
 
-  override def cypherType: CypherType = CTList(CTAny)
+  override def lynxType: CypherType = CTList(CTAny)
 
   /*
   - Any null values are excluded from the calculation.
@@ -37,7 +37,7 @@ case class LynxList(v: List[LynxValue]) extends LynxCompositeValue {
 
     def parseNumber(number: LynxNumber): Double = number match {
       case LynxInteger(i) => i.toDouble
-      case LynxDouble(d) => d
+      case LynxFloat(d) => d
     }
 
     override def compare(x: LynxValue, y: LynxValue): Int = {

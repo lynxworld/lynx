@@ -18,14 +18,14 @@ case class LynxInteger(v: Long) extends LynxNumber {
   def +(that: LynxNumber): LynxNumber = {
     that match {
       case LynxInteger(v2) => LynxInteger(v + v2)
-      case LynxDouble(v2) => LynxDouble(v + v2)
+      case LynxFloat(v2) => LynxFloat(v + v2)
     }
   }
 
   def -(that: LynxNumber): LynxNumber = {
     that match {
       case LynxInteger(v2) => LynxInteger(v - v2)
-      case LynxDouble(v2) => LynxDouble(v - v2)
+      case LynxFloat(v2) => LynxFloat(v - v2)
     }
   }
 
@@ -37,5 +37,5 @@ case class LynxInteger(v: Long) extends LynxNumber {
 
   override def <=(lynxValue: LynxValue): Boolean = this.value <= lynxValue.asInstanceOf[LynxInteger].value
 
-  def cypherType: IntegerType = CTInteger
+  def lynxType: IntegerType = CTInteger
 }

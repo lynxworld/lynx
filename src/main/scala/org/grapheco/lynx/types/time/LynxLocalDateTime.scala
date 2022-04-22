@@ -15,5 +15,5 @@ import java.time.LocalDateTime
 case class LynxLocalDateTime(localDateTime: LocalDateTime) extends LynxTemporalValue {
   def value: LocalDateTime = localDateTime
 
-  def cypherType: LynxType = CTLocalDateTime
+  def lynxType: LynxType = CTLocalDateTime
 }

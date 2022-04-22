@@ -1,8 +1,10 @@
 package org.grapheco.lynx
 
+import org.grapheco.lynx.procedure.exceptions.LynxProcedureException
+import org.grapheco.lynx.procedure.{ProcedureExpression, ProcedureRegistry}
 import org.grapheco.lynx.types.{LynxValue, TypeSystem}
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
-import org.grapheco.lynx.types.property.{LynxBoolean, LynxDouble, LynxInteger, LynxNull, LynxNumber, LynxString}
+import org.grapheco.lynx.types.property.{LynxBoolean, LynxFloat, LynxInteger, LynxNull, LynxNumber, LynxString}
 import org.grapheco.lynx.types.structural.{HasProperty, LynxNode, LynxPropertyKey}
 import org.grapheco.lynx.types.time.LynxDateTime
 import org.opencypher.v9_0.expressions._
@@ -131,7 +133,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         (eval(lhs), eval(rhs)) match {
           case (n: LynxNumber, m: LynxInteger) =>{//todo add aggregating multi
             n match {
-              case d: LynxDouble => LynxDouble(d.value * m.value)
+              case d: LynxFloat => LynxFloat(d.value * m.value)
               case d: LynxInteger => LynxInteger(d.value * m.value)
             }
           }

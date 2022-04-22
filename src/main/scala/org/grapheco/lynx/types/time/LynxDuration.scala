@@ -55,5 +55,5 @@ case class LynxDuration(duration: Duration) extends LynxTemporalValue {
     buf.toString
   }
 
-  def cypherType: LynxType = CTDuration
+  def lynxType: LynxType = CTDuration
 }

@@ -11,5 +11,5 @@ trait LynxNode extends LynxValue with HasProperty {
 
   def labels: Seq[LynxNodeLabel]
 
-  def cypherType: NodeType = CTNode
+  def lynxType: NodeType = CTNode
 }

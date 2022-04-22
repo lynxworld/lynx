@@ -13,7 +13,7 @@ import org.opencypher.v9_0.util.symbols.{CTString, StringType}
 case class LynxString(v: String) extends LynxValue {
   def value: String = v
 
-  def cypherType: StringType = CTString
+  def lynxType: StringType = CTString
 
   override def >(lynxValue: LynxValue): Boolean = this.value > lynxValue.asInstanceOf[LynxString].value
 
