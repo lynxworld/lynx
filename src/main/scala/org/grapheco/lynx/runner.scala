@@ -2,7 +2,11 @@
 package org.grapheco.lynx
 
 import com.typesafe.scalalogging.LazyLogging
+import org.grapheco.lynx.procedure.functions.{AggregatingFunctions, ListFunctions, LogarithmicFunctions, NumericFunctions, PredicateFunctions, ScalarFunctions, StringFunctions, TimeFunctions, TrigonometricFunctions}
+import org.grapheco.lynx.procedure.{DefaultProcedureRegistry, ProcedureRegistry}
 import org.grapheco.lynx.util.FormatUtils
+import org.grapheco.lynx.types.structural.{LynxId, LynxNode, LynxNodeLabel, LynxPropertyKey, LynxRelationship, LynxRelationshipType}
+import org.grapheco.lynx.types.{DefaultTypeSystem, LynxValue, TypeSystem}
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.SemanticState
 import org.opencypher.v9_0.expressions.{LabelName, PropertyKeyName, Range, SemanticDirection}
@@ -19,7 +23,16 @@ case class CypherRunnerContext(typeSystem: TypeSystem,
 
 class CypherRunner(graphModel: GraphModel) extends LazyLogging {
   protected lazy val types: TypeSystem = new DefaultTypeSystem()
-  protected lazy val procedures: ProcedureRegistry = new DefaultProcedureRegistry(types, classOf[DefaultProcedures])
+  protected lazy val procedures: DefaultProcedureRegistry = new DefaultProcedureRegistry(types,
+    classOf[AggregatingFunctions],
+    classOf[ListFunctions],
+    classOf[LogarithmicFunctions],
+    classOf[NumericFunctions],
+    classOf[PredicateFunctions],
+    classOf[ScalarFunctions],
+    classOf[StringFunctions],
+//    classOf[TimeFunctions],
+    classOf[TrigonometricFunctions])
   protected lazy val expressionEvaluator: ExpressionEvaluator = new DefaultExpressionEvaluator(graphModel, types, procedures)
   protected lazy val dataFrameOperator: DataFrameOperator = new DefaultDataFrameOperator(expressionEvaluator)
   private implicit lazy val runnerContext = CypherRunnerContext(types, procedures, dataFrameOperator, expressionEvaluator, graphModel)
@@ -95,7 +108,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 object LogicalPlannerContext {
   def apply(queryParameters: Map[String, Any], runnerContext: CypherRunnerContext): LogicalPlannerContext =
     new LogicalPlannerContext(
-      queryParameters.mapValues(runnerContext.typeSystem.wrap).mapValues(_.cypherType).toSeq,
+      queryParameters.mapValues(runnerContext.typeSystem.wrap).mapValues(_.lynxType).toSeq,
       runnerContext)
 }
 
@@ -104,7 +117,7 @@ case class LogicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runner
 object PhysicalPlannerContext {
   def apply(queryParameters: Map[String, Any], runnerContext: CypherRunnerContext): PhysicalPlannerContext =
     new PhysicalPlannerContext(
-      queryParameters.mapValues(runnerContext.typeSystem.wrap).mapValues(_.cypherType).toSeq,
+      queryParameters.mapValues(runnerContext.typeSystem.wrap).mapValues(_.lynxType).toSeq,
       runnerContext)
 }
 

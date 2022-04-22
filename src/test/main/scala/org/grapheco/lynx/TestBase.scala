@@ -1,7 +1,13 @@
 package org.grapheco.lynx
 
 import com.typesafe.scalalogging.LazyLogging
+import org.grapheco.lynx.procedure.functions.TimeFunctions
+import org.grapheco.lynx.procedure.{CallableProcedure, DefaultProcedureRegistry, ProcedureRegistry}
 import org.grapheco.lynx.util.Profiler
+import org.grapheco.lynx.types.composite.LynxList
+import org.grapheco.lynx.types.property.{LynxInteger, LynxNull}
+import org.grapheco.lynx.types.structural.{LynxId, LynxNode, LynxNodeLabel, LynxPropertyKey, LynxRelationship, LynxRelationshipType}
+import org.grapheco.lynx.types.LynxValue
 import org.opencypher.v9_0.util.symbols.{CTInteger, CTString}
 
 import scala.collection.mutable
@@ -173,10 +179,8 @@ class TestBase extends LazyLogging {
   }
 
   val runner: CypherRunner = new CypherRunner(model) {
-    val myfun = new DefaultProcedureRegistry(types, classOf[DefaultProcedures])
-    override lazy val procedures: ProcedureRegistry = myfun
 
-    myfun.register("test.authors", 0, new CallableProcedure {
+    procedures.register("test.authors", 0, new CallableProcedure {
       override val inputs: Seq[(String, LynxType)] = Seq()
       override val outputs: Seq[(String, LynxType)] = Seq("name" -> CTString)
 
@@ -184,7 +188,7 @@ class TestBase extends LazyLogging {
         LynxList(List(LynxValue("bluejoe"), LynxValue("lzx"), LynxValue("airzihao")))
     })
 
-    myfun.register("toInterger", 1, new CallableProcedure {
+    procedures.register("toInterger", 1, new CallableProcedure {
       override val inputs: Seq[(String, LynxType)] = Seq("text" -> CTString)
       override val outputs: Seq[(String, LynxType)] = Seq("number" -> CTInteger)
 
@@ -195,6 +199,7 @@ class TestBase extends LazyLogging {
 
   protected def runOnDemoGraph(query: String, param: Map[String, Any] = Map.empty[String, Any]): LynxResult = {
     //runner.compile(query)
+
     Profiler.timing {
       val rs = runner.run(query, param).cache()
       rs.show()
@@ -210,6 +215,8 @@ class TestBase extends LazyLogging {
     override def property(propertyKey: LynxPropertyKey): Option[LynxValue] = props.get(propertyKey)
 
     override def keys: Seq[LynxPropertyKey] = props.keys.toSeq
+
+//    override def toString: String = s"(#$id):[${labels.mkString(",")}]{${keys.map(k => k +": "+ property(k).getOrElse(LynxNull)).mkString(",")}}"
   }
 
   case class TestRelationship(id: TestId,

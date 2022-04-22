@@ -1,23 +1,33 @@
-package org.grapheco.lynx
+package org.grapheco.lynx.types
 
-import java.time.{Duration, LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
-import org.opencypher.v9_0.expressions.{BooleanLiteral, CountStar, DoubleLiteral, FunctionInvocation, IntegerLiteral, Parameter, StringLiteral, Variable}
-import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTString, CypherType}
+import org.grapheco.lynx.LynxType
+import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
+import org.grapheco.lynx.types.property._
+import org.grapheco.lynx.types.time._
+import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTList, CTString, CypherType}
 
+import java.time._
 import scala.collection.mutable
 
-trait TypeSystem {
-  def typeOf(clazz: Class[_]): LynxType
-
-  def wrap(value: Any): LynxValue
-}
-
+/**
+ * @ClassName DefaultTypeSystem
+ * @Description TODO
+ * @Author huchuan
+ * @Date 2022/4/21
+ * @Version 0.1
+ */
 class DefaultTypeSystem extends TypeSystem {
   val mapTypes: mutable.Map[Class[_], LynxType] = mutable.Map(
-    classOf[BooleanLiteral] -> CTBoolean,
-    classOf[StringLiteral] -> CTString,
-    classOf[IntegerLiteral] -> CTInteger,
-    classOf[DoubleLiteral] -> CTInteger
+    //    classOf[BooleanLiteral] -> CTBoolean,
+    //    classOf[StringLiteral] -> CTString,
+    //    classOf[IntegerLiteral] -> CTInteger,
+    //    classOf[DoubleLiteral] -> CTFloat,
+    classOf[LynxBoolean] -> CTBoolean,
+    classOf[LynxString] -> CTString,
+    classOf[LynxInteger] -> CTInteger,
+    classOf[LynxFloat] -> CTFloat,
+    classOf[LynxList] -> CTList(CTAny),
+    // todo: time and date.
   )
 
   override def typeOf(clazz: Class[_]): CypherType = mapTypes.getOrElse(clazz, CTAny)
@@ -29,8 +39,8 @@ class DefaultTypeSystem extends TypeSystem {
     case v: Int => LynxInteger(v)
     case v: Long => LynxInteger(v)
     case v: String => LynxString(v)
-    case v: Double => LynxDouble(v)
-    case v: Float => LynxDouble(v)
+    case v: Double => LynxFloat(v)
+    case v: Float => LynxFloat(v)
     case v: LocalDate => LynxDate(v)
     case v: ZonedDateTime => LynxDateTime(v)
     case v: LocalDateTime => LynxLocalDateTime(v)

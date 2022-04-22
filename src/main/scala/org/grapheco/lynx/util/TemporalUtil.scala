@@ -1,7 +1,11 @@
 package org.grapheco.lynx.util
 
+import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.util.LynxLocalDateTimeUtil.{of, parseHourMinuteSecond, parseNanoOfSecond, parseYearMonthDay, parseZone}
-import org.grapheco.lynx.{LynxDate, LynxDateTime, LynxDuration, LynxException, LynxLocalDateTime, LynxLocalTime, LynxMap, LynxString, LynxTemporalValue, LynxTime, LynxValue}
+import org.grapheco.lynx.types.composite.LynxMap
+import org.grapheco.lynx.types.property.LynxString
+import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxDuration, LynxLocalDateTime, LynxLocalTime, LynxTemporalValue, LynxTime}
+import org.grapheco.lynx.{LynxException, types}
 
 import java.time.{Duration, Instant, LocalDate, LocalDateTime, LocalTime, OffsetTime, Period, ZoneId, ZoneOffset, ZonedDateTime}
 import java.time.format.DateTimeFormatter

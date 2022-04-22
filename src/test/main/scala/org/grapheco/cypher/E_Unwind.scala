@@ -1,6 +1,9 @@
 package org.grapheco.cypher
 
-import org.grapheco.lynx.{DataFrame, LynxInteger, LynxList, LynxNode, LynxNodeLabel, LynxPropertyKey, LynxRelationship, LynxRelationshipType, LynxValue, NodeInput, RelationshipInput, StoredNodeInputRef, TestBase}
+import org.grapheco.lynx.types.composite.LynxList
+import org.grapheco.lynx.types.structural.{LynxNode, LynxPropertyKey, LynxRelationship, LynxRelationshipType}
+import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.{NodeInput, RelationshipInput, StoredNodeInputRef, TestBase, types}
 import org.junit.{Assert, Before, Test}
 import org.opencypher.v9_0.util.symbols.CTAny
 

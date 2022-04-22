@@ -1,7 +1,11 @@
 package org.grapheco.lynx
 
-import org.junit.{Assert, Test}
-import org.grapheco.lynx.NameParser._
+import org.grapheco.lynx.types.composite.LynxList
+import org.grapheco.lynx.types.structural.{LynxNode, LynxPropertyKey, LynxRelationship, LynxRelationshipType}
+import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
+import org.grapheco.lynx.{NodeInput, RelationshipInput, StoredNodeInputRef, TestBase, types}
+import org.junit.{Assert, Before, Test}
 class CypherCreateTest extends TestBase {
   runOnDemoGraph(
     """
@@ -89,7 +93,7 @@ class CypherCreateTest extends TestBase {
     val rs = runOnDemoGraph("CREATE (n {name: 'God', age: 10000})")
     Assert.assertEquals(NODE_SIZE + 1, all_nodes.size)
     Assert.assertEquals(REL_SIZE, all_rels.size)
-    Assert.assertEquals(LynxString("God"), all_nodes.apply(NODE_SIZE).property("name").get)
+    Assert.assertEquals(LynxString("God"), all_nodes.apply(NODE_SIZE).property(LynxPropertyKey("name")).get)
   }
 
   @Test
@@ -106,11 +110,11 @@ class CypherCreateTest extends TestBase {
     Assert.assertEquals(NODE_SIZE + 2, all_nodes.size)
     Assert.assertEquals(REL_SIZE + 1, all_rels.size)
 
-    Assert.assertEquals(LynxString("God"), all_nodes(NODE_SIZE).property("name").get)
-    Assert.assertEquals(LynxInteger(10000), all_nodes(NODE_SIZE).property("age").get)
+    Assert.assertEquals(LynxString("God"), all_nodes(NODE_SIZE).property(LynxPropertyKey("name")).get)
+    Assert.assertEquals(LynxInteger(10000), all_nodes(NODE_SIZE).property(LynxPropertyKey("age")).get)
     Assert.assertEquals(Seq("person"), all_nodes(NODE_SIZE).labels.map(_.value))
 
-    Assert.assertEquals(LynxString("heaven"), all_nodes(NODE_SIZE + 1).property("name").get)
+    Assert.assertEquals(LynxString("heaven"), all_nodes(NODE_SIZE + 1).property(LynxPropertyKey("name")).get)
     Assert.assertEquals(Seq("place"), all_nodes(NODE_SIZE + 1).labels.map(_.value))
 
     Assert.assertEquals("livesIn", all_rels(REL_SIZE).relationType.get.value)
@@ -124,11 +128,11 @@ class CypherCreateTest extends TestBase {
     Assert.assertEquals(NODE_SIZE + 2, all_nodes.size)
     Assert.assertEquals(REL_SIZE + 1, all_rels.size)
 
-    Assert.assertEquals(LynxString("God"), all_nodes(NODE_SIZE).property("name").get)
-    Assert.assertEquals(LynxInteger(10000), all_nodes(NODE_SIZE).property("age").get)
+    Assert.assertEquals(LynxString("God"), all_nodes(NODE_SIZE).property(LynxPropertyKey("name")).get)
+    Assert.assertEquals(LynxInteger(10000), all_nodes(NODE_SIZE).property(LynxPropertyKey("age")).get)
     Assert.assertEquals(Seq("person"), all_nodes(NODE_SIZE).labels.map(_.value))
 
-    Assert.assertEquals(LynxString("heaven"), all_nodes(NODE_SIZE + 1).property("name").get)
+    Assert.assertEquals(LynxString("heaven"), all_nodes(NODE_SIZE + 1).property(LynxPropertyKey("name")).get)
     Assert.assertEquals(Seq("place"), all_nodes(NODE_SIZE + 1).labels.map(_.value))
 
     Assert.assertEquals("livesIn", all_rels(REL_SIZE).relationType.get.value)
@@ -142,9 +146,9 @@ class CypherCreateTest extends TestBase {
     Assert.assertEquals(NODE_SIZE + 3, all_nodes.size)
     Assert.assertEquals(REL_SIZE + 2, all_rels.size)
 
-    Assert.assertEquals(LynxString("BaoChai"), all_nodes(NODE_SIZE).property("name").get)
-    Assert.assertEquals(LynxString("BaoYu"), all_nodes(NODE_SIZE + 1).property("name").get)
-    Assert.assertEquals(LynxString("DaiYu"), all_nodes(NODE_SIZE + 2).property("name").get)
+    Assert.assertEquals(LynxString("BaoChai"), all_nodes(NODE_SIZE).property(LynxPropertyKey("name")).get)
+    Assert.assertEquals(LynxString("BaoYu"), all_nodes(NODE_SIZE + 1).property(LynxPropertyKey("name")).get)
+    Assert.assertEquals(LynxString("DaiYu"), all_nodes(NODE_SIZE + 2).property(LynxPropertyKey("name")).get)
 
     Assert.assertEquals("LOVES", all_rels(REL_SIZE).relationType.get.value)
     Assert.assertEquals(all_nodes(NODE_SIZE).id.value, all_rels(REL_SIZE).startNodeId.value)
@@ -161,11 +165,11 @@ class CypherCreateTest extends TestBase {
     Assert.assertEquals(NODE_SIZE + 2, all_nodes.size)
     Assert.assertEquals(REL_SIZE + 2, all_rels.size)
 
-    Assert.assertEquals(LynxString("God"), all_nodes(NODE_SIZE).property("name"))
-    Assert.assertEquals(LynxInteger(10000), all_nodes(NODE_SIZE).property("age"))
+    Assert.assertEquals(LynxString("God"), all_nodes(NODE_SIZE).property(LynxPropertyKey("name")))
+    Assert.assertEquals(LynxInteger(10000), all_nodes(NODE_SIZE).property(LynxPropertyKey("age")))
 
-    Assert.assertEquals(LynxString("God"), all_nodes(NODE_SIZE + 1).property("name"))
-    Assert.assertEquals(LynxInteger(10000), all_nodes(NODE_SIZE + 1).property("age"))
+    Assert.assertEquals(LynxString("God"), all_nodes(NODE_SIZE + 1).property(LynxPropertyKey("name")))
+    Assert.assertEquals(LynxInteger(10000), all_nodes(NODE_SIZE + 1).property(LynxPropertyKey("age")))
 
     Assert.assertEquals("LOVES", all_rels(REL_SIZE).relationType.get)
     Assert.assertEquals((NODE_SIZE + 1).toLong, all_rels(REL_SIZE).startNodeId)

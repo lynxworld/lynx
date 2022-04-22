@@ -1,6 +1,12 @@
 package org.grapheco.lynx
 
 import org.grapheco.lynx
+import org.grapheco.lynx.procedure.CallableProcedure
+import org.grapheco.lynx.procedure.exceptions.{UnknownProcedureException, WrongArgumentException, WrongNumberOfArgumentsException}
+import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
+import org.grapheco.lynx.types.property.{LynxBoolean, LynxNull}
+import org.grapheco.lynx.types.structural.{LynxId, LynxNode, LynxNodeLabel, LynxPropertyKey, LynxRelationship, LynxRelationshipType}
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions.{NodePattern, RelationshipChain, _}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTList, CTNode, CTPath, CTRelationship, CypherType}
@@ -440,42 +446,30 @@ case class PPTAggregation(aggregations: Seq[ReturnItem], groupings: Seq[ReturnIt
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
-    val ed = df.groupBy(groupings.map(x => x.name -> x.expression), aggregations.map(x => x.name -> x.expression))(ctx.expressionContext)
-    println(ed.records.toList)
-    ed
+    df.groupBy(groupings.map(x => x.name -> x.expression), aggregations.map(x => x.name -> x.expression))(ctx.expressionContext)
   }
 }
 
 case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override def withChildren(children0: Seq[PPTNode]): PPTProcedureCall = PPTProcedureCall(procedureNamespace, procedureName, declaredArguments)(plannerContext)
 
-  override val schema: Seq[(String, LynxType)] = {
-    val Namespace(parts: List[String]) = procedureNamespace
-    val ProcedureName(name: String) = procedureName
+  val Namespace(parts: List[String]) = procedureNamespace
+  val ProcedureName(name: String) = procedureName
+  val arguments = declaredArguments.getOrElse(Seq.empty)
+  val procedure = procedureRegistry.getProcedure(parts, name, arguments.size)
+    .getOrElse{throw UnknownProcedureException(parts, name)}
 
-    procedureRegistry.getProcedure(parts, name, declaredArguments.map(_.size).getOrElse(0)) match {
-      case Some(procedure) =>
-        procedure.outputs
-      case None => throw UnknownProcedureException(parts, name)
-    }
-  }
+  override val schema: Seq[(String, LynxType)] = procedure.outputs
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
-    val Namespace(parts: List[String]) = procedureNamespace
-    val ProcedureName(name: String) = procedureName
-
-    procedureRegistry.getProcedure(parts, name, declaredArguments.map(_.size).getOrElse(0)) match {
-      case Some(procedure) =>
-        val args = declaredArguments match {
-          case Some(args) => args.map(eval(_)(ctx.expressionContext))
-          case None => procedure.inputs.map(arg => ctx.expressionContext.params.getOrElse(arg._1, LynxNull))
-        }
-
-        //        procedure.checkArguments((parts :+ name).mkString("."), args)
-        DataFrame(procedure.outputs, () => Iterator(Seq(procedure.call(args))))
-
-      case None => throw UnknownProcedureException(parts, name)
+    val args = declaredArguments match {
+      case Some(args) => args.map(eval(_)(ctx.expressionContext))
+      case None => procedure.inputs.map(arg => ctx.expressionContext.params.getOrElse(arg._1, LynxNull))
     }
+    val argsType = args.map(_.lynxType)
+    if (procedure.checkArgumentsType(argsType)) {
+      DataFrame(procedure.outputs, () => Iterator(Seq(procedure.call(args))))
+    } else { throw WrongArgumentException(name, procedure.inputs.map(_._2), argsType)}
   }
 }
 

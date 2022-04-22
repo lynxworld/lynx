@@ -275,12 +275,11 @@ case class LPTCreateUnit(items: Seq[ReturnItem]) extends LPTNode {
 case class LPTProjectTranslator(ri: ReturnItemsDef) extends LPTNodeTranslator {
   def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
     val newIn = in.getOrElse(LPTCreateUnit(ri.items))
-    ri.containsAggregate match {
-      case false => LPTProject(ri)(newIn)
-      case true => {
-        val (aggregatingItems, groupingItems) = ri.items.partition(i => i.expression.containsAggregate)
-        LPTAggregation(aggregatingItems, groupingItems)(newIn)
-      }
+    if (ri.containsAggregate) {
+      val (aggregatingItems, groupingItems) = ri.items.partition(i => i.expression.containsAggregate)
+      LPTAggregation(aggregatingItems, groupingItems)(newIn)
+    } else {
+      LPTProject(ri)(newIn)
     }
   }
 }

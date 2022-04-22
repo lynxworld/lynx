@@ -1,5 +1,6 @@
 package org.grapheco.lynx
 
+import org.grapheco.lynx.procedure.ProcedureExpression
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.{SemanticErrorDef, SemanticFeature, SemanticState}
 import org.opencypher.v9_0.expressions.{CaseExpression, FunctionInvocation, RegexMatch}
