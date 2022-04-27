@@ -1,10 +1,11 @@
 package org.grapheco.cypher
 
+import org.grapheco.lynx.physical.{NodeInput, RelationshipInput, StoredNodeInputRef}
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.structural.{LynxNode, LynxNodeLabel, LynxPropertyKey, LynxRelationship, LynxRelationshipType}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.property.LynxNull
-import org.grapheco.lynx.{NodeInput, RelationshipInput, StoredNodeInputRef, TestBase, types}
+import org.grapheco.lynx.{TestBase, types}
 import org.junit.{Assert, Before, Test}
 
 import scala.collection.mutable.ArrayBuffer

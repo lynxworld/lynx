@@ -4,7 +4,7 @@ import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.structural.{LynxNode, LynxPropertyKey, LynxRelationship, LynxRelationshipType}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
-import org.grapheco.lynx.{NodeInput, RelationshipInput, StoredNodeInputRef, TestBase, types}
+import org.grapheco.lynx.{TestBase, types}
 import org.junit.{Assert, Before, Test}
 class CypherCreateTest extends TestBase {
   runOnDemoGraph(

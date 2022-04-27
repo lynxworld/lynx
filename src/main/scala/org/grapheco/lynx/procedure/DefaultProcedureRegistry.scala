@@ -32,7 +32,7 @@ class DefaultProcedureRegistry(types: TypeSystem, classes: Class[_]*) extends Pr
           name -> types.typeOf(parameter.getType)
         }
         val outputs = Seq("value" -> types.typeOf(method.getReturnType))
-        register(annotation.name(), inputs, outputs, args => types.wrap(method.invoke(host, args: _*)))
+        register(annotation.name(), inputs, outputs, annotation.forNull(), args => types.wrap(method.invoke(host, args: _*)))
       }
     }
   }
@@ -42,10 +42,11 @@ class DefaultProcedureRegistry(types: TypeSystem, classes: Class[_]*) extends Pr
     logger.debug(s"registered procedure: ${procedure.signature(name)}")
   }
 
-  def register(name: String, inputs0: Seq[(String, LynxType)], outputs0: Seq[(String, LynxType)], call0: (Seq[LynxValue]) => LynxValue): Unit = {
+  def register(name: String, inputs0: Seq[(String, LynxType)], outputs0: Seq[(String, LynxType)], forNull0: Boolean, call0: (Seq[LynxValue]) => LynxValue): Unit = {
     register(name, inputs0.size, new CallableProcedure() {
       override val inputs: Seq[(String, LynxType)] = inputs0
       override val outputs: Seq[(String, LynxType)] = outputs0
+      override val forNull: Boolean = forNull0
       override def call(args: Seq[LynxValue]): LynxValue = LynxValue(call0(args))
     })
   }
