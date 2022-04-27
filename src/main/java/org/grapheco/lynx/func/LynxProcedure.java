@@ -9,6 +9,6 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface LynxProcedure {
     String name();
-
+    boolean forNull() default true;
     String description() default "";
 }

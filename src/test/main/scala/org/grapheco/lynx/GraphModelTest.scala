@@ -1,5 +1,6 @@
 package org.grapheco.lynx
 
+import org.grapheco.lynx.runner.{NodeFilter, PathTriple, RelationshipFilter}
 import org.junit.{Assert, Test}
 import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
 
