@@ -1,8 +1,9 @@
 package org.grapheco.lynx.physical
 
 import org.grapheco.lynx.LynxType
-import org.grapheco.lynx.context.{ExecutionContext, ExpressionContext, PhysicalPlannerContext}
 import org.grapheco.lynx.dataframe.{DataFrame, DataFrameOps}
+import org.grapheco.lynx.evaluator.ExpressionContext
+import org.grapheco.lynx.runner.ExecutionContext
 import org.grapheco.lynx.types.LynxValue
 import org.opencypher.v9_0.ast.ReturnItem
 import org.opencypher.v9_0.expressions.Expression

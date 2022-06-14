@@ -1,7 +1,7 @@
 package org.grapheco.lynx.physical
 
-import org.grapheco.lynx.context.ExecutionContext
 import org.grapheco.lynx.dataframe.DataFrame
+import org.grapheco.lynx.runner.ExecutionContext
 import org.grapheco.lynx.{LynxType, TreeNode}
 
 trait PPTNode extends TreeNode {

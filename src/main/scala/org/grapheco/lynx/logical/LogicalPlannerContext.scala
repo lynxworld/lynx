@@ -1,6 +1,7 @@
-package org.grapheco.lynx.context
+package org.grapheco.lynx.logical
 
 import org.grapheco.lynx.LynxType
+import org.grapheco.lynx.runner.CypherRunnerContext
 
 /**
  * @ClassName LogicalPlannerContext

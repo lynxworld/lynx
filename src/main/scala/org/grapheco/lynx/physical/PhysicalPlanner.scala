@@ -1,6 +1,5 @@
 package org.grapheco.lynx.physical
 
-import org.grapheco.lynx.context.PhysicalPlannerContext
 import org.grapheco.lynx.logical.LPTNode
 
 trait PhysicalPlanner {

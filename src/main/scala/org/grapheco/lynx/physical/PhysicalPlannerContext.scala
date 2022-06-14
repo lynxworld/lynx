@@ -1,6 +1,7 @@
-package org.grapheco.lynx.context
+package org.grapheco.lynx.physical
 
 import org.grapheco.lynx.LynxType
+import org.grapheco.lynx.runner.CypherRunnerContext
 
 import scala.collection.mutable
 

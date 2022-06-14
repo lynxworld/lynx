@@ -1,7 +1,6 @@
 package org.grapheco.lynx.dataframe
 
-import org.grapheco.lynx.context.ExpressionContext
-import org.grapheco.lynx.evaluator.ExpressionEvaluator
+import org.grapheco.lynx.evaluator.{ExpressionContext, ExpressionEvaluator}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.property.LynxNull
 import org.grapheco.lynx.types.structural.LynxRelationship

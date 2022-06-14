@@ -1,8 +1,7 @@
 package org.grapheco.lynx.procedure
 
 import com.typesafe.scalalogging.LazyLogging
-import org.grapheco.lynx.context.CypherRunnerContext
-import org.grapheco.lynx.runner.ProcedureUnregisteredException
+import org.grapheco.lynx.runner.{CypherRunnerContext, ProcedureUnregisteredException}
 import org.opencypher.v9_0.expressions.{Expression, FunctionInvocation}
 import org.opencypher.v9_0.util.InputPosition
 

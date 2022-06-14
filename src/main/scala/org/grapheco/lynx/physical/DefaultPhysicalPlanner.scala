@@ -1,8 +1,8 @@
 package org.grapheco.lynx.physical
 
-import org.grapheco.lynx.context.{CypherRunnerContext, PhysicalPlannerContext}
 import org.grapheco.lynx.logical._
 import org.grapheco.lynx._
+import org.grapheco.lynx.runner.CypherRunnerContext
 import org.opencypher.v9_0.ast.{Create, Delete, Merge, MergeAction}
 import org.opencypher.v9_0.expressions._
 
