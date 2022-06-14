@@ -1,17 +1,17 @@
 package org.grapheco.lynx.runner
 
 import com.typesafe.scalalogging.LazyLogging
-import org.grapheco.lynx.context.{CypherRunnerContext, ExecutionContext, LogicalPlannerContext, PhysicalPlannerContext}
+
 import org.grapheco.lynx.dataframe.{DataFrameOperator, DefaultDataFrameOperator}
 import org.grapheco.lynx.evaluator.{DefaultExpressionEvaluator, ExpressionEvaluator}
-import org.grapheco.lynx.logical.{DefaultLogicalPlanner, LPTNode, LogicalPlanner}
+import org.grapheco.lynx.logical.{DefaultLogicalPlanner, LPTNode, LogicalPlanner, LogicalPlannerContext}
 import org.grapheco.lynx.parser.{CachedQueryParser, DefaultQueryParser, QueryParser}
 import org.grapheco.lynx.procedure._
 import org.grapheco.lynx.types.{DefaultTypeSystem, LynxValue, TypeSystem}
 import org.grapheco.lynx.util.FormatUtils
 import org.grapheco.lynx._
 import org.grapheco.lynx.optimizer.{DefaultPhysicalPlanOptimizer, PhysicalPlanOptimizer}
-import org.grapheco.lynx.physical.{DefaultPhysicalPlanner, PPTNode, PhysicalPlanner}
+import org.grapheco.lynx.physical.{DefaultPhysicalPlanner, PPTNode, PhysicalPlanner, PhysicalPlannerContext}
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.SemanticState
 

@@ -1,10 +1,10 @@
 package org.grapheco.lynx.physical
 
-import org.grapheco.lynx.context.{ExecutionContext, ExpressionContext, PhysicalPlannerContext}
 import org.grapheco.lynx.dataframe.DataFrame
+import org.grapheco.lynx.evaluator.ExpressionContext
 import org.grapheco.lynx.logical.LPTPatternMatch
 import org.grapheco.lynx.procedure.{UnknownProcedureException, WrongArgumentException}
-import org.grapheco.lynx.runner.{NodeFilter, RelationshipFilter}
+import org.grapheco.lynx.runner.{ExecutionContext, NodeFilter, RelationshipFilter}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property.{LynxBoolean, LynxNull}

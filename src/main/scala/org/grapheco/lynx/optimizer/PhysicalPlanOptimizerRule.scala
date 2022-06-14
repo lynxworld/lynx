@@ -1,7 +1,6 @@
 package org.grapheco.lynx.optimizer
 
-import org.grapheco.lynx.context.PhysicalPlannerContext
-import org.grapheco.lynx.physical.PPTNode
+import org.grapheco.lynx.physical.{PPTNode, PhysicalPlannerContext}
 
 trait PhysicalPlanOptimizerRule {
   def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode

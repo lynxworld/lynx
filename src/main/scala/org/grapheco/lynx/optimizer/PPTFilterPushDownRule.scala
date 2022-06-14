@@ -1,8 +1,7 @@
 package org.grapheco.lynx.optimizer
 
-import org.grapheco.lynx.context.PhysicalPlannerContext
 import org.grapheco.lynx._
-import org.grapheco.lynx.physical.{PPTExpandPath, PPTFilter, PPTJoin, PPTNode, PPTNodeScan, PPTRelationshipScan}
+import org.grapheco.lynx.physical.{PPTExpandPath, PPTFilter, PPTJoin, PPTNode, PPTNodeScan, PPTRelationshipScan, PhysicalPlannerContext}
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.util.InputPosition
 

@@ -1,7 +1,6 @@
 package org.grapheco.lynx.optimizer
 
-import org.grapheco.lynx.context.PhysicalPlannerContext
-import org.grapheco.lynx.physical.{PPTNode, PPTProject}
+import org.grapheco.lynx.physical.{PPTNode, PPTProject, PhysicalPlannerContext}
 import org.opencypher.v9_0.ast.AliasedReturnItem
 
 /**

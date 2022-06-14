@@ -1,6 +1,5 @@
 package org.grapheco.lynx.evaluator
 
-import org.grapheco.lynx.context.ExpressionContext
 import org.grapheco.lynx.procedure.{ProcedureException, ProcedureExpression, ProcedureRegistry}
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property._

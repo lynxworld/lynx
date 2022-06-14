@@ -1,8 +1,7 @@
 package org.grapheco.lynx.optimizer
 
-import org.grapheco.lynx.context.PhysicalPlannerContext
 import org.grapheco.lynx._
-import org.grapheco.lynx.physical.{PPTCreateUnit, PPTDistinct, PPTExpandPath, PPTFilter, PPTJoin, PPTMerge, PPTNode, PPTNodeScan, PPTRelationshipScan, PPTSelect, PPTUnwind}
+import org.grapheco.lynx.physical.{PPTCreateUnit, PPTDistinct, PPTExpandPath, PPTFilter, PPTJoin, PPTMerge, PPTNode, PPTNodeScan, PPTRelationshipScan, PPTSelect, PPTUnwind, PhysicalPlannerContext}
 import org.opencypher.v9_0.expressions._
 
 import scala.collection.mutable

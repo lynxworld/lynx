@@ -1,6 +1,5 @@
 package org.grapheco.lynx.logical
 
-import org.grapheco.lynx.context.LogicalPlannerContext
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions._
 

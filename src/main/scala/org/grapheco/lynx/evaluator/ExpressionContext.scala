@@ -1,5 +1,6 @@
-package org.grapheco.lynx.context
+package org.grapheco.lynx.evaluator
 
+import org.grapheco.lynx.runner.ExecutionContext
 import org.grapheco.lynx.types.LynxValue
 
 /**

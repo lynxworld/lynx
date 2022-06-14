@@ -2,7 +2,6 @@ package org.grapheco.lynx.evaluator
 
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.LynxType
-import org.grapheco.lynx.context.ExpressionContext
 import org.opencypher.v9_0.expressions.Expression
 
 trait ExpressionEvaluator {

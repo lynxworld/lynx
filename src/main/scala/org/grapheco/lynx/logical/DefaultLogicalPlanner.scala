@@ -1,6 +1,6 @@
 package org.grapheco.lynx.logical
 
-import org.grapheco.lynx.context.{CypherRunnerContext, LogicalPlannerContext}
+import org.grapheco.lynx.runner.CypherRunnerContext
 import org.grapheco.lynx.{logical, _}
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions.{LabelName, Property, PropertyKeyName, Variable}

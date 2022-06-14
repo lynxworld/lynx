@@ -1,0 +1,5 @@
+新增函数支持, 修改了一系列函数实现
+修复collect(n)返回结果丢失n类型, 返回Any的问题
+完善functions文档
+调整项目结构, 目前拆分types
+完善了Duration和Time

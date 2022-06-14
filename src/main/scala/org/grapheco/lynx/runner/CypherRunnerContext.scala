@@ -1,9 +1,8 @@
-package org.grapheco.lynx.context
+package org.grapheco.lynx.runner
 
 import org.grapheco.lynx.dataframe.DataFrameOperator
 import org.grapheco.lynx.evaluator.ExpressionEvaluator
 import org.grapheco.lynx.procedure.ProcedureRegistry
-import org.grapheco.lynx.runner.GraphModel
 import org.grapheco.lynx.types.TypeSystem
 
 /**

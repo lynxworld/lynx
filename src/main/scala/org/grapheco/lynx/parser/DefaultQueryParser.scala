@@ -1,7 +1,7 @@
 package org.grapheco.lynx.parser
 
-import org.grapheco.lynx.context.CypherRunnerContext
 import org.grapheco.lynx.procedure.ProcedureExpression
+import org.grapheco.lynx.runner.CypherRunnerContext
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.{SemanticErrorDef, SemanticFeature, SemanticState}
 import org.opencypher.v9_0.expressions.FunctionInvocation
