@@ -129,7 +129,7 @@
                         <configuration>
                             <resources>
                                 <resource>
-                                    <directory>${pom.basedir}/src/test/resources</directory>
+                                    <directory>${pom.basedir}/src/test/main/resources</directory>
                                 </resource>
                             </resources>
                         </configuration>
