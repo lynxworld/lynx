@@ -20,9 +20,6 @@ class ScalarFunctions {
   val booleanPattern = Pattern.compile("true|false", Pattern.CASE_INSENSITIVE)
   val numberPattern = Pattern.compile("-?[0-9]+.?[0-9]*")
 
-  //  @LynxProcedure(name = "coalesce")
-  //  def coalesce()
-
   //  /**
   //   * Returns the end node of a relationship.
   //   * Considerations:
@@ -34,6 +31,20 @@ class ScalarFunctions {
   //  def endNode(relationship: LynxRelationship): LynxNode = {
   //
   //  }
+
+  /**
+   * The function coalesce() returns the first non-null value in the given list of expressions.
+   * @param lynxValues seq of expressions that may return null.
+   * @return
+   */
+  @LynxProcedure(name = "coalesce")
+  def coalesce(lynxValues: LynxList): LynxValue = {
+    val droppedNull = lynxValues.droppedNull
+    droppedNull.length match {
+      case 0 => LynxNull
+      case _ => droppedNull.head
+    }
+  }
 
 
   /**
