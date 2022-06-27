@@ -26,7 +26,7 @@ class StandardCypherTest extends LazyLogging{
 
     def emptyGraph: Graph = new TestGraph
 
-    val dynamicTests = allTckScenarios.slice(skip_duration, skip_duration + 100) map{
+    val dynamicTests = allTckScenarios map{
       scenario =>
         val name = scenario.name
         val executable = scenario(emptyGraph)

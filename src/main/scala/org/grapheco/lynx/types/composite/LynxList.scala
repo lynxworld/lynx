@@ -1,5 +1,6 @@
 package org.grapheco.lynx.types.composite
 
+import org.grapheco.lynx.types.LynxValue.ordering
 import org.grapheco.lynx.types._
 import org.grapheco.lynx.types.property.{LynxFloat, LynxInteger, LynxNull, LynxNumber, LynxString}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTList, CypherType}
@@ -17,56 +18,32 @@ case class LynxList(v: List[LynxValue]) extends LynxCompositeValue {
   override def lynxType: CypherType = CTList(CTAny)
 
   /*
-  - Any null values are excluded from the calculation.
-  - In a mixed set, any numeric value is always considered to be higher than any string value, and any
-  string value is always considered to be higher than any list.
-  - Lists are compared in dictionary order, i.e. list elements are compared pairwise in ascending order
-  from the start of the list to the end.
+  Lists are compared in dictionary order, i.e. list elements are compared pairwise in
+  ascending order from the start of the list to the end. Elements missing in a shorter list are
+  considered to be less than any other value (including null values). For example, [1] < [1, 0]
+  but also [1] < [1, null].
+  • If comparing two lists requires comparing at least a single null value to some other value,
+  these lists are incomparable. For example, [1, 2] >= [1, null] evaluates to null.
+  • Lists are incomparable to any value that is not also a list.
    */
-  final val NUMERIC = 9
-  final val STRING = 8
-  final val LIST = 7
-
-  val ordering: Ordering[LynxValue] = new Ordering[LynxValue] {
-    def typeLevel(lynxValue: LynxValue): Int = lynxValue match {
-      case _: LynxNumber => NUMERIC
-      case _: LynxString => STRING
-      case _: LynxList => LIST
-      case _ => 0
-    }
-
-    def parseNumber(number: LynxNumber): Double = number match {
-      case LynxInteger(i) => i.toDouble
-      case LynxFloat(d) => d
-    }
-
-    override def compare(x: LynxValue, y: LynxValue): Int = {
-      val x_level = typeLevel(x)
-      val y_level = typeLevel(y)
-      if (x_level == y_level) {
-        (x, y) match {
-          case (x: LynxNumber, y: LynxNumber) => parseNumber(x).compare(parseNumber(y))
-          case (LynxString(str_x), LynxString(str_y)) => str_x.compare(str_y)
-          case (LynxList(list_x), LynxList(list_y)) => {
-            val iter_x = list_x.iterator
-            val iter_y = list_y.iterator
-            while (iter_x.hasNext && iter_y.hasNext) {
-              val elementCompared = compare(iter_x.next(), iter_y.next())
-              if (elementCompared != 0) return elementCompared
-            }
-            (iter_x.hasNext, iter_y.hasNext) match {
-              case (true, false) => 1
-              case (false, true) => -1
-              case (false, false) => 0
-            }
-          }
-          case (_, _) => 0 //TODO any other considerations?
-        }
-      } else x_level - y_level
-    }
+  override def compareTo(o: LynxValue): Int = o match {
+    case l: LynxList =>
+      val iter_x = this.value.iterator
+      val iter_y = l.value.iterator
+      while (iter_x.hasNext && iter_y.hasNext) {
+        val elementCompared = iter_x.next().compareTo(iter_y.next())
+        if (elementCompared != 0) return elementCompared
+      }
+      (iter_x.hasNext, iter_y.hasNext) match {
+        case (true, false) => 1
+        case (false, true) => -1
+        case (false, false) => 0
+      }
+    case _ => throw TypeMismatchException(this.lynxType, o.lynxType)
   }
 
   lazy val droppedNull: Seq[LynxValue] = v.filterNot(LynxNull.equals)
+
 
   def min: LynxValue = if (droppedNull.isEmpty) LynxNull else droppedNull.min(ordering)
 

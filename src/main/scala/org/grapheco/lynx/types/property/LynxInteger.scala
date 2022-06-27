@@ -29,13 +29,5 @@ case class LynxInteger(v: Long) extends LynxNumber {
     }
   }
 
-  override def >(lynxValue: LynxValue): Boolean = this.value > lynxValue.asInstanceOf[LynxInteger].value
-
-  override def >=(lynxValue: LynxValue): Boolean = this.value >= lynxValue.asInstanceOf[LynxInteger].value
-
-  override def <(lynxValue: LynxValue): Boolean = this.value < lynxValue.asInstanceOf[LynxInteger].value
-
-  override def <=(lynxValue: LynxValue): Boolean = this.value <= lynxValue.asInstanceOf[LynxInteger].value
-
   def lynxType: IntegerType = CTInteger
 }
