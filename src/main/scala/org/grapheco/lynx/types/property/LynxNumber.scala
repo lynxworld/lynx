@@ -1,6 +1,6 @@
 package org.grapheco.lynx.types.property
 
-import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.{LynxValue, TypeMismatchException}
 
 trait LynxNumber extends LynxValue {
   def number: Number
@@ -9,4 +9,13 @@ trait LynxNumber extends LynxValue {
 
   def -(that: LynxNumber): LynxNumber
 
+  private def toDouble: Double = this match {
+    case LynxInteger(i) => i.toDouble
+    case LynxFloat(d) => d
+  }
+
+  override def compareTo(o: LynxValue): Int = o match {
+    case n: LynxNumber => toDouble.compareTo(n.toDouble)
+    case _ => throw TypeMismatchException(this.lynxType, o.lynxType)
+  }
 }

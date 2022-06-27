@@ -1,5 +1,6 @@
 package org.grapheco.lynx.dataframe
 
+
 import org.grapheco.lynx.evaluator.ExpressionContext
 import org.grapheco.lynx.types.LynxValue
 import org.opencypher.v9_0.expressions.Expression
@@ -17,9 +18,16 @@ trait DataFrameOperator {
 
   def take(df: DataFrame, num: Int): DataFrame
 
-  def join(a: DataFrame, b: DataFrame, isSingleMatch: Boolean, bigTableIndex: Int): DataFrame
+  def join(a: DataFrame, b: DataFrame, joinColumn: Seq[String], joinType: JoinType): DataFrame
 
   def distinct(df: DataFrame): DataFrame
 
   def orderBy(df: DataFrame, sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame
 }
+
+sealed trait JoinType
+
+object InnerJoin extends JoinType
+object OuterJoin extends JoinType
+object LeftJoin  extends JoinType
+object RightJoin extends JoinType

@@ -2,7 +2,8 @@ package org.grapheco.lynx.types
 
 import org.grapheco.lynx.LynxType
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
-import org.grapheco.lynx.types.property.{LynxBoolean, LynxFloat, LynxInteger, LynxNull, LynxString}
+import org.grapheco.lynx.types.property.{LynxBoolean, LynxFloat, LynxInteger, LynxNull, LynxNumber, LynxString}
+import org.grapheco.lynx.types.structural.{LynxNode, LynxRelationship}
 import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxLocalDateTime, LynxLocalTime, LynxTime}
 
 import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
@@ -14,7 +15,7 @@ import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime
  * @Date 2022/4/1
  * @Version 0.1
  */
-trait LynxValue {
+trait LynxValue extends Comparable[LynxValue]{
   def value: Any
 
   def lynxType: LynxType
@@ -27,7 +28,8 @@ trait LynxValue {
 
   def <=(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
 
-//  override def toString: String = "a"
+  override def compareTo(o: LynxValue): Int = 0
+
 }
 
 object LynxValue {
@@ -56,4 +58,39 @@ object LynxValue {
     case v: Array[Any] => LynxList(v.map(apply(_)).toList)
     case _ => throw InvalidValueException(value)
   }
+
+  /*
+    To accomplish this, we propose a pre-determined order of types and ensure that each value falls
+    under exactly one disjoint type in this order.
+     */
+  private final val Map = 1
+  private final val NODE = 2
+  private final val RELATIONSHIP = 3
+  private final val LIST = 4
+  private final val PATH = 5
+  private final val STRING = 6
+  private final val BOOLEAN = 7
+  private final val NUMBER = 8
+  private final val VOID = 9
+
+  def typeOrder(lynxValue: LynxValue): Int = lynxValue match {
+    case _: LynxMap => Map
+    case _: LynxNode => NODE
+    case _: LynxRelationship => RELATIONSHIP
+    case _: LynxList => LIST
+    //      case _: path todo
+    case _: LynxString => STRING
+    case _: LynxBoolean => BOOLEAN
+    case _: LynxNumber => NUMBER
+    case LynxNull => VOID
+    case _ => 0
+  }
+
+  val ordering: Ordering[LynxValue] = (x: LynxValue, y: LynxValue) => {
+    val o1 = LynxValue.typeOrder(x)
+    val o2 = LynxValue.typeOrder(y)
+    if (o1 == o2) x.compareTo(y)
+    else o1 - o2
+  }
+
 }

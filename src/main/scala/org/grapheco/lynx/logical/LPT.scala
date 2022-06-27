@@ -294,7 +294,7 @@ case class LPTPatternMatch(headNode: NodePattern, chain: Seq[(RelationshipPatter
 
 case class LPTMatchTranslator(m: Match) extends LPTNodeTranslator {
   def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
-    //run match
+    //run match TODO OptionalMatch
     val Match(optional, Pattern(patternParts: Seq[PatternPart]), hints, where: Option[Where]) = m
     val parts = patternParts.map(matchPatternPart(_)(plannerContext))
     val matched = parts.drop(1).foldLeft(parts.head)((a, b) => LPTJoin(true)(a, b))

@@ -1,6 +1,6 @@
 package org.grapheco.lynx.types.property
 
-import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.{LynxValue, TypeMismatchException}
 import org.opencypher.v9_0.util.symbols.{CTAny, CypherType}
 
 /**
@@ -16,4 +16,9 @@ object LynxNull extends LynxValue {
   override def lynxType: CypherType = CTAny
 
   override def toString: String = "null"
+
+  override def compareTo(o: LynxValue): Int = o match {
+    case LynxNull => 0
+    case _ => throw TypeMismatchException(this.lynxType, o.lynxType)
+  }
 }

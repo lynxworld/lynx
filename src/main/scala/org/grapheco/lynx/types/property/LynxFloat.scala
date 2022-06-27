@@ -5,7 +5,7 @@ import org.opencypher.v9_0.util.symbols.{CTFloat, FloatType}
 
 /**
  * @ClassName LynxDouble
- * @Description TODO
+ * @Description
  * @Author huchuan
  * @Date 2022/4/1
  * @Version 0.1
@@ -30,12 +30,4 @@ case class LynxFloat(v: Double) extends LynxNumber {
       case LynxFloat(v2) => LynxFloat(v - v2)
     }
   }
-
-  override def >(lynxValue: LynxValue): Boolean = this.value > lynxValue.asInstanceOf[LynxFloat].value
-
-  override def >=(lynxValue: LynxValue): Boolean = this.value >= lynxValue.asInstanceOf[LynxFloat].value
-
-  override def <(lynxValue: LynxValue): Boolean = this.value < lynxValue.asInstanceOf[LynxFloat].value
-
-  override def <=(lynxValue: LynxValue): Boolean = this.value <= lynxValue.asInstanceOf[LynxFloat].value
 }

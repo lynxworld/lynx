@@ -1,5 +1,6 @@
 package org.grapheco.lynx.dataframe
 
+
 import org.grapheco.lynx.evaluator.ExpressionContext
 import org.grapheco.lynx.types.LynxValue
 import org.opencypher.v9_0.expressions.Expression
@@ -16,7 +17,7 @@ trait DataFrameOps {
   def groupBy(groupings: Seq[(String, Expression)], aggregations: Seq[(String, Expression)])(implicit ctx: ExpressionContext): DataFrame =
     operator.groupBy(srcFrame, groupings, aggregations)(ctx)
 
-  def join(b: DataFrame, isSingleMatch: Boolean, bigTableIndex: Int): DataFrame = operator.join(srcFrame, b, isSingleMatch, bigTableIndex)
+  def join(b: DataFrame, isSingleMatch: Boolean, bigTableIndex: Int): DataFrame = operator.join(srcFrame, b, Seq(), LeftJoin)
 
   def filter(predicate: Seq[LynxValue] => Boolean)(ctx: ExpressionContext): DataFrame = operator.filter(srcFrame, predicate)(ctx)
 
@@ -26,6 +27,12 @@ trait DataFrameOps {
 
   def distinct(): DataFrame = operator.distinct(srcFrame)
 
+  /**
+   *
+   * @param sortItem Seq[(Expression, Asc?)]
+   * @param ctx
+   * @return
+   */
   def orderBy(sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame = operator.orderBy(srcFrame, sortItem)(ctx)
 }
 
