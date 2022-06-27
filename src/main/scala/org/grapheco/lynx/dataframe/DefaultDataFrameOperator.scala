@@ -18,50 +18,37 @@ import org.opencypher.v9_0.util.symbols.CypherType
 class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends DataFrameOperator {
   def distinct(df: DataFrame): DataFrame = DataFrame(df.schema, () => df.records.toSeq.distinct.iterator)
 
-//  private def sortByItem(a: Seq[LynxValue],
-//                         b: Seq[LynxValue],
-//                         items: Seq[(Expression, Boolean)],
-//                         schema: Map[String, (CypherType, Int)],
-//                         ctx: ExpressionContext): Boolean = {
-//    val sd = items.foldLeft((true, true)) {
-//      (f, s) => {
-//        f match {
-//          case (true, true) => {
-//
-//            //expressionEvaluator.eval(s._1)
-//            //(ctx.withVars(schema1.map(_._1).zip(record).toMap))
-//            val ev1 = expressionEvaluator.eval(s._1)(ctx.withVars(schema.map(_._1).zip(a).toMap))
-//            val ev2 = expressionEvaluator.eval(s._1)(ctx.withVars(schema.map(_._1).zip(b).toMap))
-//            s._2 match {
-//              // LynxNull = MAX
-//              case true => {
-//                if (ev1 == LynxNull && ev2 != LynxNull) (false, false)
-//                else if (ev1 == LynxNull && ev2 == LynxNull) (true, true)
-//                else if (ev1 != LynxNull && ev2 == LynxNull) (true, false)
-//                else (ev1 <= ev2, ev1 == ev2)
-//              }
-//              case false => {
-//                if (ev1 == LynxNull && ev2 != LynxNull) (true, false)
-//                else if (ev1 == LynxNull && ev2 == LynxNull) (true, true)
-//                else if (ev1 != LynxNull && ev2 == LynxNull) (false, false)
-//                else (ev1 >= ev2, ev1 == ev2)
-//              }
-//            }
-//          }
-//          case (true, false) => (true, false)
-//          case (false, true) => (false, true)
-//          case (false, false) => (false, false)
-//        }
-//      }
-//    }
-//    sd._1
-//  }
+  private def lessThan(sortValue: Iterator[(LynxValue, LynxValue, Boolean)]): Boolean = {
+    while (sortValue.hasNext) {
+      val (valueOfA, valueOfB, asc) = sortValue.next()
+      val oA = LynxValue.typeOrder(valueOfA)
+      val oB = LynxValue.typeOrder(valueOfB)
+      //  AisBigger asc lessThan
+      //  T T F
+      //  T F T
+      //  F T T
+      //  F F F
+      // lessThan = AisBigger xor asc
+      if (oA == oB){ // same type
+        val comparable = valueOfA.compareTo(valueOfB)
+        if(comparable != 0) return comparable > 0 != asc
+      } else { // diff type
+        return (oA > oB) != asc
+      }
+    }
+    false
+  }
 
   override def orderBy(df: DataFrame, sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame = {
-    val schema1: Map[String, (CypherType, Int)] = df.schema.zipWithIndex.map(x => x._1._1 -> (x._1._2, x._2)).toMap
+    val columnsName = df.columnsName
     DataFrame(df.schema, () => df.records.toSeq
       .sortWith{ (A,B) =>
-        true // TODO
+        val ctxA = ctx.withVars(columnsName.zip(A).toMap)
+        val ctxB = ctx.withVars(columnsName.zip(B).toMap)
+        val sortValue = sortItem.map{ case(exp, asc) =>
+          (expressionEvaluator.eval(exp)(ctxA), expressionEvaluator.eval(exp)(ctxB), asc)
+        }
+        lessThan(sortValue.toIterator)
       }.toIterator)
   }
 
