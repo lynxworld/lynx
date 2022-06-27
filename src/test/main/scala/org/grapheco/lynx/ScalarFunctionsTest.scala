@@ -15,7 +15,6 @@ class ScalarFunctionsTest extends TestBase {
   @Test
   def testCoalesce(): Unit = {
     runOnDemoGraph("Create(n{name:'Alice', age:38, eyes:'brown'})").show()
-//    runOnDemoGraph("MATCH (a) WHERE a.name = 'Alice' Return a.hairColor").show()
     runOnDemoGraph("MATCH (a) WHERE a.name = 'Alice' RETURN a").show()
     val brown1 = runOnDemoGraph("MATCH (a) WHERE a.name = 'Alice' RETURN coalesce(a.hair, a.eyes) as result;")
       .records().next().get("result").get.asInstanceOf[LynxString].value
