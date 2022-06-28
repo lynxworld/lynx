@@ -1,6 +1,7 @@
 package org.grapheco.lynx.procedure
 
 import org.grapheco.lynx.func.LynxProcedure
+import org.grapheco.lynx.runner.GraphModel
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property._
@@ -15,22 +16,31 @@ import java.util.regex.Pattern
  * @Date 2022/4/20
  * @Version 0.1
  */
-class ScalarFunctions {
+class ScalarFunctions(graphModel: GraphModel) {
 
   val booleanPattern = Pattern.compile("true|false", Pattern.CASE_INSENSITIVE)
   val numberPattern = Pattern.compile("-?[0-9]+.?[0-9]*")
 
-  //  /**
-  //   * Returns the end node of a relationship.
-  //   * Considerations:
-  //   *   endNode(null) returns null
-  //   * @param relationship An expression that returns a relationship.
-  //   * @return A Node.
-  //   */
-  //  @LynxProcedure(name = "endNode")
-  //  def endNode(relationship: LynxRelationship): LynxNode = {
-  //
-  //  }
+//  def setGraphModel(gModel: GraphModel): GraphModel = gModel
+//
+//  lazy val graphModel: GraphModel = setGraphModel()
+
+  /**
+   * Returns the end node of a relationship.
+   * Considerations:
+   *   endNode(null) returns null
+   * @param relationship An expression that returns a relationship.
+   * @return A Node.
+   */
+  @LynxProcedure(name = "endNode")
+  def endNode(relationship: LynxRelationship): LynxNode = {
+    graphModel.nodeAt(relationship.endNodeId).get
+  }
+
+  @LynxProcedure(name = "startNode")
+  def startNode(relationship: LynxRelationship): LynxNode = {
+    graphModel.nodeAt(relationship.startNodeId).get
+  }
 
   /**
    * The function coalesce() returns the first non-null value in the given list of expressions.

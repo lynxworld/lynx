@@ -55,6 +55,13 @@ trait GraphModel {
   def write: WriteTask
 
   /**
+   * Find Node By ID.
+   *
+   * @return An Option of node.
+   */
+  def nodeAt(id: LynxId): Option[LynxNode]
+
+  /**
    * All nodes.
    *
    * @return An Iterator of all nodes.

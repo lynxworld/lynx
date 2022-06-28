@@ -34,7 +34,7 @@ class TestBase extends LazyLogging {
 
     private def relationshipId: TestId = {_relationshipId += 1; TestId(_relationshipId)}
 
-    private def nodeAt(id: LynxId): Option[TestNode] = all_nodes.find(_.id == id)
+    def nodeAt(id: LynxId): Option[TestNode] = all_nodes.find(_.id == id)
 
     private def relationshipAt(id: LynxId): Option[TestRelationship] = all_rels.find(_.id == id)
 
