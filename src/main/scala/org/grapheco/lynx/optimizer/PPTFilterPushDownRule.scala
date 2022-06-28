@@ -70,6 +70,7 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
         val expr = Ands(Set(notPushDown: _*))(InputPosition(0, 0, 0))
         (Seq(PPTFilter(expr)(res, ppc)), true)
       }
+      case _ => (Seq(res), true)
     }
   }
 
