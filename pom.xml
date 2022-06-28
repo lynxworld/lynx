@@ -183,6 +183,13 @@
             <artifactId>scala-csv_2.12</artifactId>
             <version>1.3.10</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/com.nhl.dflib/dflib -->
+        <dependency>
+            <groupId>com.nhl.dflib</groupId>
+            <artifactId>dflib</artifactId>
+            <version>0.12</version>
+        </dependency>
+
 
     </dependencies>
     <profiles>
@@ -216,20 +223,20 @@
                             </execution>
                         </executions>
                     </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-gpg-plugin</artifactId>
-                        <version>1.5</version>
-                        <executions>
-                            <execution>
-                                <id>sign-artifacts</id>
-                                <phase>verify</phase>
-                                <goals>
-                                    <goal>sign</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
+<!--                    <plugin>-->
+<!--                        <groupId>org.apache.maven.plugins</groupId>-->
+<!--                        <artifactId>maven-gpg-plugin</artifactId>-->
+<!--                        <version>1.5</version>-->
+<!--                        <executions>-->
+<!--                            <execution>-->
+<!--                                <id>sign-artifacts</id>-->
+<!--                                <phase>verify</phase>-->
+<!--                                <goals>-->
+<!--                                    <goal>sign</goal>-->
+<!--                                </goals>-->
+<!--                            </execution>-->
+<!--                        </executions>-->
+<!--                    </plugin>-->
                 </plugins>
             </build>
         </profile>
