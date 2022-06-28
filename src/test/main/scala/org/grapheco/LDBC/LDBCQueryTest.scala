@@ -79,4 +79,101 @@ class LDBCQueryTest extends TestBase{
     run(q,p)
   }
 
+  @Test
+  def Q1(): Unit = {
+    val q = getQuery("interactive-complex-1.cypher")
+    val p = Map("personId" -> "10995116277794", "firstName" -> "Jose")
+    run(q,p)
+  }
+
+  @Test
+  def Q2(): Unit = {
+    val q = getQuery("interactive-complex-2.cypher")
+    val p = Map("personId" -> "10995116277794", "maxDate" -> "1287230400000")
+    run(q,p)
+  }
+
+  @Test
+  def Q3(): Unit = {
+    val q = getQuery("interactive-complex-3.cypher")
+    val p = Map("personId" -> "10995116277794", "countryXName" -> "Angola", "countryYName" -> "Colombia", "startDate" -> "1275393600000", "endDate" -> "1277812800000")
+    run(q,p)
+  }
+
+  @Test
+  def Q4(): Unit = {
+    val q = getQuery("interactive-complex-4.cypher")
+    val p = Map("personId" -> "10995116277794", "startDate" -> "1275393600000", "endDate" -> "1277812800000")
+    run(q,p)
+  }
+
+  @Test
+  def Q5(): Unit = {
+    val q = getQuery("interactive-complex-5.cypher")
+    val p = Map("personId" -> "10995116277794", "minDate" -> "1287230400000")
+    run(q,p)
+  }
+
+  @Test
+  def Q6(): Unit = {
+    val q = getQuery("interactive-complex-6.cypher")
+    val p = Map("personId" -> "10995116277794", "tagName" -> "Carl_Gustaf_Emil_Mannerheim")
+    run(q,p)
+  }
+
+  @Test
+  def Q7(): Unit = {
+    val q = getQuery("interactive-complex-7.cypher")
+    val p = Map("personId" -> "10995116277794")
+    run(q,p)
+  }
+
+  @Test
+  def Q8(): Unit = {
+    val q = getQuery("interactive-complex-8.cypher")
+    val p = Map("personId" -> "10995116277794")
+    run(q,p)
+  }
+
+  @Test
+  def Q9(): Unit = {
+    val q = getQuery("interactive-complex-9.cypher")
+    val p = Map("personId" -> "10995116277794")
+    run(q,p)
+  }
+
+  @Test
+  def Q10(): Unit = {
+    val q = getQuery("interactive-complex-10.cypher")
+    val p = Map("personId" -> "10995116277794")
+    run(q,p)
+  }
+
+  @Test
+  def Q11(): Unit = {
+    val q = getQuery("interactive-complex-11.cypher")
+    val p = Map("personId" -> "10995116277794", "countryName" -> "Hungary", "workFromYear" -> "2011")
+    run(q,p)
+  }
+
+  @Test
+  def Q12(): Unit = {
+    val q = getQuery("interactive-complex-12.cypher")
+    val p = Map("personId" -> "10995116277794", "tagName" -> "Carl_Gustaf_Emil_Mannerheim")
+    run(q,p)
+  }
+
+  @Test
+  def Q13(): Unit = {
+    val q = getQuery("interactive-complex-13.cypher")
+    val p = Map("person1Id" -> "10995116277794", "person2Id" -> "8796093022357")
+    run(q,p)
+  }
+
+  @Test
+  def Q14(): Unit = {
+    val q = getQuery("interactive-complex-14.cypher")
+    val p = Map("person1Id" -> "10995116277794", "person2Id" -> "8796093022357")
+    run(q,p)
+  }
 }
