@@ -1,8 +1,10 @@
 package org.grapheco.LDBC
 
 
+import org.grapheco.lynx.types.property.LynxInteger
+import org.grapheco.lynx.types.structural.LynxNodeLabel
 import org.grapheco.lynx.{LynxResult, TestBase}
-import org.junit.Test
+import org.junit.{Before, Test}
 
 import java.io.File
 import scala.io.Source
@@ -14,7 +16,18 @@ import scala.io.Source
  * @Date 2022/6/27
  * @Version 0.1
  */
-class LDBCQueryTest extends TestBase{
+class LDBCQueryTest extends LDBCTestBase {
+
+  val path = this.getClass.getResource("/LDBC/LDBC0.003").getPath
+  var personIds: Array[LynxInteger] = _
+  var commontIds: Array[LynxInteger] = _
+
+  @Before
+  def importData(): Unit ={
+    this.loadLDBC(path)
+
+  }
+
   def getQuery(name: String): String = {
     val path = this.getClass.getResource("/LDBC")
     val file = new File(path.getPath + "/" + name)
