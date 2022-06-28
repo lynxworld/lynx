@@ -24,15 +24,16 @@ import org.opencypher.v9_0.ast.semantics.SemanticState
  */
 class CypherRunner(graphModel: GraphModel) extends LazyLogging {
   protected lazy val types: TypeSystem = new DefaultTypeSystem()
-  protected lazy val procedures: DefaultProcedureRegistry = new DefaultProcedureRegistry(types,
+  val scalarFunctions: ScalarFunctions = new ScalarFunctions(graphModel)
+  protected lazy val procedures: WithGraphModelProcedureRegistry = new WithGraphModelProcedureRegistry(types,
+    scalarFunctions,
     classOf[AggregatingFunctions],
     classOf[ListFunctions],
     classOf[LogarithmicFunctions],
     classOf[NumericFunctions],
     classOf[PredicateFunctions],
-    classOf[ScalarFunctions],
     classOf[StringFunctions],
-    //    classOf[TimeFunctions],
+//    classOf[TimeFunctions],
     classOf[TrigonometricFunctions])
   protected lazy val expressionEvaluator: ExpressionEvaluator = new DefaultExpressionEvaluator(graphModel, types, procedures)
   protected lazy val dataFrameOperator: DataFrameOperator = new DefaultDataFrameOperator(expressionEvaluator)
