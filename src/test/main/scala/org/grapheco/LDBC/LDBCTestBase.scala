@@ -71,8 +71,9 @@ class LDBCTestBase extends TestBase{
         TestId(d(idIndex).toLong),
         Seq(LynxNodeLabel(d(labelIndex))),
         properties.filterNot{case (i, _, _) => i == labelIndex}
-          .map{ case (i, str, stringToValue) => LynxPropertyKey(str) -> stringToValue(d(i))}.toMap //TODO id of prop
-//        += "id" -> LynxInteger(d(idIndex).toLong)
+          .map{ case (i, str, stringToValue) => (d(i), str, stringToValue)}
+          .filterNot(_._1.equals(""))
+          .map{ case (data, str, stringToValue) => LynxPropertyKey(str) -> stringToValue(data)}.toMap
       )
     }
   }
@@ -91,7 +92,9 @@ class LDBCTestBase extends TestBase{
         TestId(d(endIndex).toLong),
         Some(LynxRelationshipType(d(typeIndex))),
         properties.filterNot{case (i, _, _) => List(idIndex, typeIndex, startIndex, endIndex).contains(i)}
-          .map{ case (i, str, stringToValue) => LynxPropertyKey(str) -> stringToValue(d(i))}.toMap
+          .map{ case (i, str, stringToValue) => (d(i), str, stringToValue)}
+          .filterNot(_._1.equals(""))
+          .map{ case (data, str, stringToValue) => LynxPropertyKey(str) -> stringToValue(data)}.toMap
       )
     }
   }

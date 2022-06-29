@@ -17,15 +17,15 @@ class ScalarFunctionsTest extends TestBase {
     runOnDemoGraph("Create(n{name:'Alice', age:38, eyes:'brown'})").show()
     runOnDemoGraph("MATCH (a) WHERE a.name = 'Alice' RETURN a").show()
     val brown1 = runOnDemoGraph("MATCH (a) WHERE a.name = 'Alice' RETURN coalesce(a.hair, a.eyes) as result;")
-      .records().next().get("result").get.asInstanceOf[LynxString].value
+      .records().next()("result").asInstanceOf[LynxString].value
     Assert.assertEquals("brown", brown1)
 
     val brown2 = runOnDemoGraph("MATCH (a) WHERE a.name = 'Alice' RETURN coalesce(a.eyes, a.hair) as result;")
-      .records().next().get("result").get.asInstanceOf[LynxString].value
+      .records().next()("result").asInstanceOf[LynxString].value
     Assert.assertEquals("brown", brown2)
 
     val nullResult: LynxValue = runOnDemoGraph("MATCH (a) WHERE a.name = 'Alice' RETURN coalesce(a.hair) as result;")
-      .records().next().get("result").get
+      .records().next()("result")
     Assert.assertTrue(nullResult.isInstanceOf[LynxNull.type])
   }
 
