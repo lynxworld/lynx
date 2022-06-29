@@ -1,4 +1,4 @@
-id:ID|:LABEL|name|url|type
+id:ID|type|name|url|:LABEL
 500000000000000|place|India|http://dbpedia.org/resource/India|Country
 500000000000001|place|China|http://dbpedia.org/resource/China|Country
 500000000000002|place|Angola|http://dbpedia.org/resource/Angola|Country

@@ -1,4 +1,4 @@
-id:ID|:LABEL|type|name|url
+id:ID|type|:LABEL|name|url
 800000000000000|organisation|Company|Kam_Air|http://dbpedia.org/resource/Kam_Air
 800000000000001|organisation|Company|Balkh_Airlines|http://dbpedia.org/resource/Balkh_Airlines
 800000000000002|organisation|Company|Khyber_Afghan_Airlines|http://dbpedia.org/resource/Khyber_Afghan_Airlines
