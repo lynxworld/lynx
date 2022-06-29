@@ -309,6 +309,13 @@ case class LPTMatchTranslator(m: Match) extends LPTNodeTranslator {
   private def matchPatternPart(patternPart: PatternPart)(implicit lpc: LogicalPlannerContext): LPTNode = {
     patternPart match {
       case EveryPath(element: PatternElement) => matchPattern(element)
+      //      case ShortestPaths(element: PatternElement, single: Boolean) =>
+      case NamedPatternPart(variable: Variable, patternPart: AnonymousPatternPart) => {
+        patternPart match {
+          //          case ShortestPaths(element, single) => matchPattern(element)
+          case ShortestPaths(element, single) => throw new Exception("ShortestPaths not supported.")
+        }
+      }
     }
   }
 

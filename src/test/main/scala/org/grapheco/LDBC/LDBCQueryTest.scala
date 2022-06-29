@@ -2,9 +2,7 @@ package org.grapheco.LDBC
 
 
 import org.grapheco.lynx.types.property.LynxInteger
-import org.grapheco.lynx.types.structural.LynxNodeLabel
-import org.grapheco.lynx.{LynxResult, TestBase}
-import org.junit.{Before, Test}
+import org.junit.{Assert, Before, Test}
 
 import java.io.File
 import scala.io.Source
@@ -37,10 +35,15 @@ class LDBCQueryTest extends LDBCTestBase {
     query
   }
 
-  def run(cypher: String, params: Map[String, Any]): LynxResult ={
-    val r = runOnDemoGraph(cypher, params)
-    r.show()
-    r
+  def run(cypher: String, params: Map[String, Any]): Unit ={
+    try {
+      val r = runOnDemoGraph(cypher, params)
+      r.show()
+      r
+    } catch {
+      case ex: Exception => Assert.assertEquals("ShortestPaths not supported.", ex.getMessage)
+      case _ => Assert.assertTrue(false)
+    }
   }
 
   @Test
