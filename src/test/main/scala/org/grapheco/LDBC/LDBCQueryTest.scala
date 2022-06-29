@@ -23,7 +23,6 @@ class LDBCQueryTest extends LDBCTestBase {
   @Before
   def importData(): Unit ={
     this.loadLDBC(path)
-
   }
 
   def getQuery(name: String): String = {
@@ -49,63 +48,69 @@ class LDBCQueryTest extends LDBCTestBase {
   @Test
   def IS1(): Unit ={
     val q = getQuery("interactive-short-1.cypher")
-    val p = Map("personId" -> "10995116277794")
+    val p = Map("personId" -> "210995116277782")
     run(q,p)
   }
 
   @Test
   def IS2(): Unit ={
     val q = getQuery("interactive-short-2.cypher")
-    val p = Map("personId" -> "10995116277794")
+    val p = Map("personId" -> "210995116277782")
     run(q,p)
   }
 
   @Test
   def IS3(): Unit ={
     val q = getQuery("interactive-short-3.cypher")
-    val p = Map("personId" -> "10995116277794")
+    val p = Map("personId" -> "210995116277782")
     run(q,p)
   }
 
   @Test
   def IS4(): Unit ={
     val q = getQuery("interactive-short-4.cypher")
-    val p = Map("messageId" -> "10995116277794")
+    val p = Map("messageId" -> "101030792151058")
     run(q,p)
   }
 
   @Test
   def IS5(): Unit ={
     val q = getQuery("interactive-short-5.cypher")
-    val p = Map("messageId" -> "10995116277794")
+    val p = Map("messageId" -> "101030792151058")
     run(q,p)
   }
 
   @Test
   def IS6(): Unit ={
     val q = getQuery("interactive-short-6.cypher")
-    val p = Map("messageId" -> "10995116277794")
+    val p = Map("messageId" -> "101030792151058")
     run(q,p)
   }
 
   @Test
   def IS7(): Unit ={
     val q = getQuery("interactive-short-7.cypher")
-    val p = Map("messageId" -> "10995116277794")
+    val p = Map("messageId" -> "401030792151576")
     run(q,p)
   }
-
+/*
   @Test
   def Q1(): Unit = {
     val q = getQuery("interactive-complex-1.cypher")
-    val p = Map("personId" -> "10995116277794", "firstName" -> "Jose")
+    val p = Map("personId" -> "210995116277782", "firstName" -> "Ali")
     run(q,p)
   }
 
   @Test
   def Q2(): Unit = {
-    val q = getQuery("interactive-complex-2.cypher")
-    val p = Map("personId" -> "10995116277794", "maxDate" -> "1287230400000")
+//    val q = getQuery("interactive-complex-2.cypher")
+    val q =
+      """
+        |MATCH (:Person {id: '210995116277782' })-[:KNOWS]-(friend:Person)-[:KNOWS]-(message:Person)
+        |
+        |    RETURN message
+        |""".stripMargin
+    val p = Map("personId" -> "210995116277782", "maxDate" -> "1287230400000")
     run(q,p)
   }
 
@@ -191,5 +196,5 @@ class LDBCQueryTest extends LDBCTestBase {
     val q = getQuery("interactive-complex-14.cypher")
     val p = Map("person1Id" -> "10995116277794", "person2Id" -> "8796093022357")
     run(q,p)
-  }
+  } */
 }

@@ -38,13 +38,15 @@ class LDBCTestBase extends TestBase{
       val header = data.next()
       importRelation(header.toArray, data)
     }
+    this.runOnDemoGraph("match(n:Comment) set n:Message")
+    this.runOnDemoGraph("match(n:Post) set n:Message")
   }
 
   private def parse(header: Array[String]): Seq[(Int, String, String => LynxValue)]  ={
     header.zipWithIndex.map{ case (format, index) =>
       val name = format.split(':').head
       val transFunc: String => LynxValue = (string: String) => format.split(':').lift(1).getOrElse("string") match {
-        case "ID" => LynxNull
+        case "ID" => LynxString(string)
         case "IGNORE" => LynxNull
         case "LABEL" => LynxNull
         case "TYPE" => LynxNull
@@ -68,7 +70,7 @@ class LDBCTestBase extends TestBase{
       this.all_nodes += TestNode(
         TestId(d(idIndex).toLong),
         Seq(LynxNodeLabel(d(labelIndex))),
-        properties.filterNot{case (i, _, _) => i == idIndex || i == labelIndex}
+        properties.filterNot{case (i, _, _) => i == labelIndex}
           .map{ case (i, str, stringToValue) => LynxPropertyKey(str) -> stringToValue(d(i))}.toMap //TODO id of prop
 //        += "id" -> LynxInteger(d(idIndex).toLong)
       )
