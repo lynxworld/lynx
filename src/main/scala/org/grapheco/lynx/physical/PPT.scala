@@ -1,6 +1,6 @@
 package org.grapheco.lynx.physical
 
-import org.grapheco.lynx.dataframe.DataFrame
+import org.grapheco.lynx.dataframe.{DataFrame, InnerJoin, JoinType}
 import org.grapheco.lynx.evaluator.ExpressionContext
 import org.grapheco.lynx.logical.LPTPatternMatch
 import org.grapheco.lynx.procedure.{UnknownProcedureException, WrongArgumentException}
@@ -40,14 +40,17 @@ case class PPTPatternMatchTranslator(patternMatch: LPTPatternMatch)(implicit val
   }
 }
 
-case class PPTJoin(filterExpr: Option[Expression], val isSingleMatch: Boolean, bigTableIndex: Int = 1)(a: PPTNode, b: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+/*
+ @param joinType: InnerJoin/FullJoin/LeftJoin/RightJoin
+ */
+case class PPTJoin(filterExpr: Option[Expression], val isSingleMatch: Boolean, joinType: JoinType = InnerJoin)(a: PPTNode, b: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override val children: Seq[PPTNode] = Seq(a, b)
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df1 = a.execute(ctx)
     val df2 = b.execute(ctx)
 
-    val df = df1.join(df2, isSingleMatch, bigTableIndex)
+    val df = df1.join(df2, isSingleMatch, joinType)
 
     if (filterExpr.nonEmpty) {
       val ec = ctx.expressionContext
