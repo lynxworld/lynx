@@ -1,9 +1,9 @@
 package org.grapheco.lynx.util
 
 object Profiler {
-  var enableTiming = false;
+  var enableTiming = true;
 
-  def timing[T](runnable: => T): T = if (enableTiming) {
+  def timing[T](message: String = "", runnable: => T): T = if (enableTiming) {
     val t1 = System.currentTimeMillis()
     var result: T = null.asInstanceOf[T];
     result = runnable
@@ -13,7 +13,7 @@ object Profiler {
     println(new Exception().getStackTrace()(1).toString)
 
     val elapsed = t2 - t1;
-    println(s"time cost: ${elapsed}ms")
+    println(s"$message time cost: ${elapsed}ms")
 
     result
   }
