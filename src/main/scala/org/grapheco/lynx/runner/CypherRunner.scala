@@ -1,8 +1,7 @@
 package org.grapheco.lynx.runner
 
 import com.typesafe.scalalogging.LazyLogging
-
-import org.grapheco.lynx.dataframe.{DataFrameOperator, DefaultDataFrameOperator}
+import org.grapheco.lynx.dataframe.{BasicDataFrameOperator, DataFrameOperator}
 import org.grapheco.lynx.evaluator.{DefaultExpressionEvaluator, ExpressionEvaluator}
 import org.grapheco.lynx.logical.{DefaultLogicalPlanner, LPTNode, LogicalPlanner, LogicalPlannerContext}
 import org.grapheco.lynx.parser.{CachedQueryParser, DefaultQueryParser, QueryParser}
@@ -36,7 +35,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
     classOf[TimeFunctions],
     classOf[TrigonometricFunctions])
   protected lazy val expressionEvaluator: ExpressionEvaluator = new DefaultExpressionEvaluator(graphModel, types, procedures)
-  protected lazy val dataFrameOperator: DataFrameOperator = new DefaultDataFrameOperator(expressionEvaluator)
+  protected lazy val dataFrameOperator: DataFrameOperator = new BasicDataFrameOperator(expressionEvaluator)
   private implicit lazy val runnerContext = CypherRunnerContext(types, procedures, dataFrameOperator, expressionEvaluator, graphModel)
   protected lazy val logicalPlanner: LogicalPlanner = new DefaultLogicalPlanner(runnerContext)
   protected lazy val physicalPlanner: PhysicalPlanner = new DefaultPhysicalPlanner(runnerContext)
@@ -90,8 +89,8 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
         val cached = df.records.toSeq
 
         new LynxResult {
-          override def show(limit: Int): Unit = FormatUtils.printTable(columnNames,
-            cached.take(limit).toSeq.map(_.map(_.value)))
+          override def show(limit: Int): Unit =
+            FormatUtils.printTable(columnNames, cached.take(limit).toSeq.map(_.map(_.value)))
 
           override def cache(): LynxResult = this
 
