@@ -17,7 +17,7 @@ trait DataFrameOps {
   def groupBy(groupings: Seq[(String, Expression)], aggregations: Seq[(String, Expression)])(implicit ctx: ExpressionContext): DataFrame =
     operator.groupBy(srcFrame, groupings, aggregations)(ctx)
 
-  def join(b: DataFrame, isSingleMatch: Boolean, bigTableIndex: Int): DataFrame = operator.join(srcFrame, b, Seq(), LeftJoin)
+  def join(b: DataFrame, isSingleMatch: Boolean, joinType: JoinType): DataFrame = operator.join(srcFrame, b, Seq(), joinType)
 
   def filter(predicate: Seq[LynxValue] => Boolean)(ctx: ExpressionContext): DataFrame = operator.filter(srcFrame, predicate)(ctx)
 
