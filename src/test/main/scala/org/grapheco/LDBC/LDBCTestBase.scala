@@ -1,7 +1,7 @@
 package org.grapheco.LDBC
 
 import com.github.tototoshi.csv.{CSVFormat, CSVReader, DefaultCSVFormat, Quoting}
-import org.grapheco.lynx.TestBase
+import org.grapheco.lynx.{LynxResult, TestBase}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.{LynxInteger, LynxNull, LynxString}
@@ -19,10 +19,14 @@ import java.time.LocalDate
  * @Date 2022/6/28
  * @Version 0.1
  */
-class LDBCTestBase extends TestBase{
+class LDBCTestBase extends TestBase {
 
   val CSV_FORMAT: DefaultCSVFormat = new DefaultCSVFormat{
     override val delimiter: Char = '|'
+  }
+
+  def run(query: String, param: Map[String, Any] = Map.empty[String, Any]): LynxResult = {
+    this.runOnDemoGraph(query, param)
   }
 
   def loadLDBC(path: String): Unit = {
