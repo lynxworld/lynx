@@ -20,6 +20,7 @@ trait LynxValue extends Comparable[LynxValue]{
 
   def lynxType: LynxType
 
+  // TODO: Impl the Compare func for LynxValue
   def >(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
 
   def >=(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
