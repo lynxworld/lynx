@@ -38,8 +38,8 @@ class LDBCTestBase extends TestBase{
       val header = data.next()
       importRelation(header.toArray, data)
     }
-    this.runOnDemoGraph("match(n:Comment) set n:Message")
-    this.runOnDemoGraph("match(n:Post) set n:Message")
+    this.runner.run("match(n:Comment) set n:Message", Map())
+    this.runner.run("match(n:Post) set n:Message", Map())
   }
 
   private def parse(header: Array[String]): Seq[(Int, String, String => LynxValue)]  ={
