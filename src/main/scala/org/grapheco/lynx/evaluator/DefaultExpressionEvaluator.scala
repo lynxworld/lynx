@@ -74,8 +74,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case pe: PathExpression => evalPathStep(pe.step)
 
-      //      case CountStar() => LynxInteger(ec.vars.size)//fixme: wrong
-
+      // case CountStar() => LynxInteger(ec.vars.size)//fixme: wrong
       // bug
       // this func deal with like: WHERE n[toLower(propname)] < 30
       case ContainerIndex(expr, idx) => { //fixme: what's this
