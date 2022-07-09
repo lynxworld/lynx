@@ -17,7 +17,11 @@ trait DataFrameOps {
   def groupBy(groupings: Seq[(String, Expression)], aggregations: Seq[(String, Expression)])(implicit ctx: ExpressionContext): DataFrame =
     operator.groupBy(srcFrame, groupings, aggregations)(ctx)
 
-  def join(b: DataFrame, isSingleMatch: Boolean, joinType: JoinType): DataFrame = operator.join(srcFrame, b, Seq(), joinType)
+  def join(b: DataFrame, isSingleMatch: Boolean, joinType: JoinType): DataFrame = {
+    // Warning
+    val commonColNames: Seq[String] = srcFrame.columnsName.filter(srcColName => b.columnsName.contains(srcColName))
+    operator.join(srcFrame, b, commonColNames, joinType)
+  }
 
   def filter(predicate: Seq[LynxValue] => Boolean)(ctx: ExpressionContext): DataFrame = operator.filter(srcFrame, predicate)(ctx)
 

@@ -29,10 +29,12 @@ object Joiner {
   }
 
   private def _innerJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): () => Iterator[Seq[LynxValue]] = {
-    val sortedTableA: List[Seq[LynxValue]] = Profiler.timing("SortA", a.records.toList.sortBy(_.apply(joinColIndexs.head._1))(LynxValue.ordering))
-    val sortedTableB: List[Seq[LynxValue]] = Profiler.timing("SortB", b.records.toList.sortBy(_.apply(joinColIndexs.head._2))(LynxValue.ordering))
+//    val sortedTableA: List[Seq[LynxValue]] = Profiler.timing("SortA", a.records.toList.sortBy(_.apply(joinColIndexs.head._1))(LynxValue.ordering))
+//    val sortedTableB: List[Seq[LynxValue]] = Profiler.timing("SortB", b.records.toList.sortBy(_.apply(joinColIndexs.head._2))(LynxValue.ordering))
+    val sortedTableA: List[Seq[LynxValue]] = a.records.toList
+    val sortedTableB: List[Seq[LynxValue]] = b.records.toList
 
-    // TODO: Make full use of the sortedTableB
+// TODO: Make full use of the sortedTableB
     () => sortedTableA.flatMap(rowA =>{
       val joinedColA: Seq[LynxValue] = joinColIndexs.map(index => rowA(index._1))
       val joinableRowsInB: List[Seq[LynxValue]] = sortedTableB.filter(rowB => {
