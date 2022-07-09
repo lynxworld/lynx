@@ -99,7 +99,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
       }
       case pm@PPTMerge(mergeSchema, mergeOps) => {
         pm.children.head match {
-          case pj2@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => {
+          case pj2@PPTJoin(filterExpr, isSingleMatch, joinType) => {
             pm.withChildren(Seq(joinRecursion(pj2, ppc, isSingleMatch)))
           }
           case _ => {
@@ -109,7 +109,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
       }
       case ps@PPTSelect(columns) => {
         ps.children.head match {
-          case pj2@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => {
+          case pj2@PPTJoin(filterExpr, isSingleMatch, joinType) => {
             ps.withChildren(Seq(joinRecursion(pj2, ppc, isSingleMatch)))
           }
           case _ => {
@@ -124,7 +124,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
         referenceProperty ++= refProp
         pf.withChildren(Seq(children))
       }
-      case pj1@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => {
+      case pj1@PPTJoin(filterExpr, isSingleMatch, joinType) => {
         joinRecursion(pj1, ppc, isSingleMatch)
       }
       case pu@PPTUnwind(expr, variable) => pu

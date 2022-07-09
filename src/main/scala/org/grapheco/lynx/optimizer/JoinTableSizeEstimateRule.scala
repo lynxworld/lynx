@@ -69,8 +69,8 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
   def estimateTableSize(parent: PPTJoin, table1: PPTNode, table2: PPTNode, ppc: PhysicalPlannerContext): PPTNode = {
     val estimateTable1 = estimate(table1, ppc)
     val estimateTable2 = estimate(table2, ppc)
-    if (estimateTable1 <= estimateTable2) PPTJoin(parent.filterExpr, parent.isSingleMatch, 1)(table1, table2, ppc)
-    else PPTJoin(parent.filterExpr, parent.isSingleMatch, 0)(table1, table2, ppc)
+    if (estimateTable1 <= estimateTable2) PPTJoin(parent.filterExpr, parent.isSingleMatch)(table1, table2, ppc)
+    else PPTJoin(parent.filterExpr, parent.isSingleMatch)(table1, table2, ppc)
   }
 
   def joinRecursion(parent: PPTJoin, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PPTNode = {
@@ -98,6 +98,6 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
       && (table2.isInstanceOf[PPTNodeScan] || table2.isInstanceOf[PPTRelationshipScan])) {
       estimateTableSize(parent, table1, table2, ppc)
     }
-    else PPTJoin(parent.filterExpr, parent.isSingleMatch, parent.bigTableIndex)(table1, table2, ppc)
+    else PPTJoin(parent.filterExpr, parent.isSingleMatch)(table1, table2, ppc)
   }
 }
