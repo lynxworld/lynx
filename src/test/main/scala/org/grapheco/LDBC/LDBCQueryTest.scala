@@ -1,7 +1,9 @@
 package org.grapheco.LDBC
 
 
+import org.grapheco.LDBC.LDBCQueryTest.ldbcTestBase
 import org.grapheco.lynx.types.property.LynxInteger
+import org.grapheco.lynx.util.Profiler
 import org.junit.{Assert, BeforeClass, Test}
 
 import java.io.File
@@ -15,17 +17,20 @@ import scala.io.Source
  * @Version 0.1
  */
 
-object LDBCQueryTest extends LDBCTestBase {
+object LDBCQueryTest {
   val path = this.getClass.getResource("/LDBC/LDBC0.003").getPath
   var personIds: Array[LynxInteger] = _
   var commontIds: Array[LynxInteger] = _
 
+  val ldbcTestBase: LDBCTestBase = new LDBCTestBase
+
   @BeforeClass
   def importData(): Unit ={
-    this.loadLDBC(path)
+    Profiler.timing("Import the test data. ", ldbcTestBase.loadLDBC(path))
   }
 }
-class LDBCQueryTest extends LDBCTestBase {
+
+class LDBCQueryTest {
 
   def getQuery(name: String): String = {
     val path = this.getClass.getResource("/LDBC")
@@ -37,14 +42,13 @@ class LDBCQueryTest extends LDBCTestBase {
   }
 
   def run(cypher: String, params: Map[String, Any]): Unit ={
-    try {
-      val r = runOnDemoGraph(cypher, params)
-      r.show()
-      r
-    } catch {
-      case ex: Exception => Assert.assertEquals("ShortestPaths not supported.", ex.getMessage)
-      case _ => Assert.assertTrue(false)
-    }
+//    try {
+//      val r = ldbcTestBase.run(cypher, params)
+//    } catch {
+//      case ex: Exception => Assert.assertEquals("ShortestPaths not supported.", ex.getMessage)
+//      case _ => Assert.assertTrue(false)
+//    }
+    ldbcTestBase.run(cypher, params)
   }
 
   @Test
