@@ -1,7 +1,7 @@
 package org.grapheco.lynx.util
 
 object Profiler {
-  var enableTiming = true;
+  var enableTiming = false;
 
   def timing[T](message: String = "", runnable: => T): T = if (enableTiming) {
     val t1 = System.currentTimeMillis()
