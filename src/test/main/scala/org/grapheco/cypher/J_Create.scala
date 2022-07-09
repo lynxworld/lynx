@@ -43,7 +43,7 @@ class J_Create extends TestBase{
         |create (n)
         |""".stripMargin)
 
-    Assert.assertEquals(num + 1, all_nodes.length)
+    Assert.assertEquals(num + 1, all_nodes.size)
   }
 
   @Test
@@ -54,7 +54,7 @@ class J_Create extends TestBase{
         |CREATE (n), (m)
         |""".stripMargin)
 
-    Assert.assertEquals(num + 2, all_nodes.length)
+    Assert.assertEquals(num + 2, all_nodes.size)
   }
 
   @Test
@@ -64,7 +64,7 @@ class J_Create extends TestBase{
       """
         |CREATE (n:Person)
         |""".stripMargin)
-    Assert.assertEquals(num + 1, all_nodes.length)
+    Assert.assertEquals(num + 1, all_nodes.size)
   }
 
   @Test
@@ -74,7 +74,7 @@ class J_Create extends TestBase{
       """
         |CREATE (n:Person:Swedish)
         |""".stripMargin)
-    Assert.assertEquals(num + 1, all_nodes.length)
+    Assert.assertEquals(num + 1, all_nodes.size)
   }
 
   @Test
@@ -84,7 +84,7 @@ class J_Create extends TestBase{
       """
         |CREATE (n:Person {name: 'Andy', title: 'Developer'})
         |""".stripMargin)
-    Assert.assertEquals(num + 1, all_nodes.length)
+    Assert.assertEquals(num + 1, all_nodes.size)
   }
 
   @Test
@@ -96,7 +96,7 @@ class J_Create extends TestBase{
         |CREATE (a {name: 'Andy'})
         |RETURN a.name
         |""".stripMargin).records().toArray
-    Assert.assertEquals(num + 1, all_nodes.length)
+    Assert.assertEquals(num + 1, all_nodes.size)
     Assert.assertEquals("Andy", res(0)("a.name").asInstanceOf[LynxValue].value)
   }
 
@@ -140,7 +140,7 @@ class J_Create extends TestBase{
         |CREATE p = (andy {name:'Andy'})-[:WORKS_AT]->(neo)<-[:WORKS_AT]-(michael {name: 'Michael'})
         |RETURN p
         |""".stripMargin).records().toArray
-    Assert.assertEquals(numNode + 3, all_nodes.length)
-    Assert.assertEquals(numRels + 2, all_rels.length)
+    Assert.assertEquals(numNode + 3, all_nodes.size)
+    Assert.assertEquals(numRels + 2, all_rels.size)
   }
 }
