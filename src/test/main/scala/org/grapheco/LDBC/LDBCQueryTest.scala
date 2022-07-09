@@ -2,7 +2,7 @@ package org.grapheco.LDBC
 
 
 import org.grapheco.lynx.types.property.LynxInteger
-import org.junit.{Assert, Before, Test}
+import org.junit.{Assert, BeforeClass, Test}
 
 import java.io.File
 import scala.io.Source
@@ -14,16 +14,18 @@ import scala.io.Source
  * @Date 2022/6/27
  * @Version 0.1
  */
-class LDBCQueryTest extends LDBCTestBase {
 
+object LDBCQueryTest extends LDBCTestBase {
   val path = this.getClass.getResource("/LDBC/LDBC0.003").getPath
   var personIds: Array[LynxInteger] = _
   var commontIds: Array[LynxInteger] = _
 
-  @Before
+  @BeforeClass
   def importData(): Unit ={
     this.loadLDBC(path)
   }
+}
+class LDBCQueryTest extends LDBCTestBase {
 
   def getQuery(name: String): String = {
     val path = this.getClass.getResource("/LDBC")
