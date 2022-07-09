@@ -99,16 +99,20 @@ class BasicDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends D
   override def distinct(df: DataFrame): DataFrame = DataFrame(df.schema, () => df.records.toSeq.distinct.iterator)
 
   override def orderBy(df: DataFrame, sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame = {
-    val columnsName = df.columnsName
-    DataFrame(df.schema, () => df.records.toSeq
-      .sortWith{ (A,B) =>
-        val ctxA = ctx.withVars(columnsName.zip(A).toMap)
-        val ctxB = ctx.withVars(columnsName.zip(B).toMap)
-        val sortValue = sortItem.map{ case(exp, asc) =>
-          (expressionEvaluator.eval(exp)(ctxA), expressionEvaluator.eval(exp)(ctxB), asc)
-        }
-        _lessThan(sortValue.toIterator)
-      }.toIterator)
+    Profiler.timing("DF Order By",
+      {
+        val columnsName = df.columnsName
+        DataFrame(df.schema, () => df.records.toSeq
+          .sortWith{ (A,B) =>
+            val ctxA = ctx.withVars(columnsName.zip(A).toMap)
+            val ctxB = ctx.withVars(columnsName.zip(B).toMap)
+            val sortValue = sortItem.map{ case(exp, asc) =>
+              (expressionEvaluator.eval(exp)(ctxA), expressionEvaluator.eval(exp)(ctxB), asc)
+            }
+            _lessThan(sortValue.toIterator)
+          }.toIterator)
+      }
+    )
   }
 
   private def _lessThan(sortValue: Iterator[(LynxValue, LynxValue, Boolean)]): Boolean = {
