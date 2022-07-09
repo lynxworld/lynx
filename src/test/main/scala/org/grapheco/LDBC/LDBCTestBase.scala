@@ -70,16 +70,14 @@ class LDBCTestBase extends TestBase {
     val labelIndex = header.indexWhere(_.contains(":LABEL"))
     if (idIndex <0 || labelIndex <0) throw new Exception(":ID or :LABEL not found.") // check
     val properties = parse(header)
-    data.foreach{ d =>
-      this.all_nodes += TestNode(
+    all_nodes ++= data.map{ d => TestNode(
         TestId(d(idIndex).toLong),
         Seq(LynxNodeLabel(d(labelIndex))),
         properties.filterNot{case (i, _, _) => i == labelIndex}
           .map{ case (i, str, stringToValue) => (d(i), str, stringToValue)}
           .filterNot(_._1.equals(""))
           .map{ case (data, str, stringToValue) => LynxPropertyKey(str) -> stringToValue(data)}.toMap
-      )
-    }
+      )}.map(n => n.id -> n)
   }
 
   private def importRelation(header: Array[String], data: Iterator[Seq[String]]): Unit ={
@@ -89,8 +87,7 @@ class LDBCTestBase extends TestBase {
     val endIndex = header.indexWhere(_.contains(":END_ID"))
     if (idIndex <0 || typeIndex <0 || startIndex <0 || endIndex <0) throw new Exception(":ID, :START_ID, :END_ID or :TYPE not found.") // check
     val properties = parse(header)
-    data.foreach{ d =>
-      this.all_rels += TestRelationship(
+    this.all_rels ++= data.map{ d =>TestRelationship(
         TestId(d(idIndex).toLong),
         TestId(d(startIndex).toLong),
         TestId(d(endIndex).toLong),
@@ -99,7 +96,6 @@ class LDBCTestBase extends TestBase {
           .map{ case (i, str, stringToValue) => (d(i), str, stringToValue)}
           .filterNot(_._1.equals(""))
           .map{ case (data, str, stringToValue) => LynxPropertyKey(str) -> stringToValue(data)}.toMap
-      )
-    }
+      )}.map(r => r.id -> r)
   }
 }

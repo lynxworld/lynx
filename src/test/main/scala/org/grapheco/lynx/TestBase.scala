@@ -18,9 +18,13 @@ class TestBase extends LazyLogging {
 
   Profiler.enableTiming = true
 
-  val all_nodes: mutable.ArrayBuffer[TestNode] = mutable.ArrayBuffer()
+  val all_nodes: mutable.Map[TestId, TestNode] = mutable.Map()
 
-  val all_rels: mutable.ArrayBuffer[TestRelationship] = mutable.ArrayBuffer()
+  val all_rels: mutable.Map[TestId, TestRelationship] = mutable.Map()
+
+//  val all_nodes: mutable.ArrayBuffer[TestNode] = mutable.ArrayBuffer()
+//
+//  val all_rels: mutable.ArrayBuffer[TestRelationship] = mutable.ArrayBuffer()
 
   var _nodeId: Long = 0
 
@@ -34,9 +38,9 @@ class TestBase extends LazyLogging {
 
     private def relationshipId: TestId = {_relationshipId += 1; TestId(_relationshipId)}
 
-    def nodeAt(id: LynxId): Option[TestNode] = all_nodes.find(_.id == id)
+    def nodeAt(id: LynxId): Option[TestNode] = all_nodes.get(id)
 
-    private def relationshipAt(id: LynxId): Option[TestRelationship] = all_rels.find(_.id == id)
+    private def relationshipAt(id: LynxId): Option[TestRelationship] = all_rels.get(id)
 
     implicit def lynxId2myId(lynxId: LynxId): TestId = TestId(lynxId.value.asInstanceOf[Long])
 
@@ -123,27 +127,36 @@ class TestBase extends LazyLogging {
         updateRelationships(relationshipIds, old => TestRelationship(old.id, old.startNodeId, old.endNodeId, None, old.props))
 
       override def commit: Boolean = {
-        val index_nodes = all_nodes.map(_.id.value)
-        val index_relationships = all_rels.map(_.id.value)
-        this._nodesBuffer.toArray.sortBy(_._1.value).map{
-          case (id, node) => ( index_nodes.indexOf(id.value), node)
-        }.foreach {
-          case (-1, node) => all_nodes += node
-          case (index, node) => all_nodes.update(index, node)
-        }
-        all_nodes --= all_nodes.filter(n => _nodesToDelete.contains(n.id))
-        this._relationshipsBuffer.toArray.sortBy(_._1.value).map{
-          case (id, rel) => ( index_relationships.indexOf(id.value), rel)
-        }.foreach {
-          case (-1, rel) => all_rels += rel
-          case (index, rel) => all_rels.update(index, rel)
-        }
-        all_rels --= all_rels.filter(r => _relationshipsToDelete.contains(r.id))
+        all_nodes ++= _nodesBuffer
+        all_nodes --= _nodesToDelete
+        all_rels ++= _relationshipsBuffer
+        all_rels --= _relationshipsToDelete
         _nodesBuffer.clear()
         _nodesToDelete.clear()
         _relationshipsBuffer.clear()
         _relationshipsToDelete.clear()
         true
+//        val index_nodes = all_nodes.map(_.id.value)
+//        val index_relationships = all_rels.map(_.id.value)
+//        this._nodesBuffer.toArray.sortBy(_._1.value).map{
+//          case (id, node) => ( index_nodes.indexOf(id.value), node)
+//        }.foreach {
+//          case (-1, node) => all_nodes += node
+//          case (index, node) => all_nodes.update(index, node)
+//        }
+//        all_nodes --= all_nodes.filter(n => _nodesToDelete.contains(n.id))
+//        this._relationshipsBuffer.toArray.sortBy(_._1.value).map{
+//          case (id, rel) => ( index_relationships.indexOf(id.value), rel)
+//        }.foreach {
+//          case (-1, rel) => all_rels += rel
+//          case (index, rel) => all_rels.update(index, rel)
+//        }
+//        all_rels --= all_rels.filter(r => _relationshipsToDelete.contains(r.id))
+//        _nodesBuffer.clear()
+//        _nodesToDelete.clear()
+//        _relationshipsBuffer.clear()
+//        _relationshipsToDelete.clear()
+//        true
       }
     }
 
@@ -161,7 +174,7 @@ class TestBase extends LazyLogging {
       override def numNode: Long = nodes().length
 
       override def numNodeByLabel(labelName: LynxNodeLabel): Long =
-        all_nodes.count(_.labels.contains(labelName))
+        all_nodes.count(_._2.labels.contains(labelName))
 
       override def numNodeByProperty(labelName: LynxNodeLabel, propertyName: LynxPropertyKey, value: LynxValue): Long =
         nodes(NodeFilter(Seq(labelName), Map(propertyName->value))).length
@@ -169,14 +182,13 @@ class TestBase extends LazyLogging {
       override def numRelationship: Long = relationships().length
 
       override def numRelationshipByType(typeName: LynxRelationshipType): Long =
-        all_rels.count(_.relationType.forall(typeName.equals))
+        all_rels.count(_._2.relationType.forall(typeName.equals))
     }
 
-    override def nodes(): Iterator[LynxNode] = all_nodes.iterator
+    override def nodes(): Iterator[LynxNode] = all_nodes.valuesIterator
 
     override def relationships(): Iterator[PathTriple] =
-      all_rels.iterator.map(rel => PathTriple(nodeAt(rel.startNodeId).get, rel, nodeAt(rel.endNodeId).get))
-
+      all_rels.iterator.map{ case(_, rel) => PathTriple(nodeAt(rel.startNodeId).get, rel, nodeAt(rel.endNodeId).get)}
   }
 
   val runner: CypherRunner = new CypherRunner(model) {
