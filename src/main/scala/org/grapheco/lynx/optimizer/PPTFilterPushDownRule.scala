@@ -25,7 +25,7 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
           if (res._2) pnode.withChildren(res._1)
           else pnode
         }
-        case Seq(pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex)) => {
+        case Seq(pj@PPTJoin(filterExpr, isSingleMatch, joinType)) => {
           val newPPT = pptJoinPushDown(pj, ppc)
           pnode.withChildren(Seq(newPPT))
         }
@@ -52,6 +52,8 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
                                 pj: PPTJoin, ppc: PhysicalPlannerContext): PPTNode = {
     val res = pj.children.map {
       case pn@PPTNodeScan(pattern) => PPTNodeScan(getNewNodePattern(pattern, labelMap, propMap))(ppc)
+      case pr@PPTRelationshipScan(rel, leftNode, rightNode) =>
+        PPTRelationshipScan(rel, getNewNodePattern(leftNode, labelMap, propMap), getNewNodePattern(rightNode, labelMap, propMap))(ppc)
       case pjj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex) => pptFilterThenJoinPushDown(propMap, labelMap, pjj, ppc)
       case f => f
     }
