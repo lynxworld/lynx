@@ -22,10 +22,6 @@ class TestBase extends LazyLogging {
 
   val all_rels: mutable.Map[TestId, TestRelationship] = mutable.Map()
 
-//  val all_nodes: mutable.ArrayBuffer[TestNode] = mutable.ArrayBuffer()
-//
-//  val all_rels: mutable.ArrayBuffer[TestRelationship] = mutable.ArrayBuffer()
-
   var _nodeId: Long = 0
 
   var _relationshipId: Long = 0
@@ -136,27 +132,6 @@ class TestBase extends LazyLogging {
         _relationshipsBuffer.clear()
         _relationshipsToDelete.clear()
         true
-//        val index_nodes = all_nodes.map(_.id.value)
-//        val index_relationships = all_rels.map(_.id.value)
-//        this._nodesBuffer.toArray.sortBy(_._1.value).map{
-//          case (id, node) => ( index_nodes.indexOf(id.value), node)
-//        }.foreach {
-//          case (-1, node) => all_nodes += node
-//          case (index, node) => all_nodes.update(index, node)
-//        }
-//        all_nodes --= all_nodes.filter(n => _nodesToDelete.contains(n.id))
-//        this._relationshipsBuffer.toArray.sortBy(_._1.value).map{
-//          case (id, rel) => ( index_relationships.indexOf(id.value), rel)
-//        }.foreach {
-//          case (-1, rel) => all_rels += rel
-//          case (index, rel) => all_rels.update(index, rel)
-//        }
-//        all_rels --= all_rels.filter(r => _relationshipsToDelete.contains(r.id))
-//        _nodesBuffer.clear()
-//        _nodesToDelete.clear()
-//        _relationshipsBuffer.clear()
-//        _relationshipsToDelete.clear()
-//        true
       }
     }
 
