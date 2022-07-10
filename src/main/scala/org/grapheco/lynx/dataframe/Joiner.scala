@@ -4,6 +4,8 @@ import org.grapheco.lynx.LynxType
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.util.Profiler
 
+import scala.collection.mutable.ListBuffer
+
 /**
  * @Author: Airzihao
  * @Description:
@@ -20,7 +22,6 @@ object Joiner {
       )
 
     val joinedSchema: Seq[(String, LynxType)] = a.schema ++ b.schema
-    //      a.schema ++ b.schema.filterNot(column => joinColumns.contains(column._1))
 
     joinType match {
       case InnerJoin => DataFrame(joinedSchema, _innerJoin(a, b, joinColIndexs))
@@ -28,23 +29,34 @@ object Joiner {
     }
   }
 
+  // Implamented as Sort-merge Join.
   private def _innerJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): () => Iterator[Seq[LynxValue]] = {
-//    val sortedTableA: List[Seq[LynxValue]] = Profiler.timing("SortA", a.records.toList.sortBy(_.apply(joinColIndexs.head._1))(LynxValue.ordering))
-//    val sortedTableB: List[Seq[LynxValue]] = Profiler.timing("SortB", b.records.toList.sortBy(_.apply(joinColIndexs.head._2))(LynxValue.ordering))
-    val sortedTableA: List[Seq[LynxValue]] = a.records.toList
-    val sortedTableB: List[Seq[LynxValue]] = b.records.toList
+    // Is this asending or desending?
+    val sortedTableA: Array[Seq[LynxValue]] = Profiler.timing("SortA", a.records.toArray.sortBy(_.apply(joinColIndexs.head._1))(LynxValue.ordering))
+    val sortedTableB: Array[Seq[LynxValue]] = Profiler.timing("SortB", b.records.toArray.sortBy(_.apply(joinColIndexs.head._2))(LynxValue.ordering))
 
-// TODO: Make full use of the sortedTableB
-    () => sortedTableA.flatMap(rowA =>{
-      val joinedColA: Seq[LynxValue] = joinColIndexs.map(index => rowA(index._1))
-      val joinableRowsInB: List[Seq[LynxValue]] = sortedTableB.filter(rowB => {
-        val joinedColB: Seq[LynxValue] = joinColIndexs.map(index => rowB(index._2))
-        joinedColB.zip(joinedColA).forall(pair => pair._1.compareTo(pair._2) == 0)
-      }
-      )
+    var indexOfA: Int = 0
+    var indexOfB: Int = 0
 
-      joinableRowsInB.map(rowB => rowA ++ rowB)
-    }).toIterator
+    val joinedDataFrame: ListBuffer[Seq[LynxValue]] = ListBuffer[Seq[LynxValue]]()
+
+    while (indexOfA < sortedTableA.length && indexOfB < sortedTableB.length) {
+      val nextInnerRowsA: Seq[Seq[LynxValue]] =
+//        Profiler.timing("Fetching A ", _fetchNextInnerRows(sortedTableA, indexOfA, joinColIndexs.map(_._1)))
+        _fetchNextInnerRows(sortedTableA, indexOfA, joinColIndexs.map(_._1))
+      val nextInnerRowsB: Seq[Seq[LynxValue]] =
+//        Profiler.timing("Fetching B", _fetchNextInnerRows(sortedTableB, indexOfB, joinColIndexs.map(_._2)))
+        _fetchNextInnerRows(sortedTableB, indexOfB, joinColIndexs.map(_._2))
+
+      val status: Int = _mergeInnerRows(nextInnerRowsA, nextInnerRowsB, joinColIndexs, joinedDataFrame)
+      if (status == 0) {
+        indexOfA += nextInnerRowsA.length
+        indexOfB += nextInnerRowsB.length
+      } else if (status > 0) indexOfB += nextInnerRowsB.length
+      else indexOfA += nextInnerRowsA.length
+    }
+
+    () => joinedDataFrame.toIterator
   }
 
   // Compare Row at the specific columns.
@@ -60,5 +72,36 @@ object Joiner {
       }
     } else false
   }
+
+  private def _mergeInnerRows(rowsA: Seq[Seq[LynxValue]], rowsB: Seq[Seq[LynxValue]],
+                              joinColIndexs: Seq[(Int, Int)], joinedDataFrame: ListBuffer[Seq[LynxValue]]): Int = {
+    val joinedColA: Seq[LynxValue] = joinColIndexs.map(index => rowsA.head(index._1))
+    val joinedColB: Seq[LynxValue] = joinColIndexs.map(index => rowsB.head(index._2))
+
+    if (joinedColA.head.compareTo(joinedColB.head) == 0) {
+      rowsA.foreach(rowA => rowsB.foreach(rowB => joinedDataFrame.append(rowA ++ rowB)))
+//      Profiler.timing("Long Long Foreach", rowsA.foreach(rowA => rowsB.foreach(rowB => joinedDataFrame.append(rowA ++ rowB))))
+      0
+    } else joinedColA.head.compareTo(joinedColB.head)
+  }
+
+  /*
+      This func is to fetch rows from DataFrame, until a different join-keys
+       */
+  private def _fetchNextInnerRows(outerDataTable: Seq[Seq[LynxValue]], startIndex: Int, joinCols: Seq[Int]): Seq[Seq[LynxValue]] = {
+    val rowsBuffer: ListBuffer[Seq[LynxValue]] = ListBuffer[Seq[LynxValue]]()
+
+    val innerRowsJoinValue: Seq[LynxValue] = joinCols.map(colIndex => outerDataTable(startIndex)(colIndex))
+    var innerIndex: Int = startIndex
+    while (innerIndex < outerDataTable.length) {
+      val row: Seq[LynxValue] = outerDataTable(innerIndex)
+      if (joinCols.map(colIndex => row(colIndex)).zip(innerRowsJoinValue).forall(pair => pair._1.compareTo(pair._2) == 0)) {
+        rowsBuffer.append(row)
+        innerIndex += 1
+      } else innerIndex = outerDataTable.length
+    }
+    rowsBuffer.toSeq
+  }
+
 
 }
