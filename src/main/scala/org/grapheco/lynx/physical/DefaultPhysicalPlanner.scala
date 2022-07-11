@@ -32,7 +32,7 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case ll@LPTLimit(expr) => PPTLimit(expr)(plan(ll.in), plannerContext)
       case lo@LPTOrderBy(sortItem) => PPTOrderBy(sortItem)(plan(lo.in), plannerContext)
       case ll@LPTSkip(expr) => PPTSkip(expr)(plan(ll.in), plannerContext)
-      case lj@LPTJoin(isSingleMatch) => PPTJoin(None, isSingleMatch)(plan(lj.a), plan(lj.b), plannerContext)
+      case lj@LPTJoin(isSingleMatch, joinType) => PPTJoin(None, isSingleMatch, joinType)(plan(lj.a), plan(lj.b), plannerContext)
       case patternMatch: LPTPatternMatch => PPTPatternMatchTranslator(patternMatch)(plannerContext).translate(None)
       case li@LPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName]) => PPTCreateIndex(labelName, properties)(plannerContext)
       case sc@LPTSetClause(d) => PPTSetClauseTranslator(d.items).translate(sc.in.map(plan(_)))(plannerContext)
