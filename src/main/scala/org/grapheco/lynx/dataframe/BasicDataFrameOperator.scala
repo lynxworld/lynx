@@ -89,7 +89,7 @@ class BasicDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends D
   override def take(df: DataFrame, num: Int): DataFrame = Profiler.timing("DF Take", DataFrame(df.schema, () => df.records.take(num)))
 
   override def join(a: DataFrame, b: DataFrame, joinColumns: Seq[String], joinType: JoinType): DataFrame = {
-    Profiler.timing("DF Join", Joiner.join(a, b, joinColumns, joinType))
+    Profiler.timing("DF Join", SortMergeJoiner.join(a, b, joinColumns, joinType))
   }
 
   /*
@@ -106,16 +106,17 @@ class BasicDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends D
           .sortWith{ (A,B) =>
             val ctxA = ctx.withVars(columnsName.zip(A).toMap)
             val ctxB = ctx.withVars(columnsName.zip(B).toMap)
-            val sortValue = sortItem.map{ case(exp, asc) =>
+            val sortValue = sortItem.map{
+              case(exp, asc) =>
               (expressionEvaluator.eval(exp)(ctxA), expressionEvaluator.eval(exp)(ctxB), asc)
             }
-            _lessThan(sortValue.toIterator)
+            _ascCmp(sortValue.toIterator)
           }.toIterator)
       }
     )
   }
 
-  private def _lessThan(sortValue: Iterator[(LynxValue, LynxValue, Boolean)]): Boolean = {
+  private def _ascCmp(sortValue: Iterator[(LynxValue, LynxValue, Boolean)]): Boolean = {
     while (sortValue.hasNext) {
       val (valueOfA, valueOfB, asc) = sortValue.next()
       val oA = LynxValue.typeOrder(valueOfA)
