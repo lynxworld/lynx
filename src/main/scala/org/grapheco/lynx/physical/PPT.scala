@@ -43,7 +43,7 @@ case class PPTPatternMatchTranslator(patternMatch: LPTPatternMatch)(implicit val
 /*
  @param joinType: InnerJoin/FullJoin/LeftJoin/RightJoin
  */
-case class PPTJoin(filterExpr: Option[Expression], val isSingleMatch: Boolean, joinType: JoinType = InnerJoin)(a: PPTNode, b: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+case class PPTJoin(filterExpr: Option[Expression], isSingleMatch: Boolean, joinType: JoinType)(a: PPTNode, b: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override val children: Seq[PPTNode] = Seq(a, b)
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
@@ -65,7 +65,7 @@ case class PPTJoin(filterExpr: Option[Expression], val isSingleMatch: Boolean, j
     else df
   }
 
-  override def withChildren(children0: Seq[PPTNode]): PPTJoin = PPTJoin(filterExpr, isSingleMatch)(children0.head, children0(1), plannerContext)
+  override def withChildren(children0: Seq[PPTNode]): PPTJoin = PPTJoin(filterExpr, isSingleMatch, joinType)(children0.head, children0(1), plannerContext)
 
   override val schema: Seq[(String, LynxType)] = (a.schema ++ b.schema).distinct
 }
@@ -1032,11 +1032,6 @@ case class PPTUnwind(expression: Expression, variable: Variable)(implicit val in
           }) map { element=> record :+ element}
           rsl
         })
-//      df.project(, Seq((variable.name, expression)))(ctx.expressionContext).records
-//        .flatten.flatMap{
-//        case list: LynxList => list.value
-//        case element: LynxValue => List(element)
-//      }.map(lv => Seq(lv))
     } getOrElse {
       DataFrame(schema, ()=>
         eval(expression)(ctx.expressionContext).asInstanceOf[LynxList].value.toIterator map(lv => Seq(lv)))

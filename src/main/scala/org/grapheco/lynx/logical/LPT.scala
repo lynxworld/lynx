@@ -1,5 +1,6 @@
 package org.grapheco.lynx.logical
 
+import org.grapheco.lynx.dataframe.{InnerJoin, JoinType, LeftJoin}
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions._
 
@@ -104,10 +105,6 @@ case class LPTRemove(r: Remove)(val in: Option[LPTNode]) extends LPTNode {
 //////////////UNWIND//////////////////
 case class LPTUnwindTranslator(u: Unwind) extends LPTNodeTranslator {
   override def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode =
-//    in match {
-//      case None => LPTUnwind(u)(None)
-//      case Some(left) => LPTJoin(isSingleMatch = false)(left, LPTUnwind(u)(in))
-//    }
     LPTUnwind(u)(in)
 }
 
@@ -283,7 +280,7 @@ case class LPTDistinct()(val in: LPTNode) extends LPTNode {
 }
 
 ///////////////////////////////////////
-case class LPTJoin(val isSingleMatch: Boolean)(val a: LPTNode, val b: LPTNode) extends LPTNode {
+case class LPTJoin(val isSingleMatch: Boolean, joinType: JoinType)(val a: LPTNode, val b: LPTNode) extends LPTNode {
   override val children: Seq[LPTNode] = Seq(a, b)
 }
 
@@ -296,13 +293,13 @@ case class LPTMatchTranslator(m: Match) extends LPTNodeTranslator {
   def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
     //run match TODO OptionalMatch
     val Match(optional, Pattern(patternParts: Seq[PatternPart]), hints, where: Option[Where]) = m
-    val parts = patternParts.map(matchPatternPart(_)(plannerContext))
-    val matched = parts.drop(1).foldLeft(parts.head)((a, b) => LPTJoin(true)(a, b))
+    val parts = patternParts.map(part => matchPatternPart(part)(plannerContext))
+    val matched = parts.drop(1).foldLeft(parts.head)((a, b) => LPTJoin(true, InnerJoin)(a, b))
     val filtered = LPTWhereTranslator(where).translate(Some(matched))
 
     in match {
       case None => filtered
-      case Some(left) => LPTJoin(false)(left, filtered)
+      case Some(left) => LPTJoin(false, if(optional) LeftJoin else InnerJoin)(left, filtered)
     }
   }
 
