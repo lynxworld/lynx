@@ -1,6 +1,5 @@
 package org.grapheco.LDBC
 
-
 import org.grapheco.LDBC.LDBCQueryTest.ldbcTestBase
 import org.grapheco.lynx.types.property.LynxInteger
 import org.grapheco.lynx.util.Profiler
@@ -42,13 +41,12 @@ class LDBCQueryTest {
   }
 
   def run(cypher: String, params: Map[String, Any]): Unit ={
-//    try {
-//      val r = ldbcTestBase.run(cypher, params)
-//    } catch {
-//      case ex: Exception => Assert.assertEquals("ShortestPaths not supported.", ex.getMessage)
-//      case _ => Assert.assertTrue(false)
-//    }
-    ldbcTestBase.run(cypher, params)
+    try {
+      val r = ldbcTestBase.run(cypher, params)
+    } catch {
+      case ex: Exception => Assert.assertEquals("ShortestPaths not supported.", ex.getMessage)
+      case _ => Assert.assertTrue(false)
+    }
   }
 
   @Test
@@ -99,27 +97,22 @@ class LDBCQueryTest {
     val p = Map("messageId" -> "401030792151576")
     run(q,p)
   }
-/*
+
   @Test
   def Q1(): Unit = {
     val q = getQuery("interactive-complex-1.cypher")
     val p = Map("personId" -> "210995116277782", "firstName" -> "Ali")
     run(q,p)
+    //shortestPath
   }
 
   @Test
   def Q2(): Unit = {
-//    val q = getQuery("interactive-complex-2.cypher")
-    val q =
-      """
-        |MATCH (:Person {id: '210995116277782' })-[:KNOWS]-(friend:Person)-[:KNOWS]-(message:Person)
-        |
-        |    RETURN message
-        |""".stripMargin
+    val q = getQuery("interactive-complex-2.cypher")
     val p = Map("personId" -> "210995116277782", "maxDate" -> "1287230400000")
     run(q,p)
   }
-
+//
   @Test
   def Q3(): Unit = {
     val q = getQuery("interactive-complex-3.cypher")
@@ -127,6 +120,7 @@ class LDBCQueryTest {
     run(q,p)
   }
 
+  //2 hop
   @Test
   def Q4(): Unit = {
     val q = getQuery("interactive-complex-4.cypher")
@@ -183,6 +177,7 @@ class LDBCQueryTest {
     run(q,p)
   }
 
+  // multi hop
   @Test
   def Q12(): Unit = {
     val q = getQuery("interactive-complex-12.cypher")
@@ -190,6 +185,7 @@ class LDBCQueryTest {
     run(q,p)
   }
 
+  //shortestPath
   @Test
   def Q13(): Unit = {
     val q = getQuery("interactive-complex-13.cypher")
@@ -197,10 +193,19 @@ class LDBCQueryTest {
     run(q,p)
   }
 
+  //shortestPath
   @Test
   def Q14(): Unit = {
     val q = getQuery("interactive-complex-14.cypher")
     val p = Map("person1Id" -> "10995116277794", "person2Id" -> "8796093022357")
     run(q,p)
-  } */
+  }
+
+  @Test
+  def u1(): Unit = {
+    val q = getQuery("interactive-update-1.cypher")
+    val p = Map("cityId" -> "500000000000111")
+    run(q, p)
+  }
+
 }
