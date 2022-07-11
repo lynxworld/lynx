@@ -151,7 +151,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
         case 1 => {
           val ksv = referenceProperty.head
           val filter = Equals(Property(ksv._1._1, ksv._1._2)(ksv._1._1.position), ksv._2)(ksv._1._1.position)
-          PPTJoin(Option(filter), isSingleMatch)(table1, table2, ppc)
+          PPTJoin(Option(filter), isSingleMatch, pj.joinType)(table1, table2, ppc)
         }
         case _ => {
           val setExprs = mutable.Set[Expression]()
@@ -159,7 +159,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
             val filter = Equals(Property(f._1._1, f._1._2)(f._1._1.position), f._2)(f._1._1.position)
             setExprs.add(filter)
           })
-          PPTJoin(Option(Ands(setExprs.toSet)(referenceProperty.head._1._1.position)), isSingleMatch)(table1, table2, ppc)
+          PPTJoin(Option(Ands(setExprs.toSet)(referenceProperty.head._1._1.position)), isSingleMatch, pj.joinType)(table1, table2, ppc)
         }
       }
     }
