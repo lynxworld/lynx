@@ -18,3 +18,7 @@ trait LynxNode extends LynxValue with HasProperty {
     case _ => throw TypeMismatchException(this.lynxType, o.lynxType)
   }
 }
+
+object LynxNode {
+  def lynxType: NodeType = CTNode
+}
