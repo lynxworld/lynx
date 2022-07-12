@@ -102,11 +102,12 @@ object SortMergeJoiner {
   }
 
   private def _leftJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): () => Iterator[Seq[LynxValue]] = {
-    // Is this asending or desending?
-//    val sortedTableA: Array[Seq[LynxValue]] = Profiler.timing("SortA", a.records.toArray.sortBy(_.apply(joinColIndexs.head._1))(LynxValue.ordering))
-//    val sortedTableB: Array[Seq[LynxValue]] = Profiler.timing("SortB", b.records.toArray.sortBy(_.apply(joinColIndexs.head._2))(LynxValue.ordering))
     val sortedTableA: Array[Seq[LynxValue]] = Profiler.timing("SortA", _sortByColIndexs(a, joinColIndexs.map(_._1)))
-    val sortedTableB: Array[Seq[LynxValue]] = Profiler.timing("SortB", _sortByColIndexs(b, joinColIndexs.map(_._2)))
+    val sortedTableB: Array[Seq[LynxValue]] = Profiler.timing("SortB", (
+      if (sortedTableA.length > 0 ) _sortByColIndexs(b, joinColIndexs.map(_._2))
+      else a.records.toArray
+      )
+    )
 
     var indexOfA: Int = 0
     var indexOfB: Int = 0
