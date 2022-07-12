@@ -149,10 +149,12 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case GreaterThanOrEqual(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) => {
-          (lvalue, rvalue) match {
-            case (a: LynxNumber, b: LynxNumber) => LynxBoolean(a.number.doubleValue() >= b.number.doubleValue())
-            case (a: LynxString, b: LynxString) => LynxBoolean(a.value >= b.value)
-          }
+//          (lvalue, rvalue) match {
+//            // TODO other cases
+//            case (a: LynxNumber, b: LynxNumber) => LynxBoolean(a.number.doubleValue() >= b.number.doubleValue())
+//            case (a: LynxString, b: LynxString) => LynxBoolean(a.value >= b.value)
+//          }
+          LynxBoolean(lvalue >= rvalue)
         }).getOrElse(LynxNull)
 
       case LessThan(lhs, rhs) =>

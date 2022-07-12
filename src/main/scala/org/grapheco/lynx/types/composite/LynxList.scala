@@ -1,6 +1,5 @@
 package org.grapheco.lynx.types.composite
 
-import org.grapheco.lynx.types.LynxValue.ordering
 import org.grapheco.lynx.types._
 import org.grapheco.lynx.types.property.{LynxFloat, LynxInteger, LynxNull, LynxNumber, LynxString}
 import org.opencypher.v9_0.util.symbols.{CTAny, CTList, CypherType}
@@ -26,7 +25,7 @@ case class LynxList(v: List[LynxValue]) extends LynxCompositeValue {
   these lists are incomparable. For example, [1, 2] >= [1, null] evaluates to null.
   • Lists are incomparable to any value that is not also a list.
    */
-  override def compareTo(o: LynxValue): Int = o match {
+  override def sameTypeCompareTo(o: LynxValue): Int = o match {
     case l: LynxList =>
       val iter_x = this.value.iterator
       val iter_y = l.value.iterator
@@ -45,7 +44,7 @@ case class LynxList(v: List[LynxValue]) extends LynxCompositeValue {
   lazy val droppedNull: Seq[LynxValue] = v.filterNot(LynxNull.equals)
 
 
-  def min: LynxValue = if (droppedNull.isEmpty) LynxNull else droppedNull.min(ordering)
+  def min: LynxValue = if (droppedNull.isEmpty) LynxNull else droppedNull.min
 
-  def max: LynxValue = if (droppedNull.isEmpty) LynxNull else droppedNull.max(ordering)
+  def max: LynxValue = if (droppedNull.isEmpty) LynxNull else droppedNull.max
 }

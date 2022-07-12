@@ -13,7 +13,7 @@ trait LynxNode extends LynxValue with HasProperty {
 
   def lynxType: NodeType = CTNode
 
-  override def compareTo(o: LynxValue): Int = o match {
+  override def sameTypeCompareTo(o: LynxValue): Int = o match {
     case node: LynxNode => id.toLynxInteger.compareTo(node.id.toLynxInteger)
     case _ => throw TypeMismatchException(this.lynxType, o.lynxType)
   }

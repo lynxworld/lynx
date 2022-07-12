@@ -1,6 +1,7 @@
 package org.grapheco.lynx.types.time
 
 import org.grapheco.lynx.LynxType
+import org.grapheco.lynx.types.LynxValue
 import org.opencypher.v9_0.util.symbols.CTLocalTime
 
 import java.time.LocalTime
@@ -16,4 +17,6 @@ case class LynxLocalTime(localTime: LocalTime) extends LynxTemporalValue {
   def value: LocalTime = localTime
 
   def lynxType: LynxType = CTLocalTime
+
+  override def sameTypeCompareTo(o: LynxValue): Int = ???
 }

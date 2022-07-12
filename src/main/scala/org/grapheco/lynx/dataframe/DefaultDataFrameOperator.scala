@@ -21,20 +21,8 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
   private def lessThan(sortValue: Iterator[(LynxValue, LynxValue, Boolean)]): Boolean = {
     while (sortValue.hasNext) {
       val (valueOfA, valueOfB, asc) = sortValue.next()
-      val oA = LynxValue.typeOrder(valueOfA)
-      val oB = LynxValue.typeOrder(valueOfB)
-      //  AisBigger asc lessThan
-      //  T T F
-      //  T F T
-      //  F T T
-      //  F F F
-      // lessThan = AisBigger xor asc
-      if (oA == oB){ // same type
         val comparable = valueOfA.compareTo(valueOfB)
         if(comparable != 0) return comparable > 0 != asc
-      } else { // diff type
-        return (oA > oB) != asc
-      }
     }
     false
   }

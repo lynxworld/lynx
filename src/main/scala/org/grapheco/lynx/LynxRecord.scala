@@ -2,6 +2,7 @@ package org.grapheco.lynx
 
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.property.{LynxBoolean, LynxFloat, LynxInteger, LynxNull, LynxString}
+import org.grapheco.lynx.types.structural.{LynxNode, LynxRelationship}
 
 case class LynxRecord(cols: Map[String, Int], values: Seq[LynxValue]){
   def apply(columnName: String): LynxValue = get(columnName).getOrElse(LynxNull)
@@ -17,6 +18,10 @@ case class LynxRecord(cols: Map[String, Int], values: Seq[LynxValue]){
   def getAsDouble(columnName: String): Option[LynxFloat] = get(columnName).map(_.asInstanceOf[LynxFloat])
 
   def getAsBoolean(columnName: String): Option[LynxBoolean] = get(columnName).map(_.asInstanceOf[LynxBoolean])
+
+  def getAsNode(columnName: String): Option[LynxNode] = get(columnName).map(_.asInstanceOf[LynxNode])
+
+  def getAsRelationship(columnName: String): Option[LynxRelationship] = get(columnName).map(_.asInstanceOf[LynxRelationship])
 
   def toMap: Map[String, LynxValue] = cols.keys.zip(values).toMap
 }
