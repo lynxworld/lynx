@@ -133,8 +133,12 @@ class ScalarFunctions(graphModel: GraphModel) {
    * @return An Integer.
    */
   @LynxProcedure(name = "size")
-  def size(list: LynxList): LynxInteger = {
-    LynxInteger(list.value.size)
+  def size(lynxValue: LynxValue): LynxInteger = {
+    lynxValue match {
+      case list: LynxList => LynxInteger(list.value.size)
+      case string: LynxString => LynxInteger(string.value.length)
+    }
+
   }
 
   // TODO size() applied to pattern expression
