@@ -9,5 +9,5 @@ trait LynxResult {
 
   def columns(): Seq[String]
 
-  def records(): Iterator[Map[String, LynxValue]]
+  def records(): Iterator[LynxRecord]
 }

@@ -46,7 +46,7 @@ class TestGraph extends TestBase with Graph {
 
     (this, CypherValueRecords(
       lynxResult.columns().toList,
-      lynxResult.records().map(_.mapValues(lynxValue2CypherValue)).toList
+      lynxResult.records().map(_.toMap.mapValues(lynxValue2CypherValue)).toList
     ))
   }
 

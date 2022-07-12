@@ -67,6 +67,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
     new LynxResult() with PlanAware {
       val schema = df.schema
       val columnNames = schema.map(_._1)
+      val columnMap = columns().zipWithIndex.toMap
 
       override def show(limit: Int): Unit =
         FormatUtils.printTable(columnNames,
@@ -74,7 +75,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 
       override def columns(): Seq[String] = columnNames
 
-      override def records(): Iterator[Map[String, LynxValue]] = df.records.map(columnNames.zip(_).toMap)
+      override def records(): Iterator[LynxRecord] = df.records.map(values=> LynxRecord(columnMap, values))
 
       override def getASTStatement(): (Statement, Map[String, Any]) = (statement, param2)
 
@@ -96,7 +97,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 
           override def columns(): Seq[String] = columnNames
 
-          override def records(): Iterator[Map[String, LynxValue]] = cached.map(columnNames.zip(_).toMap).iterator
+          override def records(): Iterator[LynxRecord] = cached.map(values=> LynxRecord(columnMap, values)).toIterator
 
         }
       }
