@@ -2,6 +2,7 @@ package org.grapheco.LDBC
 
 import org.grapheco.LDBC.LDBCQueryTest.ldbcTestBase
 import org.grapheco.lynx.types.property.LynxInteger
+import org.grapheco.lynx.types.time.LynxDate
 import org.grapheco.lynx.util.Profiler
 import org.junit.{Assert, BeforeClass, Test}
 
@@ -206,6 +207,22 @@ class LDBCQueryTest {
     val q = getQuery("interactive-update-1.cypher")
     val p = Map("cityId" -> "500000000000111")
     run(q, p)
+  }
+
+  val update_person_ids = List("219791209300010", "226388279066632", "226388279066641", "210995116277761", "200000000000014", "200000000000016", "204398046511148", "215393162788899", "226388279066650", "221990232555526", "221990232555527", "200000000000027", "215393162788910", "210995116277782", "215393162788912", "200000000000033", "210995116277783", "226388279066664", "232985348833291", "200000000000047", "228587302322180", "202199023255557", "232985348833319", "228587302322191", "228587302322196")
+  val update_post_id = List("101030792151040", "101030792151041", "101030792151042", "101030792151043", "101030792151044", "101030792151045", "101030792151046", "101030792151047", "101030792151048", "101030792151049", "101030792151050", "101030792151051", "101030792151052", "101030792151053", "101030792151054", "101030792151055", "101030792151056", "101030792151057", "101030792151058", "100962072674323", "100962072674324", "100962072674325", "100962072674326", "100962072674327", "100962072674328")
+
+
+  @Test
+  def u2(): Unit ={
+    val q = getQuery("interactive-update-2.cypher")
+    val p = Map("personId" -> update_person_ids(0),
+      "postId" -> update_post_id(0),
+      "creationDate" -> LynxDate.today)
+    run(q, p)
+    val verify = "MATCH (person:Person {id: $personId})-[r:LIKES]-(post:Post {id: $postId}) return r"
+    val result = ldbcTestBase.run(verify, p)
+    result.records()
   }
 
 }

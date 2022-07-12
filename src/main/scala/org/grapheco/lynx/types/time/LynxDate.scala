@@ -21,3 +21,6 @@ case class LynxDate(localDate: LocalDate) extends LynxTemporalValue {
     case date: LynxDate => localDate.compareTo(date.localDate)
   }
 }
+object LynxDate {
+  def today: LynxDate = LynxDate(LocalDate.now())
+}
