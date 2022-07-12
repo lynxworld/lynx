@@ -36,4 +36,19 @@ object DataFrame {
         expressionEvaluator.eval(col._2)(ctx)
       })))
   }
+
+  def updateColumns(colIndexs: Seq[Int], newColsValues: Seq[Iterator[LynxValue]], srcDF: DataFrame): DataFrame = {
+    if(colIndexs.length != newColsValues.length) throw new Exception(s"Lengths of colIndexs and newColsValues are not equal.")
+    if (colIndexs.length * newColsValues.length == 0) throw new Exception(s"Length of colIndexs or newColsValues is 0.")
+    val colIndex: Int = colIndexs.head
+    val newColValues: Iterator[LynxValue] = newColsValues.head
+    val updatedDF: DataFrame = DataFrame(srcDF.schema, () => srcDF.records.zip(newColValues).map{
+      case (row, newValue) =>
+        row.updated(colIndex, newValue)
+    })
+    if (colIndexs.length == 1) updatedDF
+    else {
+      updateColumns(colIndexs.drop(1), newColsValues.drop(1), updatedDF)
+    }
+  }
 }
