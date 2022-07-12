@@ -119,14 +119,8 @@ class BasicDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends D
   private def _ascCmp(sortValue: Iterator[(LynxValue, LynxValue, Boolean)]): Boolean = {
     while (sortValue.hasNext) {
       val (valueOfA, valueOfB, asc) = sortValue.next()
-      val oA = LynxValue.typeOrder(valueOfA)
-      val oB = LynxValue.typeOrder(valueOfB)
-      if (oA == oB){ // same type
-        val comparable = valueOfA.compareTo(valueOfB)
-        if(comparable != 0) return comparable > 0 != asc
-      } else { // diff type
-        return (oA > oB) != asc
-      }
+      val comparable = valueOfA.compareTo(valueOfB)
+      if(comparable != 0) return comparable > 0 != asc
     }
     false
   }

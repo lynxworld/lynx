@@ -15,7 +15,7 @@ case class LynxString(v: String) extends LynxValue {
 
   def lynxType: StringType = CTString
 
-  override def compareTo(o: LynxValue): Int = o match {
+  override def sameTypeCompareTo(o: LynxValue): Int = o match {
     case s: LynxString => value.compareTo(s.value)
     case _ => throw TypeMismatchException(this.lynxType, o.lynxType)
   }

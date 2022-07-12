@@ -19,7 +19,7 @@ case class LynxBoolean(v: Boolean) extends LynxValue {
   Booleans are compared such that false is less than true.
   Booleans are incomparable to any value that is not also a boolean.
    */
-  override def compareTo(o: LynxValue): Int = o match {
+  override def sameTypeCompareTo(o: LynxValue): Int = o match {
     case boolean: LynxBoolean => v.compareTo(boolean.v)
     case _ => throw TypeMismatchException(this.lynxType, o.lynxType)
   }

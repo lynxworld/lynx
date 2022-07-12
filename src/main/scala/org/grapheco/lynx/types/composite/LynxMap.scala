@@ -16,5 +16,5 @@ case class LynxMap(v: Map[String, LynxValue]) extends LynxCompositeValue {
   override def lynxType: CypherType = CTMap
 
   // TODO: map comparability
-  override def compareTo(o: LynxValue): Int = {0}
+  override def sameTypeCompareTo(o: LynxValue): Int = {0}
 }

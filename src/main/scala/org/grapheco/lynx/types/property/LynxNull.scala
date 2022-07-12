@@ -17,7 +17,7 @@ object LynxNull extends LynxValue {
 
   override def toString: String = "null"
 
-  override def compareTo(o: LynxValue): Int = o match {
+  override def sameTypeCompareTo(o: LynxValue): Int = o match {
     case LynxNull => 0
     case _ => throw TypeMismatchException(this.lynxType, o.lynxType)
   }

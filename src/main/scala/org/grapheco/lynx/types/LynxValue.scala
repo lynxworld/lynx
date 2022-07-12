@@ -21,15 +21,56 @@ trait LynxValue extends Comparable[LynxValue]{
   def lynxType: LynxType
 
   // TODO: Impl the Compare func for LynxValue
-  def >(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
+  def >(lynxValue: LynxValue): Boolean = this.compareTo(lynxValue) > 0
 
-  def >=(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
+  def >=(lynxValue: LynxValue): Boolean = this.compareTo(lynxValue) >= 0
 
-  def <(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
+  def <(lynxValue: LynxValue): Boolean = this.compareTo(lynxValue) < 0
 
-  def <=(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
+  def <=(lynxValue: LynxValue): Boolean = this.compareTo(lynxValue) <= 0
 
-  override def compareTo(o: LynxValue): Int = 0
+  def sameTypeCompareTo(o: LynxValue): Int
+
+  /*
+    To accomplish this, we propose a pre-determined order of types and ensure that each value falls
+    under exactly one disjoint type in this order.
+     */
+  private final val Map = 1
+  private final val NODE = 2
+  private final val RELATIONSHIP = 3
+  private final val LIST = 4
+  private final val PATH = 5
+  private final val STRING = 6
+  private final val BOOLEAN = 7
+  private final val NUMBER = 8
+  private final val VOID = 9
+
+  def typeOrder(lynxValue: LynxValue): Int = lynxValue match {
+    case _: LynxMap => Map
+    case _: LynxNode => NODE
+    case _: LynxRelationship => RELATIONSHIP
+    case _: LynxList => LIST
+    //      case _: path todo
+    case _: LynxString => STRING
+    case _: LynxBoolean => BOOLEAN
+    case _: LynxNumber => NUMBER
+    case LynxNull => VOID
+    case _ => 0
+  }
+
+//  val ordering: Ordering[LynxValue] = (x: LynxValue, y: LynxValue) => {
+//    val o1 = LynxValue.typeOrder(x)
+//    val o2 = LynxValue.typeOrder(y)
+//    if (o1 == o2) x.compareTo(y)
+//    else o1 - o2
+//  }
+
+  override def compareTo(o: LynxValue): Int = {
+    val o1 = typeOrder(this)
+    val o2 = typeOrder(o)
+    if (o1 == o2) this.sameTypeCompareTo(o)
+    else o1 - o2
+  }
 
 }
 
@@ -60,38 +101,5 @@ object LynxValue {
     case _ => throw InvalidValueException(value)
   }
 
-  /*
-    To accomplish this, we propose a pre-determined order of types and ensure that each value falls
-    under exactly one disjoint type in this order.
-     */
-  private final val Map = 1
-  private final val NODE = 2
-  private final val RELATIONSHIP = 3
-  private final val LIST = 4
-  private final val PATH = 5
-  private final val STRING = 6
-  private final val BOOLEAN = 7
-  private final val NUMBER = 8
-  private final val VOID = 9
-
-  def typeOrder(lynxValue: LynxValue): Int = lynxValue match {
-    case _: LynxMap => Map
-    case _: LynxNode => NODE
-    case _: LynxRelationship => RELATIONSHIP
-    case _: LynxList => LIST
-    //      case _: path todo
-    case _: LynxString => STRING
-    case _: LynxBoolean => BOOLEAN
-    case _: LynxNumber => NUMBER
-    case LynxNull => VOID
-    case _ => 0
-  }
-
-  val ordering: Ordering[LynxValue] = (x: LynxValue, y: LynxValue) => {
-    val o1 = LynxValue.typeOrder(x)
-    val o2 = LynxValue.typeOrder(y)
-    if (o1 == o2) x.compareTo(y)
-    else o1 - o2
-  }
 
 }
