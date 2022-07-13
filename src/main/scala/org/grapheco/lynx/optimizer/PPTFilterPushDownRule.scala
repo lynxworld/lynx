@@ -1,7 +1,6 @@
 package org.grapheco.lynx.optimizer
 
-import org.grapheco.lynx._
-import org.grapheco.lynx.physical.{PPTExpandPath, PPTFilter, PPTJoin, PPTNode, PPTNodeScan, PPTRelationshipScan, PhysicalPlannerContext}
+import org.grapheco.lynx.physical._
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.util.InputPosition
 
@@ -91,13 +90,6 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
           case 0 => {}
           case _ => {
             propertyMap += name -> Option(MapExpression(List(exprs: _*))(InputPosition(0, 0, 0)))
-            //            if (regexPattern.isEmpty) propertyMap += name -> Option(MapExpression(List(exprs: _*))(InputPosition(0, 0, 0)))
-            //            else {
-            //              val regexSet: Set[Expression] = regexPattern(name).toSet
-            //              val mpSet: Set[Expression] = Set(MapExpression(List(exprs: _*))(InputPosition(0, 0, 0)))
-            //
-            //              propertyMap += name -> Option(Ands(mpSet ++ regexSet)(InputPosition(0, 0, 0)))
-            //            }
           }
         }
     }
@@ -127,17 +119,6 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
           }
         }
       }
-      //      case rj@RegexMatch(lhs, rhs) => {
-      //        lhs match {
-      //          case p@Property(expr, propertyKeyName) =>{
-      //            expr match {
-      //              case Variable(n) =>
-      //                if (regexPattern.contains(n)) regexPattern(n).append(rj)
-      //                else regexPattern += n -> ArrayBuffer(rj)
-      //            }
-      //          }
-      //        }
-      //      }
       case a@Ands(andExpress) => andExpress.foreach(exp => extractParamsFromFilterExpression(exp, labelMap, propMap, regexPattern, notPushDown))
       case other => notPushDown += other
     }
@@ -200,6 +181,9 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
             (newPattern, Set.empty, true)
           }
         }
+      }
+      case in@In(lhs, rhs) => {
+        (pattern, Set(in), true)
       }
       case andExpr@Ands(exprs) => handleNodeAndsExpression(andExpr, pattern)
       case _ => (pattern, Set.empty, false)
