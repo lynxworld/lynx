@@ -258,10 +258,12 @@ object SortMergeJoiner {
   // Compare Row at the specific columns.
   // This function is for SortJoin.
   private def _rowCmpGreater(row1: Seq[LynxValue], row2: Seq[LynxValue], cmpColIndexs: Seq[Int]): Boolean = {
-    val comparedValueList: Seq[Int] = row1.zip(row2).map{
+    val comparedValueList: Seq[Int] = {
+    cmpColIndexs.map(row1(_)).zip(cmpColIndexs.map(row2(_))).map{
       case (value1, value2) => value1.compareTo(value2)
     }.filterNot(cmp => cmp == 0)
-
-    comparedValueList.length == 0 || comparedValueList.head < 0
+    }
+    if (comparedValueList.isEmpty) false
+    else comparedValueList.head < 0
   }
 }
