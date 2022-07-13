@@ -1,7 +1,6 @@
 package org.grapheco.lynx.optimizer
 
-import org.grapheco.lynx._
-import org.grapheco.lynx.physical.{PPTCreateUnit, PPTDistinct, PPTExpandPath, PPTFilter, PPTJoin, PPTMerge, PPTNode, PPTNodeScan, PPTRelationshipScan, PPTSelect, PPTUnwind, PhysicalPlannerContext}
+import org.grapheco.lynx.physical._
 import org.opencypher.v9_0.expressions._
 
 import scala.collection.mutable
@@ -22,6 +21,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
 
     if (properties.isDefined) {
       val MapExpression(items) = properties.get.asInstanceOf[MapExpression]
+      // filter1 is the reference filter condition
       val filter1 = items.filterNot(item => item._2.isInstanceOf[Literal])
       val filter2 = items.filter(item => item._2.isInstanceOf[Literal])
       val newPattern = {
@@ -34,6 +34,14 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
       else (Seq.empty, None)
     }
     else (Seq.empty, None)
+  }
+
+  def checkFilterReference(pptFilter: PPTFilter): (Seq[Expression], Option[PPTFilter]) = {
+    pptFilter.expr match {
+      case in@In(lhs, rhs) => {
+        (Seq(in), Some(pptFilter))
+      }
+    }
   }
 
   def checkExpandPath(pe: PPTExpandPath, ppc: PhysicalPlannerContext): (PPTNode, Seq[((LogicalVariable, PropertyKeyName), Expression)]) = {
@@ -68,8 +76,9 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
   }
 
   // TODO rewrite
-  def joinReferenceRule(table: PPTNode, ppc: PhysicalPlannerContext): (PPTNode, Seq[((LogicalVariable, PropertyKeyName), Expression)]) = {
+  def joinReferenceRule(table: PPTNode, ppc: PhysicalPlannerContext): (PPTNode, Seq[((LogicalVariable, PropertyKeyName), Expression)], Seq[Expression]) = {
     var referenceProperty = Seq[((LogicalVariable, PropertyKeyName), Expression)]()
+    var referenceExpression = Seq[Expression]()
     val newTable = table match {
       case ps@PPTNodeScan(pattern) => {
         val checked = checkNodeReference(pattern)
@@ -120,9 +129,10 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
       case pc@PPTCreateUnit(items) => pc
 
       case pf@PPTFilter(expr) => {
-        val (children, refProp) = joinReferenceRule(pf.children.head, ppc)
+        val (children, refProp, otherExprs) = joinReferenceRule(pf.children.head, ppc)
         referenceProperty ++= refProp
-        pf.withChildren(Seq(children))
+        referenceExpression ++= Seq(expr)
+        children
       }
       case pj1@PPTJoin(filterExpr, isSingleMatch, joinType) => {
         joinRecursion(pj1, ppc, isSingleMatch)
@@ -130,40 +140,36 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
       case pu@PPTUnwind(expr, variable) => pu
       case pd@PPTDistinct() => pd
     }
-    (newTable, referenceProperty)
+    (newTable, referenceProperty, referenceExpression)
   }
 
   // TODO rewrite
   def joinRecursion(pj: PPTJoin, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PPTNode = {
     var table1 = pj.children.head
     var table2 = pj.children.last
-    var referenceProperty = Seq[((LogicalVariable, PropertyKeyName), Expression)]()
 
-    val res1 = joinReferenceRule(table1, ppc)
-    val res2 = joinReferenceRule(table2, ppc)
-    table1 = res1._1
-    table2 = res2._1
-    referenceProperty ++= res1._2
-    referenceProperty ++= res2._2
+    val (operator1, referenceProps1, otherExprs1) = joinReferenceRule(table1, ppc)
+    val (operator2, referenceProps2, otherExprs2) = joinReferenceRule(table2, ppc)
+    table1 = operator1
+    table2 = operator2
 
-    if (referenceProperty.nonEmpty) {
-      referenceProperty.length match {
-        case 1 => {
-          val ksv = referenceProperty.head
-          val filter = Equals(Property(ksv._1._1, ksv._1._2)(ksv._1._1.position), ksv._2)(ksv._1._1.position)
-          PPTJoin(Option(filter), isSingleMatch, pj.joinType)(table1, table2, ppc)
-        }
-        case _ => {
-          val setExprs = mutable.Set[Expression]()
-          referenceProperty.foreach(f => {
-            val filter = Equals(Property(f._1._1, f._1._2)(f._1._1.position), f._2)(f._1._1.position)
-            setExprs.add(filter)
-          })
-          PPTJoin(Option(Ands(setExprs.toSet)(referenceProperty.head._1._1.position)), isSingleMatch, pj.joinType)(table1, table2, ppc)
-        }
+    val referenceProps: Seq[((LogicalVariable, PropertyKeyName), Expression)] = referenceProps1 ++ referenceProps2
+    val referenceExprs: Seq[Expression] = otherExprs1 ++ otherExprs2
+
+    if (referenceProps.nonEmpty || referenceExprs.nonEmpty) {
+      val filterExpressions: Seq[Expression] = referenceProps.map{
+        case ((logicalVariable, propertyKeyName), expression) => Equals(Property(logicalVariable, propertyKeyName)(logicalVariable.position), expression)(expression.position)
+      } ++ referenceExprs
+
+      val _position = {
+        if (referenceExprs.nonEmpty) referenceExprs.head.position
+        else referenceProps.head._1._1.position
       }
-    }
-    else pj
+
+      if (filterExpressions.length == 1) PPTJoin(Option(filterExpressions.head), isSingleMatch, pj.joinType)(table1, table2, ppc)
+      else PPTJoin(Option(Ands(filterExpressions.toSet)(_position)), isSingleMatch, pj.joinType)(table1, table2, ppc)
+    } else pj
+
   }
 
   override def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = optimizeBottomUp(plan,
