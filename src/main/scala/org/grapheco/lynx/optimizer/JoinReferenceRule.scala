@@ -145,13 +145,10 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
 
   // TODO rewrite
   def joinRecursion(pj: PPTJoin, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PPTNode = {
-    var table1 = pj.children.head
-    var table2 = pj.children.last
-
-    val (operator1, referenceProps1, otherExprs1) = joinReferenceRule(table1, ppc)
-    val (operator2, referenceProps2, otherExprs2) = joinReferenceRule(table2, ppc)
-    table1 = operator1
-    table2 = operator2
+    val (operator1, referenceProps1, otherExprs1) = joinReferenceRule(pj.children.head, ppc)
+    val (operator2, referenceProps2, otherExprs2) = joinReferenceRule(pj.children.last, ppc)
+    val table1 = operator1
+    val table2 = operator2
 
     val referenceProps: Seq[((LogicalVariable, PropertyKeyName), Expression)] = referenceProps1 ++ referenceProps2
     val referenceExprs: Seq[Expression] = otherExprs1 ++ otherExprs2
@@ -169,7 +166,6 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
       if (filterExpressions.length == 1) PPTJoin(Option(filterExpressions.head), isSingleMatch, pj.joinType)(table1, table2, ppc)
       else PPTJoin(Option(Ands(filterExpressions.toSet)(_position)), isSingleMatch, pj.joinType)(table1, table2, ppc)
     } else pj
-
   }
 
   override def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = optimizeBottomUp(plan,
