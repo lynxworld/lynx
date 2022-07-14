@@ -105,10 +105,14 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
 
     filters match {
       case e@Equals(Property(expr, pkn), rhs) => {
-        expr match {
-          case Variable(name) => {
-            if (propMap.contains(name)) propMap(name).append((pkn, rhs))
-            else propMap += name -> ArrayBuffer((pkn, rhs))
+        rhs match {
+          // Do not push down the Equals is rhs is a Variable.
+          case Variable(v) => notPushDown += e
+          case _ => expr match {
+            case Variable(name) => {
+              if (propMap.contains(name)) propMap(name).append((pkn, rhs))
+              else propMap += name -> ArrayBuffer((pkn, rhs))
+            }
           }
         }
       }
