@@ -3,11 +3,11 @@ package org.grapheco.lynx.evaluator
 import org.grapheco.lynx.procedure.{ProcedureException, ProcedureExpression, ProcedureRegistry}
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property._
-import org.grapheco.lynx.types.structural.{HasProperty, LynxNode, LynxPropertyKey}
+import org.grapheco.lynx.types.structural.{HasProperty, LynxNode, LynxNodeLabel, LynxPropertyKey, LynxRelationshipType}
 import org.grapheco.lynx.types.time.LynxDateTime
 import org.grapheco.lynx.types.{LynxValue, TypeSystem}
 import org.grapheco.lynx.LynxType
-import org.grapheco.lynx.runner.GraphModel
+import org.grapheco.lynx.runner.{GraphModel, NodeFilter, RelationshipFilter}
 import org.opencypher.v9_0.expressions.functions.{Collect, Id}
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTList, CTString, ListType}
@@ -142,18 +142,15 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case GreaterThan(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) => {
           (lvalue, rvalue) match {
+            // TODO: Make sure the
             case (a: LynxNumber, b: LynxNumber) => LynxBoolean(a.number.doubleValue() > b.number.doubleValue())
             case (a: LynxString, b: LynxString) => LynxBoolean(a.value > b.value)
+            case _ => LynxBoolean(lvalue > rvalue)
           }
         }).getOrElse(LynxNull)
 
       case GreaterThanOrEqual(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) => {
-//          (lvalue, rvalue) match {
-//            // TODO other cases
-//            case (a: LynxNumber, b: LynxNumber) => LynxBoolean(a.number.doubleValue() >= b.number.doubleValue())
-//            case (a: LynxString, b: LynxString) => LynxBoolean(a.value >= b.value)
-//          }
           LynxBoolean(lvalue >= rvalue)
         }).getOrElse(LynxNull)
 
@@ -164,9 +161,11 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         eval(GreaterThanOrEqual(rhs, lhs)(expr.position))
 
       case Not(in) =>
-        eval(in) match {
+        val lynxValue: LynxValue = eval(in)
+        lynxValue match {
           case LynxNull => LynxBoolean(false) //todo add testcase
           case LynxBoolean(b) => LynxBoolean(!b)
+          case _ => throw EvaluatorTypeMismatch(lynxValue.lynxType.toString, "LynxBoolean" )
         }
 
       case IsNull(lhs) => {
@@ -269,7 +268,34 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       }
 
       case MapExpression(items) => LynxMap(items.map(it => it._1.name -> eval(it._2)).toMap)
+
+//      //TODO: Only One-hop path-pattern is supported now
+      case PatternExpression(pattern) => {
+        val rightNode: NodePattern = pattern.element.rightNode
+        val relationship: RelationshipPattern = pattern.element.relationship
+        val leftNode: NodePattern = if (pattern.element.element.isSingleNode) {
+          pattern.element.element.asInstanceOf[NodePattern]
+        } else {
+          throw EvaluatorException(s"PatternExpression is not fully supproted.")
+        }
+
+        val exist: Boolean = graphModel.paths(
+          _transferNodePatternToFilter(leftNode),
+          _transferRelPatternToFilter(relationship),
+          _transferNodePatternToFilter(rightNode),
+          relationship.direction, Some(1), Some(1)
+        ).filter(path => if(leftNode.variable.nonEmpty) path.startNode.compareTo(eval(leftNode.variable.get)) == 0 else true)
+          .filter(path => if(rightNode.variable.nonEmpty) path.endNode.compareTo(eval(rightNode.variable.get)) == 0 else true).nonEmpty
+
+        LynxBoolean(exist)
+      }
+
+
     }
+
+
+
+
   }
 
 
@@ -287,4 +313,25 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
     }
 
   }
+
+  def _transferNodePatternToFilter(nodePattern: NodePattern)(implicit ec: ExpressionContext): NodeFilter = {
+    val properties: Map[LynxPropertyKey, LynxValue] = nodePattern.properties match {
+      case None => Map()
+      case Some(MapExpression(seqOfProps)) => seqOfProps.map{
+        case (propertyKeyName, propValueExpr) => LynxPropertyKey(propertyKeyName.name) -> LynxValue(eval(propValueExpr))
+      }.toMap
+    }
+    NodeFilter(nodePattern.labels.map(label => LynxNodeLabel(label.name)), properties)
+  }
+
+  def _transferRelPatternToFilter(relationshipPattern: RelationshipPattern)(implicit ec: ExpressionContext): RelationshipFilter = {
+    val props: Map[LynxPropertyKey, LynxValue] = relationshipPattern.properties match {
+      case None => Map()
+      case Some(MapExpression(seqOfProps)) => seqOfProps.map{
+        case (propertyKeyName, propValueExpr) => LynxPropertyKey(propertyKeyName.name) -> LynxValue(eval(propValueExpr))
+      }.toMap
+    }
+    RelationshipFilter(relationshipPattern.types.map(relType => LynxRelationshipType(relType.name)),props)
+  }
+
 }
