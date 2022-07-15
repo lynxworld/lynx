@@ -89,9 +89,11 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case Add(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
+          // TODO other cases
           (lvalue, rvalue) match {
             case (a: LynxNumber, b: LynxNumber) => a + b
             case (a: LynxString, b: LynxString) => LynxString(a.value + b.value)
+            case (a: LynxString, b: LynxValue) => LynxString(a.value + b.toString)
             case (a: LynxList, b: LynxList) => LynxList(a.value ++ b.value)
           }).getOrElse(LynxNull)
 
