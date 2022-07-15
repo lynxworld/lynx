@@ -23,7 +23,6 @@ object LDBCQueryTest {
   val path = this.getClass.getResource("/LDBC/LDBC0.003").getPath
   var personIds: Array[LynxInteger] = _
   var commontIds: Array[LynxInteger] = _
-
   val ldbcTestBase: LDBCTestBase = new LDBCTestBase
 
   @BeforeClass
@@ -111,7 +110,6 @@ class LDBCQueryTest {
     val q = getQuery("interactive-complex-1.cypher")
     val p = Map("personId" -> update_person_ids(0), "firstName"-> "Jose")
     run(q,p)
-    //shortestPath
   }
 
   @Test
@@ -120,7 +118,7 @@ class LDBCQueryTest {
     val p = Map("personId" -> update_person_ids(0), "maxDate" -> LynxDate.today)
     run(q,p)
   }
-//
+
   @Test
   def Q3(): Unit = {
     val q = getQuery("interactive-complex-3.cypher")
@@ -132,7 +130,6 @@ class LDBCQueryTest {
     run(q,p)
   }
 
-  //2 hop
   @Test
   def Q4(): Unit = {
     val q = getQuery("interactive-complex-4.cypher")
@@ -193,7 +190,6 @@ class LDBCQueryTest {
     run(q,p)
   }
 
-  // multi hop
   @Test
   def Q12(): Unit = {
     val q = getQuery("interactive-complex-12.cypher")
@@ -201,7 +197,6 @@ class LDBCQueryTest {
     run(q,p)
   }
 
-  //shortestPath
   @Test
   def Q13(): Unit = {
     val q = getQuery("interactive-complex-13.cypher")
@@ -209,7 +204,6 @@ class LDBCQueryTest {
     run(q,p)
   }
 
-  //shortestPath
   @Test
   def Q14(): Unit = {
     val q = getQuery("interactive-complex-14.cypher")
@@ -228,7 +222,6 @@ class LDBCQueryTest {
       "emails" -> "bobgreem@gmail.com", "tagIds" -> update_comment_id,
       "studyAt" -> update_person_ids, "workAt" -> update_post_id
     )
-
     run(q, p)
   }
 
@@ -267,7 +260,21 @@ class LDBCQueryTest {
 
   @Test
   def u4(): Unit ={
-
+    val q =
+      """
+        |MATCH (p:Person {id: $moderatorPersonId})
+        |CREATE (f:Forum {id: $forumId, title: $forumTitle, creationDate: $creationDate})-[:HAS_MODERATOR]->(p)
+        |WITH f
+        |UNWIND $tagIds AS tagId
+        |  MATCH (t:Tag {id: tagId})
+        |  CREATE (f)-[:HAS_TAG]->(t)
+        |""".stripMargin
+    val p = Map("moderatorPersonId" -> update_person_ids(0),
+      "forumId" -> update_forum_id(0),
+      "creationDate" -> LynxDate.today,
+      "tagIds" -> update_post_id,
+      "forumTitle" -> "TestTitle")
+    run(q, p)
   }
 
   @Test
