@@ -10,7 +10,6 @@ import org.grapheco.lynx.runner.CypherRunnerContext
  * @Date 2022/4/27
  * @Version 0.1
  */
-//TODO: LogicalPlannerContext vs. PhysicalPlannerContext?
 object LogicalPlannerContext {
   def apply(queryParameters: Map[String, Any], runnerContext: CypherRunnerContext): LogicalPlannerContext =
     new LogicalPlannerContext(

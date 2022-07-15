@@ -12,10 +12,8 @@ import org.opencypher.v9_0.expressions.Expression
  * @Date: Created at 20:25 2022/7/5
  * @Modified By:
  */
-class BasicDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends DataFrameOperator {
-  /*
+class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends DataFrameOperator {
 
-   */
   override def select(df: DataFrame, columns: Seq[(String, Option[String])]): DataFrame = {
     Profiler.timing("DF Select",
       {

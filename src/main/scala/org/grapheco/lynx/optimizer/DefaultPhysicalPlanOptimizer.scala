@@ -1,6 +1,5 @@
 package org.grapheco.lynx.optimizer
 
-import org.grapheco.lynx._
 import org.grapheco.lynx.physical.{PPTNode, PhysicalPlannerContext}
 import org.grapheco.lynx.runner.CypherRunnerContext
 
