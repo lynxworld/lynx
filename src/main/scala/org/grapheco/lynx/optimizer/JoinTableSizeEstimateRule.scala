@@ -1,8 +1,7 @@
 package org.grapheco.lynx.optimizer
 
+import org.grapheco.lynx.physical._
 import org.grapheco.lynx.runner.GraphModel
-import org.grapheco.lynx._
-import org.grapheco.lynx.physical.{PPTJoin, PPTMerge, PPTNode, PPTNodeScan, PPTRelationshipScan, PhysicalPlannerContext}
 import org.opencypher.v9_0.expressions.{Literal, MapExpression, NodePattern, RelationshipPattern}
 
 import scala.collection.mutable

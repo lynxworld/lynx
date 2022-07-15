@@ -25,8 +25,6 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
   override def typeOf(expr: Expression, definedVarTypes: Map[String, LynxType]): LynxType = {
     expr match {
       case Parameter(name, parameterType) => parameterType
-      //TODO there are too many situations not considered.
-      //literal
       case _: BooleanLiteral => CTBoolean
       case _: StringLiteral => CTString
       case _: IntegerLiteral => CTInteger
@@ -74,16 +72,12 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case pe: PathExpression => evalPathStep(pe.step)
 
-      // case CountStar() => LynxInteger(ec.vars.size)//fixme: wrong
-      // bug
-      // this func deal with like: WHERE n[toLower(propname)] < 30
       case ContainerIndex(expr, idx) => { //fixme: what's this
         {
           (eval(expr), eval(idx)) match {
             case (hp: HasProperty, i: LynxString) => hp.property(LynxPropertyKey(i.value))
             case (lm: LynxMap, key: LynxString) => lm.value.get(key.value)
             case (lm: LynxList, i: LynxInteger) => lm.value.lift(i.value.toInt)
-            //          case (lm: LynxMap, index: LynxInteger) => lm.value.values.toList.lift(index.value.toInt)
           }
         }.getOrElse(LynxNull)
       }
@@ -269,7 +263,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case MapExpression(items) => LynxMap(items.map(it => it._1.name -> eval(it._2)).toMap)
 
-//      //TODO: Only One-hop path-pattern is supported now
+      //Only One-hop path-pattern is supported now
       case PatternExpression(pattern) => {
         val rightNode: NodePattern = pattern.element.rightNode
         val relationship: RelationshipPattern = pattern.element.relationship

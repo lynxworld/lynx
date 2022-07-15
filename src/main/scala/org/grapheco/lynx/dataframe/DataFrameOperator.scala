@@ -1,6 +1,5 @@
 package org.grapheco.lynx.dataframe
 
-
 import org.grapheco.lynx.evaluator.ExpressionContext
 import org.grapheco.lynx.types.LynxValue
 import org.opencypher.v9_0.expressions.Expression

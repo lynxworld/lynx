@@ -75,7 +75,6 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     }
   }
 
-  // TODO rewrite
   def joinReferenceRule(table: PPTNode, ppc: PhysicalPlannerContext): (PPTNode, Seq[((LogicalVariable, PropertyKeyName), Expression)], Seq[Expression]) = {
     var referenceProperty = Seq[((LogicalVariable, PropertyKeyName), Expression)]()
     var referenceExpression = Seq[Expression]()
@@ -143,7 +142,6 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     (newTable, referenceProperty, referenceExpression)
   }
 
-  // TODO rewrite
   def joinRecursion(pj: PPTJoin, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PPTNode = {
     val (operator1, referenceProps1, otherExprs1) = joinReferenceRule(pj.children.head, ppc)
     val (operator2, referenceProps2, otherExprs2) = joinReferenceRule(pj.children.last, ppc)

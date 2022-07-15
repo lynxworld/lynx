@@ -524,56 +524,6 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps: Seq[MergeEle
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     implicit val ec = ctx.expressionContext
 
-//    def createNode(nodesToCreate: Seq[MergeNode],
-//                   mergedNodesAndRels: mutable.Map[String, Seq[LynxValue]],
-//                   ctxMap: Map[String, LynxValue] = Map.empty,
-//                   forceToCreate: Boolean = false): Unit = {
-//      nodesToCreate.foreach(mergeNode => {
-//        val MergeNode(varName, labels, properties) = mergeNode
-//        val nodeFilter = NodeFilter(labels.map(f => f.name), properties.map {
-//          case MapExpression(items) =>
-//            items.map({
-//              case (k, v) => k.name -> eval(v)(ec.withVars(ctxMap))
-//            })
-//        }.getOrElse(Seq.empty).toMap)
-//
-//        val res = {
-//          if (ctxMap.contains(varName)) ctxMap(varName)
-//          else graphModel.mergeNode(nodeFilter, forceToCreate, ctx.tx)
-//        }
-//
-//        mergedNodesAndRels += varName -> Seq(res)
-//      })
-//    }
-//
-//    def createRelationship(relsToCreate: Seq[MergeRelationship], createdNodesAndRels: mutable.Map[String, Seq[LynxValue]], ctxMap: Map[String, LynxValue] = Map.empty, forceToCreate: Boolean = false): Unit = {
-//      relsToCreate.foreach(mergeRels => {
-//        val MergeRelationship(varName, types, properties, varNameLeftNode, varNameRightNode, direction) = mergeRels
-//        val relationshipFilter = RelationshipFilter(types.map(t => t.name),
-//          properties.map {
-//            case MapExpression(items) =>
-//              items.map({
-//                case (k, v) => k.name -> eval(v)(ec.withVars(ctxMap))
-//              })
-//          }.getOrElse(Seq.empty[(String, LynxValue)]).toMap)
-//
-//        val leftNode = {
-//          if (createdNodesAndRels.contains(varNameLeftNode)) createdNodesAndRels(varNameLeftNode).head
-//          else if (ctxMap.contains(varNameLeftNode)) ctxMap(varNameLeftNode)
-//          else ???
-//        }
-//        val rightNode = {
-//          if (createdNodesAndRels.contains(varNameRightNode)) createdNodesAndRels(varNameRightNode).head
-//          else if (ctxMap.contains(varNameRightNode)) ctxMap(varNameRightNode)
-//          else ???
-//        }
-//
-//        val res = graphModel.mergeRelationship(relationshipFilter, leftNode.asInstanceOf[LynxNode], rightNode.asInstanceOf[LynxNode], direction, forceToCreate, ctx.tx)
-//
-//        createdNodesAndRels += varName -> Seq(res.storedRelation)
-//      })
-//    }
-
     children match {
       case Seq(pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex)) => {
         val searchVar = pj.children.head.schema.toMap
@@ -603,10 +553,6 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps: Seq[MergeEle
                 if (anotherDf.isInstanceOf[PPTExpandPath] || anotherDf.isInstanceOf[PPTRelationshipScan]) true
                 else false
               }
-
-//              createNode(nodesToCreate, mergedNodesAndRels, ctxMap, forceToCreate)
-//              createRelationship(relsToCreate, mergedNodesAndRels, ctxMap, forceToCreate)
-
               record ++ toCreateSchema.flatMap(f => mergedNodesAndRels(f._1))
             }
           }
@@ -625,10 +571,6 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps: Seq[MergeEle
           val createdNodesAndRels = mutable.Map[String, Seq[LynxValue]]()
           val nodesToCreate = mergeOps.filter(f => f.isInstanceOf[MergeNode]).map(f => f.asInstanceOf[MergeNode])
           val relsToCreate = mergeOps.filter(f => f.isInstanceOf[MergeRelationship]).map(f => f.asInstanceOf[MergeRelationship])
-
-//          createNode(nodesToCreate, createdNodesAndRels, Map.empty, true)
-//          createRelationship(relsToCreate, createdNodesAndRels, Map.empty, true)
-
           val res = Seq(mergeSchema.flatMap(f => createdNodesAndRels(f._1))).toIterator
           DataFrame(mergeSchema, () => res)
         }
@@ -636,7 +578,6 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps: Seq[MergeEle
     }
   }
 }
-
 /////////////////////////////////////////
 
 trait CreateElement
@@ -838,8 +779,6 @@ case class PPTSetClause(var setItems: Seq[SetItem], mergeAction: Seq[MergeAction
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
-//    val temp = df.records.toArray
-
     setItems = {
       if (mergeAction.nonEmpty) {
         val isCreate = plannerContext.pptContext("MergeAction").asInstanceOf[Boolean]
@@ -863,7 +802,6 @@ case class PPTSetClause(var setItems: Seq[SetItem], mergeAction: Seq[MergeAction
           val colIndex: Int = map match {
             case Variable(colName) =>
               df.columnsName.indexOf(colName)
-//            case ce@CaseExpression(expression, alternatives, default) =>
           }
           val newPropValue: LynxValue = eval(literalExpr)(ctx.expressionContext)
           val nodeIds: Iterator[LynxId] = df.records.map(row => row(colIndex).asInstanceOf[LynxNode].id)
@@ -879,106 +817,6 @@ case class PPTSetClause(var setItems: Seq[SetItem], mergeAction: Seq[MergeAction
     val updatedDF = acutalExecute(DataFrame.updateColumns(updatedIndexs, updatedCols, df))
 
     updatedDF
-    // TODO: batch process , not Iterator(one) !!!
-    // Airzihao: I will rewrite this function, the double-commented cases are impled.
-//    val res = df.records.map(n => {
-//      val ctxMap = df.schema.zip(n).map(x => x._1._1 -> x._2).toMap
-//
-//      n.size match {
-//        // set node
-//        case 1 => {
-//          var tmpNode = n.head.asInstanceOf[LynxNode]
-//          setItems.foreach {
-//            case sp@SetPropertyItem(property, literalExpr) => {
-//              val Property(map, keyName) = property
-//              map match {
-////                case v@Variable(name) => {
-////                  val data = Array(keyName.name -> eval(literalExpr)(ctx.expressionContext.withVars(ctxMap)).value)
-////                  tmpNode = graphModel.setNodesProperties(Iterator(tmpNode.id), data, false).next().get
-////                }
-//                case cp@CaseExpression(expression, alternatives, default) => {
-//                  val res = eval(cp)(ctx.expressionContext.withVars(ctxMap))
-//                  res match {
-//                    case LynxNull => tmpNode = n.head.asInstanceOf[LynxNode]
-//                    case _ => {
-//                      val data = Array(keyName.name -> eval(literalExpr)(ctx.expressionContext.withVars(ctxMap)).value)
-//                      tmpNode = graphModel.setNodesProperties(Iterator(res.asInstanceOf[LynxNode].id), data, false).next().get
-//                    }
-//                  }
-//                }
-//              }
-//            }
-////            case sl@SetLabelItem(variable, labels) => {
-////              tmpNode = graphModel.setNodesLabels(Iterator(tmpNode.id), labels.map(f => f.name).toArray).next().get
-////            }
-//            case si@SetIncludingPropertiesFromMapItem(variable, expression) => {
-//              expression match {
-//                case MapExpression(items) => {
-//                  val data = items.map(f => f._1.name -> eval(f._2)(ctx.expressionContext.withVars(ctxMap)).value)
-//                  tmpNode = graphModel.setNodesProperties(Iterator(tmpNode.id), data.toArray, false).next().get
-//                }
-//              }
-//            }
-//            case sep@SetExactPropertiesFromMapItem(variable, expression) => {
-//              expression match {
-//                case MapExpression(items) => {
-//                  val data = items.map(f => f._1.name -> eval(f._2)(ctx.expressionContext.withVars(ctxMap)).value)
-//                  tmpNode = graphModel.setNodesProperties(Iterator(tmpNode.id), data.toArray, true).next().get
-//                }
-//              }
-//            }
-//          }
-//          Seq(tmpNode)
-//        }
-//        // set join TODO copyNode
-//        case 2 => {
-//          var tmpNode = Seq[LynxValue]()
-//          setItems.foreach {
-//            case sep@SetExactPropertiesFromMapItem(variable, expression) => {
-//              expression match {
-//                case v@Variable(name) => {
-//                  val srcNode = ctxMap(variable.name).asInstanceOf[LynxNode]
-//                  val maskNode = ctxMap(name).asInstanceOf[LynxNode]
-////                  tmpNode = graphModel.copyNode(srcNode, maskNode, ctx.tx)
-//                }
-//              }
-//            }
-//          }
-//          tmpNode
-//        }
-//        // set relationship
-//        case 3 => {
-//          var triple = n
-//          setItems.foreach {
-//            case sp@SetPropertyItem(property, literalExpr) => {
-//              val Property(variable, keyName) = property
-//              val data = Array(keyName.name -> eval(literalExpr)(ctx.expressionContext.withVars(ctxMap)).value)
-//              val newRel = graphModel.setRelationshipsProperties(Iterator(triple(1).asInstanceOf[LynxRelationship].id), data).next().get
-//              triple = Seq(triple.head, newRel, triple.last)
-//            }
-//            case sl@SetLabelItem(variable, labels) => {
-//              // TODO: An relation is able to have multi-type ???
-//              val newRel = graphModel.setRelationshipsType(Iterator(triple(1).asInstanceOf[LynxRelationship].id), labels.map(f => f.name).toArray.head).next().get
-//              triple = Seq(triple.head, newRel, triple.last)
-//            }
-//            case si@SetIncludingPropertiesFromMapItem(variable, expression) => {
-//              expression match {
-//                case MapExpression(items) => {
-//                  items.foreach(f => {
-//                    val data = Array(f._1.name -> eval(f._2)(ctx.expressionContext.withVars(ctxMap)).value)
-//                    val newRel = graphModel.setRelationshipsProperties(Iterator(triple(1).asInstanceOf[LynxRelationship].id), data).next().get
-//                    triple = Seq(triple.head, newRel, triple.last)
-//                  })
-//                }
-//              }
-//            }
-//          }
-//          triple
-//        }
-//      }
-//    })
-//    DataFrame.cached(schema, res.toSeq)
-
   }
 }
 
@@ -1083,7 +921,6 @@ case class RelationshipInput(types: Seq[LynxRelationshipType], props: Seq[(LynxP
 
 // This trait is to make sure the write operation is executed, even if there is not a Return Clause.
 trait WritePlan {
-  // It is an ugly impl.
   def acutalExecute(df: DataFrame): DataFrame = {
     val records: Seq[Seq[LynxValue]] = df.records.toSeq
     DataFrame(df.schema, () => records.iterator)

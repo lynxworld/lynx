@@ -13,8 +13,6 @@ case class PipedTranslators(items: Seq[LPTNodeTranslator]) extends LPTNodeTransl
   }
 }
 
-
-
 /////////////////ProcedureCall/////////////
 case class LPTProcedureCallTranslator(c: UnresolvedCall) extends LPTNodeTranslator {
   override def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
@@ -65,7 +63,6 @@ case class LPTMergeAction(m: Seq[MergeAction])(val in: Option[LPTNode]) extends 
   override val children: Seq[LPTNode] = in.toSeq
 }
 ///////////////////////////////////////
-
 
 //////////////////Delete////////////////
 case class LPTDeleteTranslator(delete: Delete) extends LPTNodeTranslator {
@@ -152,7 +149,6 @@ case class LPTReturnTranslator(r: Return) extends LPTNodeTranslator {
   }
 }
 
-
 case class LPTOrderByTranslator(orderBy: Option[OrderBy]) extends LPTNodeTranslator{
   override def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
     orderBy match {
@@ -160,7 +156,6 @@ case class LPTOrderByTranslator(orderBy: Option[OrderBy]) extends LPTNodeTransla
       case Some(value) => LPTOrderBy(value.sortItems)(in.get)
     }
   }
-
 }
 
 case class LPTOrderBy(sortItem: Seq[SortItem])(val in: LPTNode) extends LPTNode{
