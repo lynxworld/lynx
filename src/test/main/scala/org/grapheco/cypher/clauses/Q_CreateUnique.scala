@@ -1,4 +1,4 @@
-package org.grapheco.cypher
+package org.grapheco.cypher.clauses
 
 import org.grapheco.lynx.TestBase
 import org.junit.Test
