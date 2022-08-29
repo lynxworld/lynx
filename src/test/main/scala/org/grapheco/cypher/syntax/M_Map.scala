@@ -37,16 +37,16 @@ class M_Map extends TestBase {
   @Before
   def init(): Unit = {
 
-    for(i<-0 to persons.length-1){
-      nodesInput.append(("p"+i,NodeInput(persons(i).labels,persons(i).props.toSeq)))
+    for (i <- 0 to persons.length - 1) {
+      nodesInput.append(("p" + i, NodeInput(persons(i).labels, persons(i).props.toSeq)))
     }
 
-    for(i<-0 to movies.length-1){
-      nodesInput.append(("m"+i,NodeInput(movies(i).labels,movies(i).props.toSeq)))
+    for (i <- 0 to movies.length - 1) {
+      nodesInput.append(("m" + i, NodeInput(movies(i).labels, movies(i).props.toSeq)))
     }
 
-    for(i<-0 to relationships.length-1){
-      relationshipsInput.append(("r"+i,RelationshipInput(Seq(relationships(i).relationType.get),Seq.empty, StoredNodeInputRef(relationships(i).startNodeId), StoredNodeInputRef(relationships(i).endNodeId))))
+    for (i <- 0 to relationships.length - 1) {
+      relationshipsInput.append(("r" + i, RelationshipInput(Seq(relationships(i).relationType.get), Seq.empty, StoredNodeInputRef(relationships(i).startNodeId), StoredNodeInputRef(relationships(i).endNodeId))))
     }
 
     model.write.createElements(nodesInput, relationshipsInput,
@@ -57,32 +57,32 @@ class M_Map extends TestBase {
   }
 
   @Test
-  def literalMap():Unit={
+  def literalMap(): Unit = {
     val records = runOnDemoGraph("RETURN { key: 'Value', listKey: [{ inner: 'Map1' }, { inner: 'Map2' }]}")
-      .records().map(f=>f("{ key: 'Value', listKey: [{ inner: 'Map1' }, { inner: 'Map2' }]}").asInstanceOf[LynxMap].value).toArray
+      .records().map(f => f("{ key: 'Value', listKey: [{ inner: 'Map1' }, { inner: 'Map2' }]}").asInstanceOf[LynxMap].value).toArray
 
-    val expectResult = Map("key"->LynxValue("Value"),"listKey"->LynxList(List(LynxMap(Map("inner"->LynxValue("Map1"))),LynxMap(Map("inner"->LynxValue("Map2"))))))
-    Assert.assertEquals(expectResult,records(0))
+    val expectResult = Map("key" -> LynxValue("Value"), "listKey" -> LynxList(List(LynxMap(Map("inner" -> LynxValue("Map1"))), LynxMap(Map("inner" -> LynxValue("Map2"))))))
+    Assert.assertEquals(expectResult, records(0))
   }
 
   @Test
-  def mapProjectionEx1():Unit={
+  def mapProjectionEx1(): Unit = {
     val records = runOnDemoGraph("MATCH (actor:Person { name: 'Charlie Sheen' })-[:ACTED_IN]->(movie:Movie)\nRETURN actor { .name, .realName, movies: collect(movie { .title, .year })}")
-      .records().map(f=>f("actor").asInstanceOf[LynxMap].value).toArray
-    Assert.assertEquals(1,records.length)
+      .records().map(f => f("actor").asInstanceOf[LynxMap].value).toArray
+    Assert.assertEquals(1, records.length)
   }
 
   @Test
-  def mapProjectionEx2():Unit={
+  def mapProjectionEx2(): Unit = {
     val records = runOnDemoGraph("MATCH (actor:Person)-[:ACTED_IN]->(movie:Movie)\nWITH actor, count(movie) AS nrOfMovies\nRETURN actor { .name, nrOfMovies }")
-      .records().map(f=>f("actor").asInstanceOf[LynxMap].value).toArray
-    Assert.assertEquals(2,records.length)
+      .records().map(f => f("actor").asInstanceOf[LynxMap].value).toArray
+    Assert.assertEquals(2, records.length)
   }
 
   @Test
-  def mapProjectionEx3():Unit={
+  def mapProjectionEx3(): Unit = {
     val records = runOnDemoGraph("MATCH (actor:Person { name: 'Charlie Sheen' })\nRETURN actor { .*, .age }")
-      .records().map(f=>f("actor").asInstanceOf[LynxMap].value).toArray
-    Assert.assertEquals(1,records.length)
+      .records().map(f => f("actor").asInstanceOf[LynxMap].value).toArray
+    Assert.assertEquals(1, records.length)
   }
 }

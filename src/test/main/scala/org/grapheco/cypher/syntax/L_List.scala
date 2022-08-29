@@ -132,30 +132,30 @@ class L_List extends TestBase {
       LynxPropertyKey("title") -> LynxValue("The Johnny Mnemonic"), LynxPropertyKey("released") -> LynxValue(1995)
     ))
 
-    val r1 = TestRelationship(TestId(1),TestId(0),TestId(1),Option(LynxRelationshipType("ACTION_IN")),Map.empty)
-    val r2 = TestRelationship(TestId(1),TestId(0),TestId(2),Option(LynxRelationshipType("ACTION_IN")),Map.empty)
-    val r3 = TestRelationship(TestId(1),TestId(0),TestId(3),Option(LynxRelationshipType("ACTION_IN")),Map.empty)
-    val r4 = TestRelationship(TestId(1),TestId(0),TestId(4),Option(LynxRelationshipType("ACTION_IN")),Map.empty)
-    val r5 = TestRelationship(TestId(1),TestId(0),TestId(5),Option(LynxRelationshipType("ACTION_IN")),Map.empty)
-    val r6 = TestRelationship(TestId(1),TestId(0),TestId(6),Option(LynxRelationshipType("ACTION_IN")),Map.empty)
-    val r7 = TestRelationship(TestId(1),TestId(0),TestId(7),Option(LynxRelationshipType("ACTION_IN")),Map.empty)
+    val r1 = TestRelationship(TestId(1), TestId(0), TestId(1), Option(LynxRelationshipType("ACTION_IN")), Map.empty)
+    val r2 = TestRelationship(TestId(1), TestId(0), TestId(2), Option(LynxRelationshipType("ACTION_IN")), Map.empty)
+    val r3 = TestRelationship(TestId(1), TestId(0), TestId(3), Option(LynxRelationshipType("ACTION_IN")), Map.empty)
+    val r4 = TestRelationship(TestId(1), TestId(0), TestId(4), Option(LynxRelationshipType("ACTION_IN")), Map.empty)
+    val r5 = TestRelationship(TestId(1), TestId(0), TestId(5), Option(LynxRelationshipType("ACTION_IN")), Map.empty)
+    val r6 = TestRelationship(TestId(1), TestId(0), TestId(6), Option(LynxRelationshipType("ACTION_IN")), Map.empty)
+    val r7 = TestRelationship(TestId(1), TestId(0), TestId(7), Option(LynxRelationshipType("ACTION_IN")), Map.empty)
 
-    nodesInput.append(("p",NodeInput(p.labels,p.props.toSeq)))
-    nodesInput.append(("m1",NodeInput(m1.labels,m1.props.toSeq)))
-    nodesInput.append(("m2",NodeInput(m2.labels,m2.props.toSeq)))
-    nodesInput.append(("m3",NodeInput(m3.labels,m3.props.toSeq)))
-    nodesInput.append(("m4",NodeInput(m4.labels,m4.props.toSeq)))
-    nodesInput.append(("m5",NodeInput(m5.labels,m5.props.toSeq)))
-    nodesInput.append(("m6",NodeInput(m6.labels,m6.props.toSeq)))
-    nodesInput.append(("m7",NodeInput(m7.labels,m7.props.toSeq)))
+    nodesInput.append(("p", NodeInput(p.labels, p.props.toSeq)))
+    nodesInput.append(("m1", NodeInput(m1.labels, m1.props.toSeq)))
+    nodesInput.append(("m2", NodeInput(m2.labels, m2.props.toSeq)))
+    nodesInput.append(("m3", NodeInput(m3.labels, m3.props.toSeq)))
+    nodesInput.append(("m4", NodeInput(m4.labels, m4.props.toSeq)))
+    nodesInput.append(("m5", NodeInput(m5.labels, m5.props.toSeq)))
+    nodesInput.append(("m6", NodeInput(m6.labels, m6.props.toSeq)))
+    nodesInput.append(("m7", NodeInput(m7.labels, m7.props.toSeq)))
 
-    relationsInput.append(("r1",RelationshipInput(Seq(r1.relationType.get),r1.props.toSeq,StoredNodeInputRef(r1.startNodeId),StoredNodeInputRef(r1.endNodeId))))
-    relationsInput.append(("r2",RelationshipInput(Seq(r2.relationType.get),r2.props.toSeq,StoredNodeInputRef(r2.startNodeId),StoredNodeInputRef(r2.endNodeId))))
-    relationsInput.append(("r3",RelationshipInput(Seq(r3.relationType.get),r3.props.toSeq,StoredNodeInputRef(r3.startNodeId),StoredNodeInputRef(r3.endNodeId))))
-    relationsInput.append(("r4",RelationshipInput(Seq(r4.relationType.get),r4.props.toSeq,StoredNodeInputRef(r4.startNodeId),StoredNodeInputRef(r4.endNodeId))))
-    relationsInput.append(("r5",RelationshipInput(Seq(r5.relationType.get),r5.props.toSeq,StoredNodeInputRef(r5.startNodeId),StoredNodeInputRef(r5.endNodeId))))
-    relationsInput.append(("r6",RelationshipInput(Seq(r6.relationType.get),r6.props.toSeq,StoredNodeInputRef(r6.startNodeId),StoredNodeInputRef(r6.endNodeId))))
-    relationsInput.append(("r7",RelationshipInput(Seq(r7.relationType.get),r7.props.toSeq,StoredNodeInputRef(r7.startNodeId),StoredNodeInputRef(r7.endNodeId))))
+    relationsInput.append(("r1", RelationshipInput(Seq(r1.relationType.get), r1.props.toSeq, StoredNodeInputRef(r1.startNodeId), StoredNodeInputRef(r1.endNodeId))))
+    relationsInput.append(("r2", RelationshipInput(Seq(r2.relationType.get), r2.props.toSeq, StoredNodeInputRef(r2.startNodeId), StoredNodeInputRef(r2.endNodeId))))
+    relationsInput.append(("r3", RelationshipInput(Seq(r3.relationType.get), r3.props.toSeq, StoredNodeInputRef(r3.startNodeId), StoredNodeInputRef(r3.endNodeId))))
+    relationsInput.append(("r4", RelationshipInput(Seq(r4.relationType.get), r4.props.toSeq, StoredNodeInputRef(r4.startNodeId), StoredNodeInputRef(r4.endNodeId))))
+    relationsInput.append(("r5", RelationshipInput(Seq(r5.relationType.get), r5.props.toSeq, StoredNodeInputRef(r5.startNodeId), StoredNodeInputRef(r5.endNodeId))))
+    relationsInput.append(("r6", RelationshipInput(Seq(r6.relationType.get), r6.props.toSeq, StoredNodeInputRef(r6.startNodeId), StoredNodeInputRef(r6.endNodeId))))
+    relationsInput.append(("r7", RelationshipInput(Seq(r7.relationType.get), r7.props.toSeq, StoredNodeInputRef(r7.startNodeId), StoredNodeInputRef(r7.endNodeId))))
 
     model.write.createElements(nodesInput, relationsInput,
       (nodesCreated: Seq[(String, LynxNode)], relsCreated: Seq[(String, LynxRelationship)]) => {
@@ -164,12 +164,12 @@ class L_List extends TestBase {
     )
 
     val records = runOnDemoGraph("MATCH (a:Person { name: 'Keanu Reeves' })\nRETURN [(a)-->(b) WHERE b:Movie | b.released] AS years").records()
-      .map(f=>f("years").asInstanceOf[LynxList].value).toArray
+      .map(f => f("years").asInstanceOf[LynxList].value).toArray
 
-    val expectResult = List(1997,1999,2000,2003,2003,2003,1995)
-    Assert.assertEquals(expectResult.length,records(0).length)
-    for(i<-0 to expectResult.length-1){
-      Assert.assertEquals(LynxValue(expectResult(i)),records(0)(i))
+    val expectResult = List(1997, 1999, 2000, 2003, 2003, 2003, 1995)
+    Assert.assertEquals(expectResult.length, records(0).length)
+    for (i <- 0 to expectResult.length - 1) {
+      Assert.assertEquals(LynxValue(expectResult(i)), records(0)(i))
     }
   }
 }
