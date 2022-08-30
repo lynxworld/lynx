@@ -4,10 +4,19 @@ import org.grapheco.lynx.TestBase
 import org.grapheco.lynx.physical.{NodeInput, RelationshipInput, StoredNodeInputRef}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
+import org.grapheco.lynx.types.property.LynxString
 import org.grapheco.lynx.types.structural._
 import org.junit.{Assert, Before, Test}
 
 import scala.collection.mutable.ArrayBuffer
+
+/**
+ * @program: lynx
+ * @description:
+ * @author: Wangkainan
+ * @create: 2022-02-29 14:20
+ */
+
 
 class A_Predicate extends TestBase {
   val nodesInput = ArrayBuffer[(String, NodeInput)]()
@@ -76,7 +85,7 @@ class A_Predicate extends TestBase {
         |""".stripMargin).records().map(f => f("p").asInstanceOf[LynxValue].value).toArray
 
     Assert.assertEquals(1, records.length)
-    //   should be "(0)-[KNOWS,1]->(2)-[KNOWS,3]->(3)"
+    //TODO   should be "(0)-[KNOWS,1]->(2)-[KNOWS,3]->(3)"
   }
 
   @Test
@@ -90,11 +99,11 @@ class A_Predicate extends TestBase {
 
     Assert.assertEquals(1, records.length)
     Assert.assertEquals("Eskil", records(0)("a.name").asInstanceOf[LynxValue].value)
-    //    Assert.assertEquals("Oliver Stone", records.head("a.array").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(List(LynxString("one"), LynxString("two"), LynxString("three")), records.head("a.array").asInstanceOf[LynxValue].value)
   }
 
   @Test
-  def exists1(): Unit = {
+  def exists_1(): Unit = {
     val records = runOnDemoGraph(
       """
         |MATCH n
@@ -110,13 +119,13 @@ class A_Predicate extends TestBase {
         case "Charlie" => Assert.assertEquals(false, record("is_married").asInstanceOf[LynxValue].value)
         case "Daniel" => Assert.assertEquals(false, record("is_married").asInstanceOf[LynxValue].value)
         case "Eskil" => Assert.assertEquals(false, record("is_married").asInstanceOf[LynxValue].value)
-        case _ => Assert.assertEquals(false, true)
+        case _ => Assert.assertEquals(true,false )
       }
     }
   }
 
   @Test
-  def exists2(): Unit = {
+  def exists_2(): Unit = {
     val records = runOnDemoGraph(
       """
         |MATCH (a),(b)
@@ -129,7 +138,7 @@ class A_Predicate extends TestBase {
 
     Assert.assertEquals(1, records.length)
     Assert.assertEquals("Alice", records(0)("is_married").asInstanceOf[LynxValue].value)
-      Assert.assertEquals(null, records(0)("b_name").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(null, records(0)("b_name").asInstanceOf[LynxValue].value)
     Assert.assertEquals(false, records(0)("b_has_name").asInstanceOf[LynxValue].value)
     Assert.assertEquals(null, records(0)("c_name").asInstanceOf[LynxValue].value)
     Assert.assertEquals(null, records(0)("c_has_name").asInstanceOf[LynxValue].value)

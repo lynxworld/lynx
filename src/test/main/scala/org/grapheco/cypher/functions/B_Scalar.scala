@@ -6,10 +6,16 @@ import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.LynxString
 import org.grapheco.lynx.types.structural._
-import org.junit.{Assert, Before, Test}
+import org.junit.{Assert, Before, BeforeClass, Test}
 
 import scala.collection.mutable.ArrayBuffer
 
+/**
+ * @program: lynx
+ * @description:
+ * @author: Wangkainan
+ * @create: 2022-02-30 14:15
+ */
 class B_Scalar extends TestBase {
   val nodesInput = ArrayBuffer[(String, NodeInput)]()
   val relationsInput = ArrayBuffer[(String, RelationshipInput)]()
@@ -86,12 +92,8 @@ class B_Scalar extends TestBase {
         |""".stripMargin).records().map(f => f("endNode(r)").asInstanceOf[TestNode]).toArray
 
     Assert.assertEquals(2, records.length)
-    //    Assert.assertEquals(n2, records(0))
-    //    Assert.assertEquals(n3, records(1))
     for (record <- records) {
       record.property(LynxPropertyKey("name")).get.value match {
-
-        //      record.props.get(LynxPropertyKey("name")).get.value match {
         case "Bob" => Assert.assertEquals(n3, record)
         case "Charlie" => Assert.assertEquals(n2, record)
         case _ => Assert.assertEquals(true, false)
@@ -111,15 +113,6 @@ class B_Scalar extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    //    for (record <- records.head("a.array").asInstanceOf[LynxList].value.toList) {
-    //      val index = record.value
-    //      index match {
-    //        case "one" => Assert.assertEquals("one", index)
-    //        case "two" => Assert.assertEquals("two", index)
-    //        case "three" => Assert.assertEquals("three", index)
-    //        case _ => Assert.assertEquals(false, true)
-    //      }
-    //    }
     Assert.assertEquals(List(LynxString("one"), LynxString("two"), LynxString("three")), records.head("a.array").asInstanceOf[LynxList].value.toList)
     Assert.assertEquals("one", records.head("head(a.array)").asInstanceOf[LynxValue].value)
   }
@@ -137,12 +130,12 @@ class B_Scalar extends TestBase {
     for (record <- records) {
       val index = record("id(a)").value
       index match {
-        case 1 => Assert.assertEquals(1.toLong, index)
-        case 2 => Assert.assertEquals(2.toLong, index)
-        case 3 => Assert.assertEquals(3.toLong, index)
-        case 4 => Assert.assertEquals(4.toLong, index)
-        case 5 => Assert.assertEquals(5.toLong, index)
-        case 0 => Assert.assertEquals(0.toLong, index)
+        case 1 => Assert.assertEquals(1, index)
+        case 2 => Assert.assertEquals(2, index)
+        case 3 => Assert.assertEquals(3, index)
+        case 4 => Assert.assertEquals(4, index)
+//        case 5 => Assert.assertEquals(5, index)
+        case 0 => Assert.assertEquals(0, index)
         case _ => Assert.assertEquals(false, true)
       }
     }
@@ -175,10 +168,9 @@ class B_Scalar extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(3, records.length)
-
-    Assert.assertEquals(2.toLong, records(0)("length(p)").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(2.toLong, records(1)("length(p)").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(2.toLong, records(2)("length(p)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(2, records(0)("length(p)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(2, records(1)("length(p)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(2, records(2)("length(p)").asInstanceOf[LynxValue].value)
   }
 
   @Test
@@ -215,7 +207,7 @@ class B_Scalar extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(2.toLong, records.head("size(['Alice', 'Bob'])").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(2, records.head("size(['Alice', 'Bob'])").asInstanceOf[LynxValue].value)
   }
 
   @Test
@@ -228,7 +220,7 @@ class B_Scalar extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(3.toLong, records.head("fof").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(3, records.head("fof").asInstanceOf[LynxValue].value)
   }
 
   @Test
@@ -241,7 +233,7 @@ class B_Scalar extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(7.toLong, records.head("size(a.name)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(7, records.head("size(a.name)").asInstanceOf[LynxValue].value)
   }
 
   @Test
