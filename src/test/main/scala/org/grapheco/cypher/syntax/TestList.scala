@@ -9,7 +9,7 @@ import org.junit.{Assert, Test}
 
 import scala.collection.mutable.ArrayBuffer
 
-class L_List extends TestBase {
+class TestList extends TestBase {
 
   @Test
   def listsInGeneral_1(): Unit = {

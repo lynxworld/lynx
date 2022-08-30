@@ -250,7 +250,7 @@ class TemporalValues extends TestBase {
    */
   @Test
   def examples(): Unit = {
-    val cypher: List[Map[String, String]] = List(
+    val cypher: List[TestMap[String, String]] = List(
       Map("cypher" -> "RETURN duration({ days: 1, hours: 12 }) AS theDuration",
         "col" -> "theDuration", "result" -> "P1DT12H"),
       Map("cypher" -> "RETURN duration.between(date('1984-10-11'), date('2015-06-24')) AS theDuration",

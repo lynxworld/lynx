@@ -8,7 +8,7 @@ import org.junit.{Assert, Test}
 
 import java.time.{LocalDate, LocalDateTime}
 
-class G_Operators extends TestBase {
+class Operators extends TestBase {
 
   /**
    * 2.1

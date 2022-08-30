@@ -9,7 +9,7 @@ import org.junit.{Assert, Before, Test}
 
 import scala.collection.mutable.ArrayBuffer
 
-class C_Expressions extends TestBase {
+class Expressions extends TestBase {
   val nodeInput = ArrayBuffer[(String, NodeInput)]()
   val relationshipInput = ArrayBuffer[(String, RelationshipInput)]()
 

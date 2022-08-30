@@ -10,7 +10,7 @@ import org.junit.{Assert, Before, Test}
 import scala.collection.mutable.ArrayBuffer
 
 
-class M_Map extends TestBase {
+class TestMap extends TestBase {
   val nodesInput = ArrayBuffer[(String, NodeInput)]()
   val relationshipsInput = ArrayBuffer[(String, RelationshipInput)]()
 
