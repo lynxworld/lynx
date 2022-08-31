@@ -117,6 +117,11 @@ class B_Scalar extends TestBase {
     Assert.assertEquals("one", records.head("head(a.array)").asInstanceOf[LynxValue].value)
   }
 
+  /*
+  two errors
+    1.   id should be Integer
+    2.   expected id from 0 to 4, actual id from 1 to 5
+   */
   @Test
   def id(): Unit = {
 
@@ -134,7 +139,7 @@ class B_Scalar extends TestBase {
         case 2 => Assert.assertEquals(2, index)
         case 3 => Assert.assertEquals(3, index)
         case 4 => Assert.assertEquals(4, index)
-//        case 5 => Assert.assertEquals(5, index)
+        //        case 5 => Assert.assertEquals(5, index)
         case 0 => Assert.assertEquals(0, index)
         case _ => Assert.assertEquals(false, true)
       }
@@ -173,6 +178,9 @@ class B_Scalar extends TestBase {
     Assert.assertEquals(2, records(2)("length(p)").asInstanceOf[LynxValue].value)
   }
 
+  /*
+  returns should be Integer
+   */
   @Test
   def properties(): Unit = {
     val num = nodesInput.length
@@ -199,6 +207,9 @@ class B_Scalar extends TestBase {
     Assert.assertEquals("401ee4f1-6eb3-45f9-9cd9-c2a2f3a2a7f8", records.head("uuid").asInstanceOf[LynxValue].value)
   }
 
+  /*
+  returns should be Integer
+   */
   @Test
   def size(): Unit = {
     val records = runOnDemoGraph(
@@ -223,6 +234,9 @@ class B_Scalar extends TestBase {
     Assert.assertEquals(3, records.head("fof").asInstanceOf[LynxValue].value)
   }
 
+  /*
+  size(a.name) should be Integer
+   */
   @Test
   def sizeAppliedToString(): Unit = {
     val records = runOnDemoGraph(
@@ -285,6 +299,9 @@ class B_Scalar extends TestBase {
     Assert.assertEquals(null, records(0)("toFloat('not a number')").asInstanceOf[LynxValue].value)
   }
 
+  /*
+  returns should be Integer
+   */
   @Test
   def toInteger(): Unit = {
     val records = runOnDemoGraph(

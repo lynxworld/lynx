@@ -4,7 +4,7 @@ import org.grapheco.lynx.TestBase
 import org.grapheco.lynx.physical.{NodeInput, RelationshipInput, StoredNodeInputRef}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
-import org.grapheco.lynx.types.property.LynxString
+import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
 import org.grapheco.lynx.types.structural._
 import org.junit.{Assert, Before, Test}
 
@@ -14,15 +14,13 @@ import scala.collection.mutable.ArrayBuffer
  * @program: lynx
  * @description:
  * @author: Wangkainan
- * @create: 2022-02-29 14:20
+ * @create: 2022-02-31 14:01
  */
-
-
-class A_Predicate extends TestBase {
+class D_List extends TestBase {
   val nodesInput = ArrayBuffer[(String, NodeInput)]()
   val relationsInput = ArrayBuffer[(String, RelationshipInput)]()
 
-  val n1 = TestNode(TestId(1), Seq.empty,
+  val n1 = TestNode(TestId(1), Seq(LynxNodeLabel("Person"), LynxNodeLabel("Developer")),
     Map(LynxPropertyKey("name") -> LynxValue("Alice"),
       LynxPropertyKey("age") -> LynxValue("38"),
       LynxPropertyKey("eyes") -> LynxValue("brown")))
@@ -43,9 +41,6 @@ class A_Predicate extends TestBase {
       LynxPropertyKey("age") -> LynxValue("41"),
       LynxPropertyKey("eyes") -> LynxValue("brown"),
       LynxPropertyKey("array") -> LynxValue(Array("one", "two", "three"))))
-  val n6 = TestNode(TestId(6), Seq.empty,
-    Map(LynxPropertyKey("age") -> LynxValue("61"),
-      LynxPropertyKey("eyes") -> LynxValue("brown")))
 
   val r1 = TestRelationship(TestId(1), TestId(1), TestId(2), Option(LynxRelationshipType("KNOWS")), Map.empty)
   val r2 = TestRelationship(TestId(2), TestId(1), TestId(3), Option(LynxRelationshipType("KNOWS")), Map.empty)
@@ -60,7 +55,6 @@ class A_Predicate extends TestBase {
     nodesInput.append(("n3", NodeInput(n3.labels, n3.props.toSeq)))
     nodesInput.append(("n4", NodeInput(n4.labels, n4.props.toSeq)))
     nodesInput.append(("n5", NodeInput(n5.labels, n5.props.toSeq)))
-    nodesInput.append(("n6", NodeInput(n6.labels, n6.props.toSeq)))
 
     relationsInput.append(("r1", RelationshipInput(Seq(r1.relationType.get), Seq.empty, StoredNodeInputRef(r1.startNodeId), StoredNodeInputRef(r1.endNodeId))))
     relationsInput.append(("r2", RelationshipInput(Seq(r2.relationType.get), Seq.empty, StoredNodeInputRef(r2.startNodeId), StoredNodeInputRef(r2.endNodeId))))
@@ -75,99 +69,155 @@ class A_Predicate extends TestBase {
     )
   }
 
+  /*
+       deprecated in cypher 3.5
+      */
   @Test
-  def all(): Unit = {
+  def extract(): Unit = {
     val records = runOnDemoGraph(
       """
-        |MATCH  p =(a)-[*1..3]->(b)
-        |WHERE a.name = 'Alice' AND b.name = 'Daniel' AND ALL (x IN nodes(p) WHERE x.age > 30)
-        |RETURN p
-        |""".stripMargin).records().map(f => f("p").asInstanceOf[LynxValue].value).toArray
+        |MATCH p =(a)-->(b)-->(c)
+        |WHERE a.name = 'Alice' AND b.name = 'Bob' AND c.name = 'Daniel'
+        |RETURN extract(n IN nodes(p)| n.age) AS extracted
+        |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    //TODO   should be "(0)-[KNOWS,1]->(2)-[KNOWS,3]->(3)"
+    Assert.assertEquals(List(38, 25, 54), records(0)("extracted").asInstanceOf[LynxValue].value)
   }
 
+  /*
+       deprecated in cypher 3.5
+      */
   @Test
-  def any(): Unit = {
+  def filter(): Unit = {
+
     val records = runOnDemoGraph(
       """
         |MATCH (a)
-        |WHERE a.name = 'Eskil' AND ANY (x IN a.array WHERE x = 'one')
-        |RETURN a.name, a.array
+        |WHERE a.name = 'Eskil'
+        |RETURN a.array, filter(x IN a.array WHERE size(x)= 3)
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals("Eskil", records(0)("a.name").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(List(LynxString("one"), LynxString("two"), LynxString("three")), records.head("a.array").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(List(LynxString("one"), LynxString("two"), LynxString("three")), records(0)("a.array").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(List(LynxString("one"), LynxString("two")), records(0)("filter").asInstanceOf[LynxValue].value)
   }
 
   @Test
-  def exists_1(): Unit = {
+  def keys(): Unit = {
+
     val records = runOnDemoGraph(
       """
-        |MATCH n
-        |WHERE exists(n.name)
-        |RETURN n.name AS name, exists((n)-[:MARRIED]->()) AS is_married
+        |MATCH (a)
+        |WHERE a.name = 'Alice'
+        |RETURN keys(a)
         |""".stripMargin).records().toArray
 
-    Assert.assertEquals(5, records.length)
-    for (record <- records) {
-      record("name").asInstanceOf[LynxValue].value match {
-        case "Alice" => Assert.assertEquals(false, record("is_married").asInstanceOf[LynxValue].value)
-        case "Bob" => Assert.assertEquals(true, record("is_married").asInstanceOf[LynxValue].value)
-        case "Charlie" => Assert.assertEquals(false, record("is_married").asInstanceOf[LynxValue].value)
-        case "Daniel" => Assert.assertEquals(false, record("is_married").asInstanceOf[LynxValue].value)
-        case "Eskil" => Assert.assertEquals(false, record("is_married").asInstanceOf[LynxValue].value)
-        case _ => Assert.assertEquals(true,false )
-      }
-    }
+    val array_Expect = List(LynxString("name"), LynxString("eyes"), LynxString("age"))
+    val array_Actual = records(0)("keys(a)").asInstanceOf[LynxList].value
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(array_Expect.diff(array_Actual), array_Actual.diff(array_Expect))
   }
 
   @Test
-  def exists_2(): Unit = {
+  def labels(): Unit = {
+
     val records = runOnDemoGraph(
       """
-        |MATCH (a),(b)
-        |WHERE exists(a.name) AND NOT exists(b.name)
-        |OPTIONAL MATCH (c:DoesNotExist)
-        |RETURN a.name AS a_name, b.name AS b_name, exists(b.name) AS b_has_name, c.name AS c_name, exists(c.name) AS c_has_name
-        |ORDER BY a_name, b_name, c_name
-        |LIMIT 1
+        |MATCH (a)
+        |WHERE a.name = 'Alice'
+        |RETURN labels(a)
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals("Alice", records(0)("is_married").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(null, records(0)("b_name").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(false, records(0)("b_has_name").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(null, records(0)("c_name").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(null, records(0)("c_has_name").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(List(LynxString("Person"), LynxString("Developer")), records(0)("labels(a)").asInstanceOf[LynxValue].value)
   }
 
   @Test
-  def none(): Unit = {
+  def nodes(): Unit = {
+
     val records = runOnDemoGraph(
       """
-        |MATCH p =(n)-[*1..3]->(b)
-        |WHERE n.name = 'Alice' AND NONE (x IN nodes(p) WHERE x.age = 25)
-        |RETURN p
-        |""".stripMargin).records().map(f => f("p").asInstanceOf[LynxValue].value).toArray
-
-    Assert.assertEquals(2, records.length)
-    Assert.assertEquals(List(n1, LynxList(List(r2, n2, LynxList(List())))), records(0))
-    Assert.assertEquals(List(n1, LynxList(List(r2, n2, LynxList(List(r3, n2, LynxList(List())))))), records(1))
-  }
-
-  @Test
-  def signle(): Unit = {
-    val records = runOnDemoGraph(
-      """
-        |MATCH p =(n)-->(b)
-        |WHERE n.name = 'Alice' AND SINGLE (var IN nodes(p) WHERE var.eyes = 'blue')
-        |RETURN p
+        |MATCH p =(a)-->(b)-->(c)
+        |WHERE a.name = 'Alice' AND c.name = 'Eskil'
+        |RETURN nodes(p)
         |""".stripMargin).records().toArray
+
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(List(n1, LynxList(List(r1, n2, LynxList(List())))), records(0))
+    Assert.assertEquals(List(n1, n3, n5), records(0)("nodes(p)").asInstanceOf[LynxList].value)
+  }
+
+  @Test
+  def range(): Unit = {
+
+    val records = runOnDemoGraph(
+      """
+        |RETURN range(0, 10), range(2, 18, 3)
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(List(LynxInteger(0), LynxInteger(1), LynxInteger(2), LynxInteger(3), LynxInteger(4), LynxInteger(5),
+      LynxInteger(6), LynxInteger(7), LynxInteger(8), LynxInteger(9), LynxInteger(10)), records(0)("range(0, 10)").asInstanceOf[LynxValue].value)
+
+    Assert.assertEquals(List(LynxInteger(2), LynxInteger(5), LynxInteger(8), LynxInteger(11), LynxInteger(14), LynxInteger(17)),
+      records(0)("range(2, 18, 3)").asInstanceOf[LynxValue].value)
+  }
+
+  @Test
+  def reduce(): Unit = {
+
+    val records = runOnDemoGraph(
+      """
+        |MATCH p =(a)-->(b)-->(c)
+        |WHERE a.name = 'Alice' AND b.name = 'Bob' AND c.name = 'Daniel'
+        |RETURN reduce(totalAge = 0, n IN nodes(p)| totalAge + n.age) AS reduction
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(117, records(0)("reduction").asInstanceOf[LynxValue].value)
+  }
+
+  @Test
+  def relationships(): Unit = {
+
+    val records = runOnDemoGraph(
+      """
+        |MATCH p =(a)-->(b)-->(c)
+        |WHERE a.name = 'Alice' AND c.name = 'Eskil'
+        |RETURN relationships(p)
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(List(r2,r5), records(0)("relationships(p)").asInstanceOf[LynxValue].value)
+  }
+
+  @Test
+  def reverse(): Unit = {
+
+    val records = runOnDemoGraph(
+      """
+        |WITH [4923,'abc',521, NULL , 487] AS ids
+        |RETURN reverse(ids)
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(List(487,null,521,"abc",4923), records(0)("relationships(p)").asInstanceOf[LynxValue].value)
+  }
+
+  @Test
+  def tail(): Unit = {
+
+    val records = runOnDemoGraph(
+      """
+        |MATCH (a)
+        |WHERE a.name = 'Eskil'
+        |RETURN a.array, tail(a.array)
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(List(LynxString("one"), LynxString("two"), LynxString("three")), records(0)("a.array").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(List(LynxString("one"), LynxString("two")), records(0)("tail(a.array)").asInstanceOf[LynxValue].value)
+
   }
 }
 

@@ -89,6 +89,9 @@ class C_Aggregating extends TestBase {
     Assert.assertEquals("P1DT2H22.5S", records(0)("avg(dur)").asInstanceOf[LynxValue].value)
   }
 
+  /*
+   <null> as the value returned
+   */
   @Test
   def collect(): Unit = {
     val records = runOnDemoGraph(
@@ -98,15 +101,19 @@ class C_Aggregating extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    for (record <- records.head("collect(n.age)").asInstanceOf[LynxList].value.toList) {
-      val index = record.value
-      index match {
-        case 13 => Assert.assertEquals("13", index)
-        case 44 => Assert.assertEquals("44", index)
-        case 33 => Assert.assertEquals("33", index)
-        case _ => Assert.assertEquals(true, false)
-      }
-    }
+    val array_Expect = List(LynxString("13"), LynxString("44"), LynxString("33"))
+    val array_Actual = records.head("collect(n.age)").asInstanceOf[LynxList].value.toList
+    Assert.assertEquals(array_Expect.diff(array_Actual), array_Actual.diff(array_Expect))
+
+    //    for (record <- records.head("collect(n.age)").asInstanceOf[LynxList].value.toList) {
+    //      val index = record.value
+    //      index match {
+    //        case 13 => Assert.assertEquals("13", index)
+    //        case 44 => Assert.assertEquals("44", index)
+    //        case 33 => Assert.assertEquals("33", index)
+    //        case _ => Assert.assertEquals(true, false)
+    //      }
+    //    }
   }
 
   @Test
@@ -123,6 +130,9 @@ class C_Aggregating extends TestBase {
     Assert.assertEquals(3, records(0)("count(*)").asInstanceOf[LynxValue].value)
   }
 
+  /*
+  count(*) should be Integer
+   */
   @Test
   def usingCountTotoGroupAndCountRelationshipTypes(): Unit = {
     val records = runOnDemoGraph(
@@ -137,6 +147,9 @@ class C_Aggregating extends TestBase {
   }
 
 
+  /*
+  return should be an Integer
+   */
   @Test
   def usingCountToReturnTheNumberOfValues(): Unit = {
     val records = runOnDemoGraph(
@@ -149,6 +162,9 @@ class C_Aggregating extends TestBase {
     Assert.assertEquals(3, records(0)("count(x)").asInstanceOf[LynxValue].value)
   }
 
+  /*
+    count all values include non-null values
+   */
   @Test
   def countingNonNullValues(): Unit = {
     val records = runOnDemoGraph(
@@ -196,9 +212,13 @@ class C_Aggregating extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(List(LynxInteger(1),LynxInteger(2)), records(0)("max(val)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(List(LynxInteger(1), LynxInteger(2)), records(0)("max(val)").asInstanceOf[LynxValue].value)
   }
 
+
+  /*
+   return should be an Integer
+   */
   @Test
   def max_3(): Unit = {
     val records = runOnDemoGraph(
@@ -232,9 +252,12 @@ class C_Aggregating extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(List(LynxString("a"),LynxString("c"),LynxInteger(23)), records(0)("min(val)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(List(LynxString("a"), LynxString("c"), LynxInteger(23)), records(0)("min(val)").asInstanceOf[LynxValue].value)
   }
 
+  /*
+  no value returned
+   */
   @Test
   def min_3(): Unit = {
     val records = runOnDemoGraph(
@@ -298,7 +321,7 @@ class C_Aggregating extends TestBase {
   }
 
   @Test
-  def  sumNumericValues(): Unit = {
+  def sumNumericValues(): Unit = {
     val records = runOnDemoGraph(
       """
         |MATCH (n:Person)
