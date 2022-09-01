@@ -14,7 +14,7 @@ import scala.collection.mutable.ArrayBuffer
  * @program: lynx
  * @description:
  * @author: Wangkainan
- * @create: 2022-02-29 14:20
+ * @create: 2022-08-29 14:20
  */
 
 
@@ -119,7 +119,7 @@ class A_Predicate extends TestBase {
         case "Charlie" => Assert.assertEquals(false, record("is_married").asInstanceOf[LynxValue].value)
         case "Daniel" => Assert.assertEquals(false, record("is_married").asInstanceOf[LynxValue].value)
         case "Eskil" => Assert.assertEquals(false, record("is_married").asInstanceOf[LynxValue].value)
-        case _ => Assert.assertEquals(true,false )
+        case _ => Assert.assertEquals(true, false)
       }
     }
   }
