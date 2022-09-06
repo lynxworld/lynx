@@ -26,6 +26,7 @@ class B_OptionMatch extends TestBase{
   val m1 = TestNode(TestId(6), Seq(LynxNodeLabel("Movie")), Map(LynxPropertyKey("name")-> LynxValue("Wall Street")))
   val m2 = TestNode(TestId(7), Seq(LynxNodeLabel("Movie")), Map(LynxPropertyKey("name")-> LynxValue("The American President")))
 
+
   val r1 = TestRelationship(TestId(1), TestId(1), TestId(4), Option(LynxRelationshipType("FATHER")), Map.empty)
   val r2 = TestRelationship(TestId(2), TestId(1), TestId(6), Option(LynxRelationshipType("ACTED_IN")), Map.empty)
   val r3 = TestRelationship(TestId(3), TestId(2), TestId(6), Option(LynxRelationshipType("DIRECTED")), Map.empty)
