@@ -204,6 +204,37 @@ class L_Set extends TestBase{
   }
 
   @Test
+  def setAPropertyUsingAParameter(): Unit = {
+    val surName = "Taylor"
+    val records = runOnDemoGraph(
+      s"""
+         |MATCH (n { name: 'Andy' })
+         |SET n.surname = "$surName"
+         |RETURN n.name, n.surname
+         |""".stripMargin).records().toArray
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals("Andy", records.head("n.name").asInstanceOf[LynxValue].value)
+    Assert.assertEquals("Taylor", records.head("n.surname").asInstanceOf[LynxValue].value)
+  }
+
+  @Test
+  def setAllPropertiesUsingAParameter(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |MATCH (n { name: 'Andy' })
+        |SET n = $props
+        |RETURN n.name, n.position, n.age, n.hungry
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals("Andy", records.head("n.name").asInstanceOf[LynxValue].value)
+    Assert.assertEquals("Developer", records.head("n.position").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(null, records.head("n.age").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(null, records.head("n.hungry").asInstanceOf[LynxValue].value)
+  }
+
+  @Test
   def setALabelOnANode(): Unit ={
     val records = runOnDemoGraph(
       """

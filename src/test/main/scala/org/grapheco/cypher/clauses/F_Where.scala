@@ -271,6 +271,18 @@ class F_Where extends TestBase{
     Assert.assertEquals(List("KNOWS", 2012), List(res(1)("type(r)"), res(1)("r.since")).map(f => f.asInstanceOf[LynxValue].value))
   }
 
+  @Test
+  def iNOperator(): Unit = {
+    val res = runOnDemoGraph(
+      """
+        |MATCH (a)
+        |WHERE a.name IN ['Peter', 'Timothy']
+        |RETURN a.name, a.age
+        |""".stripMargin).records().toArray
+    Assert.assertEquals(2, res.length)
+    Assert.assertEquals(List("Timothy", 25), List(res(0)("a.name"), res(0)("a.age")).map(f => f.asInstanceOf[LynxValue].value))
+    Assert.assertEquals(List("Peter", 35), List(res(1)("a.name"), res(1)("a.age")).map(f => f.asInstanceOf[LynxValue].value))
+  }
   // manual 6.2
   @Test
   def usingExistentialSubqueriesInWHERE(): Unit ={
