@@ -142,4 +142,27 @@ class J_Create extends TestBase{
     Assert.assertEquals(numNode + 3, all_nodes.size)
     Assert.assertEquals(numRels + 2, all_rels.size)
   }
+
+  def createNodeWithAParameterForTheProperties(): Unit = {
+    val num = nodesInput.length
+    runOnDemoGraph(
+      """
+        |CREATE (n:Person $props)
+        |RETURN n
+        |""".stripMargin)
+    Assert.assertEquals(num + 1, all_nodes.size)
+  }
+
+  def createMultipleNodeWithAParameterForTheProperties(): Unit = {
+    val numNode = nodesInput.length
+    val numRels = relationsInput.length
+    runOnDemoGraph(
+      """
+        |UNWIND $props AS map
+        |CREATE (n)
+        |SET n = map
+        |""".stripMargin)
+    Assert.assertEquals(numNode + 2, all_nodes.size)
+    Assert.assertEquals(numRels + 4, all_rels.size)
+  }
 }

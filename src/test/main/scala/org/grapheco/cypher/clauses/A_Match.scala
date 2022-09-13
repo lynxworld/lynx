@@ -25,7 +25,8 @@ class A_Match extends TestBase{
   val n4 = TestNode(TestId(4), Seq(LynxNodeLabel("person")), Map(LynxPropertyKey("name")-> LynxValue("Martin Sheen")))
   val n5 = TestNode(TestId(5), Seq(LynxNodeLabel("person")), Map(LynxPropertyKey("name")-> LynxValue("Rob Reiner")))
   val m1 = TestNode(TestId(6), Seq(LynxNodeLabel("Movie")), Map(LynxPropertyKey("title")-> LynxValue("Wall Street")))
-  val m2 = TestNode(TestId(7), Seq(LynxNodeLabel("Movie")), Map(LynxPropertyKey("title")-> LynxValue("The American President")))
+  val m2 = TestNode(TestId(7), Seq(LynxNodeLabel("Movie")), Map(LynxPropertyKey("title")-> LynxValue("The American President"))
+
 
   val r1 = TestRelationship(TestId(1), TestId(1), TestId(6), Option(LynxRelationshipType("DIRECTED")), Map.empty)
   val r2 = TestRelationship(TestId(2), TestId(2), TestId(6), Option(LynxRelationshipType("ACTED_IN")), Map(LynxPropertyKey("role")->LynxValue("Gordon Gekko")))
@@ -302,6 +303,20 @@ class A_Match extends TestBase{
     Assert.assertEquals(1, records.length)
   }
 
+  @Test
+  def singleShortestPathWithPredicates(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |MATCH
+        |  (charlie:Person { name: 'Charlie Sheen' }),
+        |  (martin:Person { name: 'Martin Sheen' }),
+        |  p = shortestPath((charlie)-[*]-(martin))
+        |WHERE NONE (r IN relationships(p) WHERE type(r)= 'FATHER')
+        |RETURN p
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(1, records.length)
+  }
   @Test
   def allShortestPath(): Unit ={
     val records = runOnDemoGraph(
