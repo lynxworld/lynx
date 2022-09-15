@@ -53,7 +53,11 @@ class TemporalValues extends TestBase {
    */
   @Test
   def AccessComponentOfTimeEx1(): Unit = {
-    val records = runOnDemoGraph("WITH date({ year:1984, month:10, day:11 }) AS d\nRETURN d.year, d.quarter, d.month, d.week, d.weekYear, d.day, d.ordinalDay, d.dayOfWeek, d.dayOfQuarter")
+    val records = runOnDemoGraph(
+      """
+        |WITH date({ year:1984, month:10, day:11 }) AS d
+        |RETURN d.year, d.quarter, d.month, d.week, d.weekYear, d.day, d.ordinalDay, d.dayOfWeek, d.dayOfQuarter
+        |""".stripMargin)
       .records().map(f => Map(
       "d.year" -> f("d.year").value, "d.quarter" -> f("d.quarter").value, "d.month" -> f("d.month").value,
       "d.week" -> f("d.week").value, "d.weekYear" -> f("d.weekYear").value, "d.day" -> f("d.day").value,
@@ -65,7 +69,11 @@ class TemporalValues extends TestBase {
 
   @Test
   def AccessComponentOfTimeEx2(): Unit = {
-    val records = runOnDemoGraph("WITH datetime({ year:1984, month:11, day:11, hour:12, minute:31, second:14, nanosecond: 645876123, timezone:'Europe/Stockholm' }) AS d\nRETURN d.year, d.quarter, d.month, d.week, d.weekYear, d.day, d.ordinalDay, d.dayOfWeek, d.dayOfQuarter")
+    val records = runOnDemoGraph(
+      """
+        |WITH datetime({ year:1984, month:11, day:11, hour:12, minute:31, second:14, nanosecond: 645876123, timezone:'Europe/Stockholm' }) AS d
+        |RETURN d.year, d.quarter, d.month, d.week, d.weekYear, d.day, d.ordinalDay, d.dayOfWeek, d.dayOfQuarter
+        |""".stripMargin)
       .records().map(f => Map(
       "d.year" -> f("d.year").value, "d.quarter" -> f("d.quarter").value, "d.month" -> f("d.month").value,
       "d.week" -> f("d.week").value, "d.weekYear" -> f("d.weekYear").value, "d.day" -> f("d.day").value,
@@ -77,7 +85,11 @@ class TemporalValues extends TestBase {
 
   @Test
   def AccessComponentOfTimeEx3(): Unit = {
-    val records = runOnDemoGraph("WITH datetime({ year:1984, month:11, day:11, hour:12, minute:31, second:14, nanosecond: 645876123, timezone:'Europe/Stockholm' }) AS d\nRETURN d.hour, d.minute, d.second, d.millisecond, d.microsecond, d.nanosecond")
+    val records = runOnDemoGraph(
+      """
+        |WITH datetime({ year:1984, month:11, day:11, hour:12, minute:31, second:14, nanosecond: 645876123, timezone:'Europe/Stockholm' }) AS d
+        |RETURN d.hour, d.minute, d.second, d.millisecond, d.microsecond, d.nanosecond
+        |""".stripMargin)
       .records().map(f => Map(
       "d.hour" -> f("d.hour").value, "d.minute" -> f("d.minute").value, "d.second" -> f("d.second").value,
       "d.millisecond" -> f("d.millisecond").value, "d.microsecond" -> f("d.microsecond").value, "d.nanosecond" -> f("d.nanosecond").value,
@@ -94,7 +106,11 @@ class TemporalValues extends TestBase {
 
   @Test
   def AccessComponentOfTimeEx4(): Unit = {
-    val records = runOnDemoGraph("WITH datetime({ year:1984, month:11, day:11, hour:12, minute:31, second:14, nanosecond: 645876123, timezone:'Europe/Stockholm' }) AS d\nRETURN d.timezone, d.offset, d.offsetMinutes, d.epochSeconds, d.epochMillis")
+    val records = runOnDemoGraph(
+      """
+        |WITH datetime({ year:1984, month:11, day:11, hour:12, minute:31, second:14, nanosecond: 645876123, timezone:'Europe/Stockholm' }) AS d
+        |RETURN d.timezone, d.offset, d.offsetMinutes, d.epochSeconds, d.epochMillis
+        |""".stripMargin)
       .records().map(f => Map(
       "d.timezone" -> f("d.timezone").value.toString, "d.offset" -> f("d.offset").value.toString,
       "d.offsetMinutes" -> f("d.offsetMinutes").value.toString, "d.epochSeconds" -> f("d.epochSeconds").value.toString,
@@ -145,7 +161,11 @@ class TemporalValues extends TestBase {
 
   @Test
   def accessDurationEx1(): Unit = {
-    val records = runOnDemoGraph("WITH duration({ years: 1, months:5, days: 111, minutes: 42 }) AS d\nRETURN d.years, d.quarters, d.quartersOfYear, d.months, d.monthsOfYear, d.monthsOfQuarter")
+    val records = runOnDemoGraph(
+      """
+        |WITH duration({ years: 1, months:5, days: 111, minutes: 42 }) AS d
+        |RETURN d.years, d.quarters, d.quartersOfYear, d.months, d.monthsOfYear, d.monthsOfQuarter
+        |""".stripMargin)
       .records().map(f => Map(
       "d.year" -> f("d.year").value, "d.quarters" -> f("d.quarters").value,
       "d.quartersOfYear" -> f("d.quartersOfYear").value, "d.months" -> f("d.months").value,
@@ -179,7 +199,11 @@ class TemporalValues extends TestBase {
 
   @Test
   def accessDurationEx3(): Unit = {
-    val records = runOnDemoGraph("WITH duration({ years: 1, months:1, days:1, hours: 1, minutes: 1, seconds: 1, nanoseconds: 111111111 }) AS d\nRETURN d.hours, d.minutes, d.seconds, d.milliseconds, d.microseconds, d.nanoseconds")
+    val records = runOnDemoGraph(
+      """
+        |WITH duration({ years: 1, months:1, days:1, hours: 1, minutes: 1, seconds: 1, nanoseconds: 111111111 }) AS d
+        |RETURN d.hours, d.minutes, d.seconds, d.milliseconds, d.microseconds, d.nanoseconds
+        |""".stripMargin)
       .records().map(f => Map(
       "d.hours" -> f("d.hours").value, "d.minutes" -> f("d.minutes").value,
       "d.seconds" -> f("d.seconds").value, "d.milliseconds" -> f("d.milliseconds").value,
@@ -198,7 +222,11 @@ class TemporalValues extends TestBase {
 
   @Test
   def accessDurationEx4(): Unit = {
-    val records = runOnDemoGraph("WITH duration({ years: 1, months:1, days:1, hours: 1, minutes: 1, seconds: 1, nanoseconds: 111111111 }) AS d\nRETURN d.minutesOfHour, d.secondsOfMinute, d.millisecondsOfSecond, d.microsecondsOfSecond, d.nanosecondsOfSecond")
+    val records = runOnDemoGraph(
+      """
+        |WITH duration({ years: 1, months:1, days:1, hours: 1, minutes: 1, seconds: 1, nanoseconds: 111111111 }) AS d
+        |RETURN d.minutesOfHour, d.secondsOfMinute, d.millisecondsOfSecond, d.microsecondsOfSecond, d.nanosecondsOfSecond
+        |""".stripMargin)
       .records().map(f => Map(
       "d.minutesOfHour" -> f("d.minutesOfHour").value,
       "d.secondsOfMinutes" -> f("d.secondsOfMinutes").value,
@@ -239,7 +267,15 @@ class TemporalValues extends TestBase {
         "col" -> "theDuration", "result" -> "PT74H54M"),
       Map("cypher" -> "RETURN duration({ hours: 3, minutes: 16 })/ 2 AS theDuration",
         "col" -> "theDuration", "result" -> "PT1H38M"),
-      Map("cypher" -> "WITH datetime('2015-07-21T21:40:32.142+0100') AS date1, datetime('2015-07-21T17:12:56.333+0100') AS date2\nRETURN\nCASE\nWHEN date1 < date2\nTHEN date1 + duration(\"P1D\")> date2\nELSE date2 + duration(\"P1D\")> date1 END AS lessThanOneDayApart",
+      Map("cypher" ->
+        """
+          |WITH datetime('2015-07-21T21:40:32.142+0100') AS date1, datetime('2015-07-21T17:12:56.333+0100') AS date2
+          |RETURN
+          |CASE
+          |WHEN date1 < date2
+          |THEN date1 + duration("P1D")> date2
+          |ELSE date2 + duration("P1D")> date1 END AS lessThanOneDayApart
+          |""".stripMargin,
         "col" -> "lessThanOneDayApart", "result" -> "true"),
       Map("cypher" -> "RETURN [\"Jan\", \"Feb\", \"Mar\", \"Apr\", \"May\", \"Jun\", \"Jul\", \"Aug\", \"Sep\", \"Oct\", \"Nov\", \"Dec\"][date().month-1] AS month",
         "col" -> "month", "result" -> "Sep")

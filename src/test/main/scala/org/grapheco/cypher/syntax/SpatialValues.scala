@@ -7,7 +7,11 @@ import org.junit.{Assert, Test}
 class SpatialValues extends TestBase{
   @Test
   def GeoCoordinateRefSys():Unit={
-    val records = runOnDemoGraph("WITH point({ latitude:toFloat('13.43'), longitude:toFloat('56.21')}) AS p1, point({ latitude:toFloat('13.10'), longitude:toFloat('56.41')}) AS p2\nRETURN toInteger(distance(p1,p2)/1000) AS km")
+    val records = runOnDemoGraph(
+      """
+        |WITH point({ latitude:toFloat('13.43'), longitude:toFloat('56.21')}) AS p1, point({ latitude:toFloat('13.10'), longitude:toFloat('56.41')}) AS p2
+        |RETURN toInteger(distance(p1,p2)/1000) AS km
+        |""".stripMargin)
       .records().map(f=>f("km").value).toArray
     Assert.assertEquals(42,records(0))
   }
@@ -39,7 +43,11 @@ class SpatialValues extends TestBase{
 
   @Test
   def accessPoint2D():Unit={
-    val records = runOnDemoGraph("WITH point({ x:3, y:4 }) AS p\nRETURN p.x, p.y, p.crs, p.srid").records().map(f=>Map(
+    val records = runOnDemoGraph(
+      """
+        |WITH point({ x:3, y:4 }) AS p
+        |RETURN p.x, p.y, p.crs, p.srid
+        |""".stripMargin).records().map(f=>Map(
       "p.x"->f("p.x"),
       "p.y"->f("p.y"),
       "p.crs"->f("p.crs"),
@@ -60,7 +68,11 @@ class SpatialValues extends TestBase{
 
   @Test
   def accessPoint3D():Unit={
-    val records = runOnDemoGraph("WITH point({ latitude:3, longitude:4, height: 4321 }) AS p\nRETURN p.latitude, p.longitude, p.height, p.x, p.y, p.z, p.crs, p.srid").records().map(f=>Map(
+    val records = runOnDemoGraph(
+      """
+        |WITH point({ latitude:3, longitude:4, height: 4321 }) AS p
+        |RETURN p.latitude, p.longitude, p.height, p.x, p.y, p.z, p.crs, p.srid
+        |""".stripMargin).records().map(f=>Map(
       "p.latitude"->f("p.latitude"),
       "p.longitude"->f("p.longitude"),
       "p.height"->f("p.height"),
@@ -89,7 +101,11 @@ class SpatialValues extends TestBase{
 
   @Test
   def testPointComparability():Unit={
-    val records = runOnDemoGraph("WITH point({ x:3, y:0 }) AS p2d, point({ x:0, y:4, z:1 }) AS p3d\nRETURN distance(p2d,p3d), p2d < p3d, p2d = p3d, p2d <> p3d, distance(p2d,point({ x:p3d.x, y:p3d.y }))").records().map(f=>Map(
+    val records = runOnDemoGraph(
+      """
+        |WITH point({ x:3, y:0 }) AS p2d, point({ x:0, y:4, z:1 }) AS p3d
+        |RETURN distance(p2d,p3d), p2d < p3d, p2d = p3d, p2d <> p3d, distance(p2d,point({ x:p3d.x, y:p3d.y }))
+        |""".stripMargin).records().map(f=>Map(
       "distance(p2d,p3d)"->f("distance(p2d,p3d)"),
       "p2d < p3d"->f("p2d < p3d"),
       "p2d = p3d"->f("p2d = p3d"),

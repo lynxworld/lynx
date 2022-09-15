@@ -32,6 +32,9 @@ class Patterns extends TestBase {
 
   @Before
   def init(): Unit = {
+    all_nodes.clear()
+    all_rels.clear()
+
     nodes.foreach(node => {
       nodeInput.append(("node" + node.id.value, NodeInput(node.labels, node.props.toSeq)))
     })
@@ -48,13 +51,18 @@ class Patterns extends TestBase {
 
   @Test
   def patternMatch():Unit={
-    val records = runOnDemoGraph("MATCH (me)-[:KNOWS*1..2]-(remote_friend)\nWHERE me.name = 'Filipa'\nRETURN remote_friend.name").records().map(f=>f("remote_friend.name").value).toArray
+    val records = runOnDemoGraph(
+      """
+        |MATCH (me)-[:KNOWS*1..2]-(remote_friend)
+        |WHERE me.name = 'Filipa'
+        |RETURN remote_friend.name
+        |""".stripMargin).records().map(f=>f("remote_friend.name").value).toArray
     val expectResult = Array("Dilshad","Anders")
     compareArray(expectResult,records)
   }
 
   /**
-   * compare expect Result with actual Result
+   * compare expectation Result with actual Result
    *
    * @param expectResult
    * @param records

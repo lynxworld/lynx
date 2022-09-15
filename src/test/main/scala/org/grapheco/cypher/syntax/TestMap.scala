@@ -36,6 +36,8 @@ class TestMap extends TestBase {
 
   @Before
   def init(): Unit = {
+    all_nodes.clear()
+    all_rels.clear()
 
     for (i <- 0 to persons.length - 1) {
       nodesInput.append(("p" + i, NodeInput(persons(i).labels, persons(i).props.toSeq)))
@@ -68,21 +70,34 @@ class TestMap extends TestBase {
 
   @Test
   def mapProjectionEx1(): Unit = {
-    val records = runOnDemoGraph("MATCH (actor:Person { name: 'Charlie Sheen' })-[:ACTED_IN]->(movie:Movie)\nRETURN actor { .name, .realName, movies: collect(movie { .title, .year })}")
+    val records = runOnDemoGraph(
+      """
+        |MATCH (actor:Person { name: 'Charlie Sheen' })-[:ACTED_IN]->(movie:Movie)
+        |RETURN actor { .name, .realName, movies: collect(movie { .title, .year })}
+        |""".stripMargin)
       .records().map(f => f("actor").asInstanceOf[LynxMap].value).toArray
     Assert.assertEquals(1, records.length)
   }
 
   @Test
   def mapProjectionEx2(): Unit = {
-    val records = runOnDemoGraph("MATCH (actor:Person)-[:ACTED_IN]->(movie:Movie)\nWITH actor, count(movie) AS nrOfMovies\nRETURN actor { .name, nrOfMovies }")
+    val records = runOnDemoGraph(
+      """
+        |MATCH (actor:Person)-[:ACTED_IN]->(movie:Movie)
+        |WITH actor, count(movie) AS nrOfMovies
+        |RETURN actor { .name, nrOfMovies }
+        |""".stripMargin)
       .records().map(f => f("actor").asInstanceOf[LynxMap].value).toArray
     Assert.assertEquals(2, records.length)
   }
 
   @Test
   def mapProjectionEx3(): Unit = {
-    val records = runOnDemoGraph("MATCH (actor:Person { name: 'Charlie Sheen' })\nRETURN actor { .*, .age }")
+    val records = runOnDemoGraph(
+      """
+        |MATCH (actor:Person { name: 'Charlie Sheen' })
+        |RETURN actor { .*, .age }
+        |""".stripMargin)
       .records().map(f => f("actor").asInstanceOf[LynxMap].value).toArray
     Assert.assertEquals(1, records.length)
   }

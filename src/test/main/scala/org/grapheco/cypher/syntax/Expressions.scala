@@ -27,6 +27,8 @@ class Expressions extends TestBase {
 
   @Before
   def init(): Unit = {
+    all_nodes.clear()
+    all_rels.clear()
     nodeInput.append(("A", NodeInput(A.labels, A.props.toSeq)))
     nodeInput.append(("B", NodeInput(B.labels, B.props.toSeq)))
     nodeInput.append(("C", NodeInput(C.labels, C.props.toSeq)))
@@ -47,21 +49,48 @@ class Expressions extends TestBase {
 
   @Test
   def simpleCASEForm(): Unit = {
-    val records = runOnDemoGraph("MATCH (n)\nRETURN\nCASE n.eyes\nWHEN 'blue'\nTHEN 1\nWHEN 'brown'\nTHEN 2\nELSE 3 END AS result").records().map(f => f("result").value).toArray.sortBy(r => r.asInstanceOf[Long])
+    val records = runOnDemoGraph(
+      """
+        |MATCH (n)
+        |RETURN
+        |CASE n.eyes
+        |WHEN 'blue'
+        |THEN 1
+        |WHEN 'brown'
+        |THEN 2
+        |ELSE 3 END AS result
+        |""".stripMargin).records().map(f => f("result").value).toArray.sortBy(r => r.asInstanceOf[Long])
     val expectResult = Array(2l, 1l, 3l, 2l, 1l).sorted
     compareArray(expectResult,records)
   }
 
   @Test
   def genericCASEForm(): Unit = {
-    val records = runOnDemoGraph("MATCH (n)\nRETURN\nCASE\nWHEN n.eyes = 'blue'\nTHEN 1\nWHEN n.age < 40\nTHEN 2\nELSE 3 END AS result").records().map(f => f("result").value).toArray.sortBy(r => r.asInstanceOf[Long])
+    val records = runOnDemoGraph(
+      """
+        |MATCH (n)
+        |RETURN
+        |CASE
+        |WHEN n.eyes = 'blue'
+        |THEN 1
+        |WHEN n.age < 40
+        |THEN 2
+        |ELSE 3 END AS result
+        |""".stripMargin).records().map(f => f("result").value).toArray.sortBy(r => r.asInstanceOf[Long])
     val expectResult = Array(2l, 1l, 3l, 3l, 1l).sorted
     compareArray(expectResult,records)
   }
 
   @Test
   def diffSimBetweenGeneEx1(): Unit = {
-    val records = runOnDemoGraph("MATCH (n)\nRETURN n.name,\nCASE n.age\nWHEN n.age IS NULL THEN -1\nELSE n.age - 10 END AS age_10_years_ago").records().map(f => {
+    val records = runOnDemoGraph(
+      """
+        |MATCH (n)
+        |RETURN n.name,
+        |CASE n.age
+        |WHEN n.age IS NULL THEN -1
+        |ELSE n.age - 10 END AS age_10_years_ago
+        |""".stripMargin).records().map(f => {
       Map("name" -> f("n.name"), "age_10_years_ago" -> f("age_10_years_ago"))
     }).toArray.sortBy(e => e("name").toString)
     val expectResult = Array(
@@ -81,7 +110,14 @@ class Expressions extends TestBase {
 
   @Test
   def diffSimBetweenGeneEx2(): Unit = {
-    val records = runOnDemoGraph("MATCH (n)\nRETURN n.name,\nCASE \nWHEN n.age IS NULL THEN -1\nELSE n.age - 10 END AS age_10_years_ago").records().map(f => {
+    val records = runOnDemoGraph(
+      """
+        |MATCH (n)
+        |RETURN n.name,
+        |CASE
+        |WHEN n.age IS NULL THEN -1
+        |ELSE n.age - 10 END AS age_10_years_ago
+        |""".stripMargin).records().map(f => {
       Map("name" -> f("n.name"), "age_10_years_ago" -> f("age_10_years_ago"))
     }).toArray.sortBy(e => e("name").toString)
     val expectResult = Array(
