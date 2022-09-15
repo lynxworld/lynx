@@ -101,7 +101,13 @@ class AggregatingFunctions {
    */
   @LynxProcedure(name = "percentileCont")
   def percentileCont(inputs: LynxList, percentile: LynxFloat): LynxFloat ={ // TODO implement it.
-    LynxFloat(0)
+    if(percentile.value>1||percentile.value<0){
+      throw ProcedureException("percentile should in range 0 to 1\n")
+    }
+    val inputFilter = inputs.value.filter(e=>e!=LynxNull).map(e=>e.value.toString.toFloat).sorted
+    val x:Double = 1+(inputFilter.length-1)*percentile.value
+    val k:Int = math.floor(x).toInt
+    LynxFloat(inputFilter(k-1)+(x-k)*(inputFilter(k)-inputFilter(k-1)))
   }
 
   // percentileDisc, stDev, stDevP
@@ -133,4 +139,21 @@ class AggregatingFunctions {
       if (firstIsNum.get) LynxFloat(numSum) else LynxDuration(durSum)
     } else { LynxNull }
   }
+
+//  @LynxProcedure(name = "stDev")
+//  def stDev(): Unit ={
+//
+//  }
+//
+//  @LynxProcedure(name = "stDevP")
+//  def stDevP(): Unit ={
+//
+//  }
+//
+//  @LynxProcedure(name = "percentileDisc")
+//  def percentileDisc(): Unit ={
+//
+//  }
+
+
 }

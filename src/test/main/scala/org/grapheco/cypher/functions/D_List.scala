@@ -197,11 +197,11 @@ class D_List extends TestBase {
     val records = runOnDemoGraph(
       """
         |WITH [4923,'abc',521, NULL , 487] AS ids
-        |RETURN reverse(ids)
+        |RETURN max(ids)
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(List(487,null,521,"abc",4923), records(0)("relationships(p)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(List(487,null,521,"abc",4923), records(0)("reverse(ids)").asInstanceOf[LynxValue].value)
   }
 
   @Test

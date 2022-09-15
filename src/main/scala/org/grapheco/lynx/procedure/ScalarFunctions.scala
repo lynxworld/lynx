@@ -253,4 +253,6 @@ class ScalarFunctions(graphModel: GraphModel) {
     //    }
   }
 
+
+
 }

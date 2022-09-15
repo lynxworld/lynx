@@ -299,8 +299,9 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
     expr match {
       case fe: ProcedureExpression =>
         if (fe.aggregating) {
-          val argsList = ecs.map(eval(fe.args.head)(_)).toList //todo: ".head": any multi-args situation?
-          fe.procedure.execute(Seq(LynxList(argsList)))
+          val listArgs = LynxList(ecs.map(eval(fe.args.head)(_)).toList) //todo: ".head": any multi-args situation?
+          val otherArgs = fe.args.drop(1).map(eval(_)(ecs.head)) // 2022.09.15: Added handling of other args, but the default first one is list
+          fe.procedure.execute( Seq(listArgs) ++ otherArgs)
         } else {
           throw ProcedureException("aggregate by nonAggregating procedure.")
         }

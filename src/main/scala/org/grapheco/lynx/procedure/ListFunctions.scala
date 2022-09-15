@@ -80,4 +80,16 @@ class ListFunctions {
   }
 
   // TODO : reverse() tail()
+
+  @LynxProcedure(name = "reverse")
+  def reverse(inputs:LynxList):LynxList={
+    inputs
+  }
+
+  @LynxProcedure(name = "tail")
+  def tail(): Unit ={
+    ???
+  }
+
+
 }
