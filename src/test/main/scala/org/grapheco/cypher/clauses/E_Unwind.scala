@@ -135,4 +135,18 @@ class E_Unwind extends TestBase{
         |""".stripMargin).records().toArray
     Assert.assertEquals(0, res.length)
   }
+
+  @Test
+  def creatingNodeFromAListParameter(): Unit = {
+    val res = runOnDemoGraph(
+      """
+        |UNWIND $events AS event
+        |MERGE (y:Year { year: event.year })
+        |MERGE (y)<-[:IN]-(e:Event { id: event.id })
+        |RETURN e.id AS x
+        |ORDER BY x
+        |""".stripMargin).records().toArray
+    Assert.assertEquals(1L, res(0)("x").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(2L, res(1)("x").asInstanceOf[LynxValue].value)
+  }
 }
