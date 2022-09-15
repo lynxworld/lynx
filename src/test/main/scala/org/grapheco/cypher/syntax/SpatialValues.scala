@@ -9,7 +9,6 @@ class SpatialValues extends TestBase{
   def GeoCoordinateRefSys():Unit={
     val records = runOnDemoGraph("WITH point({ latitude:toFloat('13.43'), longitude:toFloat('56.21')}) AS p1, point({ latitude:toFloat('13.10'), longitude:toFloat('56.41')}) AS p2\nRETURN toInteger(distance(p1,p2)/1000) AS km")
       .records().map(f=>f("km").value).toArray
-
     Assert.assertEquals(42,records(0))
   }
 
@@ -19,6 +18,7 @@ class SpatialValues extends TestBase{
       .records().map(f=>Map("bad"->f("bad"), "good"->f("good"))).toArray
 
     val expectResult = Map("bad"->null, "good"->LynxValue(5.0))
+
     expectResult.foreach(f=>{
       Assert.assertEquals(f._2,records(0)(f._1))
     })

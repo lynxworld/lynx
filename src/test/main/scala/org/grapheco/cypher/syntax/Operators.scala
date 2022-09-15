@@ -8,6 +8,7 @@ import org.junit.{Assert, Test}
 
 import java.time.{LocalDate, LocalDateTime}
 
+
 class Operators extends TestBase {
 
   /**
@@ -242,7 +243,6 @@ class Operators extends TestBase {
     records = runOnDemoGraph("RETURN [1, 2] IN [1, 2] AS inList")
       .records().map(f => f("inList").value).toArray
     Assert.assertEquals(false, records(0))
-
   }
 
   /**

@@ -49,20 +49,14 @@ class Expressions extends TestBase {
   def simpleCASEForm(): Unit = {
     val records = runOnDemoGraph("MATCH (n)\nRETURN\nCASE n.eyes\nWHEN 'blue'\nTHEN 1\nWHEN 'brown'\nTHEN 2\nELSE 3 END AS result").records().map(f => f("result").value).toArray.sortBy(r => r.asInstanceOf[Long])
     val expectResult = Array(2l, 1l, 3l, 2l, 1l).sorted
-    Assert.assertEquals(expectResult.length, records.length)
-    for (i <- 0 to records.length - 1) {
-      Assert.assertEquals(expectResult(i), records(i))
-    }
+    compareArray(expectResult,records)
   }
 
   @Test
   def genericCASEForm(): Unit = {
     val records = runOnDemoGraph("MATCH (n)\nRETURN\nCASE\nWHEN n.eyes = 'blue'\nTHEN 1\nWHEN n.age < 40\nTHEN 2\nELSE 3 END AS result").records().map(f => f("result").value).toArray.sortBy(r => r.asInstanceOf[Long])
     val expectResult = Array(2l, 1l, 3l, 3l, 1l).sorted
-    Assert.assertEquals(expectResult.length, records.length)
-    for (i <- 0 to records.length - 1) {
-      Assert.assertEquals(expectResult(i), records(i))
-    }
+    compareArray(expectResult,records)
   }
 
   @Test
@@ -102,6 +96,21 @@ class Expressions extends TestBase {
     for (i <- 0 to records.length - 1) {
       Assert.assertEquals(LynxValue(expectResult(i)("name")), records(i)("name"))
       Assert.assertEquals(LynxValue(expectResult(i)("age_10_years_ago")), records(i)("age_10_years_ago"))
+    }
+  }
+
+
+  /**
+   * compare expect Result with actual Result
+   *
+   * @param expectResult
+   * @param records
+   * @tparam A
+   */
+  def compareArray[A](expectResult: Array[A], records: Array[Any]): Unit = {
+    Assert.assertEquals(expectResult.length, records.length)
+    for (i <- 0 to records.length - 1) {
+      Assert.assertEquals(expectResult(i), records(i))
     }
   }
 }

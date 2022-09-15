@@ -2,10 +2,11 @@ package org.grapheco.cypher.syntax
 
 import org.grapheco.lynx.TestBase
 import org.grapheco.lynx.physical.{NodeInput, RelationshipInput, StoredNodeInputRef}
+import org.grapheco.lynx.runner.GraphModel
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.structural._
-import org.junit.{Assert, Before, Test}
+import org.junit.{Assert, Before, BeforeClass, Test}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -33,7 +34,6 @@ class TestMap extends TestBase {
     TestRelationship(TestId(5), TestId(2), TestId(5), Option(LynxRelationshipType("ACTED_IN")), Map.empty)
   )
 
-
   @Before
   def init(): Unit = {
 
@@ -55,6 +55,7 @@ class TestMap extends TestBase {
       }
     )
   }
+
 
   @Test
   def literalMap(): Unit = {

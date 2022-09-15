@@ -15,7 +15,8 @@ class TemporalValues extends TestBase {
   def temporalInstantsEx1(): Unit = {
     val records = runOnDemoGraph("RETURN datetime('2015-06-24T12:50:35.556+0100') AS theDateTime")
       .records().map(f => f("theDateTime").asInstanceOf[LynxDateTime]).toArray
-    /*how to init Lynx temporal class by 2015-06-24T12:50:35.556+0100 */
+
+    /*how to create Lynx temporal object by 2015-06-24T12:50:35.556+0100 */
     Assert.assertEquals(LynxDateTime(ZonedDateTime.parse("2015-06-24T12:50:35.556+0100")), records(0))
   }
 
@@ -61,6 +62,7 @@ class TemporalValues extends TestBase {
     Assert.assertEquals(1, records.length)
   }
 
+
   @Test
   def AccessComponentOfTimeEx2(): Unit = {
     val records = runOnDemoGraph("WITH datetime({ year:1984, month:11, day:11, hour:12, minute:31, second:14, nanosecond: 645876123, timezone:'Europe/Stockholm' }) AS d\nRETURN d.year, d.quarter, d.month, d.week, d.weekYear, d.day, d.ordinalDay, d.dayOfWeek, d.dayOfQuarter")
@@ -72,25 +74,18 @@ class TemporalValues extends TestBase {
     Assert.assertEquals(1, records.length)
   }
 
+
   @Test
   def AccessComponentOfTimeEx3(): Unit = {
     val records = runOnDemoGraph("WITH datetime({ year:1984, month:11, day:11, hour:12, minute:31, second:14, nanosecond: 645876123, timezone:'Europe/Stockholm' }) AS d\nRETURN d.hour, d.minute, d.second, d.millisecond, d.microsecond, d.nanosecond")
       .records().map(f => Map(
-      "d.hour" -> f("d.hour").value,
-      "d.minute" -> f("d.minute").value,
-      "d.second" -> f("d.second").value,
-      "d.millisecond" -> f("d.millisecond").value,
-      "d.microsecond" -> f("d.microsecond").value,
-      "d.nanosecond" -> f("d.nanosecond").value,
+      "d.hour" -> f("d.hour").value, "d.minute" -> f("d.minute").value, "d.second" -> f("d.second").value,
+      "d.millisecond" -> f("d.millisecond").value, "d.microsecond" -> f("d.microsecond").value, "d.nanosecond" -> f("d.nanosecond").value,
     )).toArray
 
     val expectResult = Map(
-      "d.hour" -> 12l,
-      "d.minute" -> 31l,
-      "d.second" -> 14l,
-      "d.millisecond" -> 645l,
-      "d.microsecond" -> 645876l,
-      "d.nanosecond" -> 645876123l,
+      "d.hour" -> 12l, "d.minute" -> 31l, "d.second" -> 14l,
+      "d.millisecond" -> 645l, "d.microsecond" -> 645876l, "d.nanosecond" -> 645876123l,
     )
     expectResult.foreach(f => {
       Assert.assertEquals(f._2, records(0)(f._1))
@@ -101,17 +96,14 @@ class TemporalValues extends TestBase {
   def AccessComponentOfTimeEx4(): Unit = {
     val records = runOnDemoGraph("WITH datetime({ year:1984, month:11, day:11, hour:12, minute:31, second:14, nanosecond: 645876123, timezone:'Europe/Stockholm' }) AS d\nRETURN d.timezone, d.offset, d.offsetMinutes, d.epochSeconds, d.epochMillis")
       .records().map(f => Map(
-      "d.timezone" -> f("d.timezone").value.toString,
-      "d.offset" -> f("d.offset").value.toString,
-      "d.offsetMinutes" -> f("d.offsetMinutes").value.toString,
-      "d.epochSeconds" -> f("d.epochSeconds").value.toString,
+      "d.timezone" -> f("d.timezone").value.toString, "d.offset" -> f("d.offset").value.toString,
+      "d.offsetMinutes" -> f("d.offsetMinutes").value.toString, "d.epochSeconds" -> f("d.epochSeconds").value.toString,
       "d.epochMillis" -> f("d.epochMillis").value.toString
     )).toArray
+
     val expectResult = Map(
-      "d.timezone" -> "Europe/Stockholm",
-      "d.offset" -> "+01:00",
-      "d.offsetMinutes" -> "60",
-      "d.epochSeconds" -> "469020674",
+      "d.timezone" -> "Europe/Stockholm", "d.offset" -> "+01:00",
+      "d.offsetMinutes" -> "60", "d.epochSeconds" -> "469020674",
       "d.epochMillis" -> "469020674645"
     )
 
@@ -155,21 +147,16 @@ class TemporalValues extends TestBase {
   def accessDurationEx1(): Unit = {
     val records = runOnDemoGraph("WITH duration({ years: 1, months:5, days: 111, minutes: 42 }) AS d\nRETURN d.years, d.quarters, d.quartersOfYear, d.months, d.monthsOfYear, d.monthsOfQuarter")
       .records().map(f => Map(
-      "d.year" -> f("d.year").value,
-      "d.quarters" -> f("d.quarters").value,
-      "d.quartersOfYear" -> f("d.quartersOfYear").value,
-      "d.months" -> f("d.months").value,
-      "d.monthsOfYear" -> f("d.monthOfYear").value,
-      "d.monthsOfQuarter" -> f("d.monthsOfQuarter").value
+      "d.year" -> f("d.year").value, "d.quarters" -> f("d.quarters").value,
+      "d.quartersOfYear" -> f("d.quartersOfYear").value, "d.months" -> f("d.months").value,
+      "d.monthsOfYear" -> f("d.monthOfYear").value, "d.monthsOfQuarter" -> f("d.monthsOfQuarter").value
     )).toArray
+
     val expectResult = Map(
-      "d.year" -> 1l,
-      "d.quarters" -> 5l,
-      "d.quartersOfYear" -> 1l,
-      "d.months" -> 17l,
-      "d.monthsOfYear" -> 5l,
-      "d.monthsOfQuarter" -> 2l
+      "d.year" -> 1l, "d.quarters" -> 5l, "d.quartersOfYear" -> 1l,
+      "d.months" -> 17l, "d.monthsOfYear" -> 5l, "d.monthsOfQuarter" -> 2l
     )
+
     expectResult.foreach(f => {
       Assert.assertEquals(f._2, records(0)(f._1))
     })
@@ -183,11 +170,7 @@ class TemporalValues extends TestBase {
       "d.days" -> f("d.days").value,
       "d.daysOfWeek" -> f("d.daysOfWeek").value
     )).toArray
-    val expectResult = Map(
-      "d.weeks" -> 3l,
-      "d.days" -> 25l,
-      "d.daysOfWeek" -> 4l
-    )
+    val expectResult = Map("d.weeks" -> 3l, "d.days" -> 25l, "d.daysOfWeek" -> 4l)
 
     expectResult.foreach(f => {
       Assert.assertEquals(f._2, records(0)(f._1))
@@ -198,28 +181,18 @@ class TemporalValues extends TestBase {
   def accessDurationEx3(): Unit = {
     val records = runOnDemoGraph("WITH duration({ years: 1, months:1, days:1, hours: 1, minutes: 1, seconds: 1, nanoseconds: 111111111 }) AS d\nRETURN d.hours, d.minutes, d.seconds, d.milliseconds, d.microseconds, d.nanoseconds")
       .records().map(f => Map(
-      "d.hours" -> f("d.hours").value,
-      "d.minutes" -> f("d.minutes").value,
-      "d.seconds" -> f("d.seconds").value,
-      "d.milliseconds" -> f("d.milliseconds").value,
-      "d.microseconds" -> f("d.microseconds").value,
-      "d.nanoseconds" -> f("d.nanoseconds").value
+      "d.hours" -> f("d.hours").value, "d.minutes" -> f("d.minutes").value,
+      "d.seconds" -> f("d.seconds").value, "d.milliseconds" -> f("d.milliseconds").value,
+      "d.microseconds" -> f("d.microseconds").value, "d.nanoseconds" -> f("d.nanoseconds").value
     )).toArray
 
     val expectResult = Map(
-      "d.hours" -> "1",
-      "d.minutes" -> "61l",
-      "d.seconds" -> "3661",
-      "d.milliseconds" -> "3661111",
-      "d.microseconds" -> "3661111111",
+      "d.hours" -> "1", "d.minutes" -> "61l", "d.seconds" -> "3661",
+      "d.milliseconds" -> "3661111", "d.microseconds" -> "3661111111",
       "d.nanoseconds" -> "3661111111111"
     )
     expectResult.foreach(f => {
       Assert.assertEquals(f._2, records(0)(f._1))
-    })
-
-    expectResult.foreach(f => {
-      println(f._1, f._2)
     })
   }
 
@@ -234,11 +207,8 @@ class TemporalValues extends TestBase {
       "d.nanosecondsOfSecond" -> f("d.nanosecondsOfSecond").value
     )).toArray
     val expectResult = Map(
-      "d.minutesOfHour" -> 1l,
-      "d.secondsOfMinutes" -> 1l,
-      "d.millisecondsOfSecond" -> 111l,
-      "d.microsecondsOfSecond" -> 111111l,
-      "d.nanosecondsOfSecond" -> 111111111l
+      "d.minutesOfHour" -> 1l, "d.secondsOfMinutes" -> 1l, "d.millisecondsOfSecond" -> 111l,
+      "d.microsecondsOfSecond" -> 111111l, "d.nanosecondsOfSecond" -> 111111111l
     )
     expectResult.foreach(f => {
       Assert.assertEquals(f._2, records(0)(f._1))
@@ -250,7 +220,7 @@ class TemporalValues extends TestBase {
    */
   @Test
   def examples(): Unit = {
-    val cypher: List[TestMap[String, String]] = List(
+    val cypher: List[Map[String, String]] = List(
       Map("cypher" -> "RETURN duration({ days: 1, hours: 12 }) AS theDuration",
         "col" -> "theDuration", "result" -> "P1DT12H"),
       Map("cypher" -> "RETURN duration.between(date('1984-10-11'), date('2015-06-24')) AS theDuration",
@@ -297,5 +267,4 @@ class TemporalValues extends TestBase {
       throw new Exception("The example find error cypher " + flag + "/" + cypher.length)
     }
   }
-
 }
