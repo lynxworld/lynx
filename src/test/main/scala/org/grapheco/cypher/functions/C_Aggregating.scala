@@ -277,11 +277,11 @@ class C_Aggregating extends TestBase {
     val records = runOnDemoGraph(
       """
         |MATCH (n:Person)
-        |RETURN percentileCont(n.age, 0.4)
+        |RETURN percentileCont(n.age, 0.1)
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(29.0, records(0)("percentileCont(n.age, 0.4)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(29.0, records(0)("percentileCont(n.age, 0.1)").asInstanceOf[LynxValue].value)
   }
 
   @Test
@@ -289,11 +289,11 @@ class C_Aggregating extends TestBase {
     val records = runOnDemoGraph(
       """
         |MATCH (n:Person)
-        |RETURN percentileDisc(n.age, 0.5)
+        |RETURN percentileDisc(n.age, 0.1)
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(33.toString, records(0)("percentileDisc(n.age, 0.5)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(33.toString, records(0)("percentileDisc(n.age, 0.1)").asInstanceOf[LynxValue].value)
   }
 
   @Test
