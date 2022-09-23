@@ -140,20 +140,20 @@ class AggregatingFunctions {
     } else { LynxNull }
   }
 
-//  @LynxProcedure(name = "stDev")
-//  def stDev(): Unit ={
-//
-//  }
-//
-//  @LynxProcedure(name = "stDevP")
-//  def stDevP(): Unit ={
-//
-//  }
-//
-//  @LynxProcedure(name = "percentileDisc")
-//  def percentileDisc(): Unit ={
-//
-//  }
+  @LynxProcedure(name = "stDev")
+  def stDev(): Unit ={
+
+  }
+
+  @LynxProcedure(name = "stDevP")
+  def stDevP(): Unit ={
+
+  }
+
+  @LynxProcedure(name = "percentileDisc")
+  def percentileDisc(): Unit ={
+
+  }
 
 
 }
