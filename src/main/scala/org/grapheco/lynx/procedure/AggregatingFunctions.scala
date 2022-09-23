@@ -140,9 +140,25 @@ class AggregatingFunctions {
     } else { LynxNull }
   }
 
+  /**
+   * returns the standard deviation for the given value over a group. It uses a standard two-pass method, with N - 1 as the denominator,
+   * and should be used when taking a sample of the population for an unbiased estimate. When the standard variation of the entire population
+   * is being calculated, stdDevP should be used.
+   * @param inputs
+   * @return A Float.
+   */
   @LynxProcedure(name = "stDev")
-  def stDev(): Unit ={
+  def stDev(inputs:LynxList): LynxFloat ={
+    if(inputs.value.length<=1)  return LynxFloat(0);
+    var sum = 0.0
+    var res = 0.0
+    var avg = 0.0
+    val n = inputs.value.length.toFloat
 
+    inputs.value.foreach(e=>sum+=e.value.toString.toFloat)
+    avg = sum/n
+    inputs.value.foreach(e=>res+=math.pow(e.value.toString.toFloat-avg,2))
+    LynxFloat(math.sqrt(res/(n-1)))
   }
 
   @LynxProcedure(name = "stDevP")
