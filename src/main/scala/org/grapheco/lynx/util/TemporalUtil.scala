@@ -146,25 +146,53 @@ trait LynxTemporalParser {
     assureBetween(dayOfQuarter, 1, 92, "dayOfQuarter")
 
     calendar.set(Calendar.YEAR, year)
-    calendar.set(Calendar.MONTH, quarter * 3 - 2)
+    calendar.set(Calendar.MONTH, quarter * 3 - 3)
     calendar.set(Calendar.DAY_OF_MONTH, dayOfQuarter)
-    (calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH))
+    (calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1, calendar.get(Calendar.DAY_OF_MONTH))
   }
 
   def truncateDate(map: Map[String, Any]): (Int, Int, Int) = {
-    //TODO
-//    var (year, month, day) = map.get("dateValue").getOrElse(0) match {
-//      case v: LynxDate => (v.localDate.getYear, v.localDate.getMonthValue, v.localDate.getDayOfMonth)
-//      case v: LynxDateTime => (v.zonedDateTime.getYear, v.zonedDateTime.getMonthValue, v.zonedDateTime.getDayOfMonth)
-//      case v: LynxLocalDateTime => (v.localDateTime.getYear, v.localDateTime.getMonthValue, v.localDateTime.getDayOfMonth)
-//    }
-//    map match {
-//      case v.size == 2 => DateUtils.truncate (map.get ("dateValue").getOrElse (0), Calendar.YEAR)
-//      case v == 3 => DateUtils.truncate(map.get("dateValue").getOrElse(0), Calendar.YEAR)
-//    }
-//    DateUtils.truncate(map.get("dateValue").getOrElse(0), Calendar.YEAR)
-
-        (1990,1, 1)
+    val calendar = Calendar.getInstance()
+    calendar.clear()
+    val date = map.get("dateValue").getOrElse(0).asInstanceOf[LynxDateTime].zonedDateTime
+    val (year, month, day): (Int, Int, Int) = (date.getYear, date.getMonthValue - 1, date.getDayOfMonth)
+    calendar.setFirstDayOfWeek(Calendar.MONDAY)
+    map.get("unitStr").get match {
+      case LynxString("millennium")
+      => calendar.set(year - year % 1000, 0, 1)
+      case LynxString("century")
+      => calendar.set(year - year % 100, 0, 1)
+      case LynxString("decade")
+      => calendar.set(year - year % 10, 0, 1)
+      case LynxString("year")
+      => calendar.set(year, 0, 1)
+      case LynxString("weekYear")
+      => calendar.set(year, 0, 1)
+        calendar.set(Calendar.DAY_OF_YEAR, calendar.get(Calendar.DAY_OF_WEEK) match {
+          case 1 => 2
+          case 2 => 1
+          case v => 10 - v.toInt
+        })
+      case LynxString("quarter")
+      => calendar.set(year, month - month % 3, 1)
+      case LynxString("month")
+      => calendar.set(year, month, 1)
+      case LynxString("week")
+      => calendar.set(year, month, 1)
+        calendar.set(Calendar.DAY_OF_MONTH, calendar.get(Calendar.DAY_OF_WEEK) match {
+          case 1 => 2
+          case 2 => 1
+          case v => 10 - v.toInt
+        })
+      case LynxString("day")
+      => calendar.set(year, month, day)
+    }
+    val addDay = map.size match {
+      case 2 =>
+      case 3 => calendar.add(
+        Calendar.DAY_OF_YEAR, map.get("mapOfComponents").get.asInstanceOf[LynxMap].value.map(_._2).head.asInstanceOf[LynxInteger].value.toInt - 1)
+    }
+    (calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1, calendar.get(Calendar.DAY_OF_MONTH))
   }
 
   def parseToDate(map: Map[String, Any]): (Int, Int, Int) = {
@@ -448,7 +476,43 @@ object LynxDateUtil extends LynxTemporalParser {
 object LynxDateTimeUtil extends LynxTemporalParser {
   def parse(zonedDateTimeStr: String): LynxDateTime = {
     try {
-      val v = ZonedDateTime.parse(zonedDateTimeStr)
+      val zonedTime_Flag: Regex = "^(.{4,30})+\\++([0-9]{2})+([0-9]{2})$".r //'2015-07-21T21:40:32.142+0100'
+      val weekWithDay_Flag: Regex = "^([0-9]{4})-W+([0-9]{2})-([1-7]{1})+T+([0-9]{2})+([0-9]{2})+([0-9]{2})+.+([0-9]{3})+.$".r //'2015-W30-2T214032.142Z'
+      val year_Flag: Regex = "^([0-9]{4})+T+([0-9]{2})+([0-9]{2})+([0-9]{2})+.+([0-9]{2})+([0-9]{2})$".r //'2015T214032-0100'
+      val yearMonthDay_Flag: Regex = "^([0-9]{4})+([0-9]{2})+([0-9]{2})+T+(.{4,30})$".r //'20150721T21:40-01:30'
+      val week_Flag: Regex = "^([0-9]{4})-W+([0-9]{2})+T+([0-9]{2})+([0-9]{2})+.+([0-9]{2})$".r //2015-W30T2140-02
+      val ordinalDay_Flag: Regex = "^([0-9]{4})([0-9]{3})+T+([0-9]{2})+\\++(.{5})$".r //2015202T21+18:00
+      val zonedHour_Flag: Regex = "^(.{4,30})-([0-9]{2,4})+\\[+(.{4,30})+.$".r //2015-07-21T21:40:32.142-04[America/New_York]
+      val zone_Flag: Regex = "^(.{4,30})+\\[+(.{4,30})+.$".r //2015-07-21T21:40:32.142[Europe/London]
+
+      val v = zonedDateTimeStr match {
+        //TODO        case zone_Flag(dateTimeStr,zone) => ZonedDateTime.parse(dateTimeStr).toLocalDateTime.atZone(ZoneId.of(zone))
+        case zonedTime_Flag(dateStr, zonedHours, zonedMinutes) => ZonedDateTime.parse(dateStr + "+" + zonedHours + ":" + zonedMinutes)
+        case weekWithDay_Flag(year, week, weekDay, hour, minute, second, nanoSecond) =>
+          val v = parseYearWeekDay(Map("year" -> year.toLong, "week" -> week.toLong, "dayOfWeek" -> weekDay.toLong))
+          ZonedDateTime.parse(v._1 + "-" + v._2.formatted("%02d") + "-" + v._3.formatted("%02d") + "T" + hour + ":" + minute + ":" + second + "." + nanoSecond + "Z")
+        case year_Flag(year, hour, minute, second, zonedHours, zonedMinutes) =>
+          ZonedDateTime.parse(year + "01" + "01T" + hour + ":" + minute + ":" + second + "-" + zonedHours + ":" + zonedMinutes)
+        case ordinalDay_Flag(year, ordinalDay, hour, zonedTime) =>
+          val v = parseYearOrdinalDay(Map("year" -> year.toLong, "ordinalDay" -> ordinalDay.toLong))
+          ZonedDateTime.parse(v._1 + "-" + v._2.formatted("%02d") + "-" + v._3.formatted("%02d") + "T" + hour + ":00" + "+" + zonedTime)
+        case yearMonthDay_Flag(year, month, day, dateStr) => ZonedDateTime.parse(year + "-" + month + "-" + day + dateStr)
+        case week_Flag(year, week, hour, minute, zonedHours) =>
+          val v = parseYearWeekDay(Map("year" -> year.toLong, "week" -> week.toLong, "dayOfWeek" -> 1.toLong))
+          ZonedDateTime.parse(v._1 + "-" + v._2.formatted("%02d") + "-" + v._3.formatted("%02d") + "T" + hour + minute + "-" + zonedHours + ":00")
+        case zonedHour_Flag(dateStr, zonedHour, zonedStr) => ZonedDateTime.parse(dateStr + zonedHour + ":00" + zonedStr)
+        case zone_Flag(dateStr, zonedStr) => ZonedDateTime.parse(dateStr + "Z" + zonedStr)
+        case _ => ZonedDateTime.parse(zonedDateTimeStr)
+      }
+      LynxDateTime(v)
+    } catch {
+      case _ => throw new Exception("DateTimeParseException")
+    }
+  }
+
+  def parse(zonedDateTimeStr: String, zoneId: ZoneId): LynxDateTime = {
+    try {
+      val v = ZonedDateTime.parse(zonedDateTimeStr).toLocalDateTime.atZone(zoneId)
       LynxDateTime(v)
     } catch {
       case _ => throw new Exception("DateTimeParseException")
@@ -457,6 +521,10 @@ object LynxDateTimeUtil extends LynxTemporalParser {
 
   def now(): LynxDateTime = {
     LynxDateTime(ZonedDateTime.now())
+  }
+
+  def now(zoneId: ZoneId): LynxDateTime = {
+    LynxDateTime(ZonedDateTime.now(zoneId))
   }
 
   def of(zonedDateTime: ZonedDateTime): LynxDateTime = {
@@ -473,14 +541,23 @@ object LynxDateTimeUtil extends LynxTemporalParser {
     if (map.isEmpty) {
       throw LynxTemporalParseException("At least one temporal unit must be specified")
     }
+    val week_Flag: Regex = ".dayOfWeek.".r
+    val quarter_Flag: Regex = ".dayOfQuarter.".r
     var v: ZonedDateTime = null
-    val zoneId = parseZone(map.getOrElse("timezone", "Z").asInstanceOf[String])
+    val zoneId = parseZone(map.getOrElse("timezone", "Z").asInstanceOf[String].replace(" ", "_"))
     if (map.size == 1 && map.contains("timezone")) {
       v = ZonedDateTime.now(zoneId)
     }
     else {
-      val (year, month, day) = parseYearMonthDay(map)
-      val (hour, minute, second) = parseHourMinuteSecond(map, true)
+      val (year, month, day) = map match {
+        case m if m.contains("dayOfWeek") => parseYearWeekDay(m)
+        case m if m.contains("dayOfQuarter") => parseYearQuarterDay(m)
+        case m if m.contains("ordinalDay") => parseYearOrdinalDay(m)
+        case _ => parseYearMonthDay(map)
+      }
+
+
+      val (hour, minute, second) = parseHourMinuteSecond(map, false)
       val nanoOfSecond = parseNanoOfSecond(map)
       v = ZonedDateTime.of(year, month, day, hour, minute, second, nanoOfSecond, zoneId)
     }
@@ -667,21 +744,6 @@ object LynxDurationUtil {
     LynxDuration(Duration.ofNanos(nanos.longValue()))
   }
 
-  //TODO
-  //  def doMethod(methodName: String, methodParam: List[Map[String, Any]]) {
-  //    val methodParam_size = methodParam.size
-  //    var method_param_type: Class[_] = new Class[_]
-  //    var method_param_value: Object = new Object
-  //    if (methodParam_size > 0) {
-  //      method_param_type = new Class[](methodParam_size)
-  //      method_param_value = new Array[AnyRef](methodParam_size)
-  //      for (i <- 0 until methodParam_size) {
-  //        method_param_type(i) = methodParam.get(i).get("argType").asInstanceOf[Class[_]]
-  //        method_param_value(i) = methodParam.get(i).get("argValue")
-  //      }
-  //    }
-  //    return this.getClass.getMethod(methodName, method_param_type).invoke(this, method_param_value)
-  //  }
 
 }
 

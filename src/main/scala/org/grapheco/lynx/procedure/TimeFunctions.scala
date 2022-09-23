@@ -36,8 +36,13 @@ class TimeFunctions {
 
   @LynxProcedure(name = "datetime")
   def datetime(inputs: LynxValue): LynxDateTime = {
-    LynxDateTimeUtil.parse(inputs).asInstanceOf[LynxDateTime]
+    inputs match {
+      case LynxString(v) => LynxDateTimeUtil.parse(v)
+      case LynxMap(v) => LynxDateTimeUtil.parse(inputs).asInstanceOf[LynxDateTime]
+    }
+
   }
+
 
   @LynxProcedure(name = "datetime")
   def datetime(): LynxDateTime = {
@@ -112,6 +117,21 @@ class TimeFunctions {
   @LynxProcedure(name = "date.truncate")
   def truncate(): LynxDate = {
     LynxDateUtil.now()
+  }
+
+  @LynxProcedure(name = "datetime.transaction")
+  def datetime_Transaction(): LynxDateTime = {
+    LynxDateTimeUtil.now()
+  }
+
+  @LynxProcedure(name = "datetime.statement")
+  def datetime_Statement(): LynxDateTime = {
+    LynxDateTimeUtil.now()
+  }
+
+  @LynxProcedure(name = "datetime.realtime")
+  def datetime_Realtime(): LynxDateTime = {
+    LynxDateTimeUtil.now()
   }
 }
 
