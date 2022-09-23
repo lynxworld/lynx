@@ -102,7 +102,7 @@ class AggregatingFunctions {
   @LynxProcedure(name = "percentileCont")
   def percentileCont(inputs: LynxList, percentile: LynxFloat): LynxFloat ={ // TODO implement it.
     if(percentile.value>1||percentile.value<0){
-      throw ProcedureException("percentile should in range 0 to 1\n")
+      throw ProcedureException("percentile should be in range 0 to 1\n")
     }
     val inputFilter = inputs.value.filter(e=>e!=LynxNull).map(e=>e.value.toString.toFloat).sorted
     val x:Double = 1+(inputFilter.length-1)*percentile.value
