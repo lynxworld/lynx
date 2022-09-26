@@ -155,7 +155,3 @@ class J_Temporal_Duration extends TestBase {
     Assert.assertEquals("PT1H", records(4)("aDuration").asInstanceOf[LynxValue].value)
   }
 }
-
-
-
-

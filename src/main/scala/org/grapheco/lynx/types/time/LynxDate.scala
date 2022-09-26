@@ -22,6 +22,9 @@ case class LynxDate(localDate: LocalDate) extends LynxTemporalValue {
     case _ => throw TypeMismatchException(this.lynxType, o.lynxType)
   }
 }
+
 object LynxDate {
   def today: LynxDate = LynxDate(LocalDate.now())
+
+
 }
