@@ -92,13 +92,7 @@ class B_Scalar extends TestBase {
         |""".stripMargin).records().map(f => f("endNode(r)").asInstanceOf[TestNode]).toArray
 
     Assert.assertEquals(2, records.length)
-    for (record <- records) {
-      record.property(LynxPropertyKey("name")).get.value match {
-        case "Bob" => Assert.assertEquals(n3, record)
-        case "Charlie" => Assert.assertEquals(n2, record)
-        case _ => Assert.assertEquals(true, false)
-      }
-    }
+    records.sortBy(_.id.value).zip(List(n2, n3)).foreach(item => Assert.assertEquals(item._1, item._2))
   }
 
 
