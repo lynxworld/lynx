@@ -45,6 +45,8 @@ class C_Aggregating extends TestBase {
 
   @Before
   def init(): Unit = {
+    all_nodes.clear()
+    all_rels.clear()
     nodesInput.append(("n1", NodeInput(n1.labels, n1.props.toSeq)))
     nodesInput.append(("n2", NodeInput(n2.labels, n2.props.toSeq)))
     nodesInput.append(("n3", NodeInput(n3.labels, n3.props.toSeq)))
@@ -275,11 +277,11 @@ class C_Aggregating extends TestBase {
     val records = runOnDemoGraph(
       """
         |MATCH (n:Person)
-        |RETURN percentileCont(n.age, 0.4)
+        |RETURN percentileCont(n.age, 0.1)
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(29.0, records(0)("percentileCont(n.age, 0.4)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(29.0, records(0)("percentileCont(n.age, 0.1)").asInstanceOf[LynxValue].value)
   }
 
   @Test
@@ -287,11 +289,11 @@ class C_Aggregating extends TestBase {
     val records = runOnDemoGraph(
       """
         |MATCH (n:Person)
-        |RETURN percentileDisc(n.age, 0.5)
+        |RETURN percentileDisc(n.age, 0.1)
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(33.toString, records(0)("percentileDisc(n.age, 0.5)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(33.toString, records(0)("percentileDisc(n.age, 0.1)").asInstanceOf[LynxValue].value)
   }
 
   @Test
