@@ -9,6 +9,10 @@ trait LynxNumber extends LynxValue {
 
   def -(that: LynxNumber): LynxNumber
 
+  def *(that: LynxNumber): LynxNumber
+
+  def /(that: LynxNumber): LynxNumber
+
   private def toDouble: Double = this match {
     case LynxInteger(i) => i.toDouble
     case LynxFloat(d) => d

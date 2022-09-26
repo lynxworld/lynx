@@ -30,4 +30,19 @@ case class LynxFloat(v: Double) extends LynxNumber {
       case LynxFloat(v2) => LynxFloat(v - v2)
     }
   }
+
+  // TODO the type of result
+  override def *(that: LynxNumber): LynxNumber = {
+    that match {
+      case LynxInteger(v2) => LynxFloat(v*v2) // TODO: over
+      case LynxFloat(v2) => LynxFloat(v*v2)
+    }
+  }
+
+  override def /(that: LynxNumber): LynxNumber = {
+    that match {
+      case LynxInteger(v2) => LynxFloat(v/v2)
+      case LynxFloat(v2) => LynxFloat(v/v2)
+    }
+  }
 }

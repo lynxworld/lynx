@@ -129,6 +129,13 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         }
       }
 
+      case Divide(lhs, rhs) => {
+        (eval(lhs), eval(rhs)) match {
+          case (n: LynxNumber, m: LynxNumber) => n / m
+          case (n,m) => throw EvaluatorTypeMismatch(n.lynxType.toString,"LynxNumber")
+        }
+      }
+
       case NotEquals(lhs, rhs) => //todo add testcase: 1) n.name == null 2) n.nullname == 'some'
         LynxValue(eval(lhs) != eval(rhs))
 
