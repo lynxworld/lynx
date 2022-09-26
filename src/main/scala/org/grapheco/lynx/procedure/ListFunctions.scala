@@ -90,7 +90,7 @@ class ListFunctions {
    */
   @LynxProcedure(name = "reverse")
   def reverse(inputs:LynxList):LynxList={
-    LynxList(inputs.value.reverse.toList)
+    LynxList(inputs.value.reverse)
   }
 
 
