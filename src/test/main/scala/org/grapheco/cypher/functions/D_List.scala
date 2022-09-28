@@ -99,8 +99,8 @@ class D_List extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(LynxList(List(LynxString("one"), LynxString("two"), LynxString("three"))), records(0)("a.array"))
-    Assert.assertEquals(LynxList(List(LynxString("one"), LynxString("two"))), records(0)("filter(x IN a.array WHERE size(x)= 3)"))
+    Assert.assertEquals(List(LynxString("one"), LynxString("two"), LynxString("three")), records(0)("a.array").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(List(LynxString("one"), LynxString("two")), records(0)("filter").asInstanceOf[LynxValue].value)
   }
 
   @Test
@@ -201,7 +201,7 @@ class D_List extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(List(487,null,521,"abc",4923), records(0)("relationships(p)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(List(487,null,521,"abc",4923), records(0)("reverse(ids)").asInstanceOf[LynxValue].value)
   }
 
   @Test
@@ -215,8 +215,8 @@ class D_List extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(LynxList(List(LynxString("one"), LynxString("two"), LynxString("three"))), records(0)("a.array"))
-    Assert.assertEquals(LynxList(List(LynxString("two"), LynxString("three"))), records(0)("tail(a.array)"))
+    Assert.assertEquals(List(LynxString("one"), LynxString("two"), LynxString("three")), records(0)("a.array").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(List(LynxString("one"), LynxString("two")), records(0)("tail(a.array)").asInstanceOf[LynxValue].value)
   }
 }
 

@@ -14,10 +14,7 @@ class TestList extends TestBase {
   @Test
   def listsInGeneral_1(): Unit = {
     val records = runOnDemoGraph("RETURN [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] AS list").records().map(f => f("list").asInstanceOf[LynxList].value).toArray
-    Assert.assertEquals(10, records(0).length)
-    for (i <- 0 to 9) {
-      Assert.assertEquals(LynxValue(i), records(0)(i))
-    }
+    compareArray(Array.range(0,10).map(f=>LynxValue(f)),records(0).toArray)
   }
 
   @Test
@@ -36,36 +33,24 @@ class TestList extends TestBase {
   def listsInGeneral_4(): Unit = {
     val records = runOnDemoGraph("RETURN range(0, 10)[0..3]").records().map(f => f("range(0, 10)[0..3]").asInstanceOf[LynxList].value).toArray
     Assert.assertEquals(3, records(0).length)
-    for (i <- 0 to 3) {
-      Assert.assertEquals(LynxValue(i), records(0)(i))
-    }
   }
 
   @Test
   def listsInGeneral_5(): Unit = {
     val records = runOnDemoGraph("RETURN range(0, 10)[0..-5]").records().map(f => f("range(0, 10)[0..-5]").asInstanceOf[LynxList].value).toArray
-    Assert.assertEquals(6, records(0).length)
-    for (i <- 0 to 6) {
-      Assert.assertEquals(LynxValue(i), records(0)(i))
-    }
+    compareArray(Array.range(0,7).map(f=>LynxValue(f)),records(0).toArray)
   }
 
   @Test
   def listsInGeneral_6(): Unit = {
     val records = runOnDemoGraph("RETURN range(0, 10)[-5..]").records().map(f => f("range(0, 10)[-5..]").asInstanceOf[LynxList].value).toArray
-    Assert.assertEquals(5, records(0).length)
-    for (i <- 0 to 5) {
-      Assert.assertEquals(LynxValue(i + 6), records(0)(i))
-    }
+    compareArray(Array.range(6,11).map(f=>LynxValue(f)),records(0).toArray)
   }
 
   @Test
   def listsInGeneral_7(): Unit = {
     val records = runOnDemoGraph("RETURN range(0, 10)[..4]").records().map(f => f("range(0, 10)[..4]").asInstanceOf[LynxList].value).toArray
-    Assert.assertEquals(4, records(0).length)
-    for (i <- 0 to 4) {
-      Assert.assertEquals(LynxValue(i), records(0)(i))
-    }
+    compareArray(Array.range(0,4).map(f=>LynxValue(f)),records(0).toArray)
   }
 
   @Test
@@ -77,25 +62,20 @@ class TestList extends TestBase {
   @Test
   def listsInGeneral_9(): Unit = {
     val records = runOnDemoGraph("RETURN range(0, 10)[5..15]").records().map(f => f("range(0, 10)[5..15]").asInstanceOf[LynxList].value).toArray
-    Assert.assertEquals(6, records(0).length)
-    for (i <- 0 to 6) {
-      Assert.assertEquals(LynxValue(i + 5), records(0)(i))
-    }
+    compareArray(Array.range(5,11).map(f=>LynxValue(f)),records(0).toArray)
   }
 
   @Test
   def listsInGeneral_10(): Unit = {
-    val records = runOnDemoGraph("RETURN size(range(0, 10))").records().map(f => f("size(range(0, 10))").asInstanceOf[LynxValue]).toArray
-    Assert.assertEquals(LynxValue(11), records(0))
+    val records = runOnDemoGraph("RETURN size(range(0, 10)[0..3])").records().map(f => f("size(range(0, 10)[0..3])").asInstanceOf[LynxValue]).toArray
+    Assert.assertEquals(LynxValue(3), records(0))
   }
 
   @Test
   def listComprehension(): Unit = {
     val records = runOnDemoGraph("RETURN [x IN range(0,10) WHERE x % 2 = 0 | x^3] AS result").records().map(f => f("result").asInstanceOf[LynxList].value).toArray
-    val expectResult = for {i <- 0 to 10 if i % 2 == 0} yield LynxValue(i * i * i)
-    for (i <- 0 to expectResult.length - 1) {
-      Assert.assertEquals(expectResult(0), records(0)(i))
-    }
+    val expectResult = (for {i <- 0 to 10 if i % 2 == 0} yield LynxValue(i * i * i)).toArray
+    compareArray(expectResult,records(0).toArray)
   }
 
   @Test
@@ -168,8 +148,27 @@ class TestList extends TestBase {
 
     val expectResult = List(1997, 1999, 2000, 2003, 2003, 2003, 1995)
     Assert.assertEquals(expectResult.length, records(0).length)
-    for (i <- 0 to expectResult.length - 1) {
+    for (i <- expectResult.indices) {
       Assert.assertEquals(LynxValue(expectResult(i)), records(0)(i))
+    }
+    // List Map funcs
+//    expectResult.map(LynxValue.apply)
+//      .zip(records(0))
+//      .foreach{ case(e, a) => Assert.assertEquals(e,a)}
+  }
+
+
+  /**
+   * compare expect Result with actual Result
+   *
+   * @param expectResult
+   * @param records
+   * @tparam A
+   */
+  def compareArray[A](expectResult: Array[A], records: Array[Any]): Unit = {
+    Assert.assertEquals(expectResult.length, records.length)
+    for (i <- 0 to records.length - 1) {
+      Assert.assertEquals(expectResult(i), records(i))
     }
   }
 }

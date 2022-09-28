@@ -80,4 +80,28 @@ class ListFunctions {
   }
 
   // TODO : reverse() tail()
+
+
+  /**
+   *  reverse() returns a list in which the order of all elements in the original list have been reversed.
+   * @param inputs An list.
+   * @return  A list containing homogeneous or heterogeneous elements; the types of the elements are determined by the elements within original.
+   */
+  @LynxProcedure(name = "reverse")
+  def reverse(inputs:LynxList):LynxList={
+    LynxList(inputs.value.reverse)
+  }
+
+
+  /**
+   * tail() returns a list lresult containing all the elements, excluding the first one, from a list list. Syntax: tail(list)
+   * @param inputs An list.
+   * @return  A list containing heterogeneous elements; the types of the elements are determined by the elements in list.
+   */
+  @LynxProcedure(name = "tail")
+  def tail(inputs:LynxList): LynxList ={
+    LynxList(inputs.value.tail)
+  }
+
+
 }

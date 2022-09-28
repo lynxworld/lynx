@@ -39,6 +39,8 @@ class A_Match extends TestBase{
 
   @Before
   def init(): Unit ={
+    all_nodes.clear()
+    all_rels.clear()
     nodesInput.append(("n1", NodeInput(n1.labels, n1.props.toSeq)))
     nodesInput.append(("n2", NodeInput(n2.labels, n2.props.toSeq)))
     nodesInput.append(("n3", NodeInput(n3.labels, n3.props.toSeq)))

@@ -29,5 +29,20 @@ case class LynxInteger(v: Long) extends LynxNumber {
     }
   }
 
+  // TODO the type of result
+  override def *(that: LynxNumber): LynxNumber = {
+    that match {
+      case LynxInteger(v2) => LynxInteger(v*v2) // TODO: over
+      case LynxFloat(v2) => LynxFloat(v*v2)
+    }
+  }
+
+  override def /(that: LynxNumber): LynxNumber = {
+    that match {
+      case LynxInteger(v2) => LynxFloat(v/v2)
+      case LynxFloat(v2) => LynxFloat(v/v2)
+    }
+  }
+
   def lynxType: IntegerType = CTInteger
 }
