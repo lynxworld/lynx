@@ -212,7 +212,7 @@ class AggregatingFunctions {
   @LynxProcedure(name = "percentileDisc")
   def percentileDisc(inputs: LynxList, percentile: LynxFloat): LynxFloat = {
     val percentileNum = percentileCont(inputs, percentile)
-    searchNearestNum(inputs, percentileNum)
+    upBound(inputs, percentileNum)
   }
 
 
@@ -245,7 +245,7 @@ class AggregatingFunctions {
    * @param target a float
    * @return the nearest number to target
    */
-  def searchNearestNum(inputs: LynxList, target: LynxFloat): LynxFloat = {
+  def upBound(inputs: LynxList, target: LynxFloat): LynxFloat = {
     val nums = inputs.value.filterNot(LynxNull.equals).map(e => e.value.toString.toFloat).sorted
     var left = 0
     var right = nums.length
