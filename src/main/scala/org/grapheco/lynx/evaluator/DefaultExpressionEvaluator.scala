@@ -197,7 +197,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         eval(src) match {
           case LynxNull => LynxNull
           case hp: HasProperty => hp.property(LynxPropertyKey(name)).getOrElse(LynxNull)
-          case time: LynxDateTime => time
+          case time: LynxDateTime => time // TODO the props of LynxDateTime
         }
 
       case In(lhs, rhs) =>

@@ -159,7 +159,7 @@ class A_Predicate extends TestBase {
   }
 
   @Test
-  def signle(): Unit = {
+  def single(): Unit = {
     val records = runOnDemoGraph(
       """
         |MATCH p =(n)-->(b)
