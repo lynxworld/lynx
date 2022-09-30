@@ -3,6 +3,7 @@ package org.grapheco.lynx.procedure
 import org.grapheco.lynx.func.LynxProcedure
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
+import org.grapheco.lynx.types.property.LynxBoolean
 
 /**
  * @ClassName PredicateFunctions
@@ -18,10 +19,11 @@ class PredicateFunctions {
    * @return A Boolean
    */
   @LynxProcedure(name = "exists")
-  def exists(property: LynxValue): Boolean = {
+  def exists(property: LynxValue): LynxBoolean = {
     property match {
-      case list: LynxList => ??? // TODO how to judge a list?
-      case _ => property.value != null
+      case list: LynxList => LynxBoolean(list.value.nonEmpty) // TODO how to judge a list?
+      case b: LynxBoolean => b
+      case _ => LynxBoolean(property.value != null)
     }
   }
 
