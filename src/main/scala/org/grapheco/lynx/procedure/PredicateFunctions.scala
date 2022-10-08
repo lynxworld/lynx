@@ -37,10 +37,10 @@ class PredicateFunctions {
   }
 
 
-  @LynxProcedure(name = "single")
-  def single(input: LynxValue): LynxBoolean = {
-    LynxBoolean(true)
-  }
+//  @LynxProcedure(name = "single")
+//  def single(input: LynxValue): LynxBoolean = {
+//    LynxBoolean(true)
+//  }
 
 
 

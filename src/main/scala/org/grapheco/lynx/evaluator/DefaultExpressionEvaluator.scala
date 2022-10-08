@@ -292,6 +292,16 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
         LynxBoolean(exist)
       }
+
+//      case ListComprehension(scope, expression)=>{
+//        scope
+//        val result = eval(expression)
+//        result match {
+//          case list:LynxList => {
+//            val result2 = eval(scope.extractExpression.get)
+//          }
+//        }
+//      }
     }
 
 
