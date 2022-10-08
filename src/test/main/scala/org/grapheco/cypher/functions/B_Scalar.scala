@@ -257,7 +257,7 @@ class B_Scalar extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(1, records(0)("timestamp()").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(1632753553112l, records(0)("timestamp()").asInstanceOf[LynxValue].value)
   }
 
   @Test

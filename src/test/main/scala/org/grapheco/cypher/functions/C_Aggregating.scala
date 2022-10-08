@@ -22,14 +22,14 @@ class C_Aggregating extends TestBase {
 
   val n1 = TestNode(TestId(1), Seq(LynxNodeLabel("Person")),
     Map(LynxPropertyKey("name") -> LynxValue("A"),
-      LynxPropertyKey("age") -> LynxValue("13")))
+      LynxPropertyKey("age") -> LynxValue(13)))
   val n2 = TestNode(TestId(2), Seq(LynxNodeLabel("Person")),
     Map(LynxPropertyKey("name") -> LynxValue("B"),
-      LynxPropertyKey("age") -> LynxValue("33"),
+      LynxPropertyKey("age") -> LynxValue(33),
       LynxPropertyKey("eyes") -> LynxValue("blue")))
   val n3 = TestNode(TestId(3), Seq(LynxNodeLabel("Person")),
     Map(LynxPropertyKey("name") -> LynxValue("C"),
-      LynxPropertyKey("age") -> LynxValue("44"),
+      LynxPropertyKey("age") -> LynxValue(44),
       LynxPropertyKey("eyes") -> LynxValue("blue")))
   val n4 = TestNode(TestId(4), Seq(LynxNodeLabel("Person")),
     Map(LynxPropertyKey("name") -> LynxValue("D"),
@@ -103,8 +103,8 @@ class C_Aggregating extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    val array_Expect = List(LynxString("13"), LynxString("44"), LynxString("33"))
-    val array_Actual = records.head("collect(n.age)").asInstanceOf[LynxList].value.toList
+    val array_Expect = List(LynxValue(13), LynxValue(44), LynxValue(33)).sorted
+    val array_Actual = records.head("collect(n.age)").asInstanceOf[LynxList].value.sorted
     Assert.assertEquals(array_Expect.diff(array_Actual), array_Actual.diff(array_Expect))
 
     //    for (record <- records.head("collect(n.age)").asInstanceOf[LynxList].value.toList) {
@@ -161,7 +161,7 @@ class C_Aggregating extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(3, records(0)("count(x)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(3l, records(0)("count(x)").asInstanceOf[LynxValue].value)
   }
 
   /*
@@ -230,7 +230,7 @@ class C_Aggregating extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(44, records(0)("max(n.age)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(44l, records(0)("max(n.age)").asInstanceOf[LynxValue].value)
   }
 
   @Test
@@ -269,7 +269,7 @@ class C_Aggregating extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(13, records(0)("min(n,age)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(13l, records(0)("min(n.age)").asInstanceOf[LynxValue].value)
   }
 
   @Test
@@ -293,7 +293,7 @@ class C_Aggregating extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(33.toString, records(0)("percentileDisc(n.age, 0.5)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(33l, records(0)("percentileDisc(n.age, 0.5)").asInstanceOf[LynxValue].value)
   }
 
   @Test
@@ -331,7 +331,7 @@ class C_Aggregating extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(90, records(0)("sum(n.age)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(90.0, records(0)("sum(n.age)").asInstanceOf[LynxValue].value)
   }
 
   @Test

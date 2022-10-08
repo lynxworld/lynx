@@ -157,11 +157,12 @@ class ScalarFunctions(graphModel: GraphModel) {
    *
    * @param string An expression that returns a string value.
    * @return An Integer.
+   * @along This method is redundant
    */
-  @LynxProcedure(name = "size")
-  def size(string: LynxString): LynxInteger = {
-    LynxInteger(string.value.length)
-  }
+//  @LynxProcedure(name = "size")
+//  def size(string: LynxString): LynxInteger = {
+//    LynxInteger(string.value.length)
+//  }
 
   //  @LynxProcedure(name = "startNode")
   //  def startNode(lynxRelationship: LynxRelationship): LynxNode = {

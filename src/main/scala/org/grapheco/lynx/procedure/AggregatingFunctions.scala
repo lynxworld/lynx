@@ -76,7 +76,7 @@ class AggregatingFunctions {
    */
   @LynxProcedure(name = "collect")
   def collect(inputs: LynxList): LynxList = { //TODO other considerations
-    inputs
+    LynxList(inputs.v.filterNot(LynxNull.equals))
   }
 
   /**
