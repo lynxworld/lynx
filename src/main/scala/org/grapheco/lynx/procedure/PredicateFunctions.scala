@@ -3,7 +3,7 @@ package org.grapheco.lynx.procedure
 import org.grapheco.lynx.func.LynxProcedure
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
-import org.grapheco.lynx.types.property.LynxBoolean
+import org.grapheco.lynx.types.property.{LynxBoolean, LynxString}
 
 /**
  * @ClassName PredicateFunctions
@@ -15,6 +15,7 @@ import org.grapheco.lynx.types.property.LynxBoolean
 class PredicateFunctions {
   /**
    * Returns true if the specified property exists in the node, relationship or map.
+   *
    * @param property A property (in the form 'variable.prop')
    * @return A Boolean
    */
@@ -26,5 +27,21 @@ class PredicateFunctions {
       case _ => LynxBoolean(property.value != null)
     }
   }
+
+  @LynxProcedure(name = "isEmpty")
+  def isEmpty(input: LynxValue): LynxBoolean = {
+    input match {
+      case list:LynxList => LynxBoolean(list.v.isEmpty)
+      case s:LynxString => LynxBoolean(s.value.isEmpty)
+    }
+  }
+
+
+  @LynxProcedure(name = "single")
+  def single(input: LynxValue): LynxBoolean = {
+    LynxBoolean(true)
+  }
+
+
 
 }

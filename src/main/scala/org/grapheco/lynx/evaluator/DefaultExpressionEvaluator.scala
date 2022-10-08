@@ -292,9 +292,9 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
         LynxBoolean(exist)
       }
-
-
     }
+
+
 
 
 
