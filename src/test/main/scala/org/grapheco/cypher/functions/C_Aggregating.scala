@@ -128,8 +128,8 @@ class C_Aggregating extends TestBase {
 
     Assert.assertEquals(1, records.length)
     Assert.assertEquals(List(LynxString("Person")), records(0)("labels(n)").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(13.toString, records(0)("n.age").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(3, records(0)("count(*)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(13l, records(0)("n.age").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(3l, records(0)("count(*)").asInstanceOf[LynxValue].value)
   }
 
   /*
@@ -145,7 +145,7 @@ class C_Aggregating extends TestBase {
 
     Assert.assertEquals(1, records.length)
     Assert.assertEquals("KNOWS", records(0)("type(r)").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(3, records(0)("count(*)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(3l, records(0)("count(*)").asInstanceOf[LynxValue].value)
   }
 
 
@@ -176,7 +176,7 @@ class C_Aggregating extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(3.toLong, records(0)("count(n.age)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(3l, records(0)("count(n.age)").asInstanceOf[LynxValue].value)
   }
 
   @Test

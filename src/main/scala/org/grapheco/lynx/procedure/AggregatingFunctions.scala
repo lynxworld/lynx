@@ -87,7 +87,7 @@ class AggregatingFunctions {
    */
   @LynxProcedure(name = "count") //TODO count() is complex
   def count(inputs: LynxList): LynxInteger = {
-    LynxInteger(inputs.value.length)
+    LynxInteger(inputs.value.filterNot(LynxNull.equals).length)
   }
 
   /**
