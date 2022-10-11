@@ -48,6 +48,9 @@ class E_Mathematical_Numeric extends TestBase {
 
   @Before
   def init(): Unit = {
+    all_nodes.clear()
+    all_rels.clear()
+
     nodesInput.append(("n1", NodeInput(n1.labels, n1.props.toSeq)))
     nodesInput.append(("n2", NodeInput(n2.labels, n2.props.toSeq)))
     nodesInput.append(("n3", NodeInput(n3.labels, n3.props.toSeq)))
@@ -132,7 +135,7 @@ class E_Mathematical_Numeric extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(3.0, records(0)("round(3.141592)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(3l, records(0)("round(3.141592)").asInstanceOf[LynxValue].value)
   }
 
   /*
@@ -146,8 +149,8 @@ class E_Mathematical_Numeric extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(-1, records(0)("sign(-17)").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(1, records(0)("sign(0.1)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(-1.0, records(0)("sign(-17)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(1.0, records(0)("sign(0.1)").asInstanceOf[LynxValue].value)
   }
 }
 

@@ -71,7 +71,7 @@ class F_Mathematical_Logarithmic extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(16.toFloat, records(0)("sqrt(256)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(16.0, records(0)("sqrt(256)").asInstanceOf[LynxValue].value)
   }
 
 
