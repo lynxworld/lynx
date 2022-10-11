@@ -120,10 +120,12 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case Multiply(lhs, rhs) => { //todo add normal multi
         (eval(lhs), eval(rhs)) match {
-          case (n: LynxNumber, m: LynxInteger) => { //todo add aggregating multi
-            n match {
-              case d: LynxFloat => LynxFloat(d.value * m.value)
-              case d: LynxInteger => LynxInteger(d.value * m.value)
+          case (n: LynxNumber, m: LynxNumber) => { //todo add aggregating multi
+            (n,m) match {
+              case (d1: LynxFloat,d2:LynxFloat) => LynxFloat(d1.value * d2.value)
+              case (d1: LynxFloat,d2:LynxInteger) => LynxFloat(d1.value * d2.value)
+              case (d1: LynxInteger,d2:LynxFloat) => LynxFloat(d1.value * d2.value)
+              case (d1: LynxInteger,d2:LynxInteger) => LynxInteger(d1.value * d2.value)
             }
           }
         }
@@ -293,8 +295,18 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         LynxBoolean(exist)
       }
 
-
+//      case ListComprehension(scope, expression)=>{
+//        scope
+//        val result = eval(expression)
+//        result match {
+//          case list:LynxList => {
+//            val result2 = eval(scope.extractExpression.get)
+//          }
+//        }
+//      }
     }
+
+
 
 
 

@@ -162,8 +162,10 @@ class A_Predicate extends TestBase {
   def single(): Unit = {
     val records = runOnDemoGraph(
       """
-        |MATCH p =(n)-->(b)
-        |WHERE n.name = 'Alice' AND SINGLE (var IN nodes(p) WHERE var.eyes = 'blue')
+        |MATCH p = (n)-->(b)
+        |WHERE
+        |  n.name = 'Alice'
+        |  AND single(var IN nodes(p) WHERE var.eyes = 'blue')
         |RETURN p
         |""".stripMargin).records().toArray
     Assert.assertEquals(1, records.length)
