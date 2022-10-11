@@ -7,6 +7,7 @@ import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property._
 import org.grapheco.lynx.types.structural.{LynxNode, LynxRelationship}
 
+import java.util.UUID.randomUUID
 import java.util.regex.Pattern
 
 /**
@@ -21,14 +22,15 @@ class ScalarFunctions(graphModel: GraphModel) {
   val booleanPattern = Pattern.compile("true|false", Pattern.CASE_INSENSITIVE)
   val numberPattern = Pattern.compile("-?[0-9]+.?[0-9]*")
 
-//  def setGraphModel(gModel: GraphModel): GraphModel = gModel
-//
-//  lazy val graphModel: GraphModel = setGraphModel()
+  //  def setGraphModel(gModel: GraphModel): GraphModel = gModel
+  //
+  //  lazy val graphModel: GraphModel = setGraphModel()
 
   /**
    * Returns the end node of a relationship.
    * Considerations:
-   *   endNode(null) returns null
+   * endNode(null) returns null
+   *
    * @param relationship An expression that returns a relationship.
    * @return A Node.
    */
@@ -44,6 +46,7 @@ class ScalarFunctions(graphModel: GraphModel) {
 
   /**
    * The function coalesce() returns the first non-null value in the given list of expressions.
+   *
    * @param lynxValues seq of expressions that may return null.
    * @return
    */
@@ -62,6 +65,7 @@ class ScalarFunctions(graphModel: GraphModel) {
    * Considerations:
    * - head(null) returns null.
    * - If the first element in list is null, head(list) will return null.
+   *
    * @param list An expression that returns a list.
    * @return The type of the value returned will be that of the first element of list.
    */
@@ -74,6 +78,7 @@ class ScalarFunctions(graphModel: GraphModel) {
    * Returns the id of a relationship or node.
    * Considerations:
    * - id(null) returns null.
+   *
    * @param x An expression that returns a node or a relationship.
    * @return An Integer
    */
@@ -89,6 +94,7 @@ class ScalarFunctions(graphModel: GraphModel) {
    * Considerations:
    * - last(null) returns null.
    * - If the last element in list is null, last(list) will return null.
+   *
    * @param list An expression that returns a list.
    * @return The type of the value returned will be that of the last element of list.
    */
@@ -101,6 +107,7 @@ class ScalarFunctions(graphModel: GraphModel) {
    * Returns the length of a path.
    * Considerations:
    * - length(null) returns null.
+   *
    * @param path An expression that returns a path.
    * @return An Integer
    */
@@ -114,13 +121,14 @@ class ScalarFunctions(graphModel: GraphModel) {
    * If the argument is already a map, it is returned unchanged.
    * Consideration:
    * - properties(null) returns null
+   *
    * @param x An expression that returns a node, a relationship, or a map.
    * @return A Map
    */
   @LynxProcedure(name = "properties")
   def properties(x: LynxValue): LynxMap = x match {
-    case n: LynxNode => LynxMap(n.keys.map( k => k.value -> n.property(k).getOrElse(LynxNull)).toMap)
-    case r: LynxRelationship => LynxMap(r.keys.map( k => k.value -> r.property(k).getOrElse(LynxNull)).toMap)
+    case n: LynxNode => LynxMap(n.keys.map(k => k.value -> n.property(k).getOrElse(LynxNull)).toMap)
+    case r: LynxRelationship => LynxMap(r.keys.map(k => k.value -> r.property(k).getOrElse(LynxNull)).toMap)
     case m: LynxMap => m
     case _ => throw ProcedureException("properties() can only used on node, relationship or map.")
   }
@@ -129,6 +137,7 @@ class ScalarFunctions(graphModel: GraphModel) {
    * Returns the number of elements in a list.
    * Considerations:
    * - size(null) returns null.
+   *
    * @param list An expression that returns a list.
    * @return An Integer.
    */
@@ -145,13 +154,15 @@ class ScalarFunctions(graphModel: GraphModel) {
 
   /**
    * size() applied to string: returns the size of a string value
+   *
    * @param string An expression that returns a string value.
    * @return An Integer.
+   * @along This method is redundant
    */
-  @LynxProcedure(name = "size")
-  def size(string: LynxString): LynxInteger = {
-    LynxInteger(string.value.length)
-  }
+//  @LynxProcedure(name = "size")
+//  def size(string: LynxString): LynxInteger = {
+//    LynxInteger(string.value.length)
+//  }
 
   //  @LynxProcedure(name = "startNode")
   //  def startNode(lynxRelationship: LynxRelationship): LynxNode = {
@@ -161,6 +172,7 @@ class ScalarFunctions(graphModel: GraphModel) {
   /**
    * Will return the same value during one entire query, even for long-running queries.
    * TODO how to ensure same value during one entire query?
+   *
    * @return An Integer
    */
   @LynxProcedure(name = "timestamp")
@@ -174,6 +186,7 @@ class ScalarFunctions(graphModel: GraphModel) {
    * - toBoolean(null returns null.
    * - if expression is a boolean value, it will be returned unchanged.
    * - if the parsing fails, null will be returned.
+   *
    * @param x An expression that returns a boolean or string value.
    * @return A Boolean
    */
@@ -196,6 +209,7 @@ class ScalarFunctions(graphModel: GraphModel) {
    * - toFloat(null) returns null
    * - If expression is a floating point number, it will be returned unchanged.
    * - If the parsing fails, null will be returned
+   *
    * @param x An expression that returns a numeric or string value.
    * @return A Float
    */
@@ -220,6 +234,7 @@ class ScalarFunctions(graphModel: GraphModel) {
    * - toInteger(null) returns null.
    * - If expression is an integer value, it will be returned unchanged.
    * - If the parsing fails, null will be returned.
+   *
    * @param x An expression that returns a numeric or string value.
    * @return An Integer.
    */
@@ -237,6 +252,7 @@ class ScalarFunctions(graphModel: GraphModel) {
 
   /**
    * Returns the string representation of the relationship type.
+   *
    * @param x An expression that returns a relationship.
    * @return A String
    */
@@ -253,6 +269,15 @@ class ScalarFunctions(graphModel: GraphModel) {
     //    }
   }
 
+  /**
+   * returns a randomly-generated Universally Unique Identifier (UUID), also known as a Globally Unique Identifier (GUID).
+   * This is a 128-bit value with strong guarantees of uniqueness.
+   * @return 128-bit string xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   */
+  @LynxProcedure(name = "randomUUID")
+  def generateRandomUUID(): LynxString = {
+     LynxString(randomUUID().toString)
+  }
 
 
 }

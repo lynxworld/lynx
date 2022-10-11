@@ -1,5 +1,6 @@
 package org.grapheco.lynx.procedure
 
+import com.sun.tools.doclets.internal.toolkit.util.DocFinder.Input
 import org.grapheco.lynx.func.LynxProcedure
 import org.grapheco.lynx.types.{LynxValue, property}
 import org.grapheco.lynx.types.composite.LynxList
@@ -75,7 +76,7 @@ class AggregatingFunctions {
    */
   @LynxProcedure(name = "collect")
   def collect(inputs: LynxList): LynxList = { //TODO other considerations
-    inputs
+    LynxList(inputs.v.filterNot(LynxNull.equals))
   }
 
   /**
@@ -86,7 +87,7 @@ class AggregatingFunctions {
    */
   @LynxProcedure(name = "count") //TODO count() is complex
   def count(inputs: LynxList): LynxInteger = {
-    LynxInteger(inputs.value.length)
+    LynxInteger(inputs.value.filterNot(LynxNull.equals).length)
   }
 
   /**
@@ -209,9 +210,9 @@ class AggregatingFunctions {
    * @return  Either an Integer or a Float, depending on the values returned by expression and whether or not the calculation overflows.
    */
   @LynxProcedure(name = "percentileDisc")
-  def percentileDisc(inputs: LynxList, percentile: LynxFloat): LynxFloat = {
+  def percentileDisc(inputs: LynxList, percentile: LynxFloat): LynxValue = {
     val percentileNum = percentileCont(inputs, percentile)
-    searchNearestNum(inputs, percentileNum)
+    upBound(inputs, percentileNum)
   }
 
 
@@ -244,8 +245,9 @@ class AggregatingFunctions {
    * @param target a float
    * @return the nearest number to target
    */
-  def searchNearestNum(inputs: LynxList, target: LynxFloat): LynxFloat = {
-    val nums = inputs.value.filterNot(LynxNull.equals).map(e => e.value.toString.toFloat).sorted
+  def upBound(inputs: LynxList, target: LynxFloat): LynxValue = {
+    val lynxNums = inputs.value.filterNot(LynxNull.equals).sorted
+    val nums = lynxNums.map(e=>e.value.toString.toFloat)
     var left = 0
     var right = nums.length
 
@@ -267,8 +269,8 @@ class AggregatingFunctions {
      * nums[left-1]<target<nums[left], Determine which one is nearest to the target
      */
     if(left-1>=0)
-      return if(target.value-nums(left-1)>nums(left)-target.value)  LynxFloat(nums(left)) else LynxFloat(nums(left-1))
-    LynxFloat(nums(left))
+      return if(target.value-nums(left-1)>nums(left)-target.value)  lynxNums(left) else lynxNums(left-1)
+    lynxNums(left)
   }
 
 
