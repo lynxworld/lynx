@@ -1,6 +1,5 @@
 package org.grapheco.lynx.procedure
 
-import com.sun.tools.doclets.internal.toolkit.util.DocFinder.Input
 import org.grapheco.lynx.func.LynxProcedure
 import org.grapheco.lynx.types.{LynxValue, property}
 import org.grapheco.lynx.types.composite.LynxList
@@ -8,7 +7,6 @@ import org.grapheco.lynx.types.property.{LynxFloat, LynxInteger, LynxNull, LynxN
 import org.grapheco.lynx.types.time.LynxDuration
 
 import java.time.Duration
-import scala.text.Document.break
 
 /**
  * @ClassName AggregatingFunctions
