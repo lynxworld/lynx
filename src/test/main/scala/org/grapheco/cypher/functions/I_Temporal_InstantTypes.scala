@@ -3,7 +3,7 @@ package org.grapheco.cypher.functions
 import org.apache.commons.lang3.time.DateUtils
 import org.grapheco.lynx.TestBase
 import org.grapheco.lynx.types.LynxValue
-import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxLocalDateTime, LynxTime}
+import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxLocalDateTime, LynxLocalTime, LynxTime}
 import org.junit.{Assert, Test}
 
 import java.time.{Instant, LocalDate, LocalDateTime, LocalTime, ZoneId, ZonedDateTime}
@@ -39,7 +39,7 @@ class I_Temporal_InstantTypes extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(LynxDate.now(), records(0)("currentDateInLA"))
+    Assert.assertEquals(LynxDate.now(ZoneId.of("America/Los_Angeles")), records(0)("currentDateInLA"))
   }
 
   @Test
@@ -219,18 +219,18 @@ class I_Temporal_InstantTypes extends TestBase {
     Assert.assertEquals(date_2, records(2)("dateDay").asInstanceOf[LynxValue].value)
   }
 
-//  @Test
-//  def test_1(): Unit = {
-//    val date = LocalDate.parse("2001-11-03")
-//    val localDateTime = LocalDateTime.parse("2019-11-15T13:15:30")
-//    val instant = localDateTime.atZone(ZoneId.systemDefault()).toInstant()
-//    val date_3 = Date.from(instant)
-//
-//    val date_0 = LocalDate.parse("2000-01-01")
-//    val date_1 = DateUtils.ceiling(date_3, Calendar.YEAR)
-//
-//    Assert.assertEquals(date_1, date_0)
-//  }
+  //  @Test
+  //  def test_1(): Unit = {
+  //    val date = LocalDate.parse("2001-11-03")
+  //    val localDateTime = LocalDateTime.parse("2019-11-15T13:15:30")
+  //    val instant = localDateTime.atZone(ZoneId.systemDefault()).toInstant()
+  //    val date_3 = Date.from(instant)
+  //
+  //    val date_0 = LocalDate.parse("2000-01-01")
+  //    val date_1 = DateUtils.ceiling(date_3, Calendar.YEAR)
+  //
+  //    Assert.assertEquals(date_1, date_0)
+  //  }
 
   @Test
   def truncatingDate(): Unit = {
@@ -368,6 +368,7 @@ class I_Temporal_InstantTypes extends TestBase {
     Assert.assertEquals(date_7, records(6)("theDate"))
     Assert.assertEquals(date_8, records(7)("theDate"))
   }
+
   @Test
   def weekDateTime(): Unit = {
     val records = runOnDemoGraph(
@@ -455,44 +456,44 @@ class I_Temporal_InstantTypes extends TestBase {
     Assert.assertEquals(date_4, records(3)("theDate"))
   }
 
-    @Test
-    def dateTimeFromString(): Unit = {
-      val records = runOnDemoGraph(
-        """
-          |UNWIND [
-          |datetime('2015-07-21T21:40:32.142+0100'),
-          |datetime('2015-W30-2T214032.142Z'),
-          |datetime('2015T214032-0100'),
-          |datetime('20150721T21:40-01:30'),
-          |datetime('2015-W30T2140-02'),
-          |datetime('2015202T21+18:00'),
-          |datetime('2015-07-21T21:40:32.142[Europe/London]'),
-          |datetime('2015-07-21T21:40:32.142-04[America/New_York]')
-          |] AS theDate
-          |RETURN theDate
-          |""".stripMargin).records().toArray
+  @Test
+  def dateTimeFromString(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |UNWIND [
+        |datetime('2015-07-21T21:40:32.142+0100'),
+        |datetime('2015-W30-2T214032.142Z'),
+        |datetime('2015T214032-0100'),
+        |datetime('20150721T21:40-01:30'),
+        |datetime('2015-W30T2140-02'),
+        |datetime('2015202T21+18:00'),
+        |datetime('2015-07-21T21:40:32.142[Europe/London]'),
+        |datetime('2015-07-21T21:40:32.142-04[America/New_York]')
+        |] AS theDate
+        |RETURN theDate
+        |""".stripMargin).records().toArray
 
-      val zone_Europe = ZoneId.of("Europe/London")
-      val zone_America = ZoneId.of("America/New_York")
-      val date_1 = LynxDateTime.parse("2015-07-21T21:40:32.142+01:00")
-      val date_2 = LynxDateTime.parse("2015-07-21T21:40:32.142Z")
-      val date_3 = LynxDateTime.parse("2015-01-01T21:40:32-01:00")
-      val date_4 = LynxDateTime.parse("2015-07-21T21:40-01:30")
-      val date_5 = LynxDateTime.parse("2015-07-20T21:40-02:00")
-      val date_6 = LynxDateTime.parse("2015-07-21T21:00+18:00")
-      val date_7 = LynxDateTime.parse("2015-07-21T21:40:32.142+01:00", zone_Europe)
-      val date_8 = LynxDateTime.parse("2015-07-21T21:40:32.142-04:00", zone_America)
+    val zone_Europe = ZoneId.of("Europe/London")
+    val zone_America = ZoneId.of("America/New_York")
+    val date_1 = LynxDateTime.parse("2015-07-21T21:40:32.142+01:00")
+    val date_2 = LynxDateTime.parse("2015-07-21T21:40:32.142Z")
+    val date_3 = LynxDateTime.parse("2015-01-01T21:40:32-01:00")
+    val date_4 = LynxDateTime.parse("2015-07-21T21:40-01:30")
+    val date_5 = LynxDateTime.parse("2015-07-20T21:40-02:00")
+    val date_6 = LynxDateTime.parse("2015-07-21T21:00+18:00")
+    val date_7 = LynxDateTime.parse("2015-07-21T21:40:32.142+01:00", zone_Europe)
+    val date_8 = LynxDateTime.parse("2015-07-21T21:40:32.142-04:00", zone_America)
 
-      Assert.assertEquals(8, records.length)
-      Assert.assertEquals(date_1, records(0)("theDate"))
-      Assert.assertEquals(date_2, records(1)("theDate"))
-      Assert.assertEquals(date_3, records(2)("theDate"))
-      Assert.assertEquals(date_4, records(3)("theDate"))
-      Assert.assertEquals(date_5, records(4)("theDate"))
-      Assert.assertEquals(date_6, records(5)("theDate"))
-      Assert.assertEquals(date_7, records(6)("theDate"))
-      Assert.assertEquals(date_8, records(7)("theDate"))
-    }
+    Assert.assertEquals(8, records.length)
+    Assert.assertEquals(date_1, records(0)("theDate"))
+    Assert.assertEquals(date_2, records(1)("theDate"))
+    Assert.assertEquals(date_3, records(2)("theDate"))
+    Assert.assertEquals(date_4, records(3)("theDate"))
+    Assert.assertEquals(date_5, records(4)("theDate"))
+    Assert.assertEquals(date_6, records(5)("theDate"))
+    Assert.assertEquals(date_7, records(6)("theDate"))
+    Assert.assertEquals(date_8, records(7)("theDate"))
+  }
 
   @Test
   def dateTimeFromUsingOtherTemporalValuesAsComponents_1(): Unit = {
@@ -516,6 +517,12 @@ class I_Temporal_InstantTypes extends TestBase {
     Assert.assertEquals(date_2, records(0)("dateHHMMSSTimezone"))
     Assert.assertEquals(date_3, records(0)("dateDDHHMMSS"))
     Assert.assertEquals(date_4, records(0)("dateDDHHMMSSTimezone"))
+  }
+
+  @Test
+  def test_a(): Unit = {
+    val date_4 = LynxDateTime.parse("1984-10-28T10:10:10-10:00", ZoneId.of("Pacific/Honolulu"))
+    println(date_4)
   }
 
   @Test
@@ -732,15 +739,15 @@ class I_Temporal_InstantTypes extends TestBase {
         |RETURN theTime
         |""".stripMargin).records().toArray
 
-    val time_1 = LocalTime.of(21, 40, 32, 142)
-    val time_2 = LocalTime.of(12, 40)
-    val time_3 = LocalTime.of(12, 0)
+    val time_1 = LynxLocalTime(LocalTime.of(21, 40, 32, 142000000))
+    val time_2 = LynxLocalTime(LocalTime.of(21, 40))
+    val time_3 = LynxLocalTime(LocalTime.of(21, 0))
 
     Assert.assertEquals(4, records.length)
-    Assert.assertEquals(time_1, records(0)("theTime").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(time_1, records(1)("theTime").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(time_2, records(2)("theTime").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(time_3, records(3)("theTime").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(time_1, records(0)("theTime"))
+    Assert.assertEquals(time_1, records(1)("theTime"))
+    Assert.assertEquals(time_2, records(2)("theTime"))
+    Assert.assertEquals(time_3, records(3)("theTime"))
   }
 
   @Test
@@ -752,7 +759,7 @@ class I_Temporal_InstantTypes extends TestBase {
         |localtime({ time:tt, second: 42 }) AS timeSS
         |""".stripMargin).records().toArray
 
-    val time_1 = LocalTime.of(12, 31, 14, 645876000)
+    val time_1 = LynxLocalTime( LocalTime.of(12, 31, 14, 645876000))
 
     Assert.assertEquals(4, records.length)
     Assert.assertEquals(time_1, records(0)("timeOnly").asInstanceOf[LynxValue].value)
@@ -772,20 +779,20 @@ class I_Temporal_InstantTypes extends TestBase {
         |localtime.truncate('microsecond', t) AS truncMicrosecond
         |""".stripMargin).records().toArray
 
-    val time_1 = LocalTime.of(0, 0)
-    val time_2 = LocalTime.of(12, 0)
-    val time_3 = LocalTime.of(12, 31, 0, 2000000)
-    val time_4 = LocalTime.of(12, 31, 14)
-    val time_5 = LocalTime.of(12, 31, 14, 645000000)
-    val time_6 = LocalTime.of(12, 31, 14, 645876000)
+    val time_1 =LynxLocalTime( LocalTime.of(0, 0))
+    val time_2 = LynxLocalTime(LocalTime.of(12, 0))
+    val time_3 = LynxLocalTime(LocalTime.of(12, 31, 0, 2000000))
+    val time_4 = LynxLocalTime(LocalTime.of(12, 31, 14))
+    val time_5 = LynxLocalTime(LocalTime.of(12, 31, 14, 645000000))
+    val time_6 = LynxLocalTime(LocalTime.of(12, 31, 14, 645876000))
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(time_1, records(0)("truncDay").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(time_2, records(1)("truncHour").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(time_3, records(1)("truncMinute").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(time_4, records(1)("truncSecond").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(time_5, records(1)("truncMillisecond").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(time_6, records(1)("truncMicrosecond").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(time_1, records(0)("truncDay"))
+    Assert.assertEquals(time_2, records(0)("truncHour"))
+    Assert.assertEquals(time_3, records(0)("truncMinute"))
+    Assert.assertEquals(time_4, records(0)("truncSecond"))
+    Assert.assertEquals(time_5, records(0)("truncMillisecond"))
+    Assert.assertEquals(time_6, records(0)("truncMicrosecond"))
   }
 
   /*
@@ -908,7 +915,7 @@ class I_Temporal_InstantTypes extends TestBase {
         |""".stripMargin).records().toArray
 
     //TODO theTime
-    val time_1 = "21:40:32.142+0100"
+    val time_1 = "21:40:32.142+01:00"
     val time_2 = "21:40:32.142Z"
     val time_3 = "21:40:32+01:00"
     val time_4 = "21:40:32-01:00"

@@ -2,7 +2,7 @@ package org.grapheco.lynx.types.time
 
 import org.grapheco.lynx.LynxType
 import org.grapheco.lynx.types.LynxValue
-import org.grapheco.lynx.types.time.LynxComponentTime.{getHourMinuteSecond, getNanosecond}
+import org.grapheco.lynx.types.time.LynxComponentTime.{getHourMinuteSecond, getNanosecond, truncateTime}
 import org.grapheco.lynx.types.time.LynxComponentTimeZone.getZone
 import org.grapheco.lynx.util.LynxTemporalParseException
 import org.opencypher.v9_0.util.symbols.CTLocalTime
@@ -27,8 +27,8 @@ case class LynxLocalTime(localTime: LocalTime) extends LynxTemporalValue with Ly
   var hour: Int = localTime.getHour
   var minute: Int = localTime.getMinute
   var second: Int = localTime.getSecond
-  var microsecond: Int = localTime.getNano * Math.pow(0.1, 6).toInt
-  var millisecond: Int = (localTime.getNano * Math.pow(0.1, 3) % Math.pow(10, 3)).toInt
+  var millisecond: Int = (localTime.getNano * Math.pow(0.1, 6)).toInt
+  var microsecond: Int = (localTime.getNano * Math.pow(0.1, 3) - millisecond * Math.pow(10, 3)).toInt
   var nanosecond: Int = localTime.getNano % Math.pow(10, 3).toInt
   var fraction: Int = localTime.getNano
 }
@@ -42,9 +42,16 @@ object LynxLocalTime {
   def of(hour: Int, minute: Int, second: Int, nanosOfSecond: Int): LynxLocalTime =
     LynxLocalTime(LocalTime.of(hour, minute, second, nanosOfSecond))
 
-  def parse(localTimeStr: String): LynxLocalTime = LynxLocalTime(LocalTime.parse(localTimeStr))
+  def parse(localTimeStr: String): LynxLocalTime = {
+    val timeTuple = getHourMinuteSecond(localTimeStr)
+    var timeStr = timeTuple._1.formatted("%02d") + ":" + timeTuple._2.formatted("%02d") + ":" + timeTuple._3.formatted("%02d") + (timeTuple._4 match {
+      case 0 => ""
+      case v: Int => "." + v.toString
+    })
+    LynxLocalTime(LocalTime.parse(timeStr))
+  }
 
-  def parse(map: Map[String, Any]): LynxTemporalValue = {
+  def parse(map: Map[String, Any]): LynxLocalTime = {
     if (map.isEmpty) {
       throw LynxTemporalParseException("At least one temporal unit must be specified")
     }
@@ -62,6 +69,9 @@ object LynxLocalTime {
     else if (map.contains("hour")) {
       val (hour, minute, second) = getHourMinuteSecond(map, false)
       val nanoOfSecond = getNanosecond(map, true)
+      of(hour, minute, second, nanoOfSecond)
+    } else if (map.contains("unitStr")) {
+      val (hour, minute, second, nanoOfSecond) = truncateTime(map)
       of(hour, minute, second, nanoOfSecond)
     }
     else throw LynxTemporalParseException("parse date from map: map not contains (hour, minute, second) ")

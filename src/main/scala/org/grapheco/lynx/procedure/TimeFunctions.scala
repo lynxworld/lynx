@@ -43,7 +43,7 @@ class TimeFunctions {
   @LynxProcedure(name = "datetime")
   def datetime(inputs: LynxValue): LynxDateTime = {
     inputs match {
-      case LynxString(v) => LynxDateTime.of(v)
+      case LynxString(v) => LynxDateTime.parse(v)
       case LynxMap(v) => LynxDateTime.parse(inputs).asInstanceOf[LynxDateTime]
     }
 
@@ -67,7 +67,10 @@ class TimeFunctions {
 
   @LynxProcedure(name = "time")
   def time(inputs: LynxValue): LynxTime = {
-    LynxTime.parse(inputs.value.toString).asInstanceOf[LynxTime]
+    inputs match {
+      case LynxString(v) => LynxTime.parse(v)
+      case LynxMap(v) => LynxTime.parse(v)
+    }
   }
 
   @LynxProcedure(name = "time")
@@ -81,7 +84,6 @@ class TimeFunctions {
       case LynxString(v) => LynxLocalTime.parse(v)
       case LynxMap(v) => LynxLocalTime.parse(v).asInstanceOf[LynxLocalTime]
     }
-
   }
 
   @LynxProcedure(name = "localtime")
@@ -89,6 +91,20 @@ class TimeFunctions {
     LynxLocalTime.now()
   }
 
+  @LynxProcedure(name = "localtime.truncate")
+  def localtimeTruncate(unitStr: LynxString, dateValue: LynxTime, mapOfComponents: LynxMap): LynxLocalTime = {
+    LynxLocalTime.parse(Map("unitStr" -> unitStr, "timeValue" -> dateValue, "mapOfComponents" -> mapOfComponents))
+  }
+
+  @LynxProcedure(name = "localtime.truncate")
+  def localtimeTruncate(unitStr: LynxString, dateValue: LynxTime): LynxLocalTime = {
+      LynxLocalTime.parse(Map("unitStr" -> unitStr, "timeValue" -> dateValue))
+  }
+
+  @LynxProcedure(name = "localtime.truncate")
+  def localtimeTruncate(): LynxLocalTime = {
+    LynxLocalTime.now()
+  }
   @LynxProcedure(name = "duration")
   def duration(input: LynxValue): LynxDuration = {
     input match {

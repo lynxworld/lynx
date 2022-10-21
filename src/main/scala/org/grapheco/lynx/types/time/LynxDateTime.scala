@@ -5,13 +5,13 @@ import org.grapheco.lynx.types.composite.LynxMap
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
 import org.grapheco.lynx.types.time.LynxComponentDate.{getYearMonthDay, transformDate, transformYearOrdinalDay, transformYearQuarterDay, transformYearWeekDay}
 import org.grapheco.lynx.types.time.LynxComponentTime.{getHourMinuteSecond, getNanosecond}
-import org.grapheco.lynx.types.time.LynxComponentTimeZone.getZone
+import org.grapheco.lynx.types.time.LynxComponentTimeZone.{getOffset, getZone}
 import org.grapheco.lynx.util.{LynxTemporalParseException, LynxTemporalParser}
 import org.grapheco.lynx.util.LynxTemporalParser.splitDateTime
 import org.opencypher.v9_0.util.symbols.{CTDateTime, DateTimeType}
 
 import java.sql.Timestamp
-import java.time.{LocalTime, ZoneId, ZoneOffset, ZonedDateTime}
+import java.time.{LocalDateTime, LocalTime, ZoneId, ZoneOffset, ZonedDateTime}
 import java.util.{Calendar, Date, GregorianCalendar}
 
 /**
@@ -53,8 +53,8 @@ case class LynxDateTime(zonedDateTime: ZonedDateTime) extends LynxTemporalValue 
   var hour: Int = zonedDateTime.getHour
   var minute: Int = zonedDateTime.getMinute
   var second: Int = zonedDateTime.getSecond
-  var microsecond: Int = zonedDateTime.getNano * Math.pow(0.1, 6).toInt
-  var millisecond: Int = (zonedDateTime.getNano * Math.pow(0.1, 3) % Math.pow(10, 3)).toInt
+  var millisecond: Int = (zonedDateTime.getNano * Math.pow(0.1, 6)).toInt
+  var microsecond: Int = (zonedDateTime.getNano * Math.pow(0.1, 3) - millisecond * Math.pow(10, 3)).toInt
   var nanosecond: Int = zonedDateTime.getNano % Math.pow(10, 3).toInt
   var fraction: Int = zonedDateTime.getNano
 
@@ -78,29 +78,51 @@ object LynxDateTime extends LynxTemporalParser {
 
   def now(zoneId: ZoneId): LynxDateTime = LynxDateTime(ZonedDateTime.now(zoneId))
 
-  def of(zonedDateTimeStr: String): LynxDateTime = LynxDateTime.of(zonedDateTimeStr)
+  def of(zonedDateTimeStr: String): LynxDateTime = {
+    try {
+      LynxDateTime.of(zonedDateTimeStr)
+    } catch {
+      case _ => throw new Exception("DateTimeOfException")
+    }
+  }
 
   def of(zonedDateTime: ZonedDateTime): LynxDateTime = LynxDateTime(zonedDateTime)
 
   def of(year: Int, month: Int, day: Int, hour: Int, minute: Int, second: Int, nanosecond: Int, timezone: String): LynxDateTime =
     LynxDateTime(ZonedDateTime.of(year, month, day, hour, minute, second, nanosecond, LynxComponentTimeZone.getZone(timezone)))
 
-  def of(dayTuple: Tuple3[Int, Int, Int], timeTuple: Tuple4[Int, Int, Int, Int], timezone: String, utcStr: String = null): LynxDateTime =
-    of(dayTuple._1.toString + "-" + dayTuple._2.toString + "-" + dayTuple._3.toString + "-" + timeTuple._1.toString + "-" + timeTuple._2.toString + "-" + timeTuple._3.toString + "-" + timeTuple._4.toString + "-" + utcStr + timezone)
-
 
   def parse(zonedDateTimeStr: String, zoneId: ZoneId): LynxDateTime = {
-    val map = splitDateTime(zonedDateTimeStr)
-    map.size match {
-      case 3 => of(getYearMonthDay(map.get("dateStr").get), getHourMinuteSecond(map.get("timeStr").get), zoneId.getId)
-      case 4 => of(getYearMonthDay(map.get("dateStr").get), getHourMinuteSecond(map.get("timeStr").get), zoneId.getId,map.get("utcStr").get)
+    //    val map = splitDateTime(zonedDateTimeStr)
+    //    map.size match {
+    //      case 3 => of(getYearMonthDay(map.get("dateStr").get), getHourMinuteSecond(map.get("timeStr").get), zoneId.getId)
+    //      case 4 => of(getYearMonthDay(map.get("dateStr").get), getHourMinuteSecond(map.get("timeStr").get), zoneId.getId, map.get("utcStr").get)
+    //    }
+    try {
+      val v = ZonedDateTime.parse(zonedDateTimeStr).toLocalDateTime.atZone(zoneId)
+      LynxDateTime(v)
+    } catch {
+      case _ => throw new Exception("DateTimeParseException")
     }
-
   }
 
   def parse(zonedDateTimeStr: String): LynxDateTime = {
     val map = splitDateTime(zonedDateTimeStr)
-    of(getYearMonthDay(map.get("dateStr").get), getHourMinuteSecond(map.get("timeStr").get), getZone(map.get("zoneStr").get).getId)
+    val dateTuple = getYearMonthDay(map.get("dateStr").get)
+    val timeTuple = getHourMinuteSecond(map.get("timeStr").get)
+    val zoneStr = getZone(map.get("zoneStr").getOrElse(null))
+    val offsetStr = getOffset(map.get("offsetStr").getOrElse(null))
+
+    var dateStr = dateTuple._1.formatted("%04d") + "-" + dateTuple._2.formatted("%02d") + "-" + dateTuple._3.formatted("%02d")
+    var timeStr = timeTuple._1.formatted("%02d") + ":" + timeTuple._2.formatted("%02d") + ":" + timeTuple._3.formatted("%02d") + (timeTuple._4 match {
+      case 0 => ""
+      case v: Int => "." + v.toString
+    })
+    var dateTime = LocalDateTime.parse(dateStr + "T" + timeStr)
+    zoneStr match {
+      case null => LynxDateTime(dateTime.atOffset(ZoneOffset.of(offsetStr)).toZonedDateTime)
+      case v: ZoneId => LynxDateTime(dateTime.atZone(v))
+    }
   }
 
   def parse(map: Map[String, Any]): LynxDateTime = {

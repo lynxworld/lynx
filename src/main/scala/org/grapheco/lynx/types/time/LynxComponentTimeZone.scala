@@ -45,6 +45,16 @@ object LynxComponentTimeZone {
     }
   }
 
-
+  def getOffset(utcStr: String): String = {
+    val HH_MM: Regex = "^(.{1})([0-9]{2}):([0-9]{2})$".r
+    val HHMM: Regex = "^(.{3})([0-9]{2})$".r
+    val HH: Regex = "^(.{3})$".r
+    utcStr match {
+      case null => null
+      case HHMM(hour, minute) => hour + ":" + minute
+      case HH(hour) => hour + ":" + "00"
+      case _ => utcStr
+    }
+  }
 }
 

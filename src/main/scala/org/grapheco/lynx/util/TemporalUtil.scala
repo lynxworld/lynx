@@ -62,14 +62,19 @@ object LynxTemporalParser {
     val splitDateTimeWithZone_4: Regex = "^(.{4,12})T(.{0,40})\\[(.{0,40}).$".r
     val splitDateTimeWithZone_5: Regex = "^(.{4,12})T(.{0,40})(\\+.{0,40})\\[(.{0,40}).$".r
     val splitDateTimeWithZone_6: Regex = "^(.{4,12})T(.{0,40})(\\-.{0,40})\\[(.{0,40}).$".r
+    val splitTimeWithOffset_1: Regex = "^(.{0,40})(\\+.{0,40})$".r
+    val splitTimeWithOffset_2: Regex = "^(.{0,40})(\\-.{0,40})$".r
+    val splitTimeWithOffset_3: Regex = "^(.{0,40})(Z{1})$".r
     str match {
-      case splitDateTimeWithZone_6(dateStr, timeStr, utcStr, zoneStr) => Map("dateStr" -> dateStr, "timeStr" -> timeStr, "utcStr" -> utcStr, "zoneStr" -> zoneStr)
-      case splitDateTimeWithZone_5(dateStr, timeStr, utcStr, zoneStr) => Map("dateStr" -> dateStr, "timeStr" -> timeStr, "utcStr" -> utcStr, "zoneStr" -> zoneStr)
+      case splitDateTimeWithZone_6(dateStr, timeStr, offsetStr, zoneStr) => Map("dateStr" -> dateStr, "timeStr" -> timeStr, "offsetStr" -> offsetStr, "zoneStr" -> zoneStr)
+      case splitDateTimeWithZone_5(dateStr, timeStr, offsetStr, zoneStr) => Map("dateStr" -> dateStr, "timeStr" -> timeStr, "offsetStr" -> offsetStr, "zoneStr" -> zoneStr)
       case splitDateTimeWithZone_4(dateStr, timeStr, zoneStr) => Map("dateStr" -> dateStr, "timeStr" -> timeStr, "zoneStr" -> zoneStr)
       case splitDateTimeWithZone_1(dateStr, timeStr, zoneStr) => Map("dateStr" -> dateStr, "timeStr" -> timeStr, "zoneStr" -> zoneStr)
-      case splitDateTimeWithZone_2(dateStr, timeStr, zoneStr) => Map("dateStr" -> dateStr, "timeStr" -> timeStr, "zoneStr" -> zoneStr)
-      case splitDateTimeWithZone_3(dateStr, timeStr, zoneStr) => Map("dateStr" -> dateStr, "timeStr" -> timeStr, "zoneStr" -> zoneStr)
-
+      case splitDateTimeWithZone_2(dateStr, timeStr, offsetStr) => Map("dateStr" -> dateStr, "timeStr" -> timeStr, "offsetStr" -> offsetStr)
+      case splitDateTimeWithZone_3(dateStr, timeStr, offsetStr) => Map("dateStr" -> dateStr, "timeStr" -> timeStr, "offsetStr" -> offsetStr)
+      case splitTimeWithOffset_1(timeStr, offsetStr) => Map("timeStr" -> timeStr, "offsetStr" -> offsetStr)
+      case splitTimeWithOffset_2(timeStr, offsetStr) => Map("timeStr" -> timeStr, "offsetStr" -> offsetStr)
+      case splitTimeWithOffset_3(timeStr, offsetStr) => Map("timeStr" -> timeStr, "offsetStr" -> offsetStr)
       case splitDateTime(dateStr, timeStr) => Map("dateStr" -> dateStr, "timeStr" -> timeStr)
       case _ => throw new Exception("can not split Date and Time")
     }
