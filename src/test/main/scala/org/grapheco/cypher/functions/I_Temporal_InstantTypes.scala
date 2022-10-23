@@ -46,6 +46,18 @@ class I_Temporal_InstantTypes extends TestBase {
   def dateTransaction(): Unit = {
     val records = runOnDemoGraph(
       """
+        |RETURN date.transaction() AS currentDate
+        |""".stripMargin).records().toArray
+
+    val now_date = LynxDate.now
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(now_date, records(0)("currentDate"))
+  }
+
+  @Test
+  def dateStatement(): Unit = {
+    val records = runOnDemoGraph(
+      """
         |RETURN date.statement() AS currentDate
         |""".stripMargin).records().toArray
 
