@@ -35,8 +35,8 @@ object SortMergeJoiner {
 
   private def _innerJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): () => Iterator[Seq[LynxValue]] = {
     // Is this asending or desending?
-    val sortedTableA: Array[Seq[LynxValue]] = Profiler.timing("SortA", _sortByColIndexs(a, joinColIndexs.map(_._1)))
-    val sortedTableB: Array[Seq[LynxValue]] = Profiler.timing("SortB", _sortByColIndexs(b, joinColIndexs.map(_._2)))
+    val sortedTableA: Array[Seq[LynxValue]] = _sortByColIndexs(a, joinColIndexs.map(_._1))
+    val sortedTableB: Array[Seq[LynxValue]] = _sortByColIndexs(b, joinColIndexs.map(_._2))
 
     var indexOfA: Int = 0
     var indexOfB: Int = 0
