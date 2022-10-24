@@ -673,7 +673,7 @@ class I_Temporal_InstantTypes extends TestBase {
     val now_time = LocalDateTime.now.format(dataform)
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(now_time, records(0)("now").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(now_time, records(0)("now"))
   }
 
   @Test
@@ -760,10 +760,11 @@ class I_Temporal_InstantTypes extends TestBase {
         |""".stripMargin).records().toArray
 
     val time_1 = LynxLocalTime( LocalTime.of(12, 31, 14, 645876000))
+    val time_2 = LynxLocalTime( LocalTime.of(12, 31, 42, 645876000))
 
-    Assert.assertEquals(4, records.length)
-    Assert.assertEquals(time_1, records(0)("timeOnly").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(time_1, records(1)("timeSS").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(time_1, records(0)("timeOnly"))
+    Assert.assertEquals(time_2, records(0)("timeSS"))
   }
 
   @Test
@@ -805,7 +806,6 @@ class I_Temporal_InstantTypes extends TestBase {
         |RETURN time() AS currentTime
         |""".stripMargin).records().toArray
 
-    //    val dataform = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
     val now_time = LynxTime.now()
 
     Assert.assertEquals(1, records.length)
@@ -882,7 +882,7 @@ class I_Temporal_InstantTypes extends TestBase {
         |] AS theTime
         |RETURN theTime
         |""".stripMargin).records().toArray
-    //TODO theTime
+
     val time_1 = "12:31:14.123456789Z"
     val time_2 = "12:31:14.645876123Z"
     val time_3 = "12:31:14.645876+01:00"
@@ -914,7 +914,6 @@ class I_Temporal_InstantTypes extends TestBase {
         |RETURN theTime
         |""".stripMargin).records().toArray
 
-    //TODO theTime
     val time_1 = "21:40:32.142+01:00"
     val time_2 = "21:40:32.142Z"
     val time_3 = "21:40:32+01:00"
@@ -946,7 +945,6 @@ class I_Temporal_InstantTypes extends TestBase {
         |time({ time:tt, second: 42, timezone:'+05:00' }) AS timeSSTimezone
         |""".stripMargin).records().toArray
 
-    //TODO theTime
     val time_1 = "12:31:14.645876Z"
     val time_2 = "12:31:14.645876+05:00"
     val time_3 = "12:31:42.645876Z"
