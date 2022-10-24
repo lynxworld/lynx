@@ -1,10 +1,12 @@
 package org.grapheco.lynx.types.time
 
 
-import org.grapheco.lynx.util.{LynxTemporalParseException, LynxTemporalParser}
+import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.composite.LynxMap
+import org.grapheco.lynx.types.property.LynxString
+import org.grapheco.lynx.util.LynxTemporalParseException
 
 import java.time.{ZoneId, ZoneOffset}
-import java.util.TimeZone
 import scala.util.matching.Regex
 
 trait LynxComponentTimeZone extends LynxTemporalValue {
@@ -56,5 +58,34 @@ object LynxComponentTimeZone {
       case _ => utcStr
     }
   }
+
+  def truncateZone(map: Map[String, Any]): ZoneId = {
+    val componentsMap = map.getOrElse("mapOfComponents", null) match {
+      case LynxMap(v) => v match {
+        case v: Map[String, LynxString] if v.contains("timezone") =>
+          return getZone(v.getOrElse("timezone", null) match {
+            case LynxString(v) => v.replace(" ", "_")
+            case null if map.contains("dateValue") => map.get("dateValue").orNull match {
+              case LynxDateTime(v) => v.getZone.getId
+              case null => "Z"
+            }
+            case null if map.contains("timeValue") => map.get("timeValue").orNull match {
+              case LynxTime(v) => v.getOffset.getId
+              case null => "Z"
+            }
+          })
+        case _ => null
+      }
+      case null => null
+    }
+
+    getZone(map.getOrElse("dateValue", null) match {
+      case LynxDateTime(v) => v.getZone.getId
+      case null => map.getOrElse("timeValue", null) match {
+        case LynxTime(v) => v.getOffset.getId
+      }
+    })
+  }
+
 }
 

@@ -3,9 +3,9 @@ package org.grapheco.lynx.types.time
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxMap
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
-import org.grapheco.lynx.types.time.LynxComponentDate.{getYearMonthDay, transformDate, transformYearOrdinalDay, transformYearQuarterDay, transformYearWeekDay}
-import org.grapheco.lynx.types.time.LynxComponentTime.{getHourMinuteSecond, getNanosecond}
-import org.grapheco.lynx.types.time.LynxComponentTimeZone.{getOffset, getZone}
+import org.grapheco.lynx.types.time.LynxComponentDate.{getYearMonthDay, transformDate, transformYearOrdinalDay, transformYearQuarterDay, transformYearWeekDay, truncateDate}
+import org.grapheco.lynx.types.time.LynxComponentTime.{getHourMinuteSecond, getNanosecond, truncateTime}
+import org.grapheco.lynx.types.time.LynxComponentTimeZone.{getOffset, getZone, truncateZone}
 import org.grapheco.lynx.util.{LynxTemporalParseException, LynxTemporalParser}
 import org.grapheco.lynx.util.LynxTemporalParser.splitDateTime
 import org.opencypher.v9_0.util.symbols.{CTDateTime, DateTimeType}
@@ -72,7 +72,7 @@ case class LynxDateTime(zonedDateTime: ZonedDateTime) extends LynxTemporalValue 
 }
 
 
-object LynxDateTime extends LynxTemporalParser {
+object LynxDateTime {
 
   def now(): LynxDateTime = LynxDateTime(ZonedDateTime.now())
 
@@ -82,7 +82,7 @@ object LynxDateTime extends LynxTemporalParser {
     try {
       LynxDateTime.of(zonedDateTimeStr)
     } catch {
-      case _ => throw new Exception("DateTimeOfException")
+      case _: Throwable => throw new Exception("DateTimeOfException")
     }
   }
 
@@ -108,10 +108,10 @@ object LynxDateTime extends LynxTemporalParser {
 
   def parse(zonedDateTimeStr: String): LynxDateTime = {
     val map = splitDateTime(zonedDateTimeStr)
-    val dateTuple = getYearMonthDay(map.get("dateStr").get)
-    val timeTuple = getHourMinuteSecond(map.get("timeStr").get)
-    val zoneStr = getZone(map.get("zoneStr").getOrElse(null))
-    val offsetStr = getOffset(map.get("offsetStr").getOrElse(null))
+    val dateTuple = getYearMonthDay(map("dateStr"))
+    val timeTuple = getHourMinuteSecond(map("timeStr"))
+    val zoneStr = getZone(map.get("zoneStr").orNull)
+    val offsetStr = getOffset(map.getOrElse("offsetStr", null))
 
     var dateStr = dateTuple._1.formatted("%04d") + "-" + dateTuple._2.formatted("%02d") + "-" + dateTuple._3.formatted("%02d")
     var timeStr = timeTuple._1.formatted("%02d") + ":" + timeTuple._2.formatted("%02d") + ":" + timeTuple._3.formatted("%02d") + (timeTuple._4 match {
@@ -130,15 +130,33 @@ object LynxDateTime extends LynxTemporalParser {
       throw LynxTemporalParseException("At least one temporal unit must be specified")
     }
 
-    val zoneId = getZone(map.getOrElse("timezone", "Z") match {
+    val zoneId = getZone(map.get("timezone").orNull match {
       case v: String => v.replace(" ", "_")
+      case LynxString(v) => v.replace(" ", "_")
+      case null => map.get("datetime").orNull match {
+        case LynxDateTime(v) => v.getZone.getId
+        case null => "Z"
+      }
     })
+
     if (map.size == 1) {
       map match {
         case m if m.contains("timezone") => LynxDateTime.now(zoneId)
-        case m if m.contains("datetime") => LynxDateTime.parse(m.get("datetime").get.toString)
-        case m if m.contains("epochSeconds") => LynxDateTime(ZonedDateTime.ofInstant(new Timestamp(LynxDateTime.now().epochMillis).toInstant(), zoneId))
-        case m if m.contains("epochMillis") => LynxDateTime(ZonedDateTime.ofInstant(new Timestamp(LynxDateTime.now().epochSeconds).toInstant(), zoneId))
+        case m if m.contains("datetime") => LynxDateTime.parse(m("datetime") match {
+          case LynxDateTime(v) => v.toString
+        })
+        case m if m.contains("epochSeconds") =>
+          LynxDateTime(ZonedDateTime.ofInstant(
+            new Timestamp(map.getOrElse("epochSeconds", LynxDateTime.now().epochSeconds) match {
+              case LynxInteger(v) => v
+              case v: Long => v
+            }).toInstant, zoneId))
+        case m if m.contains("epochMillis") =>
+          LynxDateTime(ZonedDateTime.ofInstant(
+            new Timestamp(map.getOrElse("epochMillis", LynxDateTime.now().epochMillis) match {
+              case LynxInteger(v) => v
+              case v: Long => v
+            }).toInstant(), zoneId))
       }
     } else {
       var v: ZonedDateTime = null
@@ -150,24 +168,42 @@ object LynxDateTime extends LynxTemporalParser {
         case _ => getYearMonthDay(map)
       }
 
-      val (hour, minute, second) = map match {
+      val (hour: Int, minute: Int, second: Int) = map match {
         case m if m.contains("time") =>
-          val v = m("time").asInstanceOf[LocalTime]
-          (v.getHour, v.getMinute,
-            if (m.contains("second")) m("second") match {
-              case v: Long => v.toInt
-              case v: LynxInteger => v.value.toInt
-            }
-            else v.getSecond
-          )
-        case _ => getHourMinuteSecond(map, false)
+          m("time") match {
+            case v: LynxLocalTime => (v.hour, v.minute,
+              if (m.contains("second")) m("second") match {
+                case v: Long => v.toInt
+                case v: LynxInteger => v.value.toInt
+              }
+              else v.second
+            )
+          }
+        case _ => getHourMinuteSecond(map, requiredHasDay = false)
       }
-      val nanoOfSecond = map match {
-        case m if m.contains("time") => m("time") match {
-          case v: LocalTime => v.getNano
-          case v: LynxInteger => v.value.toInt
-        }
-        case _ => getNanosecond(map, false)
+      val nanoOfSecond: Int = map match {
+        case m if m.contains("time") => (
+          m.getOrElse("time", 0) match {
+            case v: LocalTime => v.getNano
+            case v: LynxInteger => v.value.toInt
+            case LynxLocalTime(v) => v.getNano
+            //            case v: LynxLocalTime => v.nanosecond
+            //            case v: LynxDateTime => v.nanosecond
+
+          })
+        case _ => getNanosecond(map, requiredHasSecond = false)
+      }
+      if (map.contains("timezone") && map.contains("datetime")) {
+        val old_datetime = ZonedDateTime.of(year, month, day, hour, minute, second, nanoOfSecond, map("datetime") match {
+          case LynxDateTime(v) => v.getZone
+        })
+        val new_datetime = old_datetime.withZoneSameInstant(zoneId)
+        return LynxDateTime(new_datetime)
+      }
+      if (map.contains("unitStr")) {
+        val (truncate_year, truncate_month, truncate_day) = truncateDate(map)
+        val (truncate_hour, truncate_minute, truncate_second, truncate_nanoOfSecond) = truncateTime(map)
+        return of(truncate_year, truncate_month, truncate_day, truncate_hour, truncate_minute, truncate_second, truncate_nanoOfSecond, truncateZone(map).getId)
       }
       of(year, month, day, hour, minute, second, nanoOfSecond, zoneId.getId)
     }
