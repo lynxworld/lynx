@@ -1,14 +1,12 @@
 package org.grapheco.lynx.types.time
 
+import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxMap
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
-import org.grapheco.lynx.util.LynxTemporalParser
 import org.grapheco.lynx.util.LynxTemporalParser.{assureBetween, assureContains}
 
 import scala.util.matching.Regex
-
 import java.time.{LocalDateTime, ZonedDateTime}
-//import org.scalacheck.Prop.{False, True}
 
 import java.time.LocalDate
 import java.util.{Calendar, GregorianCalendar}
@@ -43,31 +41,47 @@ trait LynxComponentDate {
 object LynxComponentDate {
 
   def getYearMonthDay(map: Map[String, Any]): (Int, Int, Int) = {
-    val year: Int = map.get("year").map(
-      _ match {
-        case v: LynxInteger => v.value.toInt
-        case v: Long => v.toInt
-        case v: Int => v
+
+    val year: Int = map.get("year").map {
+      case v: LynxInteger => v.value.toInt
+      case v: Long => v.toInt
+      case v: Int => v
+    }.getOrElse(
+      map.get("datetime").orNull match {
+        case LynxDateTime(v) => v.getYear
+        case null => 0
       }
-    ).getOrElse(0)
+    )
 
-    if (map.contains("month")) {
-      assureContains(map, "year")
-    }
-    val month: Int = map.get("month").map(_ match {
+    val month: Int = map.get("month").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
       case v: Int => v
-    }).getOrElse(1)
+    }.getOrElse(map.getOrElse("datetime", null) match {
+      case LynxDateTime(v) => v.getMonthValue
+      case null =>
+        if (map.contains("month")) {
+          assureContains(map, "year")
+        }
+        1
+    })
 
-    if (map.contains("day")) {
-      assureContains(map, "month")
-    }
-    val day: Int = map.get("day").map(_ match {
+    //    if (map.contains("day")) {
+    //      assureContains(map, "month")
+    //    }
+    val day: Int = map.get("day").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
       case v: Int => v
-    }).getOrElse(1)
+    }.getOrElse(
+      map.get("datetime").orNull match {
+        case LynxDateTime(v) => v.getDayOfMonth
+        case null =>
+          if (map.contains("day")) {
+            assureContains(map, "month")
+          }
+          1
+      })
 
     assureBetween(month, 1, 12, "month")
     assureBetween(day, 1, 31, "day")
@@ -76,29 +90,29 @@ object LynxComponentDate {
 
   def transformYearWeekDay(map: Map[String, Any]): (Int, Int, Int) = {
 
-    val year: Int = map.get("year").map(_ match {
+    val year: Int = map.get("year").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
       case v: Int => v
-    }).getOrElse(0)
+    }.getOrElse(0)
 
     if (map.contains("week")) {
       assureContains(map, "year")
     }
-    val week: Int = map.get("week").map(_ match {
+    val week: Int = map.get("week").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
       case v: Int => v
-    }).getOrElse(1)
+    }.getOrElse(1)
 
     if (map.contains("dayOfWeek")) {
       assureContains(map, "week")
     }
-    val day: Int = map.get("dayOfWeek").map(_ match {
+    val day: Int = map.get("dayOfWeek").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
       case v: Int => v
-    }).getOrElse(1)
+    }.getOrElse(1)
 
     assureBetween(week, 1, 53, "week")
     assureBetween(day, 1, 7, "dayOfWeek")
@@ -112,29 +126,29 @@ object LynxComponentDate {
 
   def transformYearQuarterDay(map: Map[String, Any]): (Int, Int, Int) = {
 
-    val year: Int = map.get("year").map(_ match {
+    val year: Int = map.get("year").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
       case v: Int => v
-    }).getOrElse(0)
+    }.getOrElse(0)
 
     if (map.contains("quarter")) {
       assureContains(map, "year")
     }
-    val quarter: Int = map.get("quarter").map(_ match {
+    val quarter: Int = map.get("quarter").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
       case v: Int => v
-    }).getOrElse(1)
+    }.getOrElse(1)
 
     if (map.contains("dayOfQuarter")) {
       assureContains(map, "quarter")
     }
-    val day: Int = map.get("dayOfQuarter").map(_ match {
+    val day: Int = map.get("dayOfQuarter").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
       case v: Int => v
-    }).getOrElse(1)
+    }.getOrElse(1)
 
     assureBetween(quarter, 1, 4, "quarter")
     assureBetween(day, 1, 92, "dayOfQuarter")
@@ -150,20 +164,20 @@ object LynxComponentDate {
 
   def transformYearOrdinalDay(map: Map[String, Any]): (Int, Int, Int) = {
 
-    val year: Int = map.get("year").map(_ match {
+    val year: Int = map.get("year").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
       case v: Int => v
-    }).getOrElse(0)
+    }.getOrElse(0)
 
     if (map.contains("ordinalDay")) {
       assureContains(map, "year")
     }
-    val ordinalDay: Int = map.get("ordinalDay").map(_ match {
+    val ordinalDay: Int = map.get("ordinalDay").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
       case v: Int => v
-    }).getOrElse(1)
+    }.getOrElse(1)
 
     assureBetween(ordinalDay, 1, 366, "ordinalDay")
     val calendar = new GregorianCalendar()
@@ -174,18 +188,21 @@ object LynxComponentDate {
 
   def transformDate(map: Map[String, Any]): (Int, Int, Int) = {
 
-    var (year, month, day) = map.get("date").getOrElse(0) match {
+    var (year, month, day) = map.getOrElse("date", 0) match {
       case v: LocalDate => (v.getYear, v.getMonthValue, v.getDayOfMonth)
       case v: ZonedDateTime => (v.getYear, v.getMonthValue, v.getDayOfMonth)
       case v: LocalDateTime => (v.getYear, v.getMonthValue, v.getDayOfMonth)
+      case v: LynxDate => (v.year, v.month, v.day)
+      case v: LynxLocalDateTime => (v.year, v.month, v.day)
+      case v: LynxDateTime => (v.year, v.month, v.day)
     }
     if (map.contains("day")) {
       assureContains(map, "date")
     }
-    day = map.get("day").map(_ match {
+    day = map.get("day").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
-    }).getOrElse(day)
+    }.getOrElse(day)
 
     (year, month, day)
   }
@@ -231,11 +248,11 @@ object LynxComponentDate {
     val calendar = Calendar.getInstance()
     calendar.clear()
 
-    val date = map.get("dateValue").getOrElse(0).asInstanceOf[LynxDateTime].zonedDateTime
+    val date = map.getOrElse("dateValue", 0).asInstanceOf[LynxDateTime].zonedDateTime
 
     val (year, month, day): (Int, Int, Int) = (date.getYear, date.getMonthValue - 1, date.getDayOfMonth)
     calendar.setFirstDayOfWeek(Calendar.MONDAY)
-    map.get("unitStr").get match {
+    map("unitStr") match {
       case LynxString("millennium")
       => calendar.set(year - year % 1000, 0, 1)
       case LynxString("century")
@@ -247,12 +264,12 @@ object LynxComponentDate {
       case LynxString("weekYear")
       => calendar.set(Calendar.YEAR, year)
         calendar.set(Calendar.WEEK_OF_YEAR, year)
-      //        calendar.set(year, 0, 1)
-      //        calendar.set(Calendar.DAY_OF_YEAR, calendar.get(Calendar.DAY_OF_WEEK) match {
-      //          case 1 => 2
-      //          case 2 => 1
-      //          case v => 10 - v.toInt
-      //        })
+        calendar.set(year, 0, 1)
+        calendar.set(Calendar.DAY_OF_YEAR, calendar.get(Calendar.DAY_OF_WEEK) match {
+          case 1 => 2
+          case 2 => 1
+          case v => 10 - v.toInt
+        })
       case LynxString("quarter")
       => calendar.set(year, month - month % 3, 1)
       case LynxString("month")
@@ -266,12 +283,60 @@ object LynxComponentDate {
         })
       case LynxString("day")
       => calendar.set(year, month, day)
+      case _ => calendar.set(year, month, day)
     }
-    val addDay = map.size match {
-      case 2 =>
-      case 3 => calendar.add(
-        Calendar.DAY_OF_YEAR, map.get("mapOfComponents").get.asInstanceOf[LynxMap].value.map(_._2).head.asInstanceOf[LynxInteger].value.toInt - 1)
+    val componentsMap = map.getOrElse("mapOfComponents", null) match {
+      case LynxMap(v) => v match {
+        case v: Map[String, LynxValue] => v
+      }
+      case null => return (calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1, calendar.get(Calendar.DAY_OF_MONTH))
     }
+    val componentList = componentsMap.keys match {
+      case v: List[LynxString] => v
+      case v: List[String] => v
+      case v: Iterable[String] => v.toList
+      case v: Iterable[LynxString] => v.toList
+    }
+    val componentsValue = componentsMap.values match {
+      case v: List[LynxInteger] => v
+      case v: Iterable[Any] => v.toList
+      //      case v: Iterable[LynxString] => v.toList
+    }
+    var addDay = 0
+    for (i <- componentList.indices) {
+
+      if (componentList(i).equals("weekYear") || componentList(i).equals("century") || componentList(i).equals("decade") || componentList(i).equals("year")) {
+        calendar.set(Calendar.YEAR, componentsValue(i).value match {
+          case v: Int => v
+          case v: Long => v.toInt
+        })
+      }
+      if (componentList(i).equals("month")) {
+        calendar.set(Calendar.MONTH, componentsValue(i).value match {
+          case v: Int => v
+          case v: Long => v.toInt
+        })
+      }
+      if (componentList(i).equals("day")) {
+        calendar.set(Calendar.DAY_OF_MONTH, componentsValue(i).value match {
+          case v: Int => v
+          case v: Long => v.toInt
+        })
+      }
+      if (componentList(i).equals("dayOfWeek")) {
+        calendar.set(Calendar.WEEK_OF_YEAR, calendar.get(Calendar.WEEK_OF_YEAR))
+        calendar.set(Calendar.DAY_OF_WEEK, componentsValue(i).value match {
+          case v: Int => v + 1
+          case v: Long => v.toInt + 1
+        })
+      }
+    }
+    //    calendar.add(
+    //      Calendar.DAY_OF_YEAR, map("mapOfComponents").asInstanceOf[LynxMap].value.values.head match {
+    //        case v: LynxInteger => v.value.toInt - 1
+    //        case _ => 0
+    //      })
+
     (calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1, calendar.get(Calendar.DAY_OF_MONTH))
   }
 }

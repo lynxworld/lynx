@@ -1,24 +1,18 @@
 package org.grapheco.lynx.util
 
-import org.apache.commons.lang3.time.DateUtils
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxMap
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
-import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxDuration, LynxLocalDateTime, LynxLocalTime, LynxTemporalValue, LynxTime}
-import org.grapheco.lynx.{LynxException, types}
-//import org.joda.time.LocalDate
-import java.time.LocalDate
-import java.time.{Duration, Instant, LocalDateTime, LocalTime, OffsetTime, Period, ZoneId, ZoneOffset, ZonedDateTime}
+import org.grapheco.lynx.types.time.{LynxDateTime, LynxDuration, LynxTemporalValue}
+import org.grapheco.lynx.LynxException
+import java.time.Duration
 
-import java.util
-import java.util.{Calendar, Date, GregorianCalendar}
 import scala.util.matching.Regex
-import java.sql.Timestamp
 
 case class LynxTemporalParseException(msg: String) extends LynxException {
   override def getMessage: String = msg
 
-  def timestamp: LynxInteger = LynxInteger(new Date().getTime())
+  def timestamp: LynxInteger = LynxInteger(LynxDateTime.now().epochMillis)
 }
 
 trait LynxTemporalParser {

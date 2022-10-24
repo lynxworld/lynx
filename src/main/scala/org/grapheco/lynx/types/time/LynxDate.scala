@@ -94,8 +94,8 @@ object LynxDate {
     if (map.contains("quarter")) return of(transformYearQuarterDay(map))
     if (map.contains("week")) return of(transformYearWeekDay(map))
     if (map.contains("year")) return of(getYearMonthDay(map))
-    if (map.contains("timezone") || map.size == 1) {
-      return LynxDate(LocalDate.now(ZoneId.of(map.get("timezone").get match {
+    if (map.contains("timezone") && map.size == 1) {
+      return LynxDate(LocalDate.now(ZoneId.of(map("timezone") match {
         case v: LynxString => v.value.toString.replace(" ", "_")
       })))
     }

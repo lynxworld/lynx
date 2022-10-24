@@ -3,12 +3,8 @@ package org.grapheco.lynx.types.time
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxMap
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
-import org.grapheco.lynx.util.LynxTemporalParser
 import org.grapheco.lynx.util.LynxTemporalParser.{assureBetween, assureContains}
-import org.joda.time.Seconds
-import org.joda.time.Hours
 
-import scala.collection.mutable.ListBuffer
 import scala.util.matching.Regex
 
 trait LynxComponentTime {
@@ -33,32 +29,38 @@ object LynxComponentTime {
 
   def getHourMinuteSecond(map: Map[String, Any], requiredHasDay: Boolean): (Int, Int, Int) = {
 
-    if (map.contains("hour") && requiredHasDay) {
-      assureContains(map, "day")
-    }
-    val hour: Int = map.get("hour").map(_ match {
+    val hour: Int = map.get("hour").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
-    }
-    ).getOrElse(0)
+    }.getOrElse(
+      map.get("datetime").orNull match {
+        case LynxDateTime(v) => v.getHour
+        case null =>
+          //          assureContains(map, "day")
+          0
+      })
 
-    if (map.contains("minute")) {
-      assureContains(map, "hour")
-    }
-    val minute: Int = map.get("minute").map(_ match {
+    val minute: Int = map.get("minute").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
-    }
-    ).getOrElse(0)
+    }.getOrElse(
+      map.get("datetime").orNull match {
+        case LynxDateTime(v) => v.getMinute
+        case null =>
+          //          assureContains(map, "hour")
+          0
+      })
 
-    if (map.contains("second")) {
-      assureContains(map, "minute")
-    }
-    val second: Int = map.get("second").map(_ match {
+    val second: Int = map.get("second").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
-    }
-    ).getOrElse(0)
+    }.getOrElse(
+      map.get("datetime").orNull match {
+        case LynxDateTime(v) => v.getSecond
+        case null =>
+          //          assureContains(map, "minute")
+          0
+      })
 
     assureBetween(hour, 0, 23, "hour")
     assureBetween(minute, 0, 59, "minute")
@@ -72,21 +74,20 @@ object LynxComponentTime {
       assureContains(map, "second")
     }
 
-    val millisecond = map.get("millisecond").map(_ match {
+    val millisecond = map.get("millisecond").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
-    }).getOrElse(0)
+    }.getOrElse(0)
 
-    val microsecond = map.get("microsecond").map(_ match {
+    val microsecond = map.get("microsecond").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
-    }).getOrElse(0)
+    }.getOrElse(0)
 
-    val nanosecond = map.get("nanosecond").map(_ match {
+    val nanosecond = map.get("nanosecond").map {
       case v: LynxInteger => v.value.toInt
       case v: Long => v.toInt
-    }
-    ).getOrElse(0)
+    }.getOrElse(0)
 
     assureBetween(millisecond, 0, 999, "millisecond")
 
@@ -130,53 +131,69 @@ object LynxComponentTime {
   }
 
   def truncateTime(map: Map[String, Any]): (Int, Int, Int, Int) = {
-    val time = map.get("timeValue").getOrElse(null) match {
+    val time = map.get("timeValue").orNull match {
       case v: LynxTime => v
+      case null => map.getOrElse("dateValue", 0).asInstanceOf[LynxDateTime]
     }
 
-    var (hour: Int, minute: Int, second: Int, nanosecond: Int, flag: Int) = map.get("unitStr").get match {
+    var (hour: Int, minute: Int, second: Int, nanosecond: Int, flag: Int) = map("unitStr") match {
       case LynxString("day") => (0, 0, 0, 0, 0)
       case LynxString("hour") => (time.hour, 0, 0, 0, 1)
       case LynxString("minute") => (time.hour, time.minute, 0, 0, 2)
       case LynxString("second") => (time.hour, time.minute, time.second, 0, 3)
       case LynxString("millisecond") => (time.hour, time.minute, time.second, time.millisecond * Math.pow(10, 6).toInt, 4)
       case LynxString("microsecond") => (time.hour, time.minute, time.second, (time.millisecond * Math.pow(10, 6) + time.microsecond * Math.pow(10, 3)).toInt, 5)
+      case _ => (0, 0, 0, 0, 0)
     }
-    val componentsMap = map.get("mapOfComponents").getOrElse(null) match {
+    val componentsMap = map.getOrElse("mapOfComponents", null) match {
       case LynxMap(v) => v match {
         case v: Map[String, LynxValue] => v
       }
       case null => return (hour, minute, second, nanosecond)
     }
-    val componentList = componentsMap.map(_._1) match {
+    val componentList = componentsMap.keys match {
       case v: List[LynxString] => v
       case v: List[String] => v
+      case v: Iterable[String] => v.toList
+      case v: Iterable[LynxString] => v.toList
     }
-    val componentsValue = componentsMap.map(_._2) match {
+    val componentsValue = componentsMap.values match {
       case v: List[LynxInteger] => v
+      case v: Iterable[Any] => v.toList
     }
 
-    var millisecond, microsecond, nanosecond_1 = 0
+    var millisecond = ((nanosecond * Math.pow(0.1, 6)) * Math.pow(1, 6)).toInt
+    var nanosecond_1 = (nanosecond % Math.pow(0.1, 3)).toInt
+    var microsecond = nanosecond - nanosecond_1 - millisecond
 
-    for (i <- 0 until componentList.size) {
+    for (i <- componentList.indices) {
 
-      if (componentList(i).equals("hour") && (flag < 1)) hour = componentsValue(i).value.toInt
-      if (componentList(i).equals("minute") && (flag < 2)) minute = componentsValue(i).value.toInt
-      if (componentList(i).equals("second") && (flag < 3)) second = componentsValue(i).value.toInt
+      if (componentList(i).equals("hour") && (flag < 1)) hour = componentsValue(i).value match {
+        case v: Int => v
+        case v: Long => v.toInt
+      }
+      if (componentList(i).equals("minute") && (flag < 2)) minute = componentsValue(i).value match {
+        case v: Int => v
+        case v: Long => v.toInt
+      }
+      if (componentList(i).equals("second") && (flag < 3)) second = componentsValue(i).value match {
+        case v: Int => v
+        case v: Long => v.toInt
+      }
       if (componentList(i).equals("millisecond") && (flag < 4))
-        millisecond = ((componentsMap.get("millisecond").getOrElse(0) match {
+        millisecond = ((componentsMap.getOrElse("millisecond", 0) match {
           case v: Int => v
           case LynxInteger(v) => v
           case v: Long => v
         }) * Math.pow(10, 6)).toInt
       if (componentList(i).equals("microsecond") && (flag < 5))
-        microsecond = ((componentsMap.get("microsecond").getOrElse(0) match {
+        microsecond = ((componentsMap.getOrElse("microsecond", 0) match {
           case v: Int => v
           case LynxInteger(v) => v
           case v: Long => v
         }) * Math.pow(10, 3)).toInt
       if (componentList(i).equals("nanosecond") && (flag < 5))
-        nanosecond_1 = componentsMap.get("nanosecond").getOrElse(0) match {
+        nanosecond_1 = componentsMap.getOrElse("nanosecond", 0) match {
           case v: Int => v
           case LynxInteger(v) => v.toInt
           case v: Long => v.toInt
