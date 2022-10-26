@@ -8,7 +8,6 @@ import org.grapheco.lynx.types.property.{LynxFloat, LynxInteger, LynxNull, LynxN
 import org.grapheco.lynx.types.time.LynxDuration
 
 import java.time.Duration
-import scala.text.Document.break
 
 /**
  * @ClassName AggregatingFunctions

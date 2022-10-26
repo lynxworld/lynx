@@ -7,13 +7,13 @@ import org.grapheco.lynx.types.property.{LynxInteger, LynxNumber, LynxString}
 import org.grapheco.lynx.types.time._
 import org.grapheco.lynx.util._
 
-import java.time.{ZoneId, ZonedDateTime}
-
 class TimeFunctions {
   @LynxProcedure(name = "lynx")
   def lynx(): String = {
     "lynx-0.3"
   }
+
+
 
   @LynxProcedure(name = "power")
   def power(x: LynxInteger, n: LynxInteger): Int = {
@@ -24,59 +24,132 @@ class TimeFunctions {
   @LynxProcedure(name = "date")
   def date(inputs: LynxValue): LynxDate = {
     inputs match {
-      case LynxString(v) => LynxDateUtil.parse(v)
-      case LynxMap(v) => LynxDateUtil.parse(v).asInstanceOf[LynxDate]
+      case LynxString(v) => LynxDate.parse(v)
+      case LynxMap(v) => LynxDate.parse(v)
     }
   }
 
   @LynxProcedure(name = "date")
   def date(): LynxDate = {
-    LynxDateUtil.now()
+    LynxDate.now()
   }
 
   @LynxProcedure(name = "datetime")
   def datetime(inputs: LynxValue): LynxDateTime = {
     inputs match {
-      case LynxString(v) => LynxDateTimeUtil.parse(v)
-      case LynxMap(v) => LynxDateTimeUtil.parse(inputs).asInstanceOf[LynxDateTime]
+      case LynxString(v) => LynxDateTime.parse(v)
+      case LynxMap(v) => LynxDateTime.parse(v)
     }
-
   }
 
 
   @LynxProcedure(name = "datetime")
   def datetime(): LynxDateTime = {
-    LynxDateTimeUtil.now()
+    LynxDateTime.now()
   }
+
+
+//  @LynxProcedure(name = "datetime")
+//  def datetime(): LynxInteger = {
+//    LynxInteger(LynxDateTime.now().epochMillis)
+//  }
 
   @LynxProcedure(name = "localdatetime")
   def localDatetime(inputs: LynxValue): LynxLocalDateTime = {
-    LynxLocalDateTimeUtil.parse(inputs).asInstanceOf[LynxLocalDateTime]
+    LynxLocalDateTime.parse(inputs).asInstanceOf[LynxLocalDateTime]
   }
 
   @LynxProcedure(name = "localdatetime")
   def localDatetime(): LynxLocalDateTime = {
-    LynxLocalDateTimeUtil.now()
+    LynxLocalDateTime.now()
   }
 
   @LynxProcedure(name = "time")
   def time(inputs: LynxValue): LynxTime = {
-    LynxTimeUtil.parse(inputs).asInstanceOf[LynxTime]
+    inputs match {
+      case LynxString(v) => LynxTime.parse(v)
+      case LynxMap(v) => LynxTime.parse(v)
+    }
   }
 
   @LynxProcedure(name = "time")
   def time(): LynxTime = {
-    LynxTimeUtil.now()
+    LynxTime.now()
   }
+
+  @LynxProcedure(name = "time.transaction")
+  def timeTransaction(): LynxTime = {
+    //TODO
+    LynxTime.now()
+  }
+
+  @LynxProcedure(name = "time.realtime")
+  def timeRealtime(): LynxTime = {
+    //TODO
+    LynxTime.now()
+  }
+
+  @LynxProcedure(name = "time.statement")
+  def timeStatement(): LynxTime = {
+    //TODO
+    LynxTime.now()
+  }
+
+  @LynxProcedure(name = "time.truncate")
+  def timeTruncate(unitStr: LynxString, dateValue: LynxTime, mapOfComponents: LynxMap): LynxTime = {
+    LynxTime.parse(Map("unitStr" -> unitStr, "timeValue" -> dateValue, "mapOfComponents" -> mapOfComponents))
+  }
+
+  @LynxProcedure(name = "time.truncate")
+  def timeTruncate(unitStr: LynxString, dateValue: LynxTime): LynxTime = {
+    LynxTime.parse(Map("unitStr" -> unitStr, "timeValue" -> dateValue))
+  }
+
 
   @LynxProcedure(name = "localtime")
   def localTime(inputs: LynxValue): LynxLocalTime = {
-    LynxLocalTimeUtil.parse(inputs).asInstanceOf[LynxLocalTime]
+    inputs match {
+      case LynxString(v) => LynxLocalTime.parse(v)
+      case LynxMap(v) => LynxLocalTime.parse(v).asInstanceOf[LynxLocalTime]
+    }
   }
 
   @LynxProcedure(name = "localtime")
   def localTime(): LynxLocalTime = {
-    LynxLocalTimeUtil.now()
+    LynxLocalTime.now()
+  }
+
+  @LynxProcedure(name = "localtime.realtime")
+  def localtimeRealtime(): LynxLocalTime = {
+    //TODO
+    LynxLocalTime.now()
+  }
+
+  @LynxProcedure(name = "localtime.transaction")
+  def localtimeTransaction(): LynxLocalTime = {
+    //TODO
+    LynxLocalTime.now()
+  }
+
+  @LynxProcedure(name = "localtime.statement")
+  def localtimeStatement(input: LynxValue): LynxLocalTime = {
+    //TODO
+    LynxLocalTime.now()
+  }
+
+  @LynxProcedure(name = "localtime.truncate")
+  def localtimeTruncate(unitStr: LynxString, dateValue: LynxTime, mapOfComponents: LynxMap): LynxLocalTime = {
+    LynxLocalTime.parse(Map("unitStr" -> unitStr, "timeValue" -> dateValue, "mapOfComponents" -> mapOfComponents))
+  }
+
+  @LynxProcedure(name = "localtime.truncate")
+  def localtimeTruncate(unitStr: LynxString, dateValue: LynxTime): LynxLocalTime = {
+    LynxLocalTime.parse(Map("unitStr" -> unitStr, "timeValue" -> dateValue))
+  }
+
+  @LynxProcedure(name = "localtime.truncate")
+  def localtimeTruncate(): LynxLocalTime = {
+    LynxLocalTime.now()
   }
 
   @LynxProcedure(name = "duration")
@@ -90,48 +163,63 @@ class TimeFunctions {
 
   @LynxProcedure(name = "date.statement")
   def statement(): LynxDate = {
-    LynxDateUtil.now()
+    LynxDate.now()
   }
 
   @LynxProcedure(name = "date.realtime")
   def date_realtime(inputs: LynxValue): LynxDate = {
-    LynxDateUtil.parse(LynxMap(Map("timezone" -> inputs))).asInstanceOf[LynxDate]
+    LynxDate.parse(Map("timezone" -> inputs)).asInstanceOf[LynxDate]
   }
 
   @LynxProcedure(name = "date.realtime")
   def date_realtime(): LynxDate = {
-    LynxDateUtil.now()
+    LynxDate.now()
   }
 
 
   @LynxProcedure(name = "date.truncate")
-  def truncate(unitStr: LynxString, dateValue: LynxDateTime, mapOfComponents: LynxMap): LynxDate = {
-    LynxDateUtil.parse(Map("unitStr" -> unitStr, "dateValue" -> dateValue, "mapOfComponents" -> mapOfComponents))
+  def dateTruncate(unitStr: LynxString, dateValue: LynxDateTime, mapOfComponents: LynxMap): LynxDate = {
+    LynxDate.parse(Map("unitStr" -> unitStr, "dateValue" -> dateValue, "mapOfComponents" -> mapOfComponents))
   }
 
   @LynxProcedure(name = "date.truncate")
-  def truncate(unitStr: LynxString, dateValue: LynxDateTime): LynxDate = {
-    LynxDateUtil.parse(Map("unitStr" -> unitStr, "dateValue" -> dateValue))
+  def dateTruncate(unitStr: LynxString, dateValue: LynxDateTime): LynxDate = {
+    LynxDate.parse(Map("unitStr" -> unitStr, "dateValue" -> dateValue))
+  }
+
+  @LynxProcedure(name = "datetime.truncate")
+  def datetimeTruncate(): LynxDate = {
+    LynxDate.now()
+  }
+
+  @LynxProcedure(name = "datetime.truncate")
+  def datetimeTruncate(unitStr: LynxString, dateValue: LynxDateTime, mapOfComponents: LynxMap): LynxDateTime = {
+    LynxDateTime.parse(Map("unitStr" -> unitStr, "dateValue" -> dateValue, "mapOfComponents" -> mapOfComponents))
+  }
+
+  @LynxProcedure(name = "datetime.truncate")
+  def datetimeTruncate(unitStr: LynxString, dateValue: LynxDateTime): LynxDateTime = {
+    LynxDateTime.parse(Map("unitStr" -> unitStr, "dateValue" -> dateValue))
   }
 
   @LynxProcedure(name = "date.truncate")
-  def truncate(): LynxDate = {
-    LynxDateUtil.now()
+  def dateTruncate(): LynxDate = {
+    LynxDate.now()
   }
 
   @LynxProcedure(name = "datetime.transaction")
   def datetime_Transaction(): LynxDateTime = {
-    LynxDateTimeUtil.now()
+    LynxDateTime.now()
   }
 
   @LynxProcedure(name = "datetime.statement")
   def datetime_Statement(): LynxDateTime = {
-    LynxDateTimeUtil.now()
+    LynxDateTime.now()
   }
 
   @LynxProcedure(name = "datetime.realtime")
   def datetime_Realtime(): LynxDateTime = {
-    LynxDateTimeUtil.now()
+    LynxDateTime.now()
   }
 }
 
