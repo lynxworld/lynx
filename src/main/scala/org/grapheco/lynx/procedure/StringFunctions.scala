@@ -33,12 +33,18 @@ class StringFunctions {
     else str.replaceAll(search.value, replace.value)
   }
 
-  @LynxProcedure(name = "reverse")
-  def reverse(x: LynxString): String = {
-    val str = x.value
-    if (str == "" || str == null) str
-    else str.reverse
-  }
+
+  /**
+   * the method is moved to List function
+   * @param x
+   * @return
+   */
+//  @LynxProcedure(name = "reverse")
+//  def reverse(x: LynxString): String = {
+//    val str = x.value
+//    if (str == "" || str == null) str
+//    else str.reverse
+//  }
 
   @LynxProcedure(name = "right")
   def right(x: LynxString, endIndex: LynxInteger): String = {

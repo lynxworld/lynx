@@ -204,7 +204,7 @@ class D_List extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(List(487,null,521,"abc",4923), records(0)("reverse(ids)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxList(List(LynxValue(487),LynxValue(null),LynxValue(521),LynxValue("abc"),LynxValue(4923))), records(0)("reverse(ids)"))
   }
 
   @Test
