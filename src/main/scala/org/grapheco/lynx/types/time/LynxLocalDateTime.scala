@@ -82,8 +82,8 @@ object LynxLocalDateTime extends LynxTemporalParser {
     }
     else if (map.contains("year")) {
       val (year, month, day) = getYearMonthDay(map)
-      val (hour, minute, second) = getHourMinuteSecond(map, true)
-      val nanoOfSecond = getNanosecond(map,true)
+      val (hour, minute, second) = getHourMinuteSecond(map, requiredHasDay = true)
+      val nanoOfSecond = getNanosecond(map,requiredHasSecond = true)
       of(year, month, day, hour, minute, second, nanoOfSecond)
     }
     else throw LynxTemporalParseException("parse date from map: map not contains (year, month, day) ")
