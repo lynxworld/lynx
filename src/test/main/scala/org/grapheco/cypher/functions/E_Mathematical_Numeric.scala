@@ -4,9 +4,10 @@ import org.grapheco.lynx.TestBase
 import org.grapheco.lynx.physical.{NodeInput, RelationshipInput, StoredNodeInputRef}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.structural._
-import org.junit.{Assert, Before, Test}
+import org.junit.{Assert, Before, BeforeClass, Test}
 
 import scala.collection.mutable.ArrayBuffer
+
 
 /**
  * @program: lynx
@@ -14,29 +15,30 @@ import scala.collection.mutable.ArrayBuffer
  * @author: Wangkainan
  * @create: 2022-08-30 14:15
  */
+
 class E_Mathematical_Numeric extends TestBase {
   val nodesInput = ArrayBuffer[(String, NodeInput)]()
   val relationsInput = ArrayBuffer[(String, RelationshipInput)]()
 
   val n1 = TestNode(TestId(1), Seq(LynxNodeLabel("A")),
     Map(LynxPropertyKey("name") -> LynxValue("Alice"),
-      LynxPropertyKey("age") -> LynxValue("38"),
+      LynxPropertyKey("age") -> LynxValue(38),
       LynxPropertyKey("eyes") -> LynxValue("brown")))
   val n2 = TestNode(TestId(2), Seq(LynxNodeLabel("C")),
     Map(LynxPropertyKey("name") -> LynxValue("Charlie"),
-      LynxPropertyKey("age") -> LynxValue("53"),
+      LynxPropertyKey("age") -> LynxValue(53),
       LynxPropertyKey("eyes") -> LynxValue("green")))
   val n3 = TestNode(TestId(3), Seq(LynxNodeLabel("B")),
     Map(LynxPropertyKey("name") -> LynxValue("Bob"),
-      LynxPropertyKey("age") -> LynxValue("25"),
+      LynxPropertyKey("age") -> LynxValue(25),
       LynxPropertyKey("eyes") -> LynxValue("blue")))
   val n4 = TestNode(TestId(4), Seq(LynxNodeLabel("D")),
     Map(LynxPropertyKey("name") -> LynxValue("Daniel"),
-      LynxPropertyKey("age") -> LynxValue("54"),
+      LynxPropertyKey("age") -> LynxValue(54),
       LynxPropertyKey("eyes") -> LynxValue("brown")))
   val n5 = TestNode(TestId(5), Seq(LynxNodeLabel("E")),
     Map(LynxPropertyKey("name") -> LynxValue("Eskil"),
-      LynxPropertyKey("age") -> LynxValue("38"),
+      LynxPropertyKey("age") -> LynxValue(41),
       LynxPropertyKey("eyes") -> LynxValue("brown"),
       LynxPropertyKey("array") -> LynxValue(Array("one", "two", "three"))))
 
@@ -68,6 +70,7 @@ class E_Mathematical_Numeric extends TestBase {
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
   }
 
   /*
@@ -83,9 +86,9 @@ class E_Mathematical_Numeric extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(38, records(0)("a.age").value)
-    Assert.assertEquals(41, records(0)("e.age").value)
-    Assert.assertEquals(3, records(0)("abs(a.age - e.age)").value)
+    Assert.assertEquals(LynxValue(38), records(0).get("a.age").get)
+    Assert.assertEquals(LynxValue(41), records(0).get("e.age").get)
+    Assert.assertEquals(LynxValue(3), records(0).get("abs(a.age - e.age)").get)
   }
 
   @Test
