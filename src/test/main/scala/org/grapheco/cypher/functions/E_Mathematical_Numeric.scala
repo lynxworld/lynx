@@ -20,23 +20,23 @@ class E_Mathematical_Numeric extends TestBase {
 
   val n1 = TestNode(TestId(1), Seq(LynxNodeLabel("A")),
     Map(LynxPropertyKey("name") -> LynxValue("Alice"),
-      LynxPropertyKey("age") -> LynxValue("38"),
+      LynxPropertyKey("age") -> LynxValue(38),
       LynxPropertyKey("eyes") -> LynxValue("brown")))
   val n2 = TestNode(TestId(2), Seq(LynxNodeLabel("C")),
     Map(LynxPropertyKey("name") -> LynxValue("Charlie"),
-      LynxPropertyKey("age") -> LynxValue("53"),
+      LynxPropertyKey("age") -> LynxValue(53),
       LynxPropertyKey("eyes") -> LynxValue("green")))
   val n3 = TestNode(TestId(3), Seq(LynxNodeLabel("B")),
     Map(LynxPropertyKey("name") -> LynxValue("Bob"),
-      LynxPropertyKey("age") -> LynxValue("25"),
+      LynxPropertyKey("age") -> LynxValue(25),
       LynxPropertyKey("eyes") -> LynxValue("blue")))
   val n4 = TestNode(TestId(4), Seq(LynxNodeLabel("D")),
     Map(LynxPropertyKey("name") -> LynxValue("Daniel"),
-      LynxPropertyKey("age") -> LynxValue("54"),
+      LynxPropertyKey("age") -> LynxValue(54),
       LynxPropertyKey("eyes") -> LynxValue("brown")))
   val n5 = TestNode(TestId(5), Seq(LynxNodeLabel("E")),
     Map(LynxPropertyKey("name") -> LynxValue("Eskil"),
-      LynxPropertyKey("age") -> LynxValue("38"),
+      LynxPropertyKey("age") -> LynxValue(38),
       LynxPropertyKey("eyes") -> LynxValue("brown"),
       LynxPropertyKey("array") -> LynxValue(Array("one", "two", "three"))))
 
