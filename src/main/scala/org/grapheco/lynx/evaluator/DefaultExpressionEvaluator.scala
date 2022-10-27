@@ -348,13 +348,21 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         case _ => throw ProcedureException("The expression must returns a list.")
       }
 
+      case ReduceExpression(scope, init, list) => {
+        val variableName = scope.variable.name
+        val accumulatorName = scope.accumulator.name
+        var accumulatorValue = eval(init)
+        eval(list) match {
+          case list: LynxList => {
+            list.v.foreach( listValue => accumulatorValue = eval(scope.expression)
+            (ec.withVars(ec.vars ++ Map(variableName -> listValue, accumulatorName-> accumulatorValue))))
+            accumulatorValue
+          }
+          case _ => throw ProcedureException("The expression must returns a list.")
+        }
+      }
+
     }
-
-
-
-
-
-
   }
 
 
