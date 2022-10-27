@@ -17,4 +17,6 @@ case class LynxMap(v: Map[String, LynxValue]) extends LynxCompositeValue {
 
   // TODO: map comparability
   override def sameTypeCompareTo(o: LynxValue): Int = {0}
+
+  def get(key: String): Option[LynxValue] = value.get(key)
 }

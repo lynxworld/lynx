@@ -83,9 +83,19 @@ class E_Mathematical_Numeric extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(38, records(0)("a.age").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(41, records(0)("e.age").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(3, records(0)("abs(a.age - e.age)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(38, records(0)("a.age").value)
+    Assert.assertEquals(41, records(0)("e.age").value)
+    Assert.assertEquals(3, records(0)("abs(a.age - e.age)").value)
+  }
+
+  @Test
+  def matchTwo(): Unit ={
+    runOnDemoGraph(
+      """
+        |MATCH (a),(e)
+        |WHERE a.name = 'Alice'
+        |RETURN a
+        |""".stripMargin).show()
   }
 
   @Test

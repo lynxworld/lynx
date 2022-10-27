@@ -43,6 +43,8 @@ case class LynxList(v: List[LynxValue]) extends LynxCompositeValue {
 
   lazy val droppedNull: Seq[LynxValue] = v.filterNot(LynxNull.equals)
 
+  def map(f: LynxValue => LynxValue): LynxList = LynxList(this.v.map(f))
+
 
   def min: LynxValue = if (droppedNull.isEmpty) LynxNull else droppedNull.min
 
