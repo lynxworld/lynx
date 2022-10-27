@@ -121,11 +121,11 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case Multiply(lhs, rhs) => { //todo add normal multi
         (eval(lhs), eval(rhs)) match {
           case (n: LynxNumber, m: LynxNumber) => { //todo add aggregating multi
-            (n,m) match {
-              case (d1: LynxFloat,d2:LynxFloat) => LynxFloat(d1.value * d2.value)
-              case (d1: LynxFloat,d2:LynxInteger) => LynxFloat(d1.value * d2.value)
-              case (d1: LynxInteger,d2:LynxFloat) => LynxFloat(d1.value * d2.value)
-              case (d1: LynxInteger,d2:LynxInteger) => LynxInteger(d1.value * d2.value)
+            (n, m) match {
+              case (d1: LynxFloat, d2: LynxFloat) => LynxFloat(d1.value * d2.value)
+              case (d1: LynxFloat, d2: LynxInteger) => LynxFloat(d1.value * d2.value)
+              case (d1: LynxInteger, d2: LynxFloat) => LynxFloat(d1.value * d2.value)
+              case (d1: LynxInteger, d2: LynxInteger) => LynxInteger(d1.value * d2.value)
             }
           }
         }
@@ -134,7 +134,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case Divide(lhs, rhs) => {
         (eval(lhs), eval(rhs)) match {
           case (n: LynxNumber, m: LynxNumber) => n / m
-          case (n,m) => throw EvaluatorTypeMismatch(n.lynxType.toString,"LynxNumber")
+          case (n, m) => throw EvaluatorTypeMismatch(n.lynxType.toString, "LynxNumber")
         }
       }
 
@@ -170,7 +170,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         lynxValue match {
           case LynxNull => LynxBoolean(false) //todo add testcase
           case LynxBoolean(b) => LynxBoolean(!b)
-          case _ => throw EvaluatorTypeMismatch(lynxValue.lynxType.toString, "LynxBoolean" )
+          case _ => throw EvaluatorTypeMismatch(lynxValue.lynxType.toString, "LynxBoolean")
         }
 
       case IsNull(lhs) => {
@@ -202,7 +202,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           case time: LynxDateTime => LynxValue(name match { //TODO add HasProperty into LynxDateTime and remove this case.
             case "epochMillis" => time.epochMillis
           })
-          case map:LynxMap => map.get(name).getOrElse(LynxNull)
+          case map: LynxMap => map.get(name).getOrElse(LynxNull)
         }
 
       case In(lhs, rhs) =>
@@ -292,8 +292,8 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           _transferRelPatternToFilter(relationship),
           _transferNodePatternToFilter(rightNode),
           relationship.direction, Some(1), Some(1)
-        ).filter(path => if(leftNode.variable.nonEmpty) path.startNode.compareTo(eval(leftNode.variable.get)) == 0 else true)
-          .filter(path => if(rightNode.variable.nonEmpty) path.endNode.compareTo(eval(rightNode.variable.get)) == 0 else true).nonEmpty
+        ).filter(path => if (leftNode.variable.nonEmpty) path.startNode.compareTo(eval(leftNode.variable.get)) == 0 else true)
+          .filter(path => if (rightNode.variable.nonEmpty) path.endNode.compareTo(eval(rightNode.variable.get)) == 0 else true).nonEmpty
 
         LynxBoolean(exist)
       }
@@ -303,18 +303,18 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         val predicate = ip.innerPredicate
         val predicatePass: ExpressionContext => Boolean = if (predicate.isDefined) {
           ec => eval(predicate.get)(ec) == LynxBoolean.TRUE
-        } else {_ => true} // if predicate not defined, should must return true?
+        } else { _ => true } // if predicate not defined, should must return true?
 
         eval(ip.expression) match {
           case list: LynxList => {
-            val ecList = list.v.map( i => ec.withVars(ec.vars + (variable.name -> i)))
+            val ecList = list.v.map(i => ec.withVars(ec.vars + (variable.name -> i)))
             val result = ip match {
-              case _: AllIterablePredicate    => ecList.forall(predicatePass)
-              case _: AnyIterablePredicate    => ecList.exists(predicatePass)
-              case _: NoneIterablePredicate   => ecList.forall(predicatePass.andThen(!_))
+              case _: AllIterablePredicate => ecList.forall(predicatePass)
+              case _: AnyIterablePredicate => ecList.exists(predicatePass)
+              case _: NoneIterablePredicate => ecList.forall(predicatePass.andThen(!_))
               case _: SingleIterablePredicate => ecList.indexWhere(predicatePass) match {
                 case -1 => false // none
-                case i  => !ecList.drop(i+1).exists(predicatePass) // only one!
+                case i => !ecList.drop(i + 1).exists(predicatePass) // only one!
               }
             }
             LynxBoolean(result)
@@ -338,25 +338,23 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         case _ => throw ProcedureException("The expression must returns a list.")
       }
 
-    }
-
       case ip: IterablePredicateExpression => {
         val variable = ip.variable
         val predicate = ip.innerPredicate
         val predicatePass: ExpressionContext => Boolean = if (predicate.isDefined) {
           ec => eval(predicate.get)(ec) == LynxBoolean.TRUE
-        } else {_ => true} // if predicate not defined, should must return true?
+        } else { _ => true } // if predicate not defined, should must return true?
 
         eval(ip.expression) match {
           case list: LynxList => {
-            val ecList = list.v.map( i => ec.withVars(ec.vars + (variable.name -> i)))
+            val ecList = list.v.map(i => ec.withVars(ec.vars + (variable.name -> i)))
             val result = ip match {
-              case _: AllIterablePredicate    => ecList.forall(predicatePass)
-              case _: AnyIterablePredicate    => ecList.exists(predicatePass)
-              case _: NoneIterablePredicate   => ecList.forall(predicatePass.andThen(!_))
+              case _: AllIterablePredicate => ecList.forall(predicatePass)
+              case _: AnyIterablePredicate => ecList.exists(predicatePass)
+              case _: NoneIterablePredicate => ecList.forall(predicatePass.andThen(!_))
               case _: SingleIterablePredicate => ecList.indexWhere(predicatePass) match {
                 case -1 => false // none
-                case i  => !ecList.drop(i+1).exists(predicatePass) // only one!
+                case i => !ecList.drop(i + 1).exists(predicatePass) // only one!
               }
             }
             LynxBoolean(result)
@@ -386,8 +384,8 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         var accumulatorValue = eval(init)
         eval(list) match {
           case list: LynxList => {
-            list.v.foreach( listValue => accumulatorValue = eval(scope.expression)
-            (ec.withVars(ec.vars ++ Map(variableName -> listValue, accumulatorName-> accumulatorValue))))
+            list.v.foreach(listValue => accumulatorValue = eval(scope.expression)
+            (ec.withVars(ec.vars ++ Map(variableName -> listValue, accumulatorName -> accumulatorValue))))
             accumulatorValue
           }
           case _ => throw ProcedureException("The expression must returns a list.")
@@ -396,8 +394,6 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
     }
   }
-
-
   override def aggregateEval(expr: Expression)(ecs: Seq[ExpressionContext]): LynxValue = {
     expr match {
       case fe: ProcedureExpression =>
@@ -409,9 +405,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           throw ProcedureException("aggregate by nonAggregating procedure.")
         }
       case CountStar() => LynxInteger(ecs.length)
-
     }
-
   }
 
   def _transferNodePatternToFilter(nodePattern: NodePattern)(implicit ec: ExpressionContext): NodeFilter = {
