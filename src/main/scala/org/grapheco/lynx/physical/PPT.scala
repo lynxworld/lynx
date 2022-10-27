@@ -234,7 +234,6 @@ case class PPTNodeScan(pattern: NodePattern)(implicit val plannerContext: Physic
         graphModel.nodes(runner.NodeFilter(Seq.empty, properties.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)))
       } else
         graphModel.nodes(runner.NodeFilter(labels.map(_.name).map(LynxNodeLabel), properties.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)))
-
       nodes.map(Seq(_))
     })
   }
