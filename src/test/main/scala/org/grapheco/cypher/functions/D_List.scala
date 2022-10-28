@@ -85,7 +85,7 @@ class D_List extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(List(38, 25, 54), records(0)("extracted").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxList(List(LynxValue(38), LynxValue(25), LynxValue(54))), records(0)("extracted"))
   }
 
   /*
@@ -103,7 +103,7 @@ class D_List extends TestBase {
 
     Assert.assertEquals(1, records.length)
     Assert.assertEquals(List(LynxString("one"), LynxString("two"), LynxString("three")), records(0)("a.array").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(List(LynxString("one"), LynxString("two")), records(0)("filter").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(List(LynxString("one"), LynxString("two")), records(0)("filter(x IN a.array WHERE size(x)= 3)").asInstanceOf[LynxValue].value)
   }
 
   @Test
