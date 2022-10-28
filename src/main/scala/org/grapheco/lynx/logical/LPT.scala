@@ -1,6 +1,6 @@
 package org.grapheco.lynx.logical
 
-import org.grapheco.lynx.dataframe.{InnerJoin, JoinType, LeftJoin}
+import org.grapheco.lynx.dataframe.{InnerJoin, JoinType, LeftJoin, OuterJoin}
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions._
 
@@ -289,7 +289,12 @@ case class LPTMatchTranslator(m: Match) extends LPTNodeTranslator {
     //run match TODO OptionalMatch
     val Match(optional, Pattern(patternParts: Seq[PatternPart]), hints, where: Option[Where]) = m
     val parts = patternParts.map(part => matchPatternPart(part)(plannerContext))
-    val matched = parts.drop(1).foldLeft(parts.head)((a, b) => LPTJoin(true, InnerJoin)(a, b))
+    val matched = parts.drop(1).foldLeft(parts.head)(
+      (a, b) =>
+        if (a == b) LPTJoin(true, InnerJoin)(a, b)
+        else LPTJoin(true, OuterJoin)(a, b)
+    )
+//    val matched = parts.drop(1).foldLeft(parts.head)((a,b) => LPTJoin(true, InnerJoin)(a, b))
     val filtered = LPTWhereTranslator(where).translate(Some(matched))
 
     in match {

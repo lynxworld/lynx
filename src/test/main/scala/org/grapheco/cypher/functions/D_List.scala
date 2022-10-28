@@ -177,7 +177,7 @@ class D_List extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(117, records(0)("reduction").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxValue(117), records(0)("reduction"))
   }
 
   @Test

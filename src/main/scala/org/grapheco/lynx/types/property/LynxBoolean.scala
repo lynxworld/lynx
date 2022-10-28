@@ -24,3 +24,9 @@ case class LynxBoolean(v: Boolean) extends LynxValue {
     case _ => throw TypeMismatchException(this.lynxType, o.lynxType)
   }
 }
+
+object LynxBoolean {
+  def TRUE: LynxBoolean = LynxBoolean(true)
+
+  def FALSE: LynxBoolean = LynxBoolean(false)
+}
