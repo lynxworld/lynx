@@ -92,16 +92,6 @@ class E_Mathematical_Numeric extends TestBase {
   }
 
   @Test
-  def matchTwo(): Unit ={
-    runOnDemoGraph(
-      """
-        |MATCH (a),(e)
-        |WHERE a.name = 'Alice'
-        |RETURN a
-        |""".stripMargin).show()
-  }
-
-  @Test
   def ceil(): Unit = {
     val records = runOnDemoGraph(
       """

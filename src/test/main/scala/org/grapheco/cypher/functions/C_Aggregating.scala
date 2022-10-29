@@ -189,8 +189,8 @@ class C_Aggregating extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(1.toLong, records(0)("count(DISTINCT friend_of_friend)").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(2.toLong, records(0)("count(friend_of_friend)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxValue(1), records(0)("count(DISTINCT friend_of_friend)"))
+    Assert.assertEquals(LynxValue(2), records(0)("count(friend_of_friend)"))
   }
 
   @Test
