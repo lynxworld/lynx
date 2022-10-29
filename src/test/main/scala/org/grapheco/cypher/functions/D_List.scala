@@ -70,6 +70,11 @@ class D_List extends TestBase {
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
+    runOnDemoGraph(
+      """
+        |Create()
+        |""".stripMargin)
   }
 
   /*

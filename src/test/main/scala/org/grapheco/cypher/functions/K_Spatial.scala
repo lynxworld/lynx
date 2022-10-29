@@ -4,7 +4,7 @@ import org.grapheco.lynx.TestBase
 import org.grapheco.lynx.physical.{NodeInput, RelationshipInput, StoredNodeInputRef}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
-import org.grapheco.lynx.types.property.LynxString
+import org.grapheco.lynx.types.property.{LynxFloat, LynxNull, LynxString}
 import org.grapheco.lynx.types.structural._
 import org.junit.{Assert, Before, Test}
 
@@ -23,13 +23,13 @@ class K_Spatial extends TestBase {
   val relationsInput = ArrayBuffer[(String, RelationshipInput)]()
 
   val n1 = TestNode(TestId(1),Seq(LynxNodeLabel("TrainStation")),
-    Map(LynxPropertyKey("longitude") -> LynxValue("12.56459"),
+    Map(LynxPropertyKey("longitude") -> LynxValue(12.56459),
       LynxPropertyKey("city") -> LynxValue("Copenhagen"),
-      LynxPropertyKey("latitude") -> LynxValue("55.672874")))
+      LynxPropertyKey("latitude") -> LynxValue(55.672874)))
   val n2 = TestNode(TestId(2), Seq(LynxNodeLabel("Office")),
-    Map(LynxPropertyKey("longitude") -> LynxValue("12.994341"),
+    Map(LynxPropertyKey("longitude") -> LynxValue(12.994341),
       LynxPropertyKey("city") -> LynxValue("Malmo"),
-      LynxPropertyKey("latitude") -> LynxValue("55.611784")))
+      LynxPropertyKey("latitude") -> LynxValue(55.611784)))
 
   val r1 = TestRelationship(TestId(1), TestId(1), TestId(2), Option(LynxRelationshipType("TRAVEL_ROUTE")), Map.empty)
 
@@ -57,7 +57,7 @@ class K_Spatial extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(1.5.toFloat, records(0)("dist").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxFloat(1.5), records(0)("dist"))
   }
 
   @Test
@@ -69,7 +69,7 @@ class K_Spatial extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(1269.9148706779565.toFloat, records(0)("dist").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxFloat(1269.9148706779565), records(0)("dist"))
   }
 
   @Test
@@ -82,7 +82,7 @@ class K_Spatial extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(27842.0.toFloat, records(0)("travelDistance").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxFloat(27842.0), records(0)("travelDistance"))
   }
 
   @Test
@@ -93,7 +93,7 @@ class K_Spatial extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(null, records(0)("d").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxNull, records(0)("d"))
   }
 
   @Test
@@ -138,7 +138,7 @@ class K_Spatial extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(null, records(0)("p").asInstanceOf[LynxValue].value.toString)
+    Assert.assertEquals(LynxNull, records(0)("p"))
   }
 
   @Test

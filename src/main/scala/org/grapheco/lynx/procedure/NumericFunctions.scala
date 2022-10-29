@@ -36,8 +36,8 @@ class NumericFunctions {
   }
 
   @LynxProcedure(name = "round")
-  def round(x: LynxNumber): Long = {
-    math.round(x.number.doubleValue())
+  def round(x: LynxNumber): LynxFloat = {
+    LynxFloat(math.round(x.number.doubleValue()))
   }
 
   @LynxProcedure(name = "round")
