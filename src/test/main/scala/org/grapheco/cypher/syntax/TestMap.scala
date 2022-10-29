@@ -10,6 +10,33 @@ import org.junit.{Assert, Before, BeforeClass, Test}
 
 import scala.collection.mutable.ArrayBuffer
 
+/*
+create (a:Person{name:'Charlie Sheen',realName:'Carlos Irwin Estevez'})
+create (a:Person{name:'Martin Sheen'})
+create (m:Movie{year:1987,title:'Wall Street'})
+create (m:Movie{year:1979,title:'Apocalypse Now'})
+create (m:Movie{year:1984,title:'Red Dawn'})
+
+match (a:Person),(m:Movie)
+where a.name='Martin Sheen' and m.title='Wall Street'
+create (a)-[r:ACTION_IN]->(m)
+
+match (a:Person),(m:Movie)
+where a.name='Martin Sheen' and m.title='Apocalypse Now'
+create (a)-[r:ACTION_IN]->(m)
+
+match (a:Person),(m:Movie)
+where a.name='Charlie Sheen' and m.title='Wall Street'
+create (a)-[r:ACTION_IN]->(m)
+
+match (a:Person),(m:Movie)
+where a.name='Charlie Sheen' and m.title='Apocalypse Now'
+create (a)-[r:ACTION_IN]->(m)
+
+match (a:Person),(m:Movie)
+where a.name='Charlie Sheen' and m.title='Red Dawn'
+create (a)-[r:ACTION_IN]->(m)
+*/
 
 class TestMap extends TestBase {
   val nodesInput = ArrayBuffer[(String, NodeInput)]()

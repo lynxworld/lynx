@@ -16,6 +16,36 @@ import scala.collection.mutable.ArrayBuffer
  * @author: Wangkainan
  * @create: 2022-08-30 14:25
  */
+
+/*
+
+create (a:Person{name:'A',age:13})
+create (a:Person{name:'B',age:13,eyes:'blue'})
+create (a:Person{name:'C',age:44,eyes:'blue'})
+create (a:Person{name:'D',eyes:'brown'})
+create (a:Person{name:'D'})
+
+match (a),(b)
+where a.name='A' and b.name='B'
+create (a)-[r:KNOWS]->(b)
+
+match (a),(c)
+where a.name='A' and c.name='C'
+create (a)-[r:KNOWS]->(c)
+
+match (a),(d)
+where a.name='A' and d.name='D' and d.eyes='brown'
+create (a)-[r:KNOWS]->(d)
+
+match (b),(d)
+where b.name='B' and d.name='D' and d.eyes is null
+create (b)-[r:KNOWS]->(d)
+
+match (c),(d)
+where c.name='C' and d.name='D' and d.eyes is null
+create (c)-[r:KNOWS]->(d)
+
+*/
 class C_Aggregating extends TestBase {
   val nodesInput = ArrayBuffer[(String, NodeInput)]()
   val relationsInput = ArrayBuffer[(String, RelationshipInput)]()

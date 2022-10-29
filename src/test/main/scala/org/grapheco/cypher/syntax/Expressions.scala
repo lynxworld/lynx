@@ -1,5 +1,4 @@
 package org.grapheco.cypher.syntax
-
 import org.grapheco.lynx.TestBase
 import org.grapheco.lynx.physical.{NodeInput, RelationshipInput, StoredNodeInputRef}
 import org.grapheco.lynx.types.LynxValue
@@ -8,6 +7,36 @@ import org.grapheco.lynx.types.structural._
 import org.junit.{Assert, Before, Test}
 
 import scala.collection.mutable.ArrayBuffer
+
+
+/*
+create ({name:'Alice',eyes:'brown',age:38})
+create ({name:'Charlie',eyes:'green',age:53})
+create ({name:'Bob',eyes:'blue',age:25})
+create ({name:'Daniel',eyes:'brown'})
+create ({name:'Eskil',eyes:'blue',age:41,array:['one','two','three']})
+
+match (a),(b)
+where a.name='Alice' and b.name='Bob'
+create (a)-[r:KNOWS]->(b)
+
+match (a),(c)
+where a.name='Alice' and c.name='Charlie'
+create (a)-[r:KNOWS]->(c)
+
+match (b),(d)
+where b.name='Bob' and d.name='Daniel'
+create (b)-[r:KNOWS]->(d)
+
+match (d),(c)
+where c.name='Charlie' and d.name='Daniel'
+create (c)-[r:KNOWS]->(d)
+
+match (b),(e)
+where b.name='Bob' and e.name='Eskil'
+create (b)-[r:MARRIED]->(e)
+
+  */
 
 class Expressions extends TestBase {
   val nodeInput = ArrayBuffer[(String, NodeInput)]()

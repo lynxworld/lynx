@@ -18,7 +18,76 @@ import scala.collection.mutable.ArrayBuffer
  */
 
 
+/*
+
+create ({name:'Alice',eyes:'brown',age:38})
+create ({name:'Charlie',eyes:'green',age:53})
+create ({name:'Bob',eyes:'blue',age:25})
+create ({name:'Daniel',eyes:'brown',age:54})
+create ({name:'Eskil',eyes:'blue',age:41,array:['one','two','three']})
+create ({eyes:'brown',age:61})
+
+match (a),(b)
+where a.name='Alice' and b.name='Bob'
+create (a)-[r:KNOWS]->(b)
+
+match (a),(c)
+where a.name='Alice' and c.name='Charlie'
+create (a)-[r:KNOWS]->(c)
+
+match (b),(d)
+where b.name='Bob' and d.name='Daniel'
+create (b)-[r:KNOWS]->(d)
+
+match (d),(c)
+where c.name='Charlie' and d.name='Daniel'
+create (c)-[r:KNOWS]->(d)
+
+match (b),(e)
+where b.name='Bob' and e.name='Eskil'
+create (b)-[r:MARRIED]->(e)
+
+
+  */
+
 class A_Predicate extends TestBase {
+//  val nodeCreateCyphers = Array(
+//    "create ({name:'Alice',eyes:'brown',age:38})",
+//    "create ({name:'Charlie',eyes:'green',age:53})",
+//    "create ({name:'Bob',eyes:'blue',age:25})",
+//    "create ({name:'Daniel',eyes:'brown',age:54})",
+//    "create ({name:'Eskil',eyes:'blue',age:41,array:['one','two','three']})",
+//    "create ({eyes:'brown',age:61})"
+//  )
+//
+//  val relCreateCyphers = Array(
+//    """
+//      |match (a),(b)
+//      |where a.name='Alice' and b.name='Bob'
+//      |create (a)-[r:KNOWS]->(b)
+//      |""".stripMargin,
+//    """
+//      |match (a),(c)
+//      |where a.name='Alice' and c.name='Charlie'
+//      |create (a)-[r:KNOWS]->(c)
+//      |""".stripMargin,
+//    """
+//      |match (b),(d)
+//      |where b.name='Bob' and d.name='Daniel'
+//      |create (b)-[r:KNOWS]->(d)
+//      |""".stripMargin,
+//    """
+//    |match (d),(c)
+//    |where c.name='Charlie' and d.name='Daniel'
+//    |create (c)-[r:KNOWS]->(d)
+//    |""".stripMargin,
+//
+//    """
+//      |match (b),(e)
+//      |where b.name='Bob' and e.name='Eskil'
+//      |create (b)-[r:MARRIED]->(e)
+//      |""".stripMargin
+//  )
   val nodesInput = ArrayBuffer[(String, NodeInput)]()
   val relationsInput = ArrayBuffer[(String, RelationshipInput)]()
 
@@ -55,6 +124,10 @@ class A_Predicate extends TestBase {
 
   @Before
   def init(): Unit = {
+//    nodeCreateCyphers.foreach(cypher=>runOnDemoGraph(cypher))
+//    relCreateCyphers.foreach(cypher=>runOnDemoGraph(cypher))
+
+
     nodesInput.append(("n1", NodeInput(n1.labels, n1.props.toSeq)))
     nodesInput.append(("n2", NodeInput(n2.labels, n2.props.toSeq)))
     nodesInput.append(("n3", NodeInput(n3.labels, n3.props.toSeq)))
@@ -167,7 +240,7 @@ class A_Predicate extends TestBase {
 
     Assert.assertEquals(1, records.length)
     Assert.assertEquals(List(n1, LynxList(List(r1, n2, LynxList(List())))), records(0).value)
-//    Assert.assertEquals(List(n1, LynxList(List(r2, n2, LynxList(List(r3, n2, LynxList(List())))))), records(1))
+    Assert.assertEquals(List(n1, LynxList(List(r2, n2, LynxList(List(r3, n2, LynxList(List())))))), records(1))
   }
 
   @Test

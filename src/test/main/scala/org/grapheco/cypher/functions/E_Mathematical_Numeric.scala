@@ -16,6 +16,37 @@ import scala.collection.mutable.ArrayBuffer
  * @create: 2022-08-30 14:15
  */
 
+
+/*
+create ({name:'Alice',eyes:'brown',age:38})
+create ({name:'Charlie',eyes:'green',age:53})
+create ({name:'Bob',eyes:'blue',age:25})
+create ({name:'Daniel',eyes:'brown',age:54})
+create ({name:'Eskil',eyes:'blue',age:41,array:['one','two','three']})
+
+match (a),(b)
+where a.name='Alice' and b.name='Bob'
+create (a)-[r:KNOWS]->(b)
+
+match (a),(c)
+where a.name='Alice' and c.name='Charlie'
+create (a)-[r:KNOWS]->(c)
+
+match (b),(d)
+where b.name='Bob' and d.name='Daniel'
+create (b)-[r:KNOWS]->(d)
+
+match (d),(c)
+where c.name='Charlie' and d.name='Daniel'
+create (c)-[r:KNOWS]->(d)
+
+match (b),(e)
+where b.name='Bob' and e.name='Eskil'
+create (b)-[r:MARRIED]->(e)
+
+  */
+
+
 class E_Mathematical_Numeric extends TestBase {
   val nodesInput = ArrayBuffer[(String, NodeInput)]()
   val relationsInput = ArrayBuffer[(String, RelationshipInput)]()
