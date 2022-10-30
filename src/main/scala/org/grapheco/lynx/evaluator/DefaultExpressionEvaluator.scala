@@ -43,8 +43,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case _ => CTAny
     }
   }
-
-
+  
   protected def evalPathStep(step: PathStep)(implicit ec: ExpressionContext): LynxValue = {
     step match {
       case NilPathStep => LynxList(List.empty)
