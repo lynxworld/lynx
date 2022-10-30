@@ -82,7 +82,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         }.getOrElse(LynxNull)
       }
 
-      case fe: ProcedureExpression => { //TODO move aggregating to other place
+      case fe: ProcedureExpression => {
         if (fe.aggregating) LynxValue(fe.args.map(eval(_)))
         else fe.procedure.execute(fe.args.map(eval(_)))
       }
