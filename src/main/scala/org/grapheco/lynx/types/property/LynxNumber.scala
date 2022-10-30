@@ -18,6 +18,11 @@ trait LynxNumber extends LynxValue {
     case LynxFloat(d) => d
   }
 
+  def toLynxFloat: LynxFloat = this match{
+    case LynxInteger(i) => LynxFloat(i.toDouble)
+    case f: LynxFloat => f
+  }
+
   override def sameTypeCompareTo(o: LynxValue): Int = o match {
     case n: LynxNumber => toDouble.compareTo(n.toDouble)
     case _ => throw TypeMismatchException(this.lynxType, o.lynxType)

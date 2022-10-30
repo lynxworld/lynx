@@ -45,4 +45,9 @@ case class LynxFloat(v: Double) extends LynxNumber {
       case LynxFloat(v2) => LynxFloat(v/v2)
     }
   }
+
+  override def toString: String = v.toString
+}
+object LynxFloat{
+  val ZERO: LynxFloat = LynxFloat(0)
 }
