@@ -19,7 +19,7 @@ class PredicateFunctions {
    * @param property A property (in the form 'variable.prop')
    * @return A Boolean
    */
-  @LynxProcedure(name = "exists")
+  @LynxProcedure(name = "exists", allowNull = true)
   def exists(property: LynxValue): LynxBoolean = {
     property match {
       case list: LynxList => LynxBoolean(list.value.nonEmpty) // TODO how to judge a list?
