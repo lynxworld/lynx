@@ -1,7 +1,6 @@
 package org.grapheco.lynx.evaluator
 
 import org.grapheco.lynx.LynxException
-
 /**
  * @Author: Airzihao
  * @Description:
