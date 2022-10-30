@@ -141,8 +141,8 @@ case class LPTReturnTranslator(r: Return) extends LPTNodeTranslator {
       Seq(
         LPTProjectTranslator(ri),
         LPTSkipTranslator(skip),
-        LPTLimitTranslator(limit),
         LPTOrderByTranslator(orderBy),
+        LPTLimitTranslator(limit),
         LPTSelectTranslator(ri),
         LPTDistinctTranslator(distinct)
       )).translate(in)

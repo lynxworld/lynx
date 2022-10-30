@@ -58,6 +58,9 @@ object SortMergeJoiner {
     }
 
     () => joinedDataFrame.toIterator
+
+
+
   }
 
   private def _fullOuterJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): () => Iterator[Seq[LynxValue]] = {
@@ -126,7 +129,7 @@ object SortMergeJoiner {
     }
 
     while (indexOfA < sortedTableA.length) {
-      joinedDataFrame.append(sortedTableA(indexOfA) ++ new Array[Int](sortedTableB.head.length).map(_ => LynxNull))
+      joinedDataFrame.append(sortedTableA(indexOfA) ++ new Array[Int](b.schema.length).map(_ => LynxNull))
       indexOfA += 1
     }
 

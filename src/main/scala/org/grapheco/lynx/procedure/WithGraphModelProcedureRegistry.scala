@@ -35,7 +35,7 @@ class WithGraphModelProcedureRegistry(types: TypeSystem,
           name -> types.typeOf(parameter.getType)
         }
         val outputs = Seq("value" -> types.typeOf(method.getReturnType))
-        register(annotation.name(), inputs, outputs, args => types.wrap(method.invoke(host, args: _*)))
+        register(annotation.name(), annotation.allowNull(), inputs, outputs, args => types.wrap(method.invoke(host, args: _*)))
       }
     }
   }
@@ -50,7 +50,7 @@ class WithGraphModelProcedureRegistry(types: TypeSystem,
           name -> types.typeOf(parameter.getType)
         }
         val outputs = Seq("value" -> types.typeOf(method.getReturnType))
-        register(annotation.name(), inputs, outputs, args => types.wrap(method.invoke(scalarFunctions, args: _*)))
+        register(annotation.name(), annotation.allowNull(), inputs, outputs, args => types.wrap(method.invoke(scalarFunctions, args: _*)))
       }
     }
   }
@@ -60,10 +60,11 @@ class WithGraphModelProcedureRegistry(types: TypeSystem,
     logger.debug(s"registered procedure: ${procedure.signature(name)}")
   }
 
-  def register(name: String, inputs0: Seq[(String, LynxType)], outputs0: Seq[(String, LynxType)], call0: (Seq[LynxValue]) => LynxValue): Unit = {
+  def register(name: String, funcAllowNull: Boolean, inputs0: Seq[(String, LynxType)], outputs0: Seq[(String, LynxType)], call0: (Seq[LynxValue]) => LynxValue): Unit = {
     register(name, inputs0.size, new CallableProcedure() {
       override val inputs: Seq[(String, LynxType)] = inputs0
       override val outputs: Seq[(String, LynxType)] = outputs0
+      override val allowNull: Boolean = funcAllowNull
       override def call(args: Seq[LynxValue]): LynxValue = {
         name match {
           case "coalesce" => LynxValue(call0(Seq(LynxList(args.toList))))

@@ -4,7 +4,7 @@ import org.grapheco.lynx.TestBase
 import org.grapheco.lynx.physical.{NodeInput, RelationshipInput, StoredNodeInputRef}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
-import org.grapheco.lynx.types.property.LynxString
+import org.grapheco.lynx.types.property.{LynxNull, LynxString}
 import org.grapheco.lynx.types.structural._
 import org.junit.{Assert, Before, Test}
 
@@ -73,6 +73,7 @@ class A_Predicate extends TestBase {
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
   }
 
   @Test
@@ -139,15 +140,15 @@ class A_Predicate extends TestBase {
         |OPTIONAL MATCH (c:DoesNotExist)
         |RETURN a.name AS a_name, b.name AS b_name, exists(b.name) AS b_has_name, c.name AS c_name, exists(c.name) AS c_has_name
         |ORDER BY a_name, b_name, c_name
-        |LIMIT 1
+        |Limit 1
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals("Alice", records(0)("is_married").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(null, records(0)("b_name").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(false, records(0)("b_has_name").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(null, records(0)("c_name").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(null, records(0)("c_has_name").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxValue("Alice"), records(0)("a_name"))
+    Assert.assertEquals(LynxValue(null), records(0)("b_name"))
+    Assert.assertEquals(LynxValue(false), records(0)("b_has_name"))
+    Assert.assertEquals(LynxNull, records(0)("c_name"))
+    Assert.assertEquals(LynxValue(false), records(0)("c_has_name"))
   }
 
   @Test

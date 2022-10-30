@@ -7,13 +7,13 @@ import org.grapheco.lynx.types.property.LynxNull
 trait CallableProcedure {
   val inputs: Seq[(String, LynxType)]
   val outputs: Seq[(String, LynxType)]
-  val forNull: Boolean = true
+  val allowNull: Boolean = false
 
   def call(args: Seq[LynxValue]): LynxValue
 
   def execute(args: Seq[LynxValue]): LynxValue = {
 //    if (forNull && args.size==1 && args.head == LynxNull) { LynxNull} // TODO when return null
-    if (forNull && args.contains(LynxNull)) LynxNull
+    if (!allowNull && args.contains(LynxNull)) LynxNull
     else { call(args)}
   }
 
@@ -22,7 +22,7 @@ trait CallableProcedure {
   def checkArgumentsNumber(actualNumber: Int): Boolean = actualNumber == inputs.size
 
   def checkArgumentsType(actualArgumentsType: Seq[LynxType]): Boolean = {
-    (forNull && actualArgumentsType.size == 1 && actualArgumentsType.head == LynxNull.lynxType) || // forNull
+    (allowNull && actualArgumentsType.size == 1 && actualArgumentsType.head == LynxNull.lynxType) || // forNull
       (actualArgumentsType.size == inputs.size && // not null
         inputs.map(_._2).zip(actualArgumentsType).forall{ case (except, actual) => except == actual})
   }

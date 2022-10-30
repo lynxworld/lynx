@@ -138,7 +138,7 @@ class E_Mathematical_Numeric extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(3l, records(0)("round(3.141592)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxValue(3.0), records(0)("round(3.141592)"))
   }
 
   /*
