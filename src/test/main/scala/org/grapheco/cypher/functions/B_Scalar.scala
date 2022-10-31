@@ -67,6 +67,7 @@ class B_Scalar extends TestBase {
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
   }
 
   @Test

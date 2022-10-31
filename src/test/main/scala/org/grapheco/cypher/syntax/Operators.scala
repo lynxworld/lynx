@@ -250,7 +250,7 @@ class Operators extends TestBase {
   def mapDynamicOp(): Unit = {
     val myKey = "\"name\""
     val records = runOnDemoGraph(s"WITH { name: 'Anne', age: 25 } AS a\nRETURN a[${myKey}] AS result").records().map(f => f("result")).toArray
-    Assert.assertEquals("Anne", records(0))
+    Assert.assertEquals(LynxValue("Anne"), records(0))
   }
 
 

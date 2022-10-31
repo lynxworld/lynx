@@ -62,6 +62,7 @@ class O_Merge extends TestBase{
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
   }
 
   @Test
