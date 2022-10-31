@@ -43,8 +43,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case _ => CTAny
     }
   }
-
-
+  
   protected def evalPathStep(step: PathStep)(implicit ec: ExpressionContext): LynxValue = {
     step match {
       case NilPathStep => LynxList(List.empty)
@@ -82,7 +81,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         }.getOrElse(LynxNull)
       }
 
-      case fe: ProcedureExpression => { //TODO move aggregating to other place
+      case fe: ProcedureExpression => {
         if (fe.aggregating) LynxValue(fe.args.map(eval(_)))
         else fe.procedure.execute(fe.args.map(eval(_)))
       }
