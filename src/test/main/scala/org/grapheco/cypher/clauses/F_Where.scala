@@ -57,6 +57,7 @@ class F_Where extends TestBase{
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
   }
   @Test
   def booleanOperator(): Unit ={
