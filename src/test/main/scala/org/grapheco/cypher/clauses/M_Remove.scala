@@ -40,6 +40,7 @@ class M_Remove extends TestBase{
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
   }
   @Test
   def removeAProperty(): Unit ={
