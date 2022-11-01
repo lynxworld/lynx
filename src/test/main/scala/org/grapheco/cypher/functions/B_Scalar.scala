@@ -80,7 +80,7 @@ class B_Scalar extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals("brown", records(0)("coalesce(a.hairColor, a.eyes)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxValue("brown"), records(0)("coalesce(a.hairColor, a.eyes)"))
   }
 
   @Test

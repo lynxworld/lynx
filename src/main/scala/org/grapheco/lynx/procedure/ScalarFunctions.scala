@@ -22,10 +22,6 @@ class ScalarFunctions(graphModel: GraphModel) {
   val booleanPattern = Pattern.compile("true|false", Pattern.CASE_INSENSITIVE)
   val numberPattern = Pattern.compile("-?[0-9]+.?[0-9]*")
 
-  //  def setGraphModel(gModel: GraphModel): GraphModel = gModel
-  //
-  //  lazy val graphModel: GraphModel = setGraphModel()
-
   /**
    * Returns the end node of a relationship.
    * Considerations:
@@ -50,7 +46,7 @@ class ScalarFunctions(graphModel: GraphModel) {
    * @param lynxValues seq of expressions that may return null.
    * @return
    */
-  @LynxProcedure(name = "coalesce")
+  @LynxProcedure(name = "coalesce", allowNull = true)
   def coalesce(lynxValues: LynxList): LynxValue = {
     val droppedNull = lynxValues.droppedNull
     droppedNull.length match {
