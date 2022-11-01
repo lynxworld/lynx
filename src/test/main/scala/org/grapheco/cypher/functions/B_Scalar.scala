@@ -185,13 +185,21 @@ class B_Scalar extends TestBase {
 
   @Test
   def randomUUID(): Unit = {
-    val records = runOnDemoGraph(
+    val records0 = runOnDemoGraph(
       """
         |RETURN randomUUID() AS uuid
         |""".stripMargin).records().toArray
 
-    Assert.assertEquals(1, records.length)
-    Assert.assertEquals("401ee4f1-6eb3-45f9-9cd9-c2a2f3a2a7f8", records.head("uuid").asInstanceOf[LynxValue].value)
+    val records1 = runOnDemoGraph(
+      """
+        |RETURN randomUUID() AS uuid
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(1, records0.length)
+    Assert.assertEquals(1, records1.length)
+    Assert.assertEquals(records1.head("uuid").value.asInstanceOf[String].length,
+      records0.head("uuid").value.asInstanceOf[String].length)
+    Assert.assertNotEquals(records1.head("uuid"), records0.head("uuid"))
   }
 
   /*
