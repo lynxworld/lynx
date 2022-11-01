@@ -42,6 +42,7 @@ class P_Call extends TestBase{
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
   }
   @Test
   def importingVariablesIntoSubqueries(): Unit ={
