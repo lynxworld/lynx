@@ -12,7 +12,6 @@ trait CallableProcedure {
   def call(args: Seq[LynxValue]): LynxValue
 
   def execute(args: Seq[LynxValue]): LynxValue = {
-//    if (forNull && args.size==1 && args.head == LynxNull) { LynxNull} // TODO when return null
     if (!allowNull && args.contains(LynxNull)) LynxNull
     else { call(args)}
   }
