@@ -19,11 +19,11 @@ class A_Match extends TestBase{
   val nodesInput = ArrayBuffer[(String, NodeInput)]()
   val relationsInput = ArrayBuffer[(String, RelationshipInput)]()
 
-  val n1 = TestNode(TestId(1), Seq(LynxNodeLabel("person")), Map(LynxPropertyKey("name")-> LynxValue("Oliver Stone")))
-  val n2 = TestNode(TestId(2), Seq(LynxNodeLabel("person")), Map(LynxPropertyKey("name")-> LynxValue("Michael Douglas")))
-  val n3 = TestNode(TestId(3), Seq(LynxNodeLabel("person")), Map(LynxPropertyKey("name")-> LynxValue("Charlie Sheen")))
-  val n4 = TestNode(TestId(4), Seq(LynxNodeLabel("person")), Map(LynxPropertyKey("name")-> LynxValue("Martin Sheen")))
-  val n5 = TestNode(TestId(5), Seq(LynxNodeLabel("person")), Map(LynxPropertyKey("name")-> LynxValue("Rob Reiner")))
+  val n1 = TestNode(TestId(1), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name")-> LynxValue("Oliver Stone")))
+  val n2 = TestNode(TestId(2), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name")-> LynxValue("Michael Douglas")))
+  val n3 = TestNode(TestId(3), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name")-> LynxValue("Charlie Sheen")))
+  val n4 = TestNode(TestId(4), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name")-> LynxValue("Martin Sheen")))
+  val n5 = TestNode(TestId(5), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name")-> LynxValue("Rob Reiner")))
   val m1 = TestNode(TestId(6), Seq(LynxNodeLabel("Movie")), Map(LynxPropertyKey("title")-> LynxValue("Wall Street")))
   val m2 = TestNode(TestId(7), Seq(LynxNodeLabel("Movie")), Map(LynxPropertyKey("title")-> LynxValue("The American President")))
 
@@ -63,6 +63,7 @@ class A_Match extends TestBase{
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
   }
 
   @Test
@@ -271,8 +272,8 @@ class A_Match extends TestBase{
         |""".stripMargin).records().map(f => f("p").asInstanceOf[LynxValue].value).toArray
 
     Assert.assertEquals(2, records.length)
-    Assert.assertEquals(List(n2, LynxList(List(r2, m1, LynxList(List())))), records.head)
-    Assert.assertEquals(List(n2, LynxList(List(r3, m2, LynxList(List())))), records(1))
+    Assert.assertEquals(List(n2, LynxList(List(r3, m2, LynxList(List())))), records.head)
+    Assert.assertEquals(List(n2, LynxList(List(r2, m1, LynxList(List())))), records(1))
   }
 
   @Test
@@ -367,7 +368,6 @@ class A_Match extends TestBase{
         |WHERE id(n) IN [1, 3, 5]
         |RETURN n
         |""".stripMargin).records().map(f => f("n").asInstanceOf[LynxValue].value).toArray
-
     Assert.assertEquals(3, records.length)
     Assert.assertEquals(n1, records.head)
     Assert.assertEquals(n3, records(1))

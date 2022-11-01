@@ -145,7 +145,7 @@ class E_Unwind extends TestBase{
         |MERGE (y)<-[:IN]-(e:Event { id: event.id })
         |RETURN e.id AS x
         |ORDER BY x
-        |""".stripMargin).records().toArray
+        |""".stripMargin, Map("events" -> List(Map("year"->2014, "id" -> 1), Map("year" -> 2014, "id" -> 2)))).records().toArray
     Assert.assertEquals(1L, res(0)("x").asInstanceOf[LynxValue].value)
     Assert.assertEquals(2L, res(1)("x").asInstanceOf[LynxValue].value)
   }
