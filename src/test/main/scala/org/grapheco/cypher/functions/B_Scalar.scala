@@ -6,8 +6,11 @@ import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.{LynxNull, LynxString}
 import org.grapheco.lynx.types.structural._
+import org.grapheco.lynx.types.time.LynxLocalTime
+import org.grapheco.lynx.util.LynxTemporalParser
 import org.junit.{Assert, Before, Test}
 
+import java.time.LocalTime
 import scala.collection.mutable.ArrayBuffer
 
 /**
@@ -290,13 +293,22 @@ class B_Scalar extends TestBase {
 
   @Test
   def timestamp(): Unit = {
-    val records = runOnDemoGraph(
+    val records0 = runOnDemoGraph(
+      """
+        |RETURN timestamp()
+        |""".stripMargin).records().toArray
+    val records1 = runOnDemoGraph(
       """
         |RETURN timestamp()
         |""".stripMargin).records().toArray
 
-    Assert.assertEquals(1, records.length)
-    Assert.assertEquals(1632753553112l, records(0)("timestamp()").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(1, records0.length)
+    Assert.assertEquals(1, records1.length)
+
+    val localtime0 = LynxLocalTime(LocalTime.ofNanoOfDay(records0(0)("timestamp()").asInstanceOf[LynxValue].value.asInstanceOf[Long]))
+    val localtime1 = LynxLocalTime(LocalTime.ofNanoOfDay(records1(0)("timestamp()").asInstanceOf[LynxValue].value.asInstanceOf[Long]))
+
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(localtime0,localtime1))
   }
 
   @Test
