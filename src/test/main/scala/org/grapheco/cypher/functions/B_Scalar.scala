@@ -290,14 +290,21 @@ class B_Scalar extends TestBase {
 
   @Test
   def timestamp(): Unit = {
-    val records = runOnDemoGraph(
+    val records0 = runOnDemoGraph(
+      """
+        |RETURN timestamp()
+        |""".stripMargin).records().toArray
+    val records1 = runOnDemoGraph(
       """
         |RETURN timestamp()
         |""".stripMargin).records().toArray
 
-    Assert.assertEquals(1, records.length)
-    Assert.assertEquals(1632753553112l, records(0)("timestamp()").asInstanceOf[LynxValue].value)
+    val timestamp0 = records0(0)("timestamp()").asInstanceOf[LynxValue].value.asInstanceOf[Long]
+    val timestamp1 = records1(0)("timestamp()").asInstanceOf[LynxValue].value.asInstanceOf[Long]
+
+    Assert.assertEquals( timestamp0/1000, timestamp1/1000)
   }
+
 
   @Test
   def toBoolean(): Unit = {
