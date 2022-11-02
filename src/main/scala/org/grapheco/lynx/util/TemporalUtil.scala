@@ -3,10 +3,10 @@ package org.grapheco.lynx.util
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxMap
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
-import org.grapheco.lynx.types.time.{LynxDateTime, LynxDuration, LynxTemporalValue}
+import org.grapheco.lynx.types.time.{LynxDateTime, LynxDuration, LynxLocalDateTime, LynxLocalTime, LynxTemporalValue, LynxTime}
 import org.grapheco.lynx.LynxException
-import java.time.Duration
 
+import java.time.Duration
 import scala.util.matching.Regex
 
 case class LynxTemporalParseException(msg: String) extends LynxException {
@@ -46,6 +46,17 @@ object LynxTemporalParser {
     if (!map.contains(key)) {
       throw LynxTemporalParseException(s"$key must be specified")
     }
+  }
+
+  def isSameCurrentTime(time_Expected: Any, time_Actual: Any, accuracy: Int = 100): Boolean = {
+    val nanoTime = (time_Expected, time_Actual) match {
+      case (LynxDateTime(v_1), LynxDateTime(v_2)) => (v_1.compareTo(v_2) * Math.pow(0.1, 6)).toInt
+      case (LynxLocalTime(v_1), LynxLocalTime(v_2)) => v_1.compareTo(v_2)
+      case (LynxTime(v_1), LynxTime(v_2)) => v_1.compareTo(v_2)
+      case (LynxLocalDateTime(v_1), LynxLocalDateTime(v_2)) => v_1.compareTo(v_2)
+      case _ => throw LynxTemporalParseException(s"$time_Expected can not compare with $time_Actual by currentTime")
+    }
+    nanoTime.<(accuracy)
   }
 
   def splitDateTime(str: String): Map[String, String] = {
