@@ -8,6 +8,37 @@ import org.junit.{Assert, Before, Test}
 
 import scala.collection.mutable.ArrayBuffer
 
+
+/*
+create (a{name:'Anders'})
+create (a{name:'Becky'})
+create (a{name:'Cesar'})
+create (a{name:'Dilshad'})
+create (a{name:'Filipa'})
+create (a{name:'George'})
+
+match (a),(b)
+where a.name='Anders' and b.name='Becky'
+create (a)-[r:KNOWS]->(b)
+
+match (a),(c)
+where a.name='Anders' and c.name='Cesar'
+create (a)-[r:KNOWS]->(c)
+
+match (b),(g)
+where b.name='Becky' and g.name='George'
+create (b)-[r:KNOWS]->(g)
+
+match (c),(g)
+where c.name='Cesar' and g.name='George'
+create (c)-[r:KNOWS]->(g)
+
+match (d),(f)
+where d.name='Dilshad' and f.name='Filipa'
+create (d)-[r:KNOWS]->(f)
+
+*/
+
 class Patterns extends TestBase {
   val nodeInput = ArrayBuffer[(String, NodeInput)]()
   val relationshipInput = ArrayBuffer[(String, RelationshipInput)]()

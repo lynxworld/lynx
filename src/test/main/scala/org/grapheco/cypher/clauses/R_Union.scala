@@ -34,9 +34,25 @@ class R_Union extends TestBase{
     nodesInput.append(("n3", NodeInput(n3.labels, n3.props.toSeq)))
     nodesInput.append(("n4", NodeInput(n4.labels, n4.props.toSeq)))
 
+
+    nodesInput.foreach(e=>{
+      print(s"create (a:${e._2.labels.toList(0).value}{")
+      val props = e._2.props.toList
+      for(i <-props.indices){
+          if(i == props.size-1){
+            print(s"'${props(i)._1.value}':'${props(i)._2.value}'")
+          }else{
+            print(s"'${props(i)._1.value}':'${props(i)._2.value}',")
+          }
+      }
+      println("})")
+    })
+
     relationsInput.append(("r1", RelationshipInput(Seq(r1.relationType.get), Seq.empty, StoredNodeInputRef(r1.startNodeId), StoredNodeInputRef(r1.endNodeId))))
     relationsInput.append(("r2", RelationshipInput(Seq(r2.relationType.get), r2.props.toSeq, StoredNodeInputRef(r2.startNodeId), StoredNodeInputRef(r2.endNodeId))))
     relationsInput.append(("r3", RelationshipInput(Seq(r3.relationType.get), r3.props.toSeq, StoredNodeInputRef(r3.startNodeId), StoredNodeInputRef(r3.endNodeId))))
+
+
 
     model.write.createElements(nodesInput, relationsInput,
       (nodesCreated: Seq[(String, LynxNode)], relsCreated: Seq[(String, LynxRelationship)]) => {
