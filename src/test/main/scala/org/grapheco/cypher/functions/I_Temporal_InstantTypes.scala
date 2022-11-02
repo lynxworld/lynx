@@ -1,14 +1,12 @@
 package org.grapheco.cypher.functions
 
-import org.apache.commons.lang3.time.DateUtils
 import org.grapheco.lynx.TestBase
 import org.grapheco.lynx.types.LynxValue
-import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxLocalDateTime, LynxLocalTime, LynxTime}
+import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxLocalTime, LynxTime}
 import org.junit.{Assert, Test}
 
-import java.time.{Instant, LocalDate, LocalDateTime, LocalTime, ZoneId, ZonedDateTime}
 import java.time.format.DateTimeFormatter
-import java.util.{Calendar, Date}
+import java.time._
 
 /**
  * @program: lynx

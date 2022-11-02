@@ -1,9 +1,8 @@
 package org.grapheco.lynx.runner
 
+import org.grapheco.lynx.physical.{NodeInput, RelationshipInput}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.structural._
-import org.grapheco.lynx._
-import org.grapheco.lynx.physical.{NodeInput, RelationshipInput}
 import org.opencypher.v9_0.expressions.SemanticDirection
 import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
 
