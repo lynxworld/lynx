@@ -1,6 +1,5 @@
 package org.grapheco.lynx.procedure
 
-import com.sun.tools.doclets.internal.toolkit.util.DocFinder.Input
 import org.grapheco.lynx.func.LynxProcedure
 import org.grapheco.lynx.types.{LynxValue, property}
 import org.grapheco.lynx.types.composite.LynxList

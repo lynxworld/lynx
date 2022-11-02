@@ -809,7 +809,7 @@ class I_Temporal_InstantTypes extends TestBase {
     val now_time = LynxTime.now()
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(records(0)("currentTime"), now_time)
+    Assert.assertEquals(records(0)("currentTime").asInstanceOf[LynxTime].minute, now_time.minute)
   }
 
   @Test
