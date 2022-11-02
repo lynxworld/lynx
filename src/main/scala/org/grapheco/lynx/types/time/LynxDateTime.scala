@@ -2,7 +2,7 @@ package org.grapheco.lynx.types.time
 
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxMap
-import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
+import org.grapheco.lynx.types.property.{LynxFloat, LynxInteger, LynxString}
 import org.grapheco.lynx.types.time.LynxComponentDate.{getYearMonthDay, transformDate, transformYearOrdinalDay, transformYearQuarterDay, transformYearWeekDay, truncateDate}
 import org.grapheco.lynx.types.time.LynxComponentTime.{getHourMinuteSecond, getNanosecond, truncateTime}
 import org.grapheco.lynx.types.time.LynxComponentTimeZone.{getOffset, getZone, truncateZone}
@@ -116,7 +116,7 @@ object LynxDateTime {
     var dateStr = dateTuple._1.formatted("%04d") + "-" + dateTuple._2.formatted("%02d") + "-" + dateTuple._3.formatted("%02d")
     var timeStr = timeTuple._1.formatted("%02d") + ":" + timeTuple._2.formatted("%02d") + ":" + timeTuple._3.formatted("%02d") + (timeTuple._4 match {
       case 0 => ""
-      case v: Int => "." + v.toString
+      case v: Int => "." + v.formatted("%09d")
     })
     var dateTime = LocalDateTime.parse(dateStr + "T" + timeStr)
     zoneStr match {
@@ -139,16 +139,13 @@ object LynxDateTime {
       }
     })
 
-    if (map.size == 1) {
-      map match {
-        case m if m.contains("timezone") => LynxDateTime.now(zoneId)
-        case m if m.contains("datetime") => LynxDateTime.parse(m("datetime") match {
-          case LynxDateTime(v) => v.toString
-        })
+    if (map.contains("epochSeconds") || map.contains("epochMillis")) {
+      val epochDateTime: LynxDateTime = map match {
         case m if m.contains("epochSeconds") =>
           LynxDateTime(ZonedDateTime.ofInstant(
             new Timestamp(map.getOrElse("epochSeconds", LynxDateTime.now().epochSeconds) match {
               case LynxInteger(v) => v
+              case LynxFloat(v) => (v * Math.pow(10, 3)).toLong
               case v: Long => v
             }).toInstant, zoneId))
         case m if m.contains("epochMillis") =>
@@ -157,6 +154,22 @@ object LynxDateTime {
               case LynxInteger(v) => v
               case v: Long => v
             }).toInstant(), zoneId))
+        case _ => null
+      }
+      if (map.contains("nanosecond")) {
+        return of(epochDateTime.year, epochDateTime.month, epochDateTime.day, epochDateTime.hour, epochDateTime.minute, epochDateTime.second, map.getOrElse("nanosecond", null) match {
+          case null => 0
+          case v: Int => v
+          case LynxInteger(v) => v.toInt
+        }, zoneId.getId)
+      } else return epochDateTime
+    }
+    if (map.size == 1) {
+      map match {
+        case m if m.contains("timezone") => LynxDateTime.now(zoneId)
+        case m if m.contains("datetime") => LynxDateTime.parse(m("datetime") match {
+          case LynxDateTime(v) => v.toString
+        })
       }
     } else {
       var v: ZonedDateTime = null
