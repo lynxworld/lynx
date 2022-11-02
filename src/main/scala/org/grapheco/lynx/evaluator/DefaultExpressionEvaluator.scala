@@ -383,9 +383,33 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         var accumulatorValue = eval(init)
         eval(list) match {
           case list: LynxList => {
-            list.v.foreach(listValue => accumulatorValue = eval(scope.expression)
-            (ec.withVars(ec.vars ++ Map(variableName -> listValue, accumulatorName -> accumulatorValue))))
+            list.v.foreach(listValue => accumulatorValue = eval(scope.expression)(ec.withVars(ec.vars ++ Map(variableName -> listValue, accumulatorName -> accumulatorValue)))
+            )
             accumulatorValue
+          }
+          case _ => throw ProcedureException("The expression must returns a list.")
+        }
+      }
+
+      case ListComprehension(scope, expression) => {
+        val variableName = scope.variable.name
+        eval(expression) match {
+          case list: LynxList => {
+            var result = LynxList(List())
+
+            if (scope.extractExpression.isDefined) {
+              result = list.map {
+                listValue =>
+                  eval(scope.extractExpression.get)(ec.withVars(ec.vars + (variableName -> listValue)))
+              }
+            }
+
+            if (scope.innerPredicate.isDefined) {
+              result = LynxList(list.v.filter {
+                listValue => eval(scope.innerPredicate.get)(ec.withVars(ec.vars + (variableName -> listValue))).asInstanceOf[LynxBoolean].value
+              })
+            }
+            result
           }
           case _ => throw ProcedureException("The expression must returns a list.")
         }
@@ -393,6 +417,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
     }
   }
+
   override def aggregateEval(expr: Expression)(ecs: Seq[ExpressionContext]): LynxValue = {
     expr match {
       case fe: ProcedureExpression =>
@@ -405,7 +430,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
             }
           } //todo: ".head": any multi-args situation?
           val otherArgs = fe.args.drop(1).map(eval(_)(ecs.head)) // 2022.09.15: Added handling of other args, but the default first one is list
-          fe.procedure.execute( Seq(listArgs) ++ otherArgs)
+          fe.procedure.execute(Seq(listArgs) ++ otherArgs)
         } else {
           throw ProcedureException("aggregate by nonAggregating procedure.")
         }
@@ -416,7 +441,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
   def _transferNodePatternToFilter(nodePattern: NodePattern)(implicit ec: ExpressionContext): NodeFilter = {
     val properties: Map[LynxPropertyKey, LynxValue] = nodePattern.properties match {
       case None => Map()
-      case Some(MapExpression(seqOfProps)) => seqOfProps.map{
+      case Some(MapExpression(seqOfProps)) => seqOfProps.map {
         case (propertyKeyName, propValueExpr) => LynxPropertyKey(propertyKeyName.name) -> LynxValue(eval(propValueExpr))
       }.toMap
     }
@@ -426,11 +451,11 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
   def _transferRelPatternToFilter(relationshipPattern: RelationshipPattern)(implicit ec: ExpressionContext): RelationshipFilter = {
     val props: Map[LynxPropertyKey, LynxValue] = relationshipPattern.properties match {
       case None => Map()
-      case Some(MapExpression(seqOfProps)) => seqOfProps.map{
+      case Some(MapExpression(seqOfProps)) => seqOfProps.map {
         case (propertyKeyName, propValueExpr) => LynxPropertyKey(propertyKeyName.name) -> LynxValue(eval(propValueExpr))
       }.toMap
     }
-    RelationshipFilter(relationshipPattern.types.map(relType => LynxRelationshipType(relType.name)),props)
+    RelationshipFilter(relationshipPattern.types.map(relType => LynxRelationshipType(relType.name)), props)
   }
 
 }

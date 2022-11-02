@@ -9,6 +9,48 @@ import org.junit.{Assert, Test}
 
 import scala.collection.mutable.ArrayBuffer
 
+
+/*
+create (a:Person{name:'Keanu Reeves'})
+
+create (m:Movie{title : 'The Devils Advocate',release: 1997})
+create (m:Movie{title : 'The Matrix',release: 1999})
+create (m:Movie{title : 'The Replacements',release: 2000})
+create (m:Movie{title : 'The Matrix Reloaded',release: 2003})
+create (m:Movie{title : 'The Matrix Revolutions',release: 2003})
+create (m:Movie{title : 'Somethings Gotta Give',release: 2003})
+create (m:Movie{title : 'Johnny Mnemonic',release: 1995})
+
+match (a:Person),(m)
+where a.name='Keanu Reeves' and m.title='The Devils Advocate'
+create (a)-[r:ACTION_IN]->(m)
+
+match (a:Person),(m)
+where a.name='Keanu Reeves' and m.title='The Matrix'
+create (a)-[r:ACTION_IN]->(m)
+
+match (a:Person),(m)
+where a.name='Keanu Reeves' and m.title='The Replacements'
+create (a)-[r:ACTION_IN]->(m)
+
+match (a:Person),(m)
+where a.name='Keanu Reeves' and m.title='The Matrix Reloaded'
+create (a)-[r:ACTION_IN]->(m)
+
+match (a:Person),(m)
+where a.name='Keanu Reeves' and m.title='The Matrix Revolutions'
+create (a)-[r:ACTION_IN]->(m)
+
+match (a:Person),(m)
+where a.name='Keanu Reeves' and m.title='Somethings Gotta Give'
+create (a)-[r:ACTION_IN]->(m)
+
+match (a:Person),(m)
+where a.name='Keanu Reeves' and m.title='Johnny Mnemonic'
+create (a)-[r:ACTION_IN]->(m)
+
+*/
+
 class TestList extends TestBase {
 
   @Test

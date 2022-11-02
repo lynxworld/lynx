@@ -16,6 +16,36 @@ import scala.collection.mutable.ArrayBuffer
  * @author: Wangkainan
  * @create: 2022-08-31 14:01
  */
+
+/*
+create ({name:'Alice',eyes:'brown',age:38})
+create ({name:'Charlie',eyes:'green',age:53})
+create ({name:'Bob',eyes:'blue',age:25})
+create ({name:'Daniel',eyes:'brown',age:54})
+create ({name:'Eskil',eyes:'blue',age:41,array:['one','two','three']})
+
+match (a),(b)
+where a.name='Alice' and b.name='Bob'
+create (a)-[r:KNOWS]->(b)
+
+match (a),(c)
+where a.name='Alice' and c.name='Charlie'
+create (a)-[r:KNOWS]->(c)
+
+match (b),(d)
+where b.name='Bob' and d.name='Daniel'
+create (b)-[r:KNOWS]->(d)
+
+match (d),(c)
+where c.name='Charlie' and d.name='Daniel'
+create (c)-[r:KNOWS]->(d)
+
+match (b),(e)
+where b.name='Bob' and e.name='Eskil'
+create (b)-[r:MARRIED]->(e)
+
+  */
+
 class D_List extends TestBase {
   val nodesInput = ArrayBuffer[(String, NodeInput)]()
   val relationsInput = ArrayBuffer[(String, RelationshipInput)]()
@@ -90,7 +120,7 @@ class D_List extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(List(38, 25, 54), records(0)("extracted").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxList(List(LynxValue(38), LynxValue(25), LynxValue(54))), records(0)("extracted"))
   }
 
   /*
@@ -108,7 +138,7 @@ class D_List extends TestBase {
 
     Assert.assertEquals(1, records.length)
     Assert.assertEquals(List(LynxString("one"), LynxString("two"), LynxString("three")), records(0)("a.array").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(List(LynxString("one"), LynxString("two")), records(0)("filter").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(List(LynxString("one"), LynxString("two")), records(0)("filter(x IN a.array WHERE size(x)= 3)").asInstanceOf[LynxValue].value)
   }
 
   @Test
@@ -209,7 +239,7 @@ class D_List extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(List(487,null,521,"abc",4923), records(0)("reverse(ids)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxList(List(LynxValue(487),LynxValue(null),LynxValue(521),LynxValue("abc"),LynxValue(4923))), records(0)("reverse(ids)"))
   }
 
   @Test
