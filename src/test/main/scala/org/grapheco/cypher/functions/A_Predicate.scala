@@ -226,6 +226,7 @@ class A_Predicate extends TestBase {
 
   @Test
   def none(): Unit = {
+    // Fixme: This test case failed to pass.
 //    val records = runOnDemoGraph(
 //      """
 //        |MATCH p =(n)-[*1..3]->(b)

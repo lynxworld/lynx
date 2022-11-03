@@ -52,6 +52,7 @@ class D_With extends TestBase{
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
   }
   @Test
   def filterOnAggregateFunctionResults(): Unit ={
