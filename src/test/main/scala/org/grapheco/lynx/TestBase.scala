@@ -198,12 +198,16 @@ class TestBase extends LazyLogging {
 
   case class TestId(value: Long) extends LynxId {
     override def toLynxInteger: LynxInteger = LynxInteger(value)
+
+    override def toString: String = value.toString
   }
 
   case class TestNode(id: TestId, labels: Seq[LynxNodeLabel], props: Map[LynxPropertyKey, LynxValue]) extends LynxNode{
     override def property(propertyKey: LynxPropertyKey): Option[LynxValue] = props.get(propertyKey)
 
     override def keys: Seq[LynxPropertyKey] = props.keys.toSeq
+
+    override def toString: String = s"${labels.map(":"+_.toString).mkString("")}{<id>: ${id}, ${props.mkString(", ")}}"
 
   }
 
