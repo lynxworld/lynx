@@ -115,8 +115,9 @@ class F_Where extends TestBase{
         |WHERE n[toLower(propname)] < 30
         |RETURN n.name, n.age
         |""".stripMargin).records().toArray
-
-    Assert.assertEquals(List("Peter", 35, "peter_n@example.com"), List(res(0)("f.name"), res(0)("f.age"), res(0)("f.email")).map(f => f.asInstanceOf[LynxValue].value))
+    Assert.assertEquals(1, res.length)
+    Assert.assertEquals(LynxValue("Timothy"), res.head("n.name"))
+    Assert.assertEquals(LynxValue(25), res.head("n.age"))
   }
 
   @Test
