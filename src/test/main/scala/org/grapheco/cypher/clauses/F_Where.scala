@@ -33,8 +33,6 @@ class F_Where extends TestBase{
   val r5 = TestRelationship(TestId(5), TestId(3), TestId(6), Option(LynxRelationshipType("HAS_DOG")), Map(LynxPropertyKey("since")->LynxValue(2018)))
   val r6 = TestRelationship(TestId(6), TestId(5), TestId(7), Option(LynxRelationshipType("HAS_TOY")), Map.empty)
 
-
-
   @Before
   def init(): Unit ={
     nodesInput.append(("n1", NodeInput(n1.labels, n1.props.toSeq)))
@@ -328,8 +326,8 @@ class F_Where extends TestBase{
         |RETURN a.name, a.age
         |""".stripMargin).records().toArray
     Assert.assertEquals(2, res.length)
-    Assert.assertEquals(List("Peter", 35), List(res(0)("a.name"), res(0)("a.age")).map(f => f.asInstanceOf[LynxValue].value))
-    Assert.assertEquals(List("Timothy", 25), List(res(1)("a.name"), res(1)("a.age")).map(f => f.asInstanceOf[LynxValue].value))
+    Assert.assertEquals(List(LynxValue("Timothy"), LynxValue(25)), List(res(0)("a.name"), res(0)("a.age")))
+    Assert.assertEquals(List(LynxValue("Peter"), LynxValue(35)), List(res(1)("a.name"), res(1)("a.age")))
   }
 
   @Test
