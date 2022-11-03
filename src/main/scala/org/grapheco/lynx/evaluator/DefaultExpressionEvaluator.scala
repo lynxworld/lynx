@@ -8,6 +8,7 @@ import org.grapheco.lynx.types.time.LynxDateTime
 import org.grapheco.lynx.types.{LynxValue, TypeSystem}
 import org.grapheco.lynx.LynxType
 import org.grapheco.lynx.runner.{GraphModel, NodeFilter, RelationshipFilter}
+import org.grapheco.lynx.types.spatial.LynxPoint
 import org.opencypher.v9_0.expressions.functions.{Collect, Id}
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTList, CTString, ListType}
@@ -43,7 +44,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case _ => CTAny
     }
   }
-  
+
   protected def evalPathStep(step: PathStep)(implicit ec: ExpressionContext): LynxValue = {
     step match {
       case NilPathStep => LynxList(List.empty)
