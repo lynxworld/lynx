@@ -241,8 +241,8 @@ class F_Where extends TestBase{
         |RETURN person.name, person.age
         |""".stripMargin).records().toArray
     Assert.assertEquals(2, res.length)
-    Assert.assertEquals(List("Peter", 35), List(res(0)("person.name"), res(0)("person.age")).map(f => f.asInstanceOf[LynxValue].value))
-    Assert.assertEquals(List("Timothy", 25), List(res(1)("person.name"), res(1)("person.age")).map(f => f.asInstanceOf[LynxValue].value))
+    Assert.assertEquals(List(LynxValue("Timothy"), LynxValue(25)), List(res(0)("person.name"), res(0)("person.age")))
+    Assert.assertEquals(List(LynxValue("Peter"), LynxValue(35)), List(res(1)("person.name"), res(1)("person.age")))
   }
 
   @Test
