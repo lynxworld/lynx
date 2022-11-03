@@ -65,10 +65,9 @@ class F_Where extends TestBase{
         |WHERE n.name = 'Peter' XOR (n.age < 30 AND n.name = 'Timothy') OR NOT (n.name = 'Timothy' OR n.name = 'Peter')
         |RETURN n.name, n.age
         |""".stripMargin).records().toArray
-
-    Assert.assertEquals(List("Andy", 36), List(res(0)("n.name"), res(0)("n.age")).map(f => f.asInstanceOf[LynxValue].value))
-    Assert.assertEquals(List("Peter", 35), List(res(1)("n.name"), res(1)("n.age")).map(f => f.asInstanceOf[LynxValue].value))
-    Assert.assertEquals(List("Timothy", 25), List(res(2)("n.name"), res(2)("n.age")).map(f => f.asInstanceOf[LynxValue].value))
+    Assert.assertEquals(List(LynxValue("Timothy"), LynxValue(25)), List(res(0)("n.name"), res(0)("n.age")))
+    Assert.assertEquals(List(LynxValue("Peter"), LynxValue(35)), List(res(1)("n.name"), res(1)("n.age")))
+    Assert.assertEquals(List(LynxValue("Andy"), LynxValue(36)), List(res(2)("n.name"), res(2)("n.age")))
   }
 
   @Test
