@@ -33,8 +33,6 @@ class F_Where extends TestBase{
   val r5 = TestRelationship(TestId(5), TestId(3), TestId(6), Option(LynxRelationshipType("HAS_DOG")), Map(LynxPropertyKey("since")->LynxValue(2018)))
   val r6 = TestRelationship(TestId(6), TestId(5), TestId(7), Option(LynxRelationshipType("HAS_TOY")), Map.empty)
 
-
-
   @Before
   def init(): Unit ={
     nodesInput.append(("n1", NodeInput(n1.labels, n1.props.toSeq)))
@@ -67,10 +65,9 @@ class F_Where extends TestBase{
         |WHERE n.name = 'Peter' XOR (n.age < 30 AND n.name = 'Timothy') OR NOT (n.name = 'Timothy' OR n.name = 'Peter')
         |RETURN n.name, n.age
         |""".stripMargin).records().toArray
-
-    Assert.assertEquals(List("Andy", 36), List(res(0)("n.name"), res(0)("n.age")).map(f => f.asInstanceOf[LynxValue].value))
-    Assert.assertEquals(List("Peter", 35), List(res(1)("n.name"), res(1)("n.age")).map(f => f.asInstanceOf[LynxValue].value))
-    Assert.assertEquals(List("Timothy", 25), List(res(2)("n.name"), res(2)("n.age")).map(f => f.asInstanceOf[LynxValue].value))
+    Assert.assertEquals(List(LynxValue("Timothy"), LynxValue(25)), List(res(0)("n.name"), res(0)("n.age")))
+    Assert.assertEquals(List(LynxValue("Peter"), LynxValue(35)), List(res(1)("n.name"), res(1)("n.age")))
+    Assert.assertEquals(List(LynxValue("Andy"), LynxValue(36)), List(res(2)("n.name"), res(2)("n.age")))
   }
 
   @Test
@@ -118,8 +115,9 @@ class F_Where extends TestBase{
         |WHERE n[toLower(propname)] < 30
         |RETURN n.name, n.age
         |""".stripMargin).records().toArray
-
-    Assert.assertEquals(List("Peter", 35, "peter_n@example.com"), List(res(0)("f.name"), res(0)("f.age"), res(0)("f.email")).map(f => f.asInstanceOf[LynxValue].value))
+    Assert.assertEquals(1, res.length)
+    Assert.assertEquals(LynxValue("Timothy"), res.head("n.name"))
+    Assert.assertEquals(LynxValue(25), res.head("n.age"))
   }
 
   @Test
@@ -243,8 +241,8 @@ class F_Where extends TestBase{
         |RETURN person.name, person.age
         |""".stripMargin).records().toArray
     Assert.assertEquals(2, res.length)
-    Assert.assertEquals(List("Peter", 35), List(res(0)("person.name"), res(0)("person.age")).map(f => f.asInstanceOf[LynxValue].value))
-    Assert.assertEquals(List("Timothy", 25), List(res(1)("person.name"), res(1)("person.age")).map(f => f.asInstanceOf[LynxValue].value))
+    Assert.assertEquals(List(LynxValue("Timothy"), LynxValue(25)), List(res(0)("person.name"), res(0)("person.age")))
+    Assert.assertEquals(List(LynxValue("Peter"), LynxValue(35)), List(res(1)("person.name"), res(1)("person.age")))
   }
 
   @Test
@@ -268,8 +266,8 @@ class F_Where extends TestBase{
         |RETURN type(r), r.since
         |""".stripMargin).records().toArray
     Assert.assertEquals(2, res.length)
-    Assert.assertEquals(List("KNOWS", 1999), List(res(0)("type(r)"), res(0)("r.since")).map(f => f.asInstanceOf[LynxValue].value))
-    Assert.assertEquals(List("KNOWS", 2012), List(res(1)("type(r)"), res(1)("r.since")).map(f => f.asInstanceOf[LynxValue].value))
+    Assert.assertEquals(List(LynxValue("KNOWS"), LynxValue(2012)), List(res(0)("type(r)"), res(0)("r.since")))
+    Assert.assertEquals(List(LynxValue("KNOWS"), LynxValue(1999)), List(res(1)("type(r)"), res(1)("r.since")))
   }
 
   @Test
@@ -328,8 +326,8 @@ class F_Where extends TestBase{
         |RETURN a.name, a.age
         |""".stripMargin).records().toArray
     Assert.assertEquals(2, res.length)
-    Assert.assertEquals(List("Peter", 35), List(res(0)("a.name"), res(0)("a.age")).map(f => f.asInstanceOf[LynxValue].value))
-    Assert.assertEquals(List("Timothy", 25), List(res(1)("a.name"), res(1)("a.age")).map(f => f.asInstanceOf[LynxValue].value))
+    Assert.assertEquals(List(LynxValue("Timothy"), LynxValue(25)), List(res(0)("a.name"), res(0)("a.age")))
+    Assert.assertEquals(List(LynxValue("Peter"), LynxValue(35)), List(res(1)("a.name"), res(1)("a.age")))
   }
 
   @Test
