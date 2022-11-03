@@ -3,6 +3,7 @@ package org.grapheco.lynx.types
 import org.grapheco.lynx.LynxType
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property.{LynxBoolean, LynxFloat, LynxInteger, LynxNull, LynxNumber, LynxString}
+import org.grapheco.lynx.types.spatial.{Cartesian2D, Cartesian3D, Geographic2D, Geographic3D, LynxPoint}
 import org.grapheco.lynx.types.structural.{LynxNode, LynxRelationship}
 import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxLocalDateTime, LynxLocalTime, LynxTime}
 
@@ -43,7 +44,15 @@ trait LynxValue extends Comparable[LynxValue]{
   private final val STRING = 6
   private final val BOOLEAN = 7
   private final val NUMBER = 8
-  private final val VOID = 9
+
+  // The Point types will be ordered after Numbers and before Temporal types.
+  // For the current set of four CRS, this means the order is WGS84, WGS84-3D, Cartesian, Cartesian-3D.
+  private final val WGS84 = 71
+  private final val WGS84_3D = 72
+  private final val CART = 73
+  private final val CART_3D = 74
+
+  private final val VOID = 999
 
   def typeOrder(lynxValue: LynxValue): Int = lynxValue match {
     case _: LynxMap => Map
@@ -54,6 +63,12 @@ trait LynxValue extends Comparable[LynxValue]{
     case _: LynxString => STRING
     case _: LynxBoolean => BOOLEAN
     case _: LynxNumber => NUMBER
+    case p: LynxPoint => p match {
+      case _: Geographic2D => WGS84
+      case _: Geographic3D => WGS84_3D
+      case _: Cartesian2D => CART
+      case _: Cartesian3D => CART_3D
+    }
     case LynxNull => VOID
     case _ => 0
   }
