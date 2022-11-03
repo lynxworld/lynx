@@ -53,6 +53,7 @@ class E_Unwind extends TestBase{
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
   }
 
   @Test
