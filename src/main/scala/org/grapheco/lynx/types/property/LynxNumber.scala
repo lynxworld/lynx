@@ -13,10 +13,9 @@ trait LynxNumber extends LynxValue {
 
   def /(that: LynxNumber): LynxNumber
 
-  def toDouble: Double = this match {
-    case LynxInteger(i) => i.toDouble
-    case LynxFloat(d) => d
-  }
+  override def toString: String = number.toString
+
+  def toDouble: Double = this.number.doubleValue()
 
   def toLynxFloat: LynxFloat = this match{
     case LynxInteger(i) => LynxFloat(i.toDouble)

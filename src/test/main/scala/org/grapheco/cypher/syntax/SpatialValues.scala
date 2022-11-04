@@ -2,6 +2,8 @@ package org.grapheco.cypher.syntax
 
 import org.grapheco.lynx.TestBase
 import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.property.LynxNull
+import org.grapheco.lynx.types.spatial.LynxPoint
 import org.junit.{Assert, Test}
 
 class SpatialValues extends TestBase{
@@ -12,8 +14,8 @@ class SpatialValues extends TestBase{
         |WITH point({ latitude:toFloat('13.43'), longitude:toFloat('56.21')}) AS p1, point({ latitude:toFloat('13.10'), longitude:toFloat('56.41')}) AS p2
         |RETURN toInteger(distance(p1,p2)/1000) AS km
         |""".stripMargin)
-      .records().map(f=>f("km").value).toArray
-    Assert.assertEquals(42,records(0))
+      .records().map(f=>f("km")).toArray
+    Assert.assertEquals(LynxValue(42),records(0))
   }
 
   @Test
@@ -21,7 +23,7 @@ class SpatialValues extends TestBase{
     val records = runOnDemoGraph("WITH point({ x:3, y:0 }) AS p2d, point({ x:0, y:4, z:1 }) AS p3d\nRETURN distance(p2d,p3d) AS bad, distance(p2d,point({ x:p3d.x, y:p3d.y })) AS good")
       .records().map(f=>Map("bad"->f("bad"), "good"->f("good"))).toArray
 
-    val expectResult = Map("bad"->null, "good"->LynxValue(5.0))
+    val expectResult = Map("bad"-> LynxNull, "good"->LynxValue(5.0))
 
     expectResult.foreach(f=>{
       Assert.assertEquals(f._2,records(0)(f._1))
@@ -58,7 +60,7 @@ class SpatialValues extends TestBase{
       "p.x"->LynxValue(3.0),
       "p.y"->LynxValue(4.0),
       "p.crs"->LynxValue("cartesian"),
-      "p.srid"->LynxValue("7203")
+      "p.srid"->LynxValue(7203)
     )
 
     expectResult.foreach(f=>{
@@ -114,8 +116,8 @@ class SpatialValues extends TestBase{
     )).toArray
 
     val expectResult = Map(
-      "distance(p2d,p3d)"->null,
-      "p2d < p3d"->null,
+      "distance(p2d,p3d)"-> LynxNull,
+      "p2d < p3d"-> LynxNull,
       "p2d = p3d"->LynxValue(false),
       "p2d <> p3d"->LynxValue(true),
       "distance(p2d,point({ x:p3d.x, y:p3d.y }))"->LynxValue(5.0)
@@ -125,12 +127,15 @@ class SpatialValues extends TestBase{
       Assert.assertEquals(f._2,records(0)(f._1))
     })
   }
-
-  /**
-   * this function will test point for ordering, but point class is not be defined.
-   */
-  //  @Test
-//  def testPointOrderability():Unit={
-//    val records = runOnDemoGraph("UNWIND [point({ x:3, y:0 }), point({ x:0, y:4, z:1 }), point({ srid:4326, x:12, y:56 }), point({ srid:4979, x:12, y:56, z:1000 })] AS point\nRETURN point\nORDER BY point").records().map(f=>f("point").asInstanceOf[])
-//  }
+  @Test
+  def testPointOrderability():Unit={
+    val records = runOnDemoGraph(
+      """UNWIND [point({ x:3, y:0 }), point({ x:0, y:4, z:1 }), point({ srid:4326, x:12, y:56 }), point({ srid:4979, x:12, y:56, z:1000 })] AS point
+        |RETURN point
+        |ORDER BY point
+        |""".stripMargin).records().map(f=>f("point"))
+    Assert.assertTrue(Seq("wgs-84","wgs-84-3d","cartesian","cartesian-3d")
+      .zip(records.toSeq)
+      .forall{case(e,a) => a.asInstanceOf[LynxPoint].crs.value == e})
+  }
 }
