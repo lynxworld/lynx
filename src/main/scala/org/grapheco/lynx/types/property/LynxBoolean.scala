@@ -23,6 +23,8 @@ case class LynxBoolean(v: Boolean) extends LynxValue {
     case boolean: LynxBoolean => v.compareTo(boolean.v)
     case _ => throw TypeMismatchException(this.lynxType, o.lynxType)
   }
+
+  override def toString: String = value.toString
 }
 
 object LynxBoolean {
