@@ -143,6 +143,7 @@ class J_Create extends TestBase{
     Assert.assertEquals(numRels + 2, all_rels.size)
   }
 
+  @Test
   def createNodeWithAParameterForTheProperties(): Unit = {
     val num = nodesInput.length
     runOnDemoGraph(
@@ -153,6 +154,7 @@ class J_Create extends TestBase{
     Assert.assertEquals(num + 1, all_nodes.size)
   }
 
+  @Test
   def createMultipleNodeWithAParameterForTheProperties(): Unit = {
     val numNode = nodesInput.length
     val numRels = relationsInput.length
