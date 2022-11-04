@@ -3,13 +3,14 @@ package org.grapheco.lynx.types.spatial
 import org.grapheco.lynx.LynxType
 import org.grapheco.lynx.procedure.ProcedureException
 import org.grapheco.lynx.runner.ParsingException
-import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.{LynxValue, TypeMismatchException}
 import org.grapheco.lynx.types.composite.LynxMap
 import org.grapheco.lynx.types.property.{LynxFloat, LynxInteger, LynxNull, LynxString}
 import org.grapheco.lynx.types.spatial.SpatialType.SpatialType
+import org.grapheco.lynx.types.structural.{HasProperty, LynxPropertyKey}
 import org.opencypher.v9_0.util.symbols.CTPoint
 
-trait LynxPoint extends LynxValue{
+trait LynxPoint extends LynxValue with HasProperty{
   val x: LynxFloat
 
   val y: LynxFloat
@@ -21,6 +22,16 @@ trait LynxPoint extends LynxValue{
   override def lynxType: LynxType = CTPoint
 
   override def value: Any = this
+
+  override def keys: Seq[LynxPropertyKey] = Seq("x", "y", "crs", "srid").map(LynxPropertyKey)
+
+  override def property(propertyKey: LynxPropertyKey): Option[LynxValue] = Some(propertyKey.value match {
+    case "x" => this.x
+    case "y" => this.y
+    case "crs" => this.crs
+    case "srid" => this.srid
+    case _ => null
+  })
 
   override def sameTypeCompareTo(o: LynxValue): Int = ???
 }
