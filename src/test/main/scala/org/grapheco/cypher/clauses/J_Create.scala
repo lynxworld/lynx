@@ -32,6 +32,7 @@ class J_Create extends TestBase{
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
   }
 
   @Test

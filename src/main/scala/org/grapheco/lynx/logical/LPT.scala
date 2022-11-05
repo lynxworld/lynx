@@ -140,8 +140,8 @@ case class LPTReturnTranslator(r: Return) extends LPTNodeTranslator {
     PipedTranslators(
       Seq(
         LPTProjectTranslator(ri),
-        LPTSkipTranslator(skip),
         LPTOrderByTranslator(orderBy),
+        LPTSkipTranslator(skip),
         LPTLimitTranslator(limit),
         LPTSelectTranslator(ri),
         LPTDistinctTranslator(distinct)
@@ -215,8 +215,8 @@ case class LPTWithTranslator(w: With) extends LPTNodeTranslator {
           Seq(
             LPTProjectTranslator(ri),
             LPTWhereTranslator(where),
-            LPTSkipTranslator(skip),
             LPTOrderByTranslator(orderBy),
+            LPTSkipTranslator(skip),
             LPTLimitTranslator(limit),
             LPTSelectTranslator(ri),
             LPTDistinctTranslator(distinct)
