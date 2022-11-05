@@ -3,6 +3,7 @@ package org.grapheco.cypher.clauses
 import org.grapheco.lynx.TestBase
 import org.grapheco.lynx.physical.{NodeInput, RelationshipInput, StoredNodeInputRef}
 import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.property.LynxNull
 import org.grapheco.lynx.types.structural._
 import org.junit.{Assert, Before, Test}
 
@@ -23,9 +24,8 @@ class B_OptionMatch extends TestBase{
   val n3 = TestNode(TestId(3), Seq(LynxNodeLabel("person")), Map(LynxPropertyKey("name")-> LynxValue("Michael Douglas")))
   val n4 = TestNode(TestId(4), Seq(LynxNodeLabel("person")), Map(LynxPropertyKey("name")-> LynxValue("Martin Sheen")))
   val n5 = TestNode(TestId(5), Seq(LynxNodeLabel("person")), Map(LynxPropertyKey("name")-> LynxValue("Rob Reiner")))
-  val m1 = TestNode(TestId(6), Seq(LynxNodeLabel("Movie")), Map(LynxPropertyKey("name")-> LynxValue("Wall Street")))
-  val m2 = TestNode(TestId(7), Seq(LynxNodeLabel("Movie")), Map(LynxPropertyKey("name")-> LynxValue("The American President")))
-
+  val m1 = TestNode(TestId(6), Seq(LynxNodeLabel("Movie")), Map(LynxPropertyKey("title")-> LynxValue("Wall Street")))
+  val m2 = TestNode(TestId(7), Seq(LynxNodeLabel("Movie")), Map(LynxPropertyKey("title")-> LynxValue("The American President")))
 
   val r1 = TestRelationship(TestId(1), TestId(1), TestId(4), Option(LynxRelationshipType("FATHER")), Map.empty)
   val r2 = TestRelationship(TestId(2), TestId(1), TestId(6), Option(LynxRelationshipType("ACTED_IN")), Map.empty)
@@ -35,7 +35,6 @@ class B_OptionMatch extends TestBase{
   val r6 = TestRelationship(TestId(6), TestId(4), TestId(6), Option(LynxRelationshipType("ACTED_IN")), Map.empty)
   val r7 = TestRelationship(TestId(7), TestId(4), TestId(7), Option(LynxRelationshipType("ACTED_IN")), Map.empty)
   val r8 = TestRelationship(TestId(8), TestId(5), TestId(7), Option(LynxRelationshipType("DIRECTED")), Map.empty)
-
 
   @Before
   def init(): Unit ={
@@ -56,12 +55,12 @@ class B_OptionMatch extends TestBase{
     relationsInput.append(("r7", RelationshipInput(Seq(r7.relationType.get), Seq.empty, StoredNodeInputRef(r7.startNodeId), StoredNodeInputRef(r7.endNodeId))))
     relationsInput.append(("r8", RelationshipInput(Seq(r8.relationType.get), Seq.empty, StoredNodeInputRef(r8.startNodeId), StoredNodeInputRef(r8.endNodeId))))
 
-
     model.write.createElements(nodesInput, relationsInput,
       (nodesCreated: Seq[(String, LynxNode)], relsCreated: Seq[(String, LynxRelationship)]) => {
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
   }
   @Test
   def optionalRelationships(): Unit ={
@@ -71,7 +70,7 @@ class B_OptionMatch extends TestBase{
         |OPTIONAL MATCH (a)-->(x)
         |RETURN x
         |""".stripMargin).records().toArray
-    Assert.assertEquals(null, res(0)("x").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxNull, res(0)("x"))
   }
 
   @Test
@@ -82,8 +81,8 @@ class B_OptionMatch extends TestBase{
         |OPTIONAL MATCH (a)-->(x)
         |RETURN x, x.name
         |""".stripMargin).records().toArray
-    Assert.assertEquals(null, res(0)("x").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(null, res(0)("x.name").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxNull, res(0)("x"))
+    Assert.assertEquals(LynxNull, res(0)("x.name"))
   }
 
   @Test
@@ -94,7 +93,7 @@ class B_OptionMatch extends TestBase{
         |OPTIONAL MATCH (a)-[r:ACTS_IN]->()
         |RETURN a.title, r
         |""".stripMargin).records().toArray
-    Assert.assertEquals("Wall Street", res(0)("a.title").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(null, res(0)("r").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxValue("Wall Street"), res(0)("a.title"))
+    Assert.assertEquals(LynxNull, res(0)("r"))
   }
 }
