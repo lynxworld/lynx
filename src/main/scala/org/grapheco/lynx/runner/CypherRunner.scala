@@ -71,8 +71,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
       val columnMap = columns().zipWithIndex.toMap
 
       override def show(limit: Int): Unit =
-        FormatUtils.printTable(columnNames,
-          df.records.take(limit).toSeq.map(_.map(_.value)))
+        FormatUtils.printTable(columnNames, df.records.take(limit).toSeq.map(_.map(types.format)))
 
       override def columns(): Seq[String] = columnNames
 
@@ -92,7 +91,7 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
 
         new LynxResult {
           override def show(limit: Int): Unit =
-            FormatUtils.printTable(columnNames, cached.take(limit).toSeq.map(_.map(_.value)))
+            FormatUtils.printTable(columnNames, cached.take(limit).map(_.map(types.format)))
 
           override def cache(): LynxResult = this
 

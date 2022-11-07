@@ -14,5 +14,7 @@ trait TypeSystem {
   def typeOf(clazz: Class[_]): LynxType
 
   def wrap(value: Any): LynxValue
+
+  def format(value: LynxValue): String
 }
 
