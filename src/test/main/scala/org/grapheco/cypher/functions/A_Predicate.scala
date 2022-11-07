@@ -242,7 +242,7 @@ class A_Predicate extends TestBase {
 
     Assert.assertEquals(1, records.length)
     Assert.assertEquals(List(n1, LynxList(List(r1, n2, LynxList(List())))), records(0).value)
-    Assert.assertEquals(List(n1, LynxList(List(r2, n2, LynxList(List(r3, n2, LynxList(List())))))), records(1))
+//    Assert.assertEquals(List(n1, LynxList(List(r2, n2, LynxList(List(r3, n2, LynxList(List())))))), records(1))
   }
 
   @Test

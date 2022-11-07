@@ -278,7 +278,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case MapExpression(items) => LynxMap(items.map(it => it._1.name -> eval(it._2)).toMap)
 
       //Only One-hop path-pattern is supported now
-      case PatternExpression(pattern) => {
+      case PatternExpression(pattern) => { // TODO
         val rightNode: NodePattern = pattern.element.rightNode
         val relationship: RelationshipPattern = pattern.element.relationship
         val leftNode: NodePattern = if (pattern.element.element.isSingleNode) {
@@ -296,46 +296,6 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           .filter(path => if (rightNode.variable.nonEmpty) path.endNode.compareTo(eval(rightNode.variable.get)) == 0 else true).nonEmpty
 
         LynxBoolean(exist)
-      }
-
-      case ip: IterablePredicateExpression => {
-        val variable = ip.variable
-        val predicate = ip.innerPredicate
-        val predicatePass: ExpressionContext => Boolean = if (predicate.isDefined) {
-          ec => eval(predicate.get)(ec) == LynxBoolean.TRUE
-        } else { _ => true } // if predicate not defined, should must return true?
-
-        eval(ip.expression) match {
-          case list: LynxList => {
-            val ecList = list.v.map(i => ec.withVars(ec.vars + (variable.name -> i)))
-            val result = ip match {
-              case _: AllIterablePredicate => ecList.forall(predicatePass)
-              case _: AnyIterablePredicate => ecList.exists(predicatePass)
-              case _: NoneIterablePredicate => ecList.forall(predicatePass.andThen(!_))
-              case _: SingleIterablePredicate => ecList.indexWhere(predicatePass) match {
-                case -1 => false // none
-                case i => !ecList.drop(i + 1).exists(predicatePass) // only one!
-              }
-            }
-            LynxBoolean(result)
-          }
-          case _ => throw ProcedureException("The expression must returns a list.")
-        }
-      }
-
-      case Pow(lhs, rhs) => (eval(lhs), eval(rhs)) match {
-        case (number: LynxNumber, exponent: LynxNumber) => LynxFloat(Math.pow(number.toDouble, exponent.toDouble))
-        case _ => throw ProcedureException("The expression must returns tow numbers.")
-      }
-
-      case ListSlice(list, from, to) => eval(list) match {
-        case LynxList(list) => LynxList((from.map(eval), to.map(eval)) match {
-          case (Some(LynxInteger(i)), Some(LynxInteger(j))) => list.slice(i.toInt, j.toInt)
-          case (Some(LynxInteger(i)), _) => list.drop(i.toInt)
-          case (_, Some(LynxInteger(j))) => list.slice(0, j.toInt)
-          case (_, _) => throw ProcedureException("The range must is a integer.")
-        })
-        case _ => throw ProcedureException("The expression must returns a list.")
       }
 
       case ip: IterablePredicateExpression => {
