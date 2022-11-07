@@ -41,6 +41,7 @@ class K_Delete extends TestBase{
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
   }
 
   @Test

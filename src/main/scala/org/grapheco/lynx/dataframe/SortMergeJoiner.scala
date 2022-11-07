@@ -22,18 +22,16 @@ object SortMergeJoiner {
         (a.columnsName.indexOf(columnName), b.columnsName.indexOf(columnName))
       )
 
-    val joinedSchema: Seq[(String, LynxType)] = a.schema ++ b.schema
-
     joinType match {
-      case InnerJoin => DataFrame(joinedSchema, _innerJoin(a, b, joinColIndexs))
-      case OuterJoin => DataFrame(joinedSchema, _fullOuterJoin(a, b, joinColIndexs))
-      case LeftJoin => DataFrame(joinedSchema, _leftJoin(a, b, joinColIndexs))
-      case RightJoin => DataFrame(joinedSchema, _rightJoin(a, b, joinColIndexs))
+      case InnerJoin => _innerJoin(a, b, joinColIndexs)
+      case OuterJoin => _fullOuterJoin(a, b, joinColIndexs)
+      case LeftJoin => _leftJoin(a, b, joinColIndexs)
+      case RightJoin => _rightJoin(a, b, joinColIndexs)
       case _ => throw new Exception("UnExpected JoinType in DataFrame Join Function.")
     }
   }
 
-  private def _innerJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): () => Iterator[Seq[LynxValue]] = {
+  private def _innerJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): DataFrame = {
     // Is this asending or desending?
     val sortedTableA: Array[Seq[LynxValue]] = _sortByColIndexs(a, joinColIndexs.map(_._1))
     val sortedTableB: Array[Seq[LynxValue]] = _sortByColIndexs(b, joinColIndexs.map(_._2))
@@ -41,6 +39,7 @@ object SortMergeJoiner {
     var indexOfA: Int = 0
     var indexOfB: Int = 0
 
+    val joinedSchema: Seq[(String, LynxType)] = a.schema ++ b.schema
     val joinedDataFrame: ListBuffer[Seq[LynxValue]] = ListBuffer[Seq[LynxValue]]()
 
     while (indexOfA < sortedTableA.length && indexOfB < sortedTableB.length) {
@@ -57,19 +56,17 @@ object SortMergeJoiner {
       else indexOfA += nextInnerRowsA.length
     }
 
-    () => joinedDataFrame.toIterator
-
-
-
+    DataFrame(joinedSchema, () => joinedDataFrame.toIterator)
   }
 
-  private def _fullOuterJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): () => Iterator[Seq[LynxValue]] = {
+  private def _fullOuterJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): DataFrame = {
     // Is this asending or desending?
     val sortedTableA: Array[Seq[LynxValue]] = _sortByColIndexs(a, joinColIndexs.map(_._1))
     val sortedTableB: Array[Seq[LynxValue]] = _sortByColIndexs(b, joinColIndexs.map(_._2))
     var indexOfA: Int = 0
     var indexOfB: Int = 0
 
+    val joinedSchema: Seq[(String, LynxType)] = a.schema ++ b.schema
     val joinedDataFrame: ListBuffer[Seq[LynxValue]] = ListBuffer[Seq[LynxValue]]()
 
     while (indexOfA < sortedTableA.length && indexOfB < sortedTableB.length) {
@@ -98,20 +95,30 @@ object SortMergeJoiner {
       indexOfB += 1
     }
 
-    () => joinedDataFrame.toIterator
+    DataFrame(joinedSchema, () => joinedDataFrame.toIterator)
   }
 
-  private def _leftJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): () => Iterator[Seq[LynxValue]] = {
-    val sortedTableA: Array[Seq[LynxValue]] = Profiler.timing("SortA", _sortByColIndexs(a, joinColIndexs.map(_._1)))
-    val sortedTableB: Array[Seq[LynxValue]] = Profiler.timing("SortB", (
-      if (sortedTableA.length > 0 ) _sortByColIndexs(b, joinColIndexs.map(_._2))
+  private def _leftJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): DataFrame = {
+    val sortedTableA: Array[Seq[LynxValue]] = _sortByColIndexs(a, joinColIndexs.map(_._1))
+    val sortedTableB: Array[Seq[LynxValue]] = {
+      if (sortedTableA.length > 0) _sortByColIndexs(b, joinColIndexs.map(_._2))
       else a.records.toArray
-      )
-    )
+    }
 
     var indexOfA: Int = 0
     var indexOfB: Int = 0
 
+    val joinedSchema: Seq[(String, LynxType)] = {
+      // Rename the common column name. Otherwise it would cause null result in the Project operation.
+      val newBSchema: Seq[(String, LynxType)] = {
+        b.schema.map{
+          case (name: String, lynxType: LynxType) =>
+            if (a.schema.map(_._1).contains(name)) (s"right.${name}", lynxType)
+            else (name, lynxType)
+        }
+      }
+      a.schema ++ newBSchema
+    }
     val joinedDataFrame: ListBuffer[Seq[LynxValue]] = ListBuffer[Seq[LynxValue]]()
 
     while (indexOfA < sortedTableA.length && indexOfB < sortedTableB.length) {
@@ -133,16 +140,26 @@ object SortMergeJoiner {
       indexOfA += 1
     }
 
-    () => joinedDataFrame.toIterator
+    DataFrame(joinedSchema, () => joinedDataFrame.toIterator)
   }
 
-  private def _rightJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): () => Iterator[Seq[LynxValue]] = {
+  private def _rightJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): DataFrame = {
     val sortedTableA: Array[Seq[LynxValue]] = Profiler.timing("SortA", _sortByColIndexs(a, joinColIndexs.map(_._1)))
     val sortedTableB: Array[Seq[LynxValue]] = Profiler.timing("SortB", _sortByColIndexs(b, joinColIndexs.map(_._2)))
 
     var indexOfA: Int = 0
     var indexOfB: Int = 0
 
+    val joinedSchema: Seq[(String, LynxType)] = {
+      val newASchema: Seq[(String, LynxType)] = {
+        a.schema.map {
+          case (name: String, lynxType: LynxType) =>
+            if (b.schema.map(_._1).contains(name)) (s"right.${name}", lynxType)
+            else (name, lynxType)
+        }
+      }
+      newASchema ++ b.schema
+    }
     val joinedDataFrame: ListBuffer[Seq[LynxValue]] = ListBuffer[Seq[LynxValue]]()
 
     while (indexOfA < sortedTableA.length && indexOfB < sortedTableB.length) {
@@ -164,7 +181,7 @@ object SortMergeJoiner {
       indexOfB += 1
     }
 
-    () => joinedDataFrame.toIterator
+    DataFrame(joinedSchema, () => joinedDataFrame.toIterator)
   }
 
   private def _innerMergeRows(rowsA: Seq[Seq[LynxValue]], rowsB: Seq[Seq[LynxValue]],
