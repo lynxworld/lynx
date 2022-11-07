@@ -207,8 +207,6 @@ class TestBase extends LazyLogging {
 
     override def keys: Seq[LynxPropertyKey] = props.keys.toSeq
 
-    override def toString: String = s"${labels.map(":"+_.toString).mkString("")}{<id>: ${id}, ${props.mkString(", ")}}"
-
   }
 
   case class TestRelationship(id: TestId,

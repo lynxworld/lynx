@@ -20,5 +20,5 @@ case class LynxString(v: String) extends LynxValue {
     case _ => throw TypeMismatchException(this.lynxType, o.lynxType)
   }
 
-  override def toString: String = "'" + v + "'"
+  override def toString: String = v
 }
