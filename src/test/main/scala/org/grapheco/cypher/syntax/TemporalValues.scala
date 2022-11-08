@@ -17,7 +17,7 @@ class TemporalValues extends TestBase {
       .records().map(f => f("theDateTime").asInstanceOf[LynxDateTime]).toArray
 
     /*how to create Lynx temporal object by 2015-06-24T12:50:35.556+0100 */
-    Assert.assertEquals(LynxDateTime(ZonedDateTime.parse("2015-06-24T12:50:35.556+0100")), records(0))
+    Assert.assertEquals(LynxDateTime.parse("2015-06-24T12:50:35.556+0100"), records(0))
   }
 
   @Test
