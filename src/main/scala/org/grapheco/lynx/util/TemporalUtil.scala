@@ -63,12 +63,12 @@ object LynxTemporalParser {
     val splitDateTime: Regex = "^(.{4,12})T(.{0,40})$".r
     val splitDateTimeWithZone_1: Regex = "^(.{4,12})T(.{0,40})(Z{1})$".r
     val splitDateTimeWithZone_2: Regex = "^(.{4,12})T(.{0,40})(\\+.{0,40})$".r
-    val splitDateTimeWithZone_3: Regex = "^(.{4,12})T(.{0,40})(\\-.{0,40})$".r
+    val splitDateTimeWithZone_3: Regex = "^(.{4,12})T(.{0,40})(-.{0,40})$".r
     val splitDateTimeWithZone_4: Regex = "^(.{4,12})T(.{0,40})\\[(.{0,40}).$".r
     val splitDateTimeWithZone_5: Regex = "^(.{4,12})T(.{0,40})(\\+.{0,40})\\[(.{0,40}).$".r
-    val splitDateTimeWithZone_6: Regex = "^(.{4,12})T(.{0,40})(\\-.{0,40})\\[(.{0,40}).$".r
-    val splitTimeWithOffset_1: Regex = "^(.{0,40})(\\+.{0,40})$".r
-    val splitTimeWithOffset_2: Regex = "^(.{0,40})(\\-.{0,40})$".r
+    val splitDateTimeWithZone_6: Regex = "^(.{4,12})T(.{0,40})(-.{0,40})\\[(.{0,40}).$".r
+    val splitTimeWithOffset_1: Regex = "^(.{0,40})(\\+.{0,10})$".r
+    val splitTimeWithOffset_2: Regex = "^(.{0,40})(-.{0,10})$".r
     val splitTimeWithOffset_3: Regex = "^(.{0,40})(Z{1})$".r
     str match {
       case splitDateTimeWithZone_6(dateStr, timeStr, offsetStr, zoneStr) => Map("dateStr" -> dateStr, "timeStr" -> timeStr, "offsetStr" -> offsetStr, "zoneStr" -> zoneStr)
