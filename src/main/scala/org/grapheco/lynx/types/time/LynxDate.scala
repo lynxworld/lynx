@@ -1,6 +1,7 @@
 package org.grapheco.lynx.types.time
 
-import org.grapheco.lynx.types.property.{LynxBoolean, LynxString}
+import org.grapheco.lynx.types.property.{LynxBoolean, LynxInteger, LynxString}
+import org.grapheco.lynx.types.structural.LynxPropertyKey
 import org.grapheco.lynx.types.time.LynxComponentDate.{getYearMonthDay, transformDate, transformYearOrdinalDay, transformYearQuarterDay, transformYearWeekDay, truncateDate}
 import org.grapheco.lynx.types.time.LynxComponentTimeZone.getZone
 import org.grapheco.lynx.types.{LynxValue, TypeMismatchException}
@@ -67,6 +68,22 @@ case class LynxDate(localDate: LocalDate) extends LynxTemporalValue with LynxCom
     case _ => throw TypeMismatchException(this.lynxType, o.lynxType)
   }
 
+  override def keys: Seq[LynxPropertyKey] = Seq("year", "quarter", "month", "week", "weekYear", "dayOfQuarter", "quarterDay", "day", "ordinalDay", "dayOfWeek", "weekDay").map(LynxPropertyKey)
+
+  override def property(propertyKey: LynxPropertyKey): Option[LynxValue] = Some(propertyKey.value match {
+    case "year" => LynxInteger(this.year)
+    case "quarter" => LynxInteger(this.quarter)
+    case "month" => LynxInteger(this.month)
+    case "week" => LynxInteger(this.week)
+    case "weekYear" => LynxInteger(this.weekYear)
+    case "dayOfQuarter" => LynxInteger(this.dayOfQuarter)
+    case "quarterDay" => LynxInteger(this.quarterDay)
+    case "day" => LynxInteger(this.day)
+    case "ordinalDay" => LynxInteger(this.ordinalDay)
+    case "dayOfWeek" => LynxInteger(this.dayOfWeek)
+    case "weekDay" => LynxInteger(this.weekDay)
+    case _ => null
+  })
 }
 
 object LynxDate {

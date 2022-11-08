@@ -2,10 +2,11 @@ package org.grapheco.lynx.types.time
 
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxMap
-import org.grapheco.lynx.types.property.LynxString
+import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
+import org.grapheco.lynx.types.structural.{HasProperty, LynxPropertyKey}
 import org.grapheco.lynx.util.LynxTemporalParseException
 
-import java.time.{Duration, Period, ZoneId, ZoneOffset}
+import java.time.{Duration, LocalDate, LocalTime, Period, ZoneId, ZoneOffset}
 import scala.reflect.runtime.universe.This
 import scala.util.matching.Regex
 
@@ -15,13 +16,28 @@ trait LynxComponentDuration {
   val AVG_DAYS_OF_YEAR: Double = 365.25
 
   //P1Y2M10DT2H30M15.03S
-  var year: Int
-  var month: Int
-  var day: Int
+  var years: Int
+  var quarters: Int
+  val quartersOfYear: Int
+  val months: Int
+  var monthsOfYear: Int
+  var monthsOfQuarter: Int
+  val weeks: Int
+  val days: Int
+  var daysOfWeek: Int
   //T
-  var hour: Int
-  var minute: Int
-  var second: Long
+  var hours: Long
+  var minutes: Long
+  var seconds: Long
+  var milliseconds: Long
+  var microseconds: Long
+  var nanoseconds: Long
+  var minutesOfHour: Int
+  var secondsOfMinutes: Int
+  var millisecondsOfSecond: Long
+  var microsecondsOfSecond: Long
+  var nanosecondsOfSecond: Long
+
 
 }
 
@@ -31,28 +47,28 @@ object LynxComponentDuration {
   val AVG_DAYS_OF_YEAR: Double = 365.2425
   val SECOND_OF_DAY: Double = 86400
 
-  def getDurationString(lynxDuration: LynxDuration): String = {
-    var year, month, day, hour, minute, second = ""
-    if (lynxDuration.year != 0) {
-      year = lynxDuration.year + "Y"
-    }
-    if (lynxDuration.month != 0) {
-      month = lynxDuration.month + "M"
-    }
-    if (lynxDuration.day != 0) {
-      day = lynxDuration.day + "D"
-    }
-    if (lynxDuration.hour != 0) {
-      hour = lynxDuration.hour + "H"
-    }
-    if (lynxDuration.minute != 0) {
-      minute = lynxDuration.minute + "M"
-    }
-    if (lynxDuration.second != 0) {
-      second = lynxDuration.second + "S"
-    }
-    "P" + year + month + day + "T" + hour + minute + second
-  }
+//  def getDurationString(lynxDuration: LynxDuration): String = {
+//    var year, month, day, hour, minute, second = ""
+//    if (lynxDuration.year != 0) {
+//      year = lynxDuration.year + "Y"
+//    }
+//    if (lynxDuration.month != 0) {
+//      month = lynxDuration.month + "M"
+//    }
+//    if (lynxDuration.day != 0) {
+//      day = lynxDuration.day + "D"
+//    }
+//    if (lynxDuration.hour != 0) {
+//      hour = lynxDuration.hour + "H"
+//    }
+//    if (lynxDuration.minute != 0) {
+//      minute = lynxDuration.minute + "M"
+//    }
+//    if (lynxDuration.second != 0) {
+//      second = lynxDuration.second + "S"
+//    }
+//    "P" + year + month + day + "T" + hour + minute + second
+//  }
 
   def getDuration(map: Map[String, Double]): Duration = {
     if (map.isEmpty) {
@@ -93,18 +109,24 @@ object LynxComponentDuration {
     Duration.ofNanos(nanos.longValue())
   }
 
-  def getDuration(duration_Str: String): Duration = {
-    //    val a = "PT.+".r
-    //    val b = "P.".r
-    //    val c = "P(.+)T(.+)".r
-    //    val nanos = duration_Str match {
-    //      case c(c_1, c_2) =>Period
-    //      case a => Duration
-    //      case b =>
-    //    }
-    //    val a = duration_Str.split("T", 1)
-    //      Duration.ofNanos(nanos.longValue())
-    Duration.ofNanos(9)
+  def between(date_1: Any, date_2: Any): (LocalDate, LocalTime, ZoneOffset, LocalDate, LocalTime, ZoneOffset) = {
+    val (begin_Date, begin_Time, begin_Zone): (LocalDate, LocalTime, ZoneOffset) = date_1 match {
+      case LynxDate(v) => (v, LocalTime.parse("00:00:00"), null)
+      case LynxDateTime(v) => (v.toLocalDate, v.toLocalTime, v.getOffset)
+      case LynxLocalDateTime(v) => (v.toLocalDate, v.toLocalTime, null)
+      case LynxTime(v) => (null, v.toLocalTime, v.getOffset)
+      case LynxLocalTime(v) => (null, v, null)
+      case _ => (null, null, null)
+    }
+    val (end_Date, end_Time, end_Zone): (LocalDate, LocalTime, ZoneOffset) = date_2 match {
+      case LynxDate(v) => (v, LocalTime.parse("00:00:00"), null)
+      case LynxDateTime(v) => (v.toLocalDate, v.toLocalTime, v.getOffset)
+      case LynxLocalDateTime(v) => (v.toLocalDate, v.toLocalTime, null)
+      case LynxTime(v) => (null, v.toLocalTime, v.getOffset)
+      case LynxLocalTime(v) => (null, v, null)
+      case _ => (null, null, null)
+    }
+    (begin_Date, begin_Time, begin_Zone, end_Date, end_Time, end_Zone)
   }
 }
 

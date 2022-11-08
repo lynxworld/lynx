@@ -6,6 +6,7 @@ import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
 import org.grapheco.lynx.types.structural._
+import org.grapheco.lynx.types.time.LynxDuration
 import org.junit.{Assert, Before, Test}
 
 import scala.collection.mutable.ArrayBuffer
@@ -118,7 +119,7 @@ class C_Aggregating extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals("P1DT2H22.5S", records(0)("avg(dur)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxDuration.parse("P1DT2H22.5S") , records(0)("avg(dur)"))
   }
 
   /*

@@ -1,20 +1,20 @@
 package org.grapheco.lynx.types.time
 
-import com.sun.scenario.effect.Offset
 import org.grapheco.lynx.LynxType
 import org.grapheco.lynx.types.LynxValue
-import org.grapheco.lynx.types.property.LynxString
-import org.grapheco.lynx.types.time.LynxComponentDuration.{AVG_DAYS_OF_MONTH, AVG_DAYS_OF_YEAR, SECOND_OF_DAY, getDuration}
+import org.grapheco.lynx.types.property.LynxInteger
+import org.grapheco.lynx.types.structural.LynxPropertyKey
+import org.grapheco.lynx.types.time.LynxComponentDuration.{AVG_DAYS_OF_MONTH, SECOND_OF_DAY}
+import org.grapheco.lynx.types.time.LynxDuration.{getDurationMap, toSecond}
+
+//import java.time.Period
 import org.joda.time.Period
 import org.opencypher.v9_0.util.symbols.CTDuration
 
 import java.math.BigDecimal
+import java.time.temporal.ChronoField
 import java.time.{Duration, LocalDate, LocalTime, ZoneOffset}
-import java.time.temporal.{ChronoField, TemporalField}
-import java.util.Calendar
 import java.util.regex.Pattern
-import scala.collection.{breakOut, mutable}
-import scala.util.control.Breaks.{break, breakable}
 
 /**
  * @ClassName LynxDuration
@@ -25,34 +25,89 @@ import scala.util.control.Breaks.{break, breakable}
  */
 case class LynxDuration(duration: String) extends LynxTemporalValue with LynxComponentDuration {
 
-  def value: Duration = getDuration(duration)
+  def nano: Long = getDurationMap(duration)._1 match {
+    case "-" => (-1 * (toSecond(getDurationMap(getDurationMap(duration)._2)) * Math.pow(10, 9))).toLong
+    case _ => (toSecond(getDurationMap(getDurationMap(duration)._2)) * Math.pow(10, 9)).toLong
+  }
+
+  def value: Duration = Duration.ofNanos(nano)
+
+
+
+  //  def period_Value: Period = Period.days(days)
 
   override def toString: String = duration
 
-  import java.util.regex.Pattern
 
+  def +(that: LynxDuration): LynxDuration = LynxDuration.parse(value.plus(that.value).toString, false)
 
-  //  def durationValue: Duration = LynxComponentDuration.parse(duration)
-
-
-  def +(that: LynxDuration): LynxDuration = LynxDuration(value.plus(that.value).toString)
-
-  def -(that: LynxDuration): LynxDuration = LynxDuration(value.minus(that.value).toString)
+  def -(that: LynxDuration): LynxDuration = LynxDuration.parse(value.minus(that.value).toString, false)
 
 
   def lynxType: LynxType = CTDuration
 
-  override def sameTypeCompareTo(o: LynxValue): Int = ???
-
   //  override def toString: String = duration
 
-  var year: Int = (value.toDays / AVG_DAYS_OF_YEAR).toInt
-  var month: Int = ((value.toDays % AVG_DAYS_OF_YEAR) / AVG_DAYS_OF_MONTH).toInt
-  var day: Int = (value.toDays % AVG_DAYS_OF_MONTH).toInt
-  var hour: Int = (value.toHours % 24).toInt
-  var minute: Int = (value.toMinutes % 60).toInt
-  var second: Long = (value.toNanos % (6 * Math.pow(10, 4))).toLong
+  //  var years: Int = (nano / (Math.pow(10, 9) * Math.pow(60, 2) * 24 * 365)).toInt
+  val days: Int = (nano / (Math.pow(10, 9) * Math.pow(60, 2) * 24)).toInt
+  var years: Int = days / 365
+  var monthsOfYear: Int = (days % 365) / 30
+  val months: Int = monthsOfYear + years * 12
+  val quartersOfYear: Int = (monthsOfYear + 2 - (monthsOfYear - 1) % 3) / 3
+  var quarters: Int = quartersOfYear + years * 4
+  var monthsOfQuarter: Int = months - quarters * 3 + 3
 
+
+  val weeks: Int = days / 7
+  var daysOfWeek: Int = days - weeks * 7
+
+  var hours: Long = (nano / (Math.pow(10, 9) * Math.pow(60, 2))).toLong
+  var minutes: Long = (nano / (Math.pow(10, 9) * Math.pow(60, 1))).toLong
+  var seconds: Long = (nano / Math.pow(10, 9)).toLong
+  var minutesOfHour: Int = (minutes - hours * 60).toInt
+  var secondsOfMinutes: Int = (seconds - minutes * 60).toInt
+
+  var nanoseconds: Long = nano
+  var milliseconds: Long = (nanoseconds / Math.pow(10, 3)).toLong
+  var microseconds: Long = (milliseconds / Math.pow(10, 3)).toLong
+
+
+  var microsecondsOfSecond: Long = (milliseconds % Math.pow(10, 3)).toLong
+  var millisecondsOfSecond: Long = (milliseconds % Math.pow(10, 6)).toLong
+  var nanosecondsOfSecond: Long = (nanoseconds % Math.pow(10, 9)).toLong
+
+  override def sameTypeCompareTo(o: LynxValue): Int = ???
+
+  override def keys: Seq[LynxPropertyKey] = super.keys ++ Seq("years", "monthsOfYear", "quartersOfYear", "quarters", "months", "monthsOfQuarter",
+    "days", "weeks", "daysOfWeek", "hours", "minutesOfHour", "secondsOfMinutes", "minutes", "seconds", "nanoseconds", "milliseconds", "microseconds",
+    "microsecondsOfSecond", "millisecondsOfSecond", "nanosecondsOfSecond").map(LynxPropertyKey)
+
+  override def property(propertyKey: LynxPropertyKey): Option[LynxValue] = Some(propertyKey.value match {
+    case "years" => LynxInteger(this.years)
+    case "monthsOfYear" => LynxInteger(this.monthsOfYear)
+    case "quartersOfYear" => LynxInteger(this.quartersOfYear)
+    case "quarters" => LynxInteger(this.quarters)
+    case "months" => LynxInteger(this.months)
+    case "monthsOfQuarter" => LynxInteger(this.monthsOfQuarter)
+
+    case "days" => LynxInteger(this.days)
+    case "weeks" => LynxInteger(this.weeks)
+    case "daysOfWeek" => LynxInteger(this.daysOfWeek)
+
+    case "hours" => LynxInteger(this.hours)
+    case "minutesOfHour" => LynxInteger(this.minutesOfHour)
+    case "secondsOfMinutes" => LynxInteger(this.secondsOfMinutes)
+    case "minutes" => LynxInteger(this.minutes)
+    case "seconds" => LynxInteger(this.seconds)
+
+    case "microseconds" => LynxInteger(this.microseconds)
+    case "milliseconds" => LynxInteger(this.milliseconds)
+    case "nanoseconds" => LynxInteger(this.nanoseconds)
+    case "microsecondsOfSecond" => LynxInteger(this.microsecondsOfSecond)
+    case "millisecondsOfSecond" => LynxInteger(this.millisecondsOfSecond)
+    case "nanosecondsOfSecond" => LynxInteger(this.nanosecondsOfSecond)
+    case _ => null
+  })
 
 }
 
@@ -63,7 +118,7 @@ object LynxDuration {
       case "second" => (value % 60).toInt
       case "minute" => ((value / 60) % 60).toInt
       case "hour" => ((value / Math.pow(60, 2)) % 24).toInt
-      case "day" => ((value / (Math.pow(60, 2) * 24)) % 30).toInt
+      case "day" => (((value / (Math.pow(60, 2) * 24)) % 365) % 30).toInt
       case "month" => ((value / (Math.pow(60, 2) * 24 * 30)) % 12).toInt
       case "year" => (value / (Math.pow(60, 2) * 24 * 30 * 12)).toInt
     }
@@ -188,41 +243,8 @@ object LynxDuration {
     "P" + year_Str + month_Str + day_Str + t_flag + hour_Str + minute_Str + second_Str
   }
 
-  def getDurationString(lynxDuration: LynxDuration): String = {
-
-    var year, month, day, hour, minute, second = ""
-    if (lynxDuration.year != 0) {
-      year = lynxDuration.year + "Y"
-    }
-    if (lynxDuration.month != 0) {
-      month = lynxDuration.month + "M"
-    }
-    if (lynxDuration.day != 0) {
-      day = lynxDuration.day + "D"
-    }
-    if (lynxDuration.hour != 0) {
-      hour = lynxDuration.hour + "H"
-    }
-    if (lynxDuration.minute != 0) {
-      minute = lynxDuration.minute + "M"
-    }
-    if (lynxDuration.second != 0) {
-      second = lynxDuration.second + "S"
-    }
-    "P" + year + month + day + "T" + hour + minute + second
-  }
-
-  def valid(lynxDuration_str: String): Boolean = {
-    val lynxDuration_format = Pattern.compile(
-      "([-+]?)P(?:(?:([-+]?[0-9]+)Y)?(?:([-+]?[0-9]+)M)?(?:([-+]?[0-9]+)W)?(?:([-+]?[0-9]+)D)?)" +
-        "(T(?:([-+]?[0-9]+)H)?(?:([-+]?[0-9]+)M)?(?:([-+]?[0-9]+)(?:[.,]([0-9]{0,9}))?S)?)?")
-    lynxDuration_format.matcher(lynxDuration_str).matches()
-  }
-
-  def parse(map: Map[String, Double]): LynxDuration = {
-
+  def getDurationMap(map: Map[String, Double]): Map[String, Int] = {
     var year, month, week, day, hour, minute, second, millisecond, microsecond, nanosecond, nanoOfSecond: Double = 0.toDouble
-
     year = map.getOrElse("years", 0.toDouble)
     month = ((year - year.toInt) * 12) + map.getOrElse("months", 0.toDouble)
     week = map.getOrElse("weeks", 0.toDouble)
@@ -234,11 +256,73 @@ object LynxDuration {
     microsecond = (millisecond - millisecond.toInt) * Math.pow(10, 3) + map.getOrElse("microseconds", 0.toDouble)
     nanosecond = (microsecond - microsecond.toInt) * Math.pow(10, 3) + map.getOrElse("nanoseconds", 0.toDouble)
     nanoOfSecond = millisecond * Math.pow(0.1, 3) + microsecond * Math.pow(0.1, 6) + nanosecond * Math.pow(0.1, 9)
-    val lynxDuration_map =
-      Map("year" -> year.toInt, "month" -> month.toInt, "week" -> week.toInt, "day" -> day.toInt,
-        //T
-        "hour" -> hour.toInt, "minute" -> minute.toInt, "second" -> second.toInt, "nanoOfSecond" -> (nanoOfSecond * Math.pow(10, 9)).toInt)
-    val duration_Str = standardType(toSecond(lynxDuration_map))
+
+    Map("year" -> year.toInt, "month" -> month.toInt, "week" -> week.toInt, "day" -> day.toInt,
+      //T
+      "hour" -> hour.toInt, "minute" -> minute.toInt, "second" -> second.toInt, "nanoOfSecond" -> (nanoOfSecond * Math.pow(10, 9)).toInt)
+  }
+
+  def getDurationMap(lynxDuration_Str: String): (String, Map[String, Double]) = {
+    val datePattern = "^([-+]?)P([-+]?[0-9]+\\.?[0-9]*Y)?([-+]?[0-9]+\\.?[0-9]*M)?([-+]?[0-9]+\\.?[0-9]*W)?([-+]?[0-9]+\\.?[0-9]*D)?.*$".r
+    val timePattern = "^.*T([-+]?[0-9]+\\.?[0-9]*H)?([-+]?[0-9]+\\.?[0-9]*M)?([-+]?[0-9]+\\.?[0-9]*S)?$".r
+    val nullPattern = ".+(null)".r
+    val valuePattern = "^([a-z]+)(.+)[A-Z]$".r
+    val map = new scala.collection.mutable.HashMap[String, Double]
+    val datePattern(sign, year, month, week, day) = lynxDuration_Str
+    val date_arr = Array("years" + year, "months" + month, "weeks" + week, "days" + day)
+    if (Pattern.compile(".+T.+").matcher(lynxDuration_Str).matches()) {
+      val timePattern(hour, minute, second) = lynxDuration_Str
+      val time_arr = Array("hours" + hour, "minutes" + minute, "seconds" + second)
+      time_arr.foreach {
+        case nullPattern() =>
+        case valuePattern(key, value) => map += (key -> value.toDouble)
+        case _ =>
+      }
+    }
+    date_arr.foreach {
+      case nullPattern() =>
+      case valuePattern(key, value) => map += (key -> value.toDouble)
+      case _ =>
+    }
+    sign match {
+      case "-" => ("-", map.toMap)
+      case _ => ("", map.toMap)
+    }
+  }
+
+  //  def getDurationString(lynxDuration: LynxDuration): String = {
+  //
+  //    var year, month, day, hour, minute, second = ""
+  //    if (lynxDuration.year != 0) {
+  //      year = lynxDuration.year + "Y"
+  //    }
+  //    if (lynxDuration.month != 0) {
+  //      month = lynxDuration.month + "M"
+  //    }
+  //    if (lynxDuration.day != 0) {
+  //      day = lynxDuration.day + "D"
+  //    }
+  //    if (lynxDuration.hour != 0) {
+  //      hour = lynxDuration.hour + "H"
+  //    }
+  //    if (lynxDuration.minute != 0) {
+  //      minute = lynxDuration.minute + "M"
+  //    }
+  //    if (lynxDuration.second != 0) {
+  //      second = lynxDuration.second + "S"
+  //    }
+  //    "P" + year + month + day + "T" + hour + minute + second
+  //  }
+
+  def valid(lynxDuration_str: String): Boolean = {
+    val lynxDuration_format = Pattern.compile(
+      "([-+]?)P(?:(?:([-+]?[0-9]+)Y)?(?:([-+]?[0-9]+)M)?(?:([-+]?[0-9]+)W)?(?:([-+]?[0-9]+)D)?)" +
+        "(T(?:([-+]?[0-9]+)H)?(?:([-+]?[0-9]+)M)?(?:([-+]?[0-9]+)(?:[.,]([0-9]{0,9}))?S)?)?")
+    lynxDuration_format.matcher(lynxDuration_str).matches()
+  }
+
+  def parse(map: Map[String, Double]): LynxDuration = {
+    val duration_Str = standardType(toSecond(getDurationMap(map)))
     if (valid(duration_Str)) {
       LynxDuration(duration_Str)
     } else {
@@ -246,34 +330,12 @@ object LynxDuration {
     }
   }
 
-  def parse(lynxDuration_Str: String): LynxDuration = {
-    if (valid(lynxDuration_Str)) {
+  def parse(lynxDuration_Str: String, standard: Boolean = true): LynxDuration = {
+    if (valid(lynxDuration_Str) && standard) {
       LynxDuration(lynxDuration_Str)
     } else if (Pattern.compile(".+[A-Z]$").matcher(lynxDuration_Str).matches()) {
-
-      val datePattern = "^([-+]?)P([-+]?[0-9]+\\.?[0-9]*Y)?([-+]?[0-9]+\\.?[0-9]*M)?([-+]?[0-9]+\\.?[0-9]*W)?([-+]?[0-9]+\\.?[0-9]*D)?.*$".r
-      val timePattern = "^.*T([-+]?[0-9]+\\.?[0-9]*H)?([-+]?[0-9]+\\.?[0-9]*M)?([-+]?[0-9]+\\.?[0-9]*S)?$".r
-      val nullPattern = ".+(null)".r
-      val valuePattern = "^([a-z]+)(.+)[A-Z]$".r
-      val map = new scala.collection.mutable.HashMap[String, Double]
-      val datePattern(sign, year, month, week, day) = lynxDuration_Str
-      val date_arr = Array("years" + year, "months" + month, "weeks" + week, "days" + day)
-      if (Pattern.compile(".+T.+").matcher(lynxDuration_Str).matches()) {
-        val timePattern(hour, minute, second) = lynxDuration_Str
-        val time_arr = Array("hours" + hour, "minutes" + minute, "seconds" + second)
-        time_arr.foreach {
-          case nullPattern() =>
-          case valuePattern(key, value) => map += (key -> value.toDouble)
-          case _ =>
-        }
-      }
-      date_arr.foreach {
-        case nullPattern() =>
-        case valuePattern(key, value) => map += (key -> value.toDouble)
-        case _ =>
-      }
-      parse(map.toMap).toString
-      LynxDuration(sign + parse(map.toMap).toString)
+      getDurationMap(lynxDuration_Str)
+      LynxDuration(getDurationMap(lynxDuration_Str)._1 + parse(getDurationMap(lynxDuration_Str)._2).toString)
     }
     else {
       val lynxLocalDateTime = LynxLocalDateTime.parse(lynxDuration_Str.replace("P", ""))
@@ -289,9 +351,8 @@ object LynxDuration {
   }
 
   def dateBetween(begin: LocalDate, end: LocalDate): Double = {
-    //    Duration.between(begin, end).toMinutes * 60
-
-    (end.toEpochDay - begin.toEpochDay) * SECOND_OF_DAY
+    if (begin == null || end == null) return 0
+    ((end.getYear - begin.getYear) * 365 + (end.getMonthValue - begin.getMonthValue) * 30 + (end.getDayOfMonth - begin.getDayOfMonth)) * SECOND_OF_DAY
   }
 
 
@@ -301,22 +362,43 @@ object LynxDuration {
   }
 
   def offsetBetween(begin: ZoneOffset, end: ZoneOffset): Double = {
+    if (begin == null || end == null) return 0
     end.get(ChronoField.OFFSET_SECONDS) - begin.get(ChronoField.OFFSET_SECONDS)
   }
 
   def between(date_1: Any, date_2: Any): LynxDuration = {
-
     val scale: Int = 3
-    val second_Between: Double = (date_1, date_2) match {
-      case (LynxDate(v_1), LynxDate(v_2)) => dateBetween(v_1, v_2)
-      case (LynxDateTime(v_1), LynxDateTime(v_2)) => (LynxDateTime(v_2).epochMillis - LynxDateTime(v_1).epochMillis) * Math.pow(0.1, 3)
-      case (LynxLocalDateTime(v_1), LynxLocalDateTime(v_2)) => dateBetween(v_1.toLocalDate, v_2.toLocalDate) + timeBetween(v_1.toLocalTime, v_2.toLocalTime)
-      case (LynxTime(v_1), LynxTime(v_2)) => timeBetween(v_1.toLocalTime, v_2.toLocalTime) + offsetBetween(v_1.getOffset, v_2.getOffset)
-      case (LynxLocalTime(v_1), LynxLocalTime(v_2)) => timeBetween(v_1, v_2)
-
-
-      case _ => 0
-    }
+    val (begin_Date, begin_Time, begin_Zone, end_Date, end_Time, end_Zone) = LynxComponentDuration.between(date_1, date_2)
+    val second_Between: Double = dateBetween(begin_Date, end_Date) + timeBetween(begin_Time, end_Time) - offsetBetween(begin_Zone, end_Zone)
     LynxDuration(standardType(second_Between, scale))
+  }
+
+  def betweenSeconds(date_1: Any, date_2: Any): LynxDuration = {
+    LynxDuration(between(date_1, date_2).value.toString)
+  }
+
+  def betweenDays(date_1: Any, date_2: Any): LynxDuration = {
+    val (begin_Date, begin_Time, begin_Zone, end_Date, end_Time, end_Zone) = LynxComponentDuration.between(date_1, date_2)
+    if (end_Date == null || begin_Date == null) return LynxDuration("PT0S")
+    val days = end_Date.toEpochDay - begin_Date.toEpochDay
+    if (days == 0) return LynxDuration("PT0S")
+    if (timeBetween(begin_Time, end_Time) * days < 0) {
+      if (days < 0) return LynxDuration("P" + (days + 1) + "D")
+      if (days > 0) return LynxDuration("P" + (days - 1) + "D")
+    }
+    LynxDuration("P" + days + "D")
+  }
+
+  def betweenMonths(date_1: Any, date_2: Any): LynxDuration = {
+    val (begin_Date, begin_Time, begin_Zone, end_Date, end_Time, end_Zone) = LynxComponentDuration.between(date_1, date_2)
+    if (end_Date == null || begin_Date == null) return LynxDuration("PT0S")
+    var days = end_Date.toEpochDay - begin_Date.toEpochDay
+    if (timeBetween(begin_Time, end_Time) * days < 0) {
+      if (days < 0) days = days + 1
+      else days = days - 1
+    }
+    val truncate_months = days - (days % 365) % 30
+    if (truncate_months == 0) return LynxDuration("PT0S")
+    LynxDuration(standardType(truncate_months * 24 * 3600))
   }
 }
