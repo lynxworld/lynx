@@ -49,7 +49,7 @@ class DefaultTypeSystem extends TypeSystem {
     case v: LocalDateTime => LynxLocalDateTime(v)
     case v: LocalTime => LynxLocalTime(v)
     case v: OffsetTime => LynxTime(v)
-    case v: Duration => LynxDuration(v)
+    case v: String if LynxDuration.valid(v) => LynxDuration(v)
     case v: Map[String, Any] => LynxMap(v.mapValues(wrap))
     case v: Array[Int] => LynxList(v.map(wrap(_)).toList)
     case v: Array[Long] => LynxList(v.map(wrap(_)).toList)

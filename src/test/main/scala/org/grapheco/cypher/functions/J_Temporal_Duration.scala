@@ -3,6 +3,7 @@ package org.grapheco.cypher.functions
 import org.grapheco.lynx.TestBase
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.property.LynxString
+import org.grapheco.lynx.types.time.LynxDuration
 import org.junit.{Assert, Test}
 
 /**
@@ -12,6 +13,7 @@ import org.junit.{Assert, Test}
  * @create: 2022-09-02 15:30
  */
 class J_Temporal_Duration extends TestBase {
+
 
   @Test
   def creatingDurationFromDurationComponents(): Unit = {
@@ -29,12 +31,12 @@ class J_Temporal_Duration extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(6, records.length)
-    Assert.assertEquals("P14DT16H12M", records(0)("aDuration").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("P5M1DT12H", records(1)("aDuration").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("P22DT19H51M49.5S", records(2)("aDuration").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("P17DT12H", records(3)("aDuration").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("PT1M31.123456789S", records(4)("aDuration").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("PT1M31.123456789S", records(5)("aDuration").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxDuration.parse("P14DT16H12M"), records(0)("aDuration"))
+    Assert.assertEquals(LynxDuration.parse("P5M1DT12H"), records(1)("aDuration"))
+    Assert.assertEquals(LynxDuration.parse("P22DT19H51M49.5S"), records(2)("aDuration"))
+    Assert.assertEquals(LynxDuration.parse("P17DT12H"), records(3)("aDuration"))
+    Assert.assertEquals(LynxDuration.parse("PT1M31.123456789S"), records(4)("aDuration"))
+    Assert.assertEquals(LynxDuration.parse("PT1M31.123456789S"), records(5)("aDuration"))
   }
 
   @Test
@@ -52,11 +54,11 @@ class J_Temporal_Duration extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(5, records.length)
-    Assert.assertEquals("P14DT16H12M", records(0)("aDuration").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("P5M1DT12H", records(1)("aDuration").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("P22DT19H51M49.5S", records(2)("aDuration").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("PT45S", records(3)("aDuration").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("P2012Y2M2DT14H37M21.545S", records(4)("aDuration").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxDuration.parse("P14DT16H12M"), records(0)("aDuration"))
+    Assert.assertEquals(LynxDuration.parse("P5M1DT12H"), records(1)("aDuration"))
+    Assert.assertEquals(LynxDuration.parse("P22DT19H51M49.5S"), records(2)("aDuration"))
+    Assert.assertEquals(LynxDuration.parse("PT45S"), records(3)("aDuration"))
+    Assert.assertEquals(LynxDuration.parse("P2012Y2M2DT14H37M21.545S"), records(4)("aDuration"))
   }
 
   @Test
@@ -101,12 +103,12 @@ class J_Temporal_Duration extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(6, records.length)
-    Assert.assertEquals("P1Y1M", records(0)("aDuration").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("P-1Y-1M", records(1)("aDuration").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("PT0S", records(2)("aDuration").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("PT0S", records(3)("aDuration").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("P1Y", records(4)("aDuration").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("PT0S", records(5)("aDuration").asInstanceOf[LynxValue].value)
+    Assert.assertEquals("P1Y1M", records(0)("aDuration"))
+    Assert.assertEquals("P-1Y-1M", records(1)("aDuration"))
+    Assert.assertEquals("PT0S", records(2)("aDuration"))
+    Assert.assertEquals("PT0S", records(3)("aDuration"))
+    Assert.assertEquals("P1Y", records(4)("aDuration"))
+    Assert.assertEquals("PT0S", records(5)("aDuration"))
   }
 
   @Test
