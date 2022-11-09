@@ -155,12 +155,30 @@ class TimeFunctions {
   @LynxProcedure(name = "duration")
   def duration(input: LynxValue): LynxDuration = {
     input match {
-      case LynxString(v) => LynxDurationUtil.parse(v)
-      case LynxMap(v) => LynxDurationUtil.parse(v.asInstanceOf[Map[String, LynxNumber]].mapValues(_.number.doubleValue()))
+      case LynxString(v) => LynxDuration.parse(v,false)
+      case LynxMap(v) => LynxDuration.parse(v.asInstanceOf[Map[String, LynxNumber]].mapValues(_.number.doubleValue()))
     }
   }
 
+  @LynxProcedure(name = "duration.between")
+  def durationBetween(date_1: LynxValue,date_2: LynxValue): LynxDuration = {
+    LynxDuration.between(date_1,date_2)
+  }
 
+  @LynxProcedure(name = "duration.inDays")
+  def durationBetweenDays(date_1: LynxValue, date_2: LynxValue): LynxDuration = {
+    LynxDuration.betweenDays(date_1, date_2)
+  }
+
+  @LynxProcedure(name = "duration.inMonths")
+  def durationBetweenMonths(date_1: LynxValue, date_2: LynxValue): LynxDuration = {
+    LynxDuration.betweenMonths(date_1, date_2)
+  }
+
+  @LynxProcedure(name = "duration.inSeconds")
+  def durationBetweenSeconds(date_1: LynxValue, date_2: LynxValue): LynxDuration = {
+    LynxDuration.betweenSeconds(date_1, date_2)
+  }
   @LynxProcedure(name = "date.statement")
   def statement(): LynxDate = {
     LynxDate.now()

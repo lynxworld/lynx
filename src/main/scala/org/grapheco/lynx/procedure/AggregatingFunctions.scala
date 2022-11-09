@@ -44,7 +44,7 @@ class AggregatingFunctions {
               numSum += v.asInstanceOf[LynxNumber].number.doubleValue()
             }
             else {
-              durSum = durSum.plus(v.asInstanceOf[LynxDuration].duration)
+              durSum = durSum.plus(v.asInstanceOf[LynxDuration].value)
             }
           } else {
             throw ProcedureException("avg() cannot mix number and duration")
@@ -57,7 +57,7 @@ class AggregatingFunctions {
         LynxFloat(numSum / dropNull.length)
       }
       else {
-        LynxDuration(durSum.dividedBy(dropNull.length))
+        LynxDuration.parse((durSum.dividedBy(dropNull.length)).toString, false)
       }
     } else {
       LynxNull
@@ -156,7 +156,7 @@ class AggregatingFunctions {
               numSum += v.asInstanceOf[LynxNumber].number.doubleValue()
             }
             else {
-              durSum = durSum.plus(v.asInstanceOf[LynxDuration].duration)
+              durSum = durSum.plus(v.asInstanceOf[LynxDuration].value)
             }
           } else {
             throw ProcedureException("sum() cannot mix number and duration")
@@ -165,7 +165,7 @@ class AggregatingFunctions {
           throw ProcedureException(s"sum() can only handle numerical values, duration, and null. Got ${v}")
         }
       }
-      if (firstIsNum.get) LynxFloat(numSum) else LynxDuration(durSum)
+      if (firstIsNum.get) LynxFloat(numSum) else LynxDuration(durSum.toString)
     } else {
       LynxNull
     }
@@ -190,6 +190,7 @@ class AggregatingFunctions {
    * stDevP() returns the standard deviation for the given value over a group. It uses a standard two- pass method,
    * with N as the denominator, and should be used when calculating the standard deviation for an entire population.
    * When the standard variation of only a sample of the population is being calculated, stDev should be used.
+   *
    * @author along
    * @param inputs a numeric list
    * @return A Float.
@@ -203,9 +204,10 @@ class AggregatingFunctions {
   /**
    * returns the percentile of the given value over a group, with a percentile from 0.0 to 1.0. It uses a
    * rounding method and calculates the nearest value to the percentile. For interpolated values, see percentileCont.
-   * @param inputs a numeric list
+   *
+   * @param inputs     a numeric list
    * @param percentile A numeric value between 0.0 and 1.0
-   * @return  Either an Integer or a Float, depending on the values returned by expression and whether or not the calculation overflows.
+   * @return Either an Integer or a Float, depending on the values returned by expression and whether or not the calculation overflows.
    */
   @LynxProcedure(name = "percentileDisc")
   def percentileDisc(inputs: LynxList, percentile: LynxFloat): LynxValue = {
@@ -216,6 +218,7 @@ class AggregatingFunctions {
 
   /**
    * Tool method for solving standard deviation.
+   *
    * @author along
    * @param inputs
    * @param isSample [true] represent sample standard deviation, [false] represent Population standard deviation
@@ -238,6 +241,7 @@ class AggregatingFunctions {
 
   /**
    * Use binary search to find the nearest number to target
+   *
    * @author along
    * @param inputs a numeric list
    * @param target a float
@@ -245,7 +249,7 @@ class AggregatingFunctions {
    */
   def upBound(inputs: LynxList, target: LynxFloat): LynxValue = {
     val lynxNums = inputs.value.filterNot(LynxNull.equals).sorted
-    val nums = lynxNums.map(e=>e.value.toString.toFloat)
+    val nums = lynxNums.map(e => e.value.toString.toFloat)
     var left = 0
     var right = nums.length
 
@@ -256,9 +260,9 @@ class AggregatingFunctions {
       val mid = (left + right) / 2;
       if (nums(mid) == target.value) {
         right = mid
-      }else if(nums(mid)<target.value){
+      } else if (nums(mid) < target.value) {
         left = mid + 1
-      }else{
+      } else {
         right = mid
       }
     }
@@ -266,8 +270,8 @@ class AggregatingFunctions {
     /**
      * nums[left-1]<target<nums[left], Determine which one is nearest to the target
      */
-    if(left-1>=0)
-      return if(target.value-nums(left-1)>nums(left)-target.value)  lynxNums(left) else lynxNums(left-1)
+    if (left - 1 >= 0)
+      return if (target.value - nums(left - 1) > nums(left) - target.value) lynxNums(left) else lynxNums(left - 1)
     lynxNums(left)
   }
 

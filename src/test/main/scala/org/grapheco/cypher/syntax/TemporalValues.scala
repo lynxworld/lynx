@@ -1,7 +1,7 @@
 package org.grapheco.cypher.syntax
 
 import org.grapheco.lynx.TestBase
-import org.grapheco.lynx.types.time.{LynxDateTime, LynxLocalDateTime}
+import org.grapheco.lynx.types.time.{LynxDateTime, LynxDuration, LynxLocalDateTime}
 import org.junit.{Assert, Test}
 
 import java.time.ZonedDateTime
@@ -17,7 +17,7 @@ class TemporalValues extends TestBase {
       .records().map(f => f("theDateTime").asInstanceOf[LynxDateTime]).toArray
 
     /*how to create Lynx temporal object by 2015-06-24T12:50:35.556+0100 */
-    Assert.assertEquals(LynxDateTime(ZonedDateTime.parse("2015-06-24T12:50:35.556+0100")), records(0))
+    Assert.assertEquals(LynxDateTime.parse("2015-06-24T12:50:35.556+0100"), records(0))
   }
 
   @Test
@@ -133,26 +133,26 @@ class TemporalValues extends TestBase {
    */
   @Test
   def createDurationByStrEx1(): Unit = {
-    val records = runOnDemoGraph("RETURN duration('P14DT16H12M') AS theDuration").records().map(f => f("theDuration").value).toArray
-    Assert.assertEquals("P14DT16H12M", records(0))
+    val records = runOnDemoGraph("RETURN duration('P14DT16H12M') AS theDuration").records().toArray
+    Assert.assertEquals(LynxDuration.parse("P14DT16H12M"), records(0)("theDuration"))
   }
 
   @Test
   def createDurationByStrEx2(): Unit = {
-    val records = runOnDemoGraph("RETURN duration('P5M1.5D') AS theDuration").records().map(f => f("theDuration").value).toArray
-    Assert.assertEquals("P5M1DT12H", records(0))
+    val records = runOnDemoGraph("RETURN duration('P5M1.5D') AS theDuration").records().toArray
+    Assert.assertEquals(LynxDuration.parse("P5M1DT12H"), records(0)("theDuration"))
   }
 
   @Test
   def createDurationByStrEx3(): Unit = {
-    val records = runOnDemoGraph("RETURN duration('PT0.75M') AS theDuration").records().map(f => f("theDuration").value).toArray
-    Assert.assertEquals("PT45S", records(0))
+    val records = runOnDemoGraph("RETURN duration('PT0.75M') AS theDuration").records().toArray
+    Assert.assertEquals(LynxDuration.parse("PT45S"), records(0)("theDuration"))
   }
 
   @Test
   def createDurationByStrEx4(): Unit = {
-    val records = runOnDemoGraph("RETURN duration('P2.5W') AS theDuration").records().map(f => f("theDuration").value).toArray
-    Assert.assertEquals("P17DT12H", records(0))
+    val records = runOnDemoGraph("RETURN duration('P2.5W') AS theDuration").records().toArray
+    Assert.assertEquals(LynxDuration.parse("P17DT12H"), records(0)("theDuration"))
   }
 
   /**
@@ -167,13 +167,13 @@ class TemporalValues extends TestBase {
         |RETURN d.years, d.quarters, d.quartersOfYear, d.months, d.monthsOfYear, d.monthsOfQuarter
         |""".stripMargin)
       .records().map(f => Map(
-      "d.year" -> f("d.year").value, "d.quarters" -> f("d.quarters").value,
+      "d.years" -> f("d.years").value, "d.quarters" -> f("d.quarters").value,
       "d.quartersOfYear" -> f("d.quartersOfYear").value, "d.months" -> f("d.months").value,
       "d.monthsOfYear" -> f("d.monthOfYear").value, "d.monthsOfQuarter" -> f("d.monthsOfQuarter").value
     )).toArray
 
     val expectResult = Map(
-      "d.year" -> 1l, "d.quarters" -> 5l, "d.quartersOfYear" -> 1l,
+      "d.years" -> 1l, "d.quarters" -> 5l, "d.quartersOfYear" -> 1l,
       "d.months" -> 17l, "d.monthsOfYear" -> 5l, "d.monthsOfQuarter" -> 2l
     )
 
