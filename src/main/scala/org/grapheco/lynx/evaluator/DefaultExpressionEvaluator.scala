@@ -3,7 +3,7 @@ package org.grapheco.lynx.evaluator
 import org.grapheco.lynx.procedure.{ProcedureException, ProcedureExpression, ProcedureRegistry}
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property._
-import org.grapheco.lynx.types.structural.{HasProperty, LynxNode, LynxNodeLabel, LynxPropertyKey, LynxRelationshipType}
+import org.grapheco.lynx.types.structural.{HasProperty, LynxNode, LynxNodeLabel, LynxPath, LynxPropertyKey, LynxRelationshipType}
 import org.grapheco.lynx.types.time.LynxDateTime
 import org.grapheco.lynx.types.{LynxValue, TypeSystem}
 import org.grapheco.lynx.LynxType
@@ -47,7 +47,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
   protected def evalPathStep(step: PathStep)(implicit ec: ExpressionContext): LynxValue = {
     step match {
-      case NilPathStep => LynxList(List.empty)
+      case NilPathStep => LynxPath.EMPTY
       case f: NodePathStep => LynxList(List(eval(f.node), evalPathStep(f.next)))
       case m: MultiRelationshipPathStep => LynxList(List(eval(m.rel), eval(m.toNode.get), evalPathStep(m.next)))
       case s: SingleRelationshipPathStep =>

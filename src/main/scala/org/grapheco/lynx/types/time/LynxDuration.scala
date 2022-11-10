@@ -2,7 +2,7 @@ package org.grapheco.lynx.types.time
 
 import org.grapheco.lynx.LynxType
 import org.grapheco.lynx.types.LynxValue
-import org.grapheco.lynx.types.property.LynxInteger
+import org.grapheco.lynx.types.property.{LynxInteger, LynxNull}
 import org.grapheco.lynx.types.structural.LynxPropertyKey
 import org.grapheco.lynx.types.time.LynxComponentDuration.{AVG_DAYS_OF_MONTH, SECOND_OF_DAY}
 import org.grapheco.lynx.types.time.LynxDuration.{getDurationMap, toSecond}
@@ -96,7 +96,7 @@ case class LynxDuration(duration: String) extends LynxTemporalValue with LynxCom
 
     case "hours" => LynxInteger(this.hours)
     case "minutesOfHour" => LynxInteger(this.minutesOfHour)
-    case "secondsOfMinutes" => LynxInteger(this.secondsOfMinutes)
+    case "secondsOfMinute" => LynxInteger(this.secondsOfMinutes)
     case "minutes" => LynxInteger(this.minutes)
     case "seconds" => LynxInteger(this.seconds)
 
@@ -106,7 +106,7 @@ case class LynxDuration(duration: String) extends LynxTemporalValue with LynxCom
     case "microsecondsOfSecond" => LynxInteger(this.microsecondsOfSecond)
     case "millisecondsOfSecond" => LynxInteger(this.millisecondsOfSecond)
     case "nanosecondsOfSecond" => LynxInteger(this.nanosecondsOfSecond)
-    case _ => null
+    case _ => LynxNull
   })
 
 }
