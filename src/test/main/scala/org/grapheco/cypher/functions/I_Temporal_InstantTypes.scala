@@ -6,8 +6,10 @@ import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxLocalDateTime, 
 import org.grapheco.lynx.util.LynxTemporalParser
 import org.junit.{Assert, Test}
 
+import java.text.SimpleDateFormat
 import java.time.format.DateTimeFormatter
 import java.time._
+import java.util.Date
 
 /**
  * @program: lynx
@@ -48,9 +50,9 @@ class I_Temporal_InstantTypes extends TestBase {
         |RETURN date.transaction() AS currentDate
         |""".stripMargin).records().toArray
 
-    val now_date = LynxDate.now
+    val now_date = LynxDate(java.time.LocalDate.now)
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(now_date, records(0)("currentDate"))
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(now_date,records(0)("currentDate")))
   }
 
   @Test

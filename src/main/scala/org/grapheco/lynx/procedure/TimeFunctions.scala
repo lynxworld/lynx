@@ -179,6 +179,12 @@ class TimeFunctions {
   def durationBetweenSeconds(date_1: LynxValue, date_2: LynxValue): LynxDuration = {
     LynxDuration.betweenSeconds(date_1, date_2)
   }
+
+  @LynxProcedure(name = "date.transaction")
+  def transaction(): LynxDate = {
+    LynxDate.now()
+  }
+
   @LynxProcedure(name = "date.statement")
   def statement(): LynxDate = {
     LynxDate.now()
