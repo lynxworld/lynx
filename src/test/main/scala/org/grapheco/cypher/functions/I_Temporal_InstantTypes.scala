@@ -670,7 +670,7 @@ class I_Temporal_InstantTypes extends TestBase {
   }
 
   @Test
-  def localtimeTransaction_1(): Unit = {
+  def localtimeTransaction(): Unit = {
     val records = runOnDemoGraph(
       """
         |RETURN localtime.transaction() AS now
@@ -684,7 +684,19 @@ class I_Temporal_InstantTypes extends TestBase {
   }
 
   @Test
-  def localtimeTransaction_2(): Unit = {
+  def localtimeStatement_1(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |RETURN localtime.statement() AS now
+        |""".stripMargin).records().toArray
+
+    val zoneTime = LynxLocalTime(java.time.LocalTime.now())
+    Assert.assertEquals(1, records.length)
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(zoneTime,records(0)("now")))
+  }
+
+  @Test
+  def localtimeStatement_2(): Unit = {
     val records = runOnDemoGraph(
       """
         |RETURN localtime.statement('America/Los Angeles') AS nowInLA
@@ -692,7 +704,6 @@ class I_Temporal_InstantTypes extends TestBase {
 
     val dataform = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
     val zoneTime_LA = ZonedDateTime.now(ZoneId.of("America/Los_Angeles")).format(dataform)
-
     Assert.assertEquals(1, records.length)
     Assert.assertEquals(zoneTime_LA, records(0)("nowInLA").asInstanceOf[LynxValue].value)
   }
@@ -986,4 +997,5 @@ class I_Temporal_InstantTypes extends TestBase {
     Assert.assertEquals(time_5, records(0)("truncMillisecond").asInstanceOf[LynxValue].value.toString)
     Assert.assertEquals(time_6, records(0)("truncMicrosecond").asInstanceOf[LynxValue].value.toString)
   }
+
 }
