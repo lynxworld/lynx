@@ -3,7 +3,7 @@ package org.grapheco.lynx.util
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxMap
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
-import org.grapheco.lynx.types.time.{LynxDateTime, LynxDuration, LynxLocalDateTime, LynxLocalTime, LynxTemporalValue, LynxTime}
+import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxDuration, LynxLocalDateTime, LynxLocalTime, LynxTemporalValue, LynxTime}
 import org.grapheco.lynx.LynxException
 
 import java.time.Duration
@@ -54,6 +54,7 @@ object LynxTemporalParser {
       case (LynxLocalTime(v_1), LynxLocalTime(v_2)) => v_1.compareTo(v_2)
       case (LynxTime(v_1), LynxTime(v_2)) => v_1.compareTo(v_2)
       case (LynxLocalDateTime(v_1), LynxLocalDateTime(v_2)) => v_1.compareTo(v_2)
+      case (LynxDate(v_1), LynxDate(v_2)) => v_1.compareTo(v_2)
       case _ => throw LynxTemporalParseException(s"$time_Expected can not compare with $time_Actual by currentTime")
     }
     nanoTime.<(accuracy)

@@ -132,6 +132,12 @@ class TimeFunctions {
   }
 
   @LynxProcedure(name = "localtime.statement")
+  def localtimeStatement(): LynxLocalTime = {
+    //TODO
+    LynxLocalTime.now()
+  }
+
+  @LynxProcedure(name = "localtime.statement")
   def localtimeStatement(input: LynxValue): LynxLocalTime = {
     //TODO
     LynxLocalTime.now()
@@ -179,6 +185,7 @@ class TimeFunctions {
   def durationBetweenSeconds(date_1: LynxValue, date_2: LynxValue): LynxDuration = {
     LynxDuration.betweenSeconds(date_1, date_2)
   }
+
   @LynxProcedure(name = "date.statement")
   def statement(): LynxDate = {
     LynxDate.now()
