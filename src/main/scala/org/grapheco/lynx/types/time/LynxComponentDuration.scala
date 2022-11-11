@@ -18,12 +18,12 @@ trait LynxComponentDuration {
   //P1Y2M10DT2H30M15.03S
   var years: Int
   var quarters: Int
-  val quartersOfYear: Int
-  val months: Int
+  var quartersOfYear: Int
+  var months: Int
   var monthsOfYear: Int
   var monthsOfQuarter: Int
-  val weeks: Int
-  val days: Int
+  var weeks: Int
+  var days: Int
   var daysOfWeek: Int
   //T
   var hours: Long
@@ -33,7 +33,7 @@ trait LynxComponentDuration {
   var microseconds: Long
   var nanoseconds: Long
   var minutesOfHour: Int
-  var secondsOfMinutes: Int
+  var secondsOfMinute: Int
   var millisecondsOfSecond: Long
   var microsecondsOfSecond: Long
   var nanosecondsOfSecond: Long
@@ -47,28 +47,28 @@ object LynxComponentDuration {
   val AVG_DAYS_OF_YEAR: Double = 365.2425
   val SECOND_OF_DAY: Double = 86400
 
-//  def getDurationString(lynxDuration: LynxDuration): String = {
-//    var year, month, day, hour, minute, second = ""
-//    if (lynxDuration.year != 0) {
-//      year = lynxDuration.year + "Y"
-//    }
-//    if (lynxDuration.month != 0) {
-//      month = lynxDuration.month + "M"
-//    }
-//    if (lynxDuration.day != 0) {
-//      day = lynxDuration.day + "D"
-//    }
-//    if (lynxDuration.hour != 0) {
-//      hour = lynxDuration.hour + "H"
-//    }
-//    if (lynxDuration.minute != 0) {
-//      minute = lynxDuration.minute + "M"
-//    }
-//    if (lynxDuration.second != 0) {
-//      second = lynxDuration.second + "S"
-//    }
-//    "P" + year + month + day + "T" + hour + minute + second
-//  }
+  //  def getDurationString(lynxDuration: LynxDuration): String = {
+  //    var year, month, day, hour, minute, second = ""
+  //    if (lynxDuration.year != 0) {
+  //      year = lynxDuration.year + "Y"
+  //    }
+  //    if (lynxDuration.month != 0) {
+  //      month = lynxDuration.month + "M"
+  //    }
+  //    if (lynxDuration.day != 0) {
+  //      day = lynxDuration.day + "D"
+  //    }
+  //    if (lynxDuration.hour != 0) {
+  //      hour = lynxDuration.hour + "H"
+  //    }
+  //    if (lynxDuration.minute != 0) {
+  //      minute = lynxDuration.minute + "M"
+  //    }
+  //    if (lynxDuration.second != 0) {
+  //      second = lynxDuration.second + "S"
+  //    }
+  //    "P" + year + month + day + "T" + hour + minute + second
+  //  }
 
   def getDuration(map: Map[String, Double]): Duration = {
     if (map.isEmpty) {

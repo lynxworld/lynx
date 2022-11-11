@@ -7,6 +7,9 @@ import org.grapheco.lynx.types.structural.LynxPropertyKey
 import org.grapheco.lynx.types.time.LynxComponentDuration.{AVG_DAYS_OF_MONTH, SECOND_OF_DAY}
 import org.grapheco.lynx.types.time.LynxDuration.{getDurationMap, toSecond}
 
+import scala.collection.immutable.Map
+import scala.collection.parallel.mutable.ParArray
+
 //import java.time.Period
 import org.joda.time.Period
 import org.opencypher.v9_0.util.symbols.CTDuration
@@ -23,7 +26,7 @@ import java.util.regex.Pattern
  * @Date 2022/4/1
  * @Version 0.1
  */
-case class LynxDuration(duration: String) extends LynxTemporalValue with LynxComponentDuration {
+case class LynxDuration(duration: String, map: Map[String, Int] = Map("days" -> 0)) extends LynxTemporalValue with LynxComponentDuration {
 
   def nano: Long = getDurationMap(duration)._1 match {
     case "-" => (-1 * (toSecond(getDurationMap(getDurationMap(duration)._2)) * Math.pow(10, 9))).toLong
@@ -33,9 +36,6 @@ case class LynxDuration(duration: String) extends LynxTemporalValue with LynxCom
   def value: Duration = Duration.ofNanos(nano)
 
 
-
-  //  def period_Value: Period = Period.days(days)
-
   override def toString: String = duration
 
 
@@ -43,43 +43,48 @@ case class LynxDuration(duration: String) extends LynxTemporalValue with LynxCom
 
   def -(that: LynxDuration): LynxDuration = LynxDuration.parse(value.minus(that.value).toString, false)
 
+  var duration_Map: Map[String, Int] = this.map
+
 
   def lynxType: LynxType = CTDuration
 
   //  override def toString: String = duration
 
   //  var years: Int = (nano / (Math.pow(10, 9) * Math.pow(60, 2) * 24 * 365)).toInt
-  val days: Int = (nano / (Math.pow(10, 9) * Math.pow(60, 2) * 24)).toInt
-  var years: Int = days / 365
-  var monthsOfYear: Int = (days % 365) / 30
-  val months: Int = monthsOfYear + years * 12
-  val quartersOfYear: Int = (monthsOfYear + 2 - (monthsOfYear - 1) % 3) / 3
-  var quarters: Int = quartersOfYear + years * 4
-  var monthsOfQuarter: Int = months - quarters * 3 + 3
+  var months: Int = duration_Map.getOrElse("months", 0) + duration_Map.getOrElse("years", 0) * 12
+  var years: Int = months / 12
+  var monthsOfYear: Int = months % 12
 
+  var quarters: Int = months / 3
+  var quartersOfYear: Int = quarters / 4
+  var monthsOfQuarter: Int = months - quarters * 3
 
-  val weeks: Int = days / 7
+  var days: Int = duration_Map.getOrElse("days", 0)
+  var weeks: Int = days / 7
   var daysOfWeek: Int = days - weeks * 7
 
-  var hours: Long = (nano / (Math.pow(10, 9) * Math.pow(60, 2))).toLong
-  var minutes: Long = (nano / (Math.pow(10, 9) * Math.pow(60, 1))).toLong
-  var seconds: Long = (nano / Math.pow(10, 9)).toLong
-  var minutesOfHour: Int = (minutes - hours * 60).toInt
-  var secondsOfMinutes: Int = (seconds - minutes * 60).toInt
-
-  var nanoseconds: Long = nano
-  var milliseconds: Long = (nanoseconds / Math.pow(10, 3)).toLong
-  var microseconds: Long = (milliseconds / Math.pow(10, 3)).toLong
+  var hours: Long = duration_Map.getOrElse("hours", 0).toLong
+  var minutesOfHour: Int = duration_Map.getOrElse("minutes", 0)
+  var secondsOfMinute: Int = duration_Map.getOrElse("seconds", 0)
 
 
-  var microsecondsOfSecond: Long = (milliseconds % Math.pow(10, 3)).toLong
-  var millisecondsOfSecond: Long = (milliseconds % Math.pow(10, 6)).toLong
+  var minutes: Long = minutesOfHour + hours * 60
+  var seconds: Long = secondsOfMinute + minutes * 60
+
+  var nanoseconds: Long = duration_Map.getOrElse("nanoseconds", 0) + (duration_Map.getOrElse("microseconds", 0) * Math.pow(10, 3)).toLong +
+    (map.getOrElse("milliseconds", 0) * Math.pow(10, 6)).toLong + (seconds * Math.pow(10, 9)).toLong
+  var milliseconds: Long = (nanoseconds / Math.pow(10, 6)).toLong
+  var microseconds: Long = (nanoseconds / Math.pow(10, 3)).toLong
+
+
+  var millisecondsOfSecond: Long = (milliseconds % Math.pow(10, 3)).toLong
+  var microsecondsOfSecond: Long = (microseconds % Math.pow(10, 6)).toLong
   var nanosecondsOfSecond: Long = (nanoseconds % Math.pow(10, 9)).toLong
 
   override def sameTypeCompareTo(o: LynxValue): Int = ???
 
   override def keys: Seq[LynxPropertyKey] = super.keys ++ Seq("years", "monthsOfYear", "quartersOfYear", "quarters", "months", "monthsOfQuarter",
-    "days", "weeks", "daysOfWeek", "hours", "minutesOfHour", "secondsOfMinutes", "minutes", "seconds", "nanoseconds", "milliseconds", "microseconds",
+    "days", "weeks", "daysOfWeek", "hours", "minutesOfHour", "secondsOfMinute", "minutes", "seconds", "nanoseconds", "milliseconds", "microseconds",
     "microsecondsOfSecond", "millisecondsOfSecond", "nanosecondsOfSecond").map(LynxPropertyKey)
 
   override def property(propertyKey: LynxPropertyKey): Option[LynxValue] = Some(propertyKey.value match {
@@ -96,7 +101,7 @@ case class LynxDuration(duration: String) extends LynxTemporalValue with LynxCom
 
     case "hours" => LynxInteger(this.hours)
     case "minutesOfHour" => LynxInteger(this.minutesOfHour)
-    case "secondsOfMinutes" => LynxInteger(this.secondsOfMinutes)
+    case "secondsOfMinute" => LynxInteger(this.secondsOfMinute)
     case "minutes" => LynxInteger(this.minutes)
     case "seconds" => LynxInteger(this.seconds)
 
@@ -108,6 +113,7 @@ case class LynxDuration(duration: String) extends LynxTemporalValue with LynxCom
     case "nanosecondsOfSecond" => LynxInteger(this.nanosecondsOfSecond)
     case _ => null
   })
+
 
 }
 
@@ -128,6 +134,7 @@ object LynxDuration {
     val year_Second: Double = map.getOrElse("year", 0) match {
       case 0 => 0
       case v => v * 365 * SECOND_OF_DAY
+      //      case v => v * 360 * SECOND_OF_DAY
     }
     val month_Second: Double = map.getOrElse("month", 0) match {
       case 0 => 0
@@ -324,7 +331,11 @@ object LynxDuration {
   def parse(map: Map[String, Double]): LynxDuration = {
     val duration_Str = standardType(toSecond(getDurationMap(map)))
     if (valid(duration_Str)) {
-      LynxDuration(duration_Str)
+      if (map.mapValues(_.toInt.toDouble).equals(map)) {
+        LynxDuration(duration_Str, map.mapValues(_.toInt))
+      } else {
+        LynxDuration(duration_Str, getDurationMap(map))
+      }
     } else {
       throw new Exception("lynxDuration_Str is not valid")
     }
@@ -332,10 +343,17 @@ object LynxDuration {
 
   def parse(lynxDuration_Str: String, standard: Boolean = true): LynxDuration = {
     if (valid(lynxDuration_Str) && standard) {
-      LynxDuration(lynxDuration_Str)
+      LynxDuration(lynxDuration_Str, getDurationMap(lynxDuration_Str)._2.mapValues(getDurationMap(lynxDuration_Str)._1 match {
+        case "-" => _.toInt * -1
+        case "" => _.toInt * 1
+      }))
     } else if (Pattern.compile(".+[A-Z]$").matcher(lynxDuration_Str).matches()) {
       getDurationMap(lynxDuration_Str)
-      LynxDuration(getDurationMap(lynxDuration_Str)._1 + parse(getDurationMap(lynxDuration_Str)._2).toString)
+      val ld = parse(getDurationMap(lynxDuration_Str)._2)
+      LynxDuration(getDurationMap(lynxDuration_Str)._1 + ld.toString, ld.map.mapValues(getDurationMap(lynxDuration_Str)._1 match {
+        case "-" => _ * -1
+        case "" => _ * 1
+      }))
     }
     else {
       val lynxLocalDateTime = LynxLocalDateTime.parse(lynxDuration_Str.replace("P", ""))
@@ -343,7 +361,7 @@ object LynxDuration {
         Map("year" -> lynxLocalDateTime.year, "month" -> lynxLocalDateTime.month, "day" -> lynxLocalDateTime.day,
           "hour" -> lynxLocalDateTime.hour, "minute" -> lynxLocalDateTime.minute, "second" -> lynxLocalDateTime.second, "nanoOfSecond" -> lynxLocalDateTime.fraction)
       if (valid(standardTypeDate(lynxDuration_map))) {
-        LynxDuration(standardTypeDate(lynxDuration_map))
+        LynxDuration(standardTypeDate(lynxDuration_map), lynxDuration_map)
       } else {
         throw new Exception("lynxDuration_Str is not valid")
       }
