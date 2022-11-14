@@ -1,7 +1,6 @@
 package org.grapheco.lynx.types.time
 
 
-import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxMap
 import org.grapheco.lynx.types.property.LynxString
 import org.grapheco.lynx.util.LynxTemporalParseException

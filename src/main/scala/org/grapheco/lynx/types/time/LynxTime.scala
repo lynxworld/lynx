@@ -5,7 +5,7 @@ import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
 import org.grapheco.lynx.types.structural.LynxPropertyKey
 import org.grapheco.lynx.types.time.LynxComponentTime.{getHourMinuteSecond, getNanosecond, truncateTime}
-import org.grapheco.lynx.types.time.LynxComponentTimeZone.{getOffset, getZone, truncateZone}
+import org.grapheco.lynx.types.time.LynxComponentTimeZone.{getZone, truncateZone}
 import org.grapheco.lynx.util.LynxTemporalParseException
 import org.grapheco.lynx.util.LynxTemporalParser.splitDateTime
 import org.opencypher.v9_0.util.symbols.CTTime

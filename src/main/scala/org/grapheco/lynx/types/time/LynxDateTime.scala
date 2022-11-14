@@ -1,19 +1,18 @@
 package org.grapheco.lynx.types.time
 
 import org.grapheco.lynx.types.LynxValue
-import org.grapheco.lynx.types.composite.LynxMap
 import org.grapheco.lynx.types.property.{LynxFloat, LynxInteger, LynxString}
 import org.grapheco.lynx.types.structural.LynxPropertyKey
-import org.grapheco.lynx.types.time.LynxComponentDate.{getYearMonthDay, transformDate, transformYearOrdinalDay, transformYearQuarterDay, transformYearWeekDay, truncateDate}
+import org.grapheco.lynx.types.time.LynxComponentDate._
 import org.grapheco.lynx.types.time.LynxComponentTime.{getHourMinuteSecond, getNanosecond, truncateTime}
 import org.grapheco.lynx.types.time.LynxComponentTimeZone.{getOffset, getZone, truncateZone}
-import org.grapheco.lynx.util.{LynxTemporalParseException, LynxTemporalParser}
+import org.grapheco.lynx.util.LynxTemporalParseException
 import org.grapheco.lynx.util.LynxTemporalParser.splitDateTime
 import org.opencypher.v9_0.util.symbols.{CTDateTime, DateTimeType}
 
 import java.sql.Timestamp
-import java.time.{LocalDateTime, LocalTime, ZoneId, ZoneOffset, ZonedDateTime}
-import java.util.{Calendar, Date, GregorianCalendar}
+import java.time._
+import java.util.{Calendar, GregorianCalendar}
 
 /**
  * @ClassName LynxDateTime
@@ -125,11 +124,6 @@ object LynxDateTime {
 
 
   def parse(zonedDateTimeStr: String, zoneId: ZoneId): LynxDateTime = {
-    //    val map = splitDateTime(zonedDateTimeStr)
-    //    map.size match {
-    //      case 3 => of(getYearMonthDay(map.get("dateStr").get), getHourMinuteSecond(map.get("timeStr").get), zoneId.getId)
-    //      case 4 => of(getYearMonthDay(map.get("dateStr").get), getHourMinuteSecond(map.get("timeStr").get), zoneId.getId, map.get("utcStr").get)
-    //    }
     try {
       val v = ZonedDateTime.parse(zonedDateTimeStr).toLocalDateTime.atZone(zoneId)
       LynxDateTime(v)
@@ -232,9 +226,6 @@ object LynxDateTime {
             case v: LocalTime => v.getNano
             case v: LynxInteger => v.value.toInt
             case LynxLocalTime(v) => v.getNano
-            //            case v: LynxLocalTime => v.nanosecond
-            //            case v: LynxDateTime => v.nanosecond
-
           })
         case _ => getNanosecond(map, requiredHasSecond = false)
       }
