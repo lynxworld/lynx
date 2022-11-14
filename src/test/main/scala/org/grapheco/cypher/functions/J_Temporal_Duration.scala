@@ -1,10 +1,7 @@
 package org.grapheco.cypher.functions
 
 import org.grapheco.lynx.TestBase
-import org.grapheco.lynx.types.LynxValue
-import org.grapheco.lynx.types.property.LynxString
 import org.grapheco.lynx.types.time.LynxDuration
-import org.grapheco.lynx.types.time.LynxDuration.standardType
 import org.junit.{Assert, Test}
 
 /**
@@ -156,13 +153,5 @@ class J_Temporal_Duration extends TestBase {
     Assert.assertEquals(LynxDuration.parse("PT25H32.142S").toString, records(2)("aDuration").toString)
     Assert.assertEquals(LynxDuration.parse("PT14H30M").toString, records(3)("aDuration").toString)
     Assert.assertEquals(LynxDuration.parse("PT1H").toString, records(4)("aDuration").toString)
-  }
-
-  @Test
-  def aTest(): Unit = {
-    val records = runOnDemoGraph(
-      """
-        |return duration("P1Y5.5M15DT6H")
-        |""".stripMargin).records().toArray
   }
 }

@@ -7,11 +7,6 @@ import org.grapheco.lynx.types.structural.LynxPropertyKey
 import org.grapheco.lynx.types.time.LynxComponentDuration.{AVG_DAYS_OF_MONTH, SECOND_OF_DAY}
 import org.grapheco.lynx.types.time.LynxDuration.{getDurationMap, toSecond}
 
-import scala.collection.immutable.Map
-import scala.collection.parallel.mutable.ParArray
-
-//import java.time.Period
-import org.joda.time.Period
 import org.opencypher.v9_0.util.symbols.CTDuration
 
 import java.math.BigDecimal
@@ -48,9 +43,6 @@ case class LynxDuration(duration: String, map: Map[String, Int] = Map("days" -> 
 
   def lynxType: LynxType = CTDuration
 
-  //  override def toString: String = duration
-
-  //  var years: Int = (nano / (Math.pow(10, 9) * Math.pow(60, 2) * 24 * 365)).toInt
   var months: Int = duration_Map.getOrElse("months", 0) + duration_Map.getOrElse("years", 0) * 12
   var years: Int = months / 12
   var monthsOfYear: Int = months % 12
@@ -134,7 +126,6 @@ object LynxDuration {
     val year_Second: Double = map.getOrElse("year", 0) match {
       case 0 => 0
       case v => v * 365 * SECOND_OF_DAY
-      //      case v => v * 360 * SECOND_OF_DAY
     }
     val month_Second: Double = map.getOrElse("month", 0) match {
       case 0 => 0
@@ -297,30 +288,6 @@ object LynxDuration {
     }
   }
 
-  //  def getDurationString(lynxDuration: LynxDuration): String = {
-  //
-  //    var year, month, day, hour, minute, second = ""
-  //    if (lynxDuration.year != 0) {
-  //      year = lynxDuration.year + "Y"
-  //    }
-  //    if (lynxDuration.month != 0) {
-  //      month = lynxDuration.month + "M"
-  //    }
-  //    if (lynxDuration.day != 0) {
-  //      day = lynxDuration.day + "D"
-  //    }
-  //    if (lynxDuration.hour != 0) {
-  //      hour = lynxDuration.hour + "H"
-  //    }
-  //    if (lynxDuration.minute != 0) {
-  //      minute = lynxDuration.minute + "M"
-  //    }
-  //    if (lynxDuration.second != 0) {
-  //      second = lynxDuration.second + "S"
-  //    }
-  //    "P" + year + month + day + "T" + hour + minute + second
-  //  }
-
   def valid(lynxDuration_str: String): Boolean = {
     val lynxDuration_format = Pattern.compile(
       "([-+]?)P(?:(?:([-+]?[0-9]+)Y)?(?:([-+]?[0-9]+)M)?(?:([-+]?[0-9]+)W)?(?:([-+]?[0-9]+)D)?)" +
@@ -396,7 +363,7 @@ object LynxDuration {
   }
 
   def betweenDays(date_1: Any, date_2: Any): LynxDuration = {
-    val (begin_Date, begin_Time, begin_Zone, end_Date, end_Time, end_Zone) = LynxComponentDuration.between(date_1, date_2)
+    val (begin_Date, begin_Time, _, end_Date, end_Time, _) = LynxComponentDuration.between(date_1, date_2)
     if (end_Date == null || begin_Date == null) return LynxDuration("PT0S")
     val days = end_Date.toEpochDay - begin_Date.toEpochDay
     if (days == 0) return LynxDuration("PT0S")
@@ -408,7 +375,7 @@ object LynxDuration {
   }
 
   def betweenMonths(date_1: Any, date_2: Any): LynxDuration = {
-    val (begin_Date, begin_Time, begin_Zone, end_Date, end_Time, end_Zone) = LynxComponentDuration.between(date_1, date_2)
+    val (begin_Date, begin_Time, _, end_Date, end_Time, _) = LynxComponentDuration.between(date_1, date_2)
     if (end_Date == null || begin_Date == null) return LynxDuration("PT0S")
     var days = end_Date.toEpochDay - begin_Date.toEpochDay
     if (timeBetween(begin_Time, end_Time) * days < 0) {

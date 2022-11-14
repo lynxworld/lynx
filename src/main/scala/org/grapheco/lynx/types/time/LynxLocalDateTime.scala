@@ -2,7 +2,7 @@ package org.grapheco.lynx.types.time
 
 import org.grapheco.lynx.LynxType
 import org.grapheco.lynx.types.LynxValue
-import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
+import org.grapheco.lynx.types.property.LynxInteger
 import org.grapheco.lynx.types.structural.LynxPropertyKey
 import org.grapheco.lynx.types.time.LynxComponentDate.getYearMonthDay
 import org.grapheco.lynx.types.time.LynxComponentTime.{getHourMinuteSecond, getNanosecond}
