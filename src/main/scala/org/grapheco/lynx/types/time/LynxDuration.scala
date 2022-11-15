@@ -2,7 +2,7 @@ package org.grapheco.lynx.types.time
 
 import org.grapheco.lynx.LynxType
 import org.grapheco.lynx.types.LynxValue
-import org.grapheco.lynx.types.property.LynxInteger
+import org.grapheco.lynx.types.property.{LynxInteger, LynxNull}
 import org.grapheco.lynx.types.structural.LynxPropertyKey
 import org.grapheco.lynx.types.time.LynxComponentDuration.{AVG_DAYS_OF_MONTH, SECOND_OF_DAY}
 import org.grapheco.lynx.types.time.LynxDuration.{getDurationMap, toSecond}
@@ -103,7 +103,7 @@ case class LynxDuration(duration: String, map: Map[String, Int] = Map("days" -> 
     case "microsecondsOfSecond" => LynxInteger(this.microsecondsOfSecond)
     case "millisecondsOfSecond" => LynxInteger(this.millisecondsOfSecond)
     case "nanosecondsOfSecond" => LynxInteger(this.nanosecondsOfSecond)
-    case _ => null
+    case _ => LynxNull
   })
 
 
