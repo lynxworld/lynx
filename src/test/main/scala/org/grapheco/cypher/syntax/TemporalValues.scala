@@ -134,25 +134,25 @@ class TemporalValues extends TestBase {
   @Test
   def createDurationByStrEx1(): Unit = {
     val records = runOnDemoGraph("RETURN duration('P14DT16H12M') AS theDuration").records().toArray
-    Assert.assertEquals(LynxDuration.parse("P14DT16H12M"), records(0)("theDuration"))
+    Assert.assertEquals(LynxDuration.parse("P14DT16H12M").toString, records(0)("theDuration").toString)
   }
 
   @Test
   def createDurationByStrEx2(): Unit = {
     val records = runOnDemoGraph("RETURN duration('P5M1.5D') AS theDuration").records().toArray
-    Assert.assertEquals(LynxDuration.parse("P5M1DT12H"), records(0)("theDuration"))
+    Assert.assertEquals(LynxDuration.parse("P5M1DT12H").toString, records(0)("theDuration").toString)
   }
 
   @Test
   def createDurationByStrEx3(): Unit = {
     val records = runOnDemoGraph("RETURN duration('PT0.75M') AS theDuration").records().toArray
-    Assert.assertEquals(LynxDuration.parse("PT45S"), records(0)("theDuration"))
+    Assert.assertEquals(LynxDuration.parse("PT45S").toString, records(0)("theDuration").toString)
   }
 
   @Test
   def createDurationByStrEx4(): Unit = {
     val records = runOnDemoGraph("RETURN duration('P2.5W') AS theDuration").records().toArray
-    Assert.assertEquals(LynxDuration.parse("P17DT12H"), records(0)("theDuration"))
+    Assert.assertEquals(LynxDuration.parse("P17DT12H").toString, records(0)("theDuration").toString)
   }
 
   /**
@@ -169,7 +169,7 @@ class TemporalValues extends TestBase {
       .records().map(f => Map(
       "d.years" -> f("d.years").value, "d.quarters" -> f("d.quarters").value,
       "d.quartersOfYear" -> f("d.quartersOfYear").value, "d.months" -> f("d.months").value,
-      "d.monthsOfYear" -> f("d.monthOfYear").value, "d.monthsOfQuarter" -> f("d.monthsOfQuarter").value
+      "d.monthsOfYear" -> f("d.monthsOfYear").value, "d.monthsOfQuarter" -> f("d.monthsOfQuarter").value
     )).toArray
 
     val expectResult = Map(
@@ -211,9 +211,9 @@ class TemporalValues extends TestBase {
     )).toArray
 
     val expectResult = Map(
-      "d.hours" -> "1", "d.minutes" -> "61l", "d.seconds" -> "3661",
-      "d.milliseconds" -> "3661111", "d.microseconds" -> "3661111111",
-      "d.nanoseconds" -> "3661111111111"
+      "d.hours" -> 1l, "d.minutes" -> 61l, "d.seconds" -> 3661l,
+      "d.milliseconds" -> 3661111l, "d.microseconds" -> 3661111111l,
+      "d.nanoseconds" -> 3661111111111l
     )
     expectResult.foreach(f => {
       Assert.assertEquals(f._2, records(0)(f._1))
@@ -229,13 +229,13 @@ class TemporalValues extends TestBase {
         |""".stripMargin)
       .records().map(f => Map(
       "d.minutesOfHour" -> f("d.minutesOfHour").value,
-      "d.secondsOfMinutes" -> f("d.secondsOfMinutes").value,
+      "d.secondsOfMinute" -> f("d.secondsOfMinute").value,
       "d.millisecondsOfSecond" -> f("d.millisecondsOfSecond").value,
       "d.microsecondsOfSecond" -> f("d.microsecondsOfSecond").value,
       "d.nanosecondsOfSecond" -> f("d.nanosecondsOfSecond").value
     )).toArray
     val expectResult = Map(
-      "d.minutesOfHour" -> 1l, "d.secondsOfMinutes" -> 1l, "d.millisecondsOfSecond" -> 111l,
+      "d.minutesOfHour" -> 1l, "d.secondsOfMinute" -> 1l, "d.millisecondsOfSecond" -> 111l,
       "d.microsecondsOfSecond" -> 111111l, "d.nanosecondsOfSecond" -> 111111111l
     )
     expectResult.foreach(f => {

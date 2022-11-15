@@ -3,7 +3,7 @@ package org.grapheco.lynx.types.time
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxMap
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
-import org.grapheco.lynx.types.structural.{HasProperty, LynxPropertyKey}
+import org.grapheco.lynx.types.structural.HasProperty
 import org.grapheco.lynx.util.LynxTemporalParser.{assureBetween, assureContains}
 
 import scala.util.matching.Regex
@@ -11,7 +11,7 @@ import java.time.{LocalDateTime, ZonedDateTime}
 import java.time.LocalDate
 import java.util.{Calendar, GregorianCalendar}
 
-trait LynxComponentDate extends HasProperty{
+trait LynxComponentDate extends HasProperty {
 
   //Integer at least 4 digits
   var year: Int
@@ -331,12 +331,6 @@ object LynxComponentDate {
         })
       }
     }
-    //    calendar.add(
-    //      Calendar.DAY_OF_YEAR, map("mapOfComponents").asInstanceOf[LynxMap].value.values.head match {
-    //        case v: LynxInteger => v.value.toInt - 1
-    //        case _ => 0
-    //      })
-
     (calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1, calendar.get(Calendar.DAY_OF_MONTH))
   }
 }

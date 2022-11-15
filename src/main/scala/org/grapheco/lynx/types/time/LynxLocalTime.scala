@@ -123,14 +123,6 @@ object LynxLocalTime {
         case v: Int => v
         case LynxInteger(v) => v.toInt
       }
-      //      val zoneId = map.getOrElse("timezone", timeMap match {
-      //        case v: LynxTime => v.timeZone
-      //        case v: LynxLocalTime => "Z"
-      //        case _ => "Z"
-      //      }) match {
-      //        case LynxString(v) => v
-      //        case v: String => v
-      //      }
       of(hour, minute, second, (millisecond + microsecond + nanosecond).toInt)
 
     }
