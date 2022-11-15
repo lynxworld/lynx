@@ -258,14 +258,15 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
       Seq(
         var1.map(_.name).getOrElse(s"__NODE_${leftNode.hashCode}") -> CTNode,
         var2.map(_.name).getOrElse(s"__RELATIONSHIP_${rel.hashCode}") -> CTRelationship,
-        var3.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode
+        var3.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode,
       )
     }
     else {
       Seq(
         var1.map(_.name).getOrElse(s"__NODE_${leftNode.hashCode}") -> CTNode,
         var2.map(_.name).getOrElse(s"__RELATIONSHIP_LIST_${rel.hashCode}") -> CTList(CTRelationship),
-        var3.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode
+        var3.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode,
+        var2.map(_.name + "LINK").getOrElse(s"__LINK_${rel.hashCode}") -> CTPath
       )
     }
   }
@@ -284,23 +285,6 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
 
     implicit val ec = ctx.expressionContext
 
-    val schema = {
-      if (length.isEmpty) {
-        Seq(
-          var1.map(_.name).getOrElse(s"__NODE_${leftNode.hashCode}") -> CTNode,
-          var2.map(_.name).getOrElse(s"__RELATIONSHIP_${rel.hashCode}") -> CTRelationship,
-          var3.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode
-        )
-      }
-      else {
-        Seq(
-          var1.map(_.name).getOrElse(s"__NODE_${leftNode.hashCode}") -> CTNode,
-          var2.map(_.name).getOrElse(s"__RELATIONSHIP_LIST_${rel.hashCode}") -> CTList(CTRelationship),
-          var3.map(_.name).getOrElse(s"__NODE_${rightNode.hashCode}") -> CTNode
-        )
-      }
-    }
-
     //    length:
     //      [r:XXX] = None
     //      [r:XXX*] = Some(None) // degree 1 to MAX
@@ -309,23 +293,21 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
     //      [r:XXX*1..] = Some(Some(Range(1, None)))
     //      [r:XXX*1..3] = Some(Some(Range(1, 3)))
     val (lowerLimit, upperLimit) = length match {
-      case None => (None, None)
-      case Some(None) => (Some(1), None)
-      case Some(Some(Range(a, b))) => (a.map(_.value.toInt), b.map(_.value.toInt))
+      case None => (1, 1)
+      case Some(None) => (1, Int.MaxValue)
+      case Some(Some(Range(a, b))) => (a.map(_.value.toInt).getOrElse(1), b.map(_.value.toInt).getOrElse(Int.MaxValue))
     }
 
     DataFrame(schema,
       () => {
-        graphModel.paths(
+        val paths = graphModel.paths(
           runner.NodeFilter(labels1.map(_.name).map(LynxNodeLabel), props1.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
           runner.RelationshipFilter(types.map(_.name).map(LynxRelationshipType), props2.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
           runner.NodeFilter(labels3.map(_.name).map(LynxNodeLabel), props3.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
-          direction, upperLimit, lowerLimit).map(
-          triple =>
-            Seq(triple.startNode, triple.storedRelation, triple.endNode)
-        )
+          direction, upperLimit, lowerLimit)
+          if (length.isEmpty) paths.map{ path => Seq(path.startNode.get, path.firstRelationship.get, path.endNode.get)}
+          else paths.map{ path => Seq(path.startNode.get, path.relationships, path.endNode.get, path.trim)}
       }
-
     )
   }
 }

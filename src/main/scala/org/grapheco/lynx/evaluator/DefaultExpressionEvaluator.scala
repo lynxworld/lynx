@@ -3,7 +3,7 @@ package org.grapheco.lynx.evaluator
 import org.grapheco.lynx.procedure.{ProcedureException, ProcedureExpression, ProcedureRegistry}
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property._
-import org.grapheco.lynx.types.structural.{HasProperty, LynxNode, LynxNodeLabel, LynxPath, LynxPropertyKey, LynxRelationshipType}
+import org.grapheco.lynx.types.structural.{HasProperty, LynxNode, LynxNodeLabel, LynxPath, LynxPropertyKey, LynxRelationship, LynxRelationshipType}
 import org.grapheco.lynx.types.time.LynxDateTime
 import org.grapheco.lynx.types.{LynxValue, TypeSystem}
 import org.grapheco.lynx.LynxType
@@ -45,13 +45,18 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
     }
   }
 
-  protected def evalPathStep(step: PathStep)(implicit ec: ExpressionContext): LynxValue = {
+  protected def evalPathStep(step: PathStep)(implicit ec: ExpressionContext): LynxPath = {
     step match {
       case NilPathStep => LynxPath.EMPTY
-      case f: NodePathStep => LynxList(List(eval(f.node), evalPathStep(f.next)))
-      case m: MultiRelationshipPathStep => LynxList(List(eval(m.rel), eval(m.toNode.get), evalPathStep(m.next)))
-      case s: SingleRelationshipPathStep =>
-        LynxList(s.dependencies.map(eval).toList ++ List(eval(s.toNode.get)) ++ List(evalPathStep(s.next)))
+      case f: NodePathStep => LynxPath.startPoint(eval(f.node).asInstanceOf[LynxNode]).append(evalPathStep(f.next))
+      case m: MultiRelationshipPathStep => (m.rel match {
+        case Variable(r) => ec.vars(r+"LINK")
+        case _ => throw ProcedureException("")
+      }).asInstanceOf[LynxPath]
+        .append(eval(m.toNode.get).asInstanceOf[LynxNode]).append(evalPathStep(m.next))
+      case s: SingleRelationshipPathStep => LynxPath.singleRel(eval(s.rel).asInstanceOf[LynxRelationship])
+        .append(eval(s.toNode.get).asInstanceOf[LynxNode])
+        .append(evalPathStep(s.next))
     }
   }
 
@@ -287,14 +292,15 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           throw EvaluatorException(s"PatternExpression is not fully supproted.")
         }
 
-        val exist: Boolean = graphModel.paths(
-          _transferNodePatternToFilter(leftNode),
-          _transferRelPatternToFilter(relationship),
-          _transferNodePatternToFilter(rightNode),
-          relationship.direction, Some(1), Some(1)
-        ).filter(path => if (leftNode.variable.nonEmpty) path.startNode.compareTo(eval(leftNode.variable.get)) == 0 else true)
-          .filter(path => if (rightNode.variable.nonEmpty) path.endNode.compareTo(eval(rightNode.variable.get)) == 0 else true).nonEmpty
+//        val exist: Boolean = graphModel.paths(
+//          _transferNodePatternToFilter(leftNode),
+//          _transferRelPatternToFilter(relationship),
+//          _transferNodePatternToFilter(rightNode),
+//          relationship.direction, 1, 1
+//        ).filter(path => if (leftNode.variable.nonEmpty) path.startNode.compareTo(eval(leftNode.variable.get)) == 0 else true)
+//          .filter(path => if (rightNode.variable.nonEmpty) path.endNode.compareTo(eval(rightNode.variable.get)) == 0 else true).nonEmpty
 
+        val exist = false
         LynxBoolean(exist)
       }
 

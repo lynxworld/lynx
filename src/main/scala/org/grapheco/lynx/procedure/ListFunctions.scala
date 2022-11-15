@@ -4,7 +4,7 @@ import org.grapheco.lynx.func.LynxProcedure
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
-import org.grapheco.lynx.types.structural.{LynxNode, LynxRelationship}
+import org.grapheco.lynx.types.structural.{LynxNode, LynxPath, LynxRelationship}
 
 /**
  * @ClassName List functions return lists of things — nodes in a path, and so on.
@@ -45,18 +45,19 @@ class ListFunctions {
    * @return nodes
    */
   @LynxProcedure(name = "nodes")
-  def nodes(inputs: LynxList): List[LynxNode] = {
-    def fetchNodeFromList(list: LynxList): LynxNode = {
-      list.value.filter(item => item.isInstanceOf[LynxNode]).head.asInstanceOf[LynxNode]
-    }
-
-    def fetchListFromList(list: LynxList): LynxList = {
-      list.value.filter(item => item.isInstanceOf[LynxList]).head.asInstanceOf[LynxList]
-    }
-
-    val list = fetchListFromList(inputs)
-    if (list.value.nonEmpty) List(fetchNodeFromList(inputs)) ++ nodes(fetchListFromList(inputs))
-    else List(fetchNodeFromList(inputs))
+  def nodes(inputs: LynxPath): LynxList = {
+    inputs.nodes
+//    def fetchNodeFromList(list: LynxList): LynxNode = {
+//      list.value.filter(item => item.isInstanceOf[LynxNode]).head.asInstanceOf[LynxNode]
+//    }
+//
+//    def fetchListFromList(list: LynxList): LynxList = {
+//      list.value.filter(item => item.isInstanceOf[LynxList]).head.asInstanceOf[LynxList]
+//    }
+//
+//    val list = fetchListFromList(inputs)
+//    if (list.value.nonEmpty) List(fetchNodeFromList(inputs)) ++ nodes(fetchListFromList(inputs))
+//    else List(fetchNodeFromList(inputs))
   }
 
   /**
@@ -79,9 +80,10 @@ class ListFunctions {
    * @return relationships
    */
   @LynxProcedure(name = "relationships")
-  def relationships(inputs: LynxList): List[LynxRelationship] = {
-    val list: LynxList = inputs.value.tail.head.asInstanceOf[LynxList]
-    list.value.filter(value => value.isInstanceOf[LynxRelationship]).asInstanceOf[List[LynxRelationship]].reverse
+  def relationships(inputs: LynxPath): LynxList = {
+    inputs.relationships
+//    val list: LynxList = inputs.value.tail.head.asInstanceOf[LynxList]
+//    list.value.filter(value => value.isInstanceOf[LynxRelationship]).asInstanceOf[List[LynxRelationship]].reverse
   }
 
   // TODO : reverse() tail()
