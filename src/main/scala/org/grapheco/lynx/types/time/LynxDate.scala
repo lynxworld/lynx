@@ -1,14 +1,11 @@
 package org.grapheco.lynx.types.time
 
-import org.grapheco.lynx.types.property.{LynxBoolean, LynxInteger, LynxString}
+import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
 import org.grapheco.lynx.types.structural.LynxPropertyKey
-import org.grapheco.lynx.types.time.LynxComponentDate.{getYearMonthDay, transformDate, transformYearOrdinalDay, transformYearQuarterDay, transformYearWeekDay, truncateDate}
-import org.grapheco.lynx.types.time.LynxComponentTimeZone.getZone
+import org.grapheco.lynx.types.time.LynxComponentDate._
 import org.grapheco.lynx.types.{LynxValue, TypeMismatchException}
 import org.grapheco.lynx.util.LynxTemporalParseException
 import org.opencypher.v9_0.util.symbols.{CTDate, DateType}
-import org.scalacheck.Gen
-import org.scalacheck.Gen.calendar
 
 import java.time.{LocalDate, ZoneId}
 import java.util.{Calendar, GregorianCalendar}
@@ -100,9 +97,6 @@ object LynxDate {
   def of(tuple: Tuple3[Int, Int, Int]): LynxDate = LynxDate(LocalDate.of(tuple._1, tuple._2, tuple._3))
 
   def parse(dateStr: String): LynxDate = of(LynxComponentDate.getYearMonthDay(dateStr))
-  //    LynxComponentDate.getYearMonthDay(dateStr) match {
-  //      case v: (Int, Int, Int) => of(v._1, v._2, v._3)
-  //    }
 
   def parse(map: Map[String, Any]): LynxDate = {
     if (map.contains("unitStr")) return of(truncateDate(map))
@@ -116,7 +110,6 @@ object LynxDate {
         case v: LynxString => v.value.toString.replace(" ", "_")
       })))
     }
-    //    now(ZoneId.of(map.get("timezone").toString.replace(" ", "_")))
     throw LynxTemporalParseException("can not parse date from map")
   }
 }
