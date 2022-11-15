@@ -3,7 +3,7 @@ package org.grapheco.lynx.types.time
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxMap
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
-import org.grapheco.lynx.types.structural.{HasProperty, LynxPropertyKey}
+import org.grapheco.lynx.types.structural.HasProperty
 import org.grapheco.lynx.util.LynxTemporalParser.{assureBetween, assureContains}
 
 import scala.util.matching.Regex
@@ -50,7 +50,6 @@ object LynxComponentTime {
       map.get("datetime").orNull match {
         case LynxDateTime(v) => v.getMinute
         case null =>
-          //          assureContains(map, "hour")
           0
       })
 
@@ -61,7 +60,6 @@ object LynxComponentTime {
       map.get("datetime").orNull match {
         case LynxDateTime(v) => v.getSecond
         case null =>
-          //          assureContains(map, "minute")
           0
       })
 
