@@ -3,7 +3,7 @@ package org.grapheco.lynx.types.structural
 import org.grapheco.lynx.types.{LynxValue, TypeMismatchException}
 import org.opencypher.v9_0.util.symbols.{CTRelationship, RelationshipType}
 
-trait LynxRelationship extends LynxValue with HasProperty {
+trait LynxRelationship extends LynxValue with HasProperty with LynxElement {
   val id: LynxId
   val startNodeId: LynxId
   val endNodeId: LynxId

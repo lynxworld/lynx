@@ -1,6 +1,4 @@
-package org.grapheco.lynx.runner
-
-import org.grapheco.lynx.types.structural.{LynxNode, LynxRelationship}
+package org.grapheco.lynx.types.structural
 
 /**
  * A triplet of path.
@@ -12,4 +10,6 @@ import org.grapheco.lynx.types.structural.{LynxNode, LynxRelationship}
  */
 case class PathTriple(startNode: LynxNode, storedRelation: LynxRelationship, endNode: LynxNode, reverse: Boolean = false) {
   def revert: PathTriple = PathTriple(endNode, storedRelation, startNode, !reverse)
+
+  def toLynxPath: LynxPath = LynxPath(Seq(startNode, storedRelation, endNode))
 }
