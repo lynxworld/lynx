@@ -2,11 +2,13 @@ package org.grapheco.cypher.functions
 
 import org.grapheco.lynx.TestBase
 import org.grapheco.lynx.physical.{NodeInput, RelationshipInput, StoredNodeInputRef}
+import org.grapheco.lynx.runner.{NodeFilter, RelationshipFilter}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.{LynxNull, LynxString}
 import org.grapheco.lynx.types.structural._
 import org.junit.{Assert, Before, Test}
+import org.opencypher.v9_0.expressions.SemanticDirection
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -115,10 +117,9 @@ class A_Predicate extends TestBase {
   val n6 = TestNode(TestId(6), Seq.empty,
     Map(LynxPropertyKey("age") -> LynxValue(61),
       LynxPropertyKey("eyes") -> LynxValue("brown")))
-
   val r1 = TestRelationship(TestId(1), TestId(1), TestId(2), Option(LynxRelationshipType("KNOWS")), Map.empty)
   val r2 = TestRelationship(TestId(2), TestId(1), TestId(3), Option(LynxRelationshipType("KNOWS")), Map.empty)
-  val r3 = TestRelationship(TestId(3), TestId(2), TestId(3), Option(LynxRelationshipType("KNOWS")), Map.empty)
+  val r3 = TestRelationship(TestId(3), TestId(2), TestId(4), Option(LynxRelationshipType("KNOWS")), Map.empty)
   val r4 = TestRelationship(TestId(4), TestId(3), TestId(4), Option(LynxRelationshipType("KNOWS")), Map.empty)
   val r5 = TestRelationship(TestId(5), TestId(3), TestId(5), Option(LynxRelationshipType("MARRIED")), Map.empty)
 
@@ -126,8 +127,8 @@ class A_Predicate extends TestBase {
   def init(): Unit = {
 //    nodeCreateCyphers.foreach(cypher=>runOnDemoGraph(cypher))
 //    relCreateCyphers.foreach(cypher=>runOnDemoGraph(cypher))
-
-
+    this.all_nodes.clear()
+    this.all_rels.clear()
     nodesInput.append(("n1", NodeInput(n1.labels, n1.props.toSeq)))
     nodesInput.append(("n2", NodeInput(n2.labels, n2.props.toSeq)))
     nodesInput.append(("n3", NodeInput(n3.labels, n3.props.toSeq)))
@@ -151,21 +152,13 @@ class A_Predicate extends TestBase {
 
   @Test
   def all(): Unit = {
-//    val records = runOnDemoGraph(
-//      """
-//        |MATCH  p =(a)-[*1..3]->(b)
-//        |WHERE a.name = 'Alice' AND b.name = 'Daniel' AND ALL (x IN nodes(p) WHERE x.age > 30)
-//        |RETURN p
-//        |""".stripMargin).records().map(f => f("p").asInstanceOf[LynxValue].value).toArray
-
     val records = runOnDemoGraph(
       """
-        |MATCH  p =(a)-[]->(b)
-        |WHERE a.name = 'Alice' AND b.name = 'Charlie' AND ALL (x IN nodes(p) WHERE x.age > 30)
+        |MATCH  p =(a)-[*1..3]->(b)
+        |WHERE a.name = 'Alice' AND b.name = 'Daniel' AND ALL (x IN nodes(p) WHERE x.age > 30)
         |RETURN p
-        |""".stripMargin).records().map(f => f("p")).toArray
+        |""".stripMargin).records().map(f => f("p").asInstanceOf[LynxValue].value).toArray
     Assert.assertEquals(1, records.length)
-    //TODO   should be "(0)-[KNOWS,1]->(2)-[KNOWS,3]->(3)"
   }
 
   @Test
@@ -226,23 +219,16 @@ class A_Predicate extends TestBase {
 
   @Test
   def none(): Unit = {
-    // Fixme: This test case failed to pass.
-//    val records = runOnDemoGraph(
-//      """
-//        |MATCH p =(n)-[*1..3]->(b)
-//        |WHERE n.name = 'Alice' AND NONE (x IN nodes(p) WHERE x.age = 25)
-//        |RETURN p
-//        |""".stripMargin).records().map(f => f("p").asInstanceOf[LynxValue].value).toArray
     val records = runOnDemoGraph(
       """
-        |MATCH p =(n)-[]->()
+        |MATCH p =(n)-[*1..3]->(b)
         |WHERE n.name = 'Alice' AND NONE (x IN nodes(p) WHERE x.age = 25)
         |RETURN p
-        |""".stripMargin).records().map(f => f("p")).toArray
+        |""".stripMargin).records().map(f => f("p").asInstanceOf[LynxValue].value).toArray
 
-    Assert.assertEquals(1, records.length)
-    Assert.assertEquals(List(n1, LynxList(List(r1, n2, LynxList(List())))), records(0).value)
-//    Assert.assertEquals(List(n1, LynxList(List(r2, n2, LynxList(List(r3, n2, LynxList(List())))))), records(1))
+    Assert.assertEquals(2, records.length)
+    Assert.assertEquals(List(n1, r1, n2 ), records(0))
+    Assert.assertEquals(List(n1, r1, n2, r3, n4), records(1))
   }
 
   @Test

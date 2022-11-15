@@ -5,7 +5,7 @@ import org.grapheco.lynx.runner.GraphModel
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property._
-import org.grapheco.lynx.types.structural.{LynxNode, LynxRelationship}
+import org.grapheco.lynx.types.structural.{LynxNode, LynxPath, LynxRelationship}
 
 import java.util.UUID.randomUUID
 import java.util.regex.Pattern
@@ -108,8 +108,8 @@ class ScalarFunctions(graphModel: GraphModel) {
    * @return An Integer
    */
   @LynxProcedure(name = "length")
-  def length(path: LynxList): LynxInteger = { //fixme how to calculate the length of a path
-    LynxInteger(path.v.size)
+  def length(path: LynxPath): LynxInteger = { //fixme how to calculate the length of a path
+    LynxInteger(path.length)
   }
 
   /**

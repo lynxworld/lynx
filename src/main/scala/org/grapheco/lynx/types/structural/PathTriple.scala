@@ -1,6 +1,4 @@
-package org.grapheco.lynx.runner
-
-import org.grapheco.lynx.types.structural.{LynxNode, LynxPath, LynxRelationship}
+package org.grapheco.lynx.types.structural
 
 /**
  * A triplet of path.
