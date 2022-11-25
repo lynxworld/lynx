@@ -5,7 +5,7 @@
 ### Rule 2: Logging: use Logging trait
 >
 > ```
-> class YourClass extends cn.graiph.util.Logging {
+> class YourClass extends org.grapheco.pandadb.Logging {
 >   logger.debug(s"hello...")
 > }
 > ```
