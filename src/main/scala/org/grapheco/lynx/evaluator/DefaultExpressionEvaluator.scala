@@ -280,7 +280,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         }
       }
 
-      case MapExpression(items) => LynxMap(items.map(it => it._1.name -> eval(it._2)).toMap)
+      case MapExpression(items) => LynxMap(items.map{ case(prop, expr) => prop.name -> eval(expr)}.toMap)
 
       //Only One-hop path-pattern is supported now
       case PatternExpression(pattern) => { // TODO
