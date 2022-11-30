@@ -1,7 +1,8 @@
 package org.grapheco.lynx
 
 import org.grapheco.lynx.procedure.UnknownProcedureException
-import org.grapheco.lynx.util.LynxDurationUtil
+import org.grapheco.lynx.types.time.LynxDuration
+//import org.grapheco.lynx.util.LynxDurationUtil
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.{LynxBoolean, LynxFloat, LynxInteger, LynxNull, LynxString}
 import org.junit.function.ThrowingRunnable
@@ -80,8 +81,8 @@ class CallTest extends TestBase {
     runOnDemoGraph("CREATE (:profile {works: duration('P18DT16H12M'), history: duration({years: 10.2, months: 5, days: 14, hours:16, minutes: 12})})")
     runOnDemoGraph("CREATE (:profile {works: duration('P10DT16H12M'), history: duration({seconds: 1, milliseconds: 123, microseconds: 456, nanoseconds: 789})})")
     val rs = runOnDemoGraph("match (n:profile) return avg(n.works), sum(n.history)").records().next()
-    Assert.assertEquals(LynxDurationUtil.parse("PT352H12M"), rs("avg(n.works)"))
-    Assert.assertEquals(LynxDurationUtil.parse("PT93304H12M1.123123725S"), rs("sum(n.history)"))
+    Assert.assertEquals(LynxDuration.parse("PT352H12M"), rs("avg(n.works)"))
+    Assert.assertEquals(LynxDuration.parse("PT93304H12M1.123123725S"), rs("sum(n.history)"))
   }
 
   @Test

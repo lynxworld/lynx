@@ -3,7 +3,7 @@ package org.grapheco.lynx.util
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxMap
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
-import org.grapheco.lynx.types.time.{LynxDateTime, LynxDuration, LynxLocalDateTime, LynxLocalTime, LynxTemporalValue, LynxTime}
+import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxDuration, LynxLocalDateTime, LynxLocalTime, LynxTemporalValue, LynxTime}
 import org.grapheco.lynx.LynxException
 
 import java.time.Duration
@@ -54,6 +54,7 @@ object LynxTemporalParser {
       case (LynxLocalTime(v_1), LynxLocalTime(v_2)) => v_1.compareTo(v_2)
       case (LynxTime(v_1), LynxTime(v_2)) => v_1.compareTo(v_2)
       case (LynxLocalDateTime(v_1), LynxLocalDateTime(v_2)) => v_1.compareTo(v_2)
+      case (LynxDate(v_1), LynxDate(v_2)) => v_1.compareTo(v_2)
       case _ => throw LynxTemporalParseException(s"$time_Expected can not compare with $time_Actual by currentTime")
     }
     nanoTime.<(accuracy)
@@ -63,12 +64,12 @@ object LynxTemporalParser {
     val splitDateTime: Regex = "^(.{4,12})T(.{0,40})$".r
     val splitDateTimeWithZone_1: Regex = "^(.{4,12})T(.{0,40})(Z{1})$".r
     val splitDateTimeWithZone_2: Regex = "^(.{4,12})T(.{0,40})(\\+.{0,40})$".r
-    val splitDateTimeWithZone_3: Regex = "^(.{4,12})T(.{0,40})(\\-.{0,40})$".r
+    val splitDateTimeWithZone_3: Regex = "^(.{4,12})T(.{0,40})(-.{0,40})$".r
     val splitDateTimeWithZone_4: Regex = "^(.{4,12})T(.{0,40})\\[(.{0,40}).$".r
     val splitDateTimeWithZone_5: Regex = "^(.{4,12})T(.{0,40})(\\+.{0,40})\\[(.{0,40}).$".r
-    val splitDateTimeWithZone_6: Regex = "^(.{4,12})T(.{0,40})(\\-.{0,40})\\[(.{0,40}).$".r
-    val splitTimeWithOffset_1: Regex = "^(.{0,40})(\\+.{0,40})$".r
-    val splitTimeWithOffset_2: Regex = "^(.{0,40})(\\-.{0,40})$".r
+    val splitDateTimeWithZone_6: Regex = "^(.{4,12})T(.{0,40})(-.{0,40})\\[(.{0,40}).$".r
+    val splitTimeWithOffset_1: Regex = "^(.{0,40})(\\+.{0,10})$".r
+    val splitTimeWithOffset_2: Regex = "^(.{0,40})(-.{0,10})$".r
     val splitTimeWithOffset_3: Regex = "^(.{0,40})(Z{1})$".r
     str match {
       case splitDateTimeWithZone_6(dateStr, timeStr, offsetStr, zoneStr) => Map("dateStr" -> dateStr, "timeStr" -> timeStr, "offsetStr" -> offsetStr, "zoneStr" -> zoneStr)
@@ -86,50 +87,50 @@ object LynxTemporalParser {
   }
 }
 
-object LynxDurationUtil {
-  def parse(durationStr: String): LynxDuration = {
-    val v = Duration.parse(durationStr)
-    LynxDuration(v)
-  }
-
-  def parse(map: Map[String, Double]): LynxDuration = {
-    if (map.isEmpty) {
-      throw LynxTemporalParseException("At least one temporal unit must be specified")
-    }
-    var seconds: Double = 0
-    if (map.contains("timezone")) {
-      throw LynxTemporalParseException("Cannot assign time zone to duration")
-    }
-    if (map.contains("years")) {
-      seconds += map("years") * 365 * 24 * 60 * 60
-    }
-    if (map.contains("months")) {
-      seconds += map("months") * 30 * 24 * 60 * 60 //TODO check if neo4j does the same
-    }
-    if (map.contains("days")) {
-      seconds += map("days") * 24 * 60 * 60
-    }
-    if (map.contains("hours")) {
-      seconds += map("hours") * 60 * 60
-    }
-    if (map.contains("minutes")) {
-      seconds += map("minutes") * 60
-    }
-    if (map.contains("seconds")) {
-      seconds += map("seconds")
-    }
-    var nanos = seconds * 1000 * 1000 * 1000
-    if (map.contains("milliseconds")) {
-      nanos += map("milliseconds") * 1000 * 1000
-    }
-    if (map.contains("microseconds")) {
-      nanos += map("milliseconds") * 1000
-    }
-    if (map.contains("nanoseconds")) {
-      nanos += map("nanoseconds")
-    }
-    LynxDuration(Duration.ofNanos(nanos.longValue()))
-  }
-
-
-}
+//object LynxDurationUtil {
+//  def parse(durationStr: String): LynxDuration = {
+//    val v = Duration.parse(durationStr)
+////    LynxDuration(v)
+//  }
+//
+//  def parse(map: Map[String, Double]): LynxDuration = {
+//    if (map.isEmpty) {
+//      throw LynxTemporalParseException("At least one temporal unit must be specified")
+//    }
+//    var seconds: Double = 0
+//    if (map.contains("timezone")) {
+//      throw LynxTemporalParseException("Cannot assign time zone to duration")
+//    }
+//    if (map.contains("years")) {
+//      seconds += map("years") * 365 * 24 * 60 * 60
+//    }
+//    if (map.contains("months")) {
+//      seconds += map("months") * 30 * 24 * 60 * 60 //TODO check if neo4j does the same
+//    }
+//    if (map.contains("days")) {
+//      seconds += map("days") * 24 * 60 * 60
+//    }
+//    if (map.contains("hours")) {
+//      seconds += map("hours") * 60 * 60
+//    }
+//    if (map.contains("minutes")) {
+//      seconds += map("minutes") * 60
+//    }
+//    if (map.contains("seconds")) {
+//      seconds += map("seconds")
+//    }
+//    var nanos = seconds * 1000 * 1000 * 1000
+//    if (map.contains("milliseconds")) {
+//      nanos += map("milliseconds") * 1000 * 1000
+//    }
+//    if (map.contains("microseconds")) {
+//      nanos += map("milliseconds") * 1000
+//    }
+//    if (map.contains("nanoseconds")) {
+//      nanos += map("nanoseconds")
+//    }
+//    LynxDuration(Duration.ofNanos(nanos.longValue()))
+//  }
+//
+//
+//}

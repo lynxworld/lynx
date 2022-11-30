@@ -4,7 +4,7 @@ import org.grapheco.lynx.types.{LynxValue, TypeMismatchException}
 import org.grapheco.lynx.types.property.LynxNull
 import org.opencypher.v9_0.util.symbols.{CTNode, NodeType}
 
-trait LynxNode extends LynxValue with HasProperty {
+trait LynxNode extends LynxValue with HasProperty with LynxElement {
   val id: LynxId
 
   def value: LynxNode = this

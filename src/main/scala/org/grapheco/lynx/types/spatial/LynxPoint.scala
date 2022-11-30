@@ -30,7 +30,7 @@ trait LynxPoint extends LynxValue with HasProperty{
     case "y" => this.y
     case "crs" => this.crs
     case "srid" => this.srid
-    case _ => null
+    case _ => LynxNull
   })
 
   override def sameTypeCompareTo(o: LynxValue): Int = ???

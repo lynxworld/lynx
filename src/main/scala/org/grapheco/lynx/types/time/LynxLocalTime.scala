@@ -2,6 +2,7 @@ package org.grapheco.lynx.types.time
 
 import org.grapheco.lynx.LynxType
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
+import org.grapheco.lynx.types.structural.LynxPropertyKey
 import org.grapheco.lynx.types.{LynxValue, TypeMismatchException}
 import org.grapheco.lynx.types.time.LynxComponentTime.{getHourMinuteSecond, getNanosecond, truncateTime}
 import org.grapheco.lynx.types.time.LynxComponentTimeZone.getZone
@@ -35,6 +36,19 @@ case class LynxLocalTime(localTime: LocalTime) extends LynxTemporalValue with Ly
   var microsecond: Int = (localTime.getNano * Math.pow(0.1, 3) - millisecond * Math.pow(10, 3)).toInt
   var nanosecond: Int = localTime.getNano % Math.pow(10, 3).toInt
   var fraction: Int = localTime.getNano
+
+
+  override def keys: Seq[LynxPropertyKey] = super.keys ++ Seq("hour", "minute", "second", "millisecond", "microsecond", "nanosecond").map(LynxPropertyKey)
+
+  override def property(propertyKey: LynxPropertyKey): Option[LynxValue] = Some(propertyKey.value match {
+    case "hour" => LynxInteger(this.hour)
+    case "minute" => LynxInteger(this.minute)
+    case "second" => LynxInteger(this.second)
+    case "millisecond" => LynxInteger(this.millisecond)
+    case "microsecond" => LynxInteger(this.microsecond + this.millisecond * Math.pow(10, 3).toLong)
+    case "nanosecond" => LynxInteger(this.fraction)
+    case _ => null
+  })
 }
 
 object LynxLocalTime {
@@ -109,14 +123,6 @@ object LynxLocalTime {
         case v: Int => v
         case LynxInteger(v) => v.toInt
       }
-//      val zoneId = map.getOrElse("timezone", timeMap match {
-//        case v: LynxTime => v.timeZone
-//        case v: LynxLocalTime => "Z"
-//        case _ => "Z"
-//      }) match {
-//        case LynxString(v) => v
-//        case v: String => v
-//      }
       of(hour, minute, second, (millisecond + microsecond + nanosecond).toInt)
 
     }

@@ -3,8 +3,9 @@ package org.grapheco.lynx.types.time
 import org.grapheco.lynx.LynxType
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
+import org.grapheco.lynx.types.structural.LynxPropertyKey
 import org.grapheco.lynx.types.time.LynxComponentTime.{getHourMinuteSecond, getNanosecond, truncateTime}
-import org.grapheco.lynx.types.time.LynxComponentTimeZone.{getOffset, getZone, truncateZone}
+import org.grapheco.lynx.types.time.LynxComponentTimeZone.{getZone, truncateZone}
 import org.grapheco.lynx.util.LynxTemporalParseException
 import org.grapheco.lynx.util.LynxTemporalParser.splitDateTime
 import org.opencypher.v9_0.util.symbols.CTTime
@@ -39,6 +40,23 @@ case class LynxTime(offsetTime: OffsetTime) extends LynxTemporalValue with LynxC
   var offset: String = offsetTime.getOffset.toString
   var offsetMinutes: Int = offsetTime.getOffset.getTotalSeconds / 60
   var offsetSeconds: Int = offsetTime.getOffset.getTotalSeconds
+
+  override def keys: Seq[LynxPropertyKey] = super.keys ++ Seq("timezone", "offset", "offsetMinutes", "offsetSeconds", "hour", "minute", "second", "millisecond", "microsecond", "nanosecond").map(LynxPropertyKey)
+
+  override def property(propertyKey: LynxPropertyKey): Option[LynxValue] = Some(propertyKey.value match {
+    case "hour" => LynxInteger(this.hour)
+    case "minute" => LynxInteger(this.minute)
+    case "second" => LynxInteger(this.second)
+    case "millisecond" => LynxInteger(this.millisecond)
+    case "microsecond" => LynxInteger(this.microsecond + this.millisecond * Math.pow(10, 3).toLong)
+    case "nanosecond" => LynxInteger(this.fraction)
+
+    case "timezone" => LynxString(this.timeZone)
+    case "offset" => LynxString(this.offset)
+    case "offsetMinutes" => LynxInteger(this.offsetMinutes)
+    case "offsetSeconds" => LynxInteger(this.offsetSeconds)
+    case _ => null
+  })
 
 }
 

@@ -6,8 +6,12 @@ import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.{LynxNull, LynxString}
 import org.grapheco.lynx.types.structural._
+import org.grapheco.lynx.types.time.LynxLocalTime
+import org.grapheco.lynx.util.LynxTemporalParser
 import org.junit.{Assert, Before, Test}
 
+import java.time.{LocalDateTime, LocalTime, ZoneId}
+import java.util.Date
 import scala.collection.mutable.ArrayBuffer
 
 /**
@@ -290,13 +294,19 @@ class B_Scalar extends TestBase {
 
   @Test
   def timestamp(): Unit = {
-    val records = runOnDemoGraph(
+    val records0 = runOnDemoGraph(
       """
         |RETURN timestamp()
         |""".stripMargin).records().toArray
 
-    Assert.assertEquals(1, records.length)
-    Assert.assertEquals(1632753553112l, records(0)("timestamp()").asInstanceOf[LynxValue].value)
+    val date_System = new Date()
+    val date_Cypher = new Date(records0(0)("timestamp()").value.asInstanceOf[Long])
+
+    val localTime_Cypher = LynxLocalTime(LocalDateTime.ofInstant(date_System.toInstant, ZoneId.systemDefault()).toLocalTime)
+    val localTime_System = LynxLocalTime(LocalDateTime.ofInstant(date_Cypher.toInstant, ZoneId.systemDefault()).toLocalTime)
+
+    Assert.assertEquals(1, records0.length)
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(localTime_System, localTime_Cypher))
   }
 
   @Test

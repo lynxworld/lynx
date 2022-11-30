@@ -68,7 +68,7 @@ class A_Match extends TestBase{
 
   @Test
   def getAllNodes(): Unit ={
-    val records = runOnDemoGraph("Match (n) Return n").records().map(f => f("n").asInstanceOf[TestNode]).toArray
+    val records = runOnDemoGraph("Match (n) Return n").records().map(f => f("n").asInstanceOf[TestNode]).toArray.sortBy(r => (r.id.value))
     Assert.assertEquals(7, records.length)
     Assert.assertEquals(n1, records(0))
     Assert.assertEquals(n2, records(1))
