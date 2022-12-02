@@ -5,6 +5,7 @@ import org.grapheco.lynx.physical.{NodeInput, RelationshipInput, StoredNodeInput
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
 import org.grapheco.lynx.types.structural._
+import org.grapheco.lynx.types.time.LynxTemporalValue
 import org.junit.{Assert, Before, Test}
 
 import scala.collection.mutable.ArrayBuffer
@@ -19,11 +20,11 @@ class O_Merge extends TestBase{
   val nodesInput = ArrayBuffer[(String, NodeInput)]()
   val relationsInput = ArrayBuffer[(String, RelationshipInput)]()
 
-  val n1 = TestNode(TestId(1), Seq(LynxNodeLabel("person")), Map(LynxPropertyKey("name")-> LynxValue("Charlie Sheen"), LynxPropertyKey("bornIn")->LynxValue("New York"), LynxPropertyKey("chauffeurName")->LynxValue("John Brown")))
-  val n2 = TestNode(TestId(2), Seq(LynxNodeLabel("person")), Map(LynxPropertyKey("name")-> LynxValue("Oliver Stone"), LynxPropertyKey("bornIn")->LynxValue("New York"), LynxPropertyKey("chauffeurName")->LynxValue("Bill White")))
-  val n3 = TestNode(TestId(3), Seq(LynxNodeLabel("person")), Map(LynxPropertyKey("name")-> LynxValue("Michael Douglas"), LynxPropertyKey("bornIn")->LynxValue("New Jersey"), LynxPropertyKey("chauffeurName")->LynxValue("John Brown")))
-  val n4 = TestNode(TestId(4), Seq(LynxNodeLabel("person")), Map(LynxPropertyKey("name")-> LynxValue("Martin Sheen"), LynxPropertyKey("bornIn")->LynxValue("Ohio"), LynxPropertyKey("chauffeurName")->LynxValue("Bob Brown")))
-  val n5 = TestNode(TestId(5), Seq(LynxNodeLabel("person")), Map(LynxPropertyKey("name")-> LynxValue("Rob Reiner"), LynxPropertyKey("bornIn")->LynxValue("New York"), LynxPropertyKey("chauffeurName")->LynxValue("John Brown")))
+  val n1 = TestNode(TestId(1), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name")-> LynxValue("Charlie Sheen"), LynxPropertyKey("bornIn")->LynxValue("New York"), LynxPropertyKey("chauffeurName")->LynxValue("John Brown")))
+  val n2 = TestNode(TestId(2), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name")-> LynxValue("Oliver Stone"), LynxPropertyKey("bornIn")->LynxValue("New York"), LynxPropertyKey("chauffeurName")->LynxValue("Bill White")))
+  val n3 = TestNode(TestId(3), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name")-> LynxValue("Michael Douglas"), LynxPropertyKey("bornIn")->LynxValue("New Jersey"), LynxPropertyKey("chauffeurName")->LynxValue("John Brown")))
+  val n4 = TestNode(TestId(4), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name")-> LynxValue("Martin Sheen"), LynxPropertyKey("bornIn")->LynxValue("Ohio"), LynxPropertyKey("chauffeurName")->LynxValue("Bob Brown")))
+  val n5 = TestNode(TestId(5), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name")-> LynxValue("Rob Reiner"), LynxPropertyKey("bornIn")->LynxValue("New York"), LynxPropertyKey("chauffeurName")->LynxValue("John Brown")))
   val m1 = TestNode(TestId(6), Seq(LynxNodeLabel("Movie")), Map(LynxPropertyKey("title")-> LynxValue("Wall Street")))
   val m2 = TestNode(TestId(7), Seq(LynxNodeLabel("Movie")), Map(LynxPropertyKey("title")-> LynxValue("The American President")))
 
@@ -39,6 +40,8 @@ class O_Merge extends TestBase{
 
   @Before
   def init(): Unit ={
+    all_nodes.clear()
+    all_rels.clear()
     nodesInput.append(("n1", NodeInput(n1.labels, n1.props.toSeq)))
     nodesInput.append(("n2", NodeInput(n2.labels, n2.props.toSeq)))
     nodesInput.append(("n3", NodeInput(n3.labels, n3.props.toSeq)))
@@ -79,6 +82,7 @@ class O_Merge extends TestBase{
 
     Assert.assertEquals(1, records.length)
     Assert.assertEquals(nodeNum + 1, all_nodes.size)
+    Assert.assertEquals(LynxValue("Keanu Reeves"), records.head.getAsString("keanu.name").get)
   }
 
   @Test
@@ -145,8 +149,8 @@ class O_Merge extends TestBase{
 
     Assert.assertEquals(1, records.length)
     Assert.assertEquals(nodeNum + 1, all_nodes.size)
-    Assert.assertEquals(TestNode(TestId(nodeNum + 1), Seq(LynxNodeLabel("Critic")), Map.empty), records.head("robert").asInstanceOf[LynxNode])
-    Assert.assertEquals(List("Critic"), records.head("labels(robert)").asInstanceOf[LynxValue].value.asInstanceOf[List[LynxValue]].map(f => f.value))
+    Assert.assertEquals(TestNode(TestId(nodeNum + 1), Seq(LynxNodeLabel("Critic")), Map.empty), records.head.getAsNode("robert").get)
+    Assert.assertEquals(List("Critic"), records.head("labels(robert)").value.asInstanceOf[List[LynxValue]].map(f => f.value))
   }
 
   @Test

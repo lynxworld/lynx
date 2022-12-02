@@ -4,14 +4,17 @@ import org.grapheco.lynx.dataframe.{DataFrame, JoinType}
 import org.grapheco.lynx.evaluator.ExpressionContext
 import org.grapheco.lynx.logical.LPTPatternMatch
 import org.grapheco.lynx.procedure.{UnknownProcedureException, WrongArgumentException}
-import org.grapheco.lynx.runner.{ExecutionContext, NodeFilter, RelationshipFilter}
+import org.grapheco.lynx.runner.{ExecutionContext, GraphModel, NodeFilter, RelationshipFilter}
 import org.grapheco.lynx.types.LynxValue
-import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
-import org.grapheco.lynx.types.property.{LynxBoolean, LynxNull}
+import org.grapheco.lynx.types.composite.{LynxCompositeValue, LynxList, LynxMap}
+import org.grapheco.lynx.types.property.{LynxBoolean, LynxNull, LynxNumber, LynxString}
+import org.grapheco.lynx.types.spatial.LynxPoint
 import org.grapheco.lynx.types.structural._
+import org.grapheco.lynx.types.time.LynxTemporalValue
 import org.grapheco.lynx.{LynxType, runner}
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions.{NodePattern, RelationshipChain, _}
+import org.opencypher.v9_0.util.InputPosition
 import org.opencypher.v9_0.util.symbols.{CTAny, CTList, CTNode, CTPath, CTRelationship}
 
 import scala.collection.mutable
@@ -408,14 +411,20 @@ case class PPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName
 ///////////////////////merge/////////////
 trait MergeElement {
   def getSchema: String
+
+  def toCreateElement: CreateElement
 }
 
 case class MergeNode(varName: String, labels: Seq[LabelName], properties: Option[Expression]) extends MergeElement {
   override def getSchema: String = varName
+
+  override def toCreateElement: CreateElement = CreateNode(varName, labels, properties)
 }
 
 case class MergeRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String, direction: SemanticDirection) extends MergeElement {
   override def getSchema: String = varName
+
+  override def toCreateElement: CreateElement = CreateRelationship(varName, types, properties, varNameLeftNode, varNameRightNode)
 }
 
 case class PPTMergeAction(actions: Seq[MergeAction])(implicit in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
@@ -549,11 +558,8 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)], mergeOps: Seq[MergeEle
         }
         else {
           plannerContext.pptContext ++= Map("MergeAction" -> true)
-          val createdNodesAndRels = mutable.Map[String, Seq[LynxValue]]()
-          val nodesToCreate = mergeOps.filter(f => f.isInstanceOf[MergeNode]).map(f => f.asInstanceOf[MergeNode])
-          val relsToCreate = mergeOps.filter(f => f.isInstanceOf[MergeRelationship]).map(f => f.asInstanceOf[MergeRelationship])
-          val res = Seq(mergeSchema.flatMap(f => createdNodesAndRels(f._1))).toIterator
-          DataFrame(mergeSchema, () => res)
+          val creation = CreateOps(mergeOps.map(_.toCreateElement))(e => eval(e)(ec), graphModel).execute()
+          DataFrame(mergeSchema, () => Iterator(mergeSchema.map(x => creation.toMap.getOrElse(x._1, LynxNull))))
         }
       }
     }
@@ -566,6 +572,35 @@ trait CreateElement
 case class CreateNode(varName: String, labels3: Seq[LabelName], properties3: Option[Expression]) extends CreateElement
 
 case class CreateRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) extends CreateElement
+
+case class CreateOps(ops: Seq[CreateElement])(eval: Expression => LynxValue, graphModel: GraphModel) {
+  def execute(): Seq[(String, LynxValue with LynxElement)] = {
+    val nodesInput = ArrayBuffer[(String, NodeInput)]()
+    val relsInput = ArrayBuffer[(String, RelationshipInput)]()
+
+    ops.foreach {
+      case CreateNode(varName: String, labels: Seq[LabelName], properties: Option[Expression]) =>
+          nodesInput += varName -> NodeInput(labels.map(_.name).map(LynxNodeLabel), properties match {
+            case Some(MapExpression(items)) => items.map{case (k, v) => LynxPropertyKey(k.name) -> eval(v)}
+            case None =>Seq.empty
+          })
+
+      case CreateRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) =>
+
+        def nodeInputRef(varname: String): NodeInputRef = eval(Variable(varName)(InputPosition.NONE)) match {
+            case node: LynxNode => StoredNodeInputRef(node.id)
+            case _ => ContextualNodeInputRef(varname)
+          }
+
+        relsInput += varName -> RelationshipInput(types.map(_.name).map(LynxRelationshipType), properties match {
+          case Some(MapExpression(items)) => items.map { case (k, v) => LynxPropertyKey(k.name) -> eval(v) }
+          case None => Seq.empty
+        }, nodeInputRef(varNameLeftNode), nodeInputRef(varNameRightNode))
+    }
+
+    graphModel.createElements(nodesInput, relsInput, _ ++ _)
+  }
+}
 
 case class PPTCreateTranslator(c: Create) extends PPTNodeTranslator {
   def translate(in: Option[PPTNode])(implicit plannerContext: PhysicalPlannerContext): PPTNode = {
@@ -665,9 +700,9 @@ case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[CreateElemen
         val nodesInput = ArrayBuffer[(String, NodeInput)]()
         val relsInput = ArrayBuffer[(String, RelationshipInput)]()
 
-        ops.foreach(_ match {
+        ops.foreach {
           case CreateNode(varName: String, labels: Seq[LabelName], properties: Option[Expression]) =>
-            if (!ctxMap.contains(varName) && nodesInput.find(_._1 == varName).isEmpty) {
+            if (!ctxMap.contains(varName) && !nodesInput.exists(_._1 == varName)) {
               nodesInput += varName -> NodeInput(labels.map(_.name).map(LynxNodeLabel), properties.map {
                 case MapExpression(items) =>
                   items.map({
@@ -693,7 +728,7 @@ case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[CreateElemen
                   case (k, v) => LynxPropertyKey(k.name) -> eval(v)(ec.withVars(ctxMap))
                 })
             }.getOrElse(Seq.empty[(LynxPropertyKey, LynxValue)]), nodeInputRef(varNameLeftNode), nodeInputRef(varNameRightNode))
-        })
+        }
 
         record ++ graphModel.createElements(
           nodesInput,
