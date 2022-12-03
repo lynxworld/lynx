@@ -287,7 +287,7 @@ class O_Merge extends TestBase{
 
     Assert.assertEquals(relNum + 1, all_rels.size)
     Assert.assertEquals(nodesNum, all_nodes.size)
-    Assert.assertEquals("KNOWS", records.head("r").asInstanceOf[LynxRelationship].relationType.get)
+    Assert.assertEquals(LynxRelationshipType("KNOWS"), records.head.getAsRelationship("r").get.relationType.get)
   }
 
   @Test

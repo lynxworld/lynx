@@ -477,7 +477,7 @@ case class PPTMergeTranslator(m: Merge) extends PPTNodeTranslator {
 }
 
 /**
- * PPTMerge must has-only-has one child
+ *
  * @param mergeSchema
  * @param mergeOps
  * @param onMatch
@@ -497,44 +497,35 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)],
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     implicit val ec = ctx.expressionContext
+    // has match or create?
     var hasMatched = false
+    // PPTMerge must has-only-has one child
+    val child: PPTNode = children.head
 
-    val df = children match {
-      case Seq(pj:PPTJoin) => {
-        val searchVar = pj.children.head.schema.toMap
-        val res = pj.execute
-        if (res.records.nonEmpty) {
+    val df = child match {
+      case pj:PPTJoin => {
+        val pjRes = pj.execute
+        val dropNull = pjRes.records.dropWhile(_.exists(LynxNull.eq))
+        if (dropNull.nonEmpty) {
           hasMatched = true
-          res.select(mergeSchema.map{ case(name, _) => (name, None) })
+          pjRes.select(mergeSchema.map{ case(name, _) => (name, None) })
         } else {
-
-          val toCreateSchema = mergeSchema.filter(f => !searchVar.contains(f._1))
-          val toCreateList = mergeOps.filter(f => !searchVar.contains(f.asInstanceOf[FormalNode].varName))
-          val nodesToCreate = toCreateList.filter(f => f.isInstanceOf[FormalNode]).map(f => f.asInstanceOf[FormalNode])
-          val relsToCreate = toCreateList.filter(f => f.isInstanceOf[FormalRelationship]).map(f => f.asInstanceOf[FormalRelationship])
-
-          val dependDf = pj.children.head.execute
-          val anotherDf = pj.children.last
-
-          val func = dependDf.records.map {
-            record => {
-              val ctxMap = dependDf.schema.zip(record).map(x => x._1._1 -> x._2).toMap
-
-              val mergedNodesAndRels = mutable.Map[String, Seq[LynxValue]]()
-
-              val forceToCreate = {
-                if (anotherDf.isInstanceOf[PPTExpandPath] || anotherDf.isInstanceOf[PPTRelationshipScan]) true
-                else false
-              }
-              record ++ toCreateSchema.flatMap(f => mergedNodesAndRels(f._1))
+          val opsMap = mergeOps.map(ele => ele.varName -> ele).toMap
+          val records = pjRes.select(mergeSchema.map{ case(name, _) => (name, None) }).records.map { record =>
+            val recordMap = mergeSchema.map(_._1).zip(record).toMap
+            val nullCol = recordMap.filter(_._2 == LynxNull).keys.toSeq
+            val creation = CreateOps(nullCol.map(opsMap))(e => eval(e)(ec.withVars(recordMap)), graphModel).execute().toMap
+            record.zip(mergeSchema.map(_._1)).map {
+              case (LynxNull, name) => creation(name)
+              case (v: LynxValue, _) => v
             }
-          }
-          DataFrame(dependDf.schema ++ toCreateSchema, () => func)
+          }.toList
+          DataFrame(mergeSchema, () => records.toIterator) // danger! so do because the create ops will be do lazy due to inner in the dataframe which is lazy.
+
         }
       }
       case _ => {
-        // only merge situation
-        val res = children.map(_.execute).head.records
+        val res = child.execute.records
         if (res.nonEmpty) {
           hasMatched = true
           DataFrame(mergeSchema, () => res)
@@ -559,7 +550,9 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)],
 }
 /////////////////////////////////////////
 
-trait FormalElement
+trait FormalElement{
+  def varName: String
+}
 
 case class FormalNode(varName: String, labels: Seq[LabelName], properties: Option[Expression]) extends FormalElement
 
@@ -579,9 +572,9 @@ case class CreateOps(ops: Seq[FormalElement])(eval: Expression => LynxValue, gra
 
       case FormalRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) =>
 
-        def nodeInputRef(varname: String): NodeInputRef = eval(Variable(varName)(InputPosition.NONE)) match {
+        def nodeInputRef(nodeVarName: String): NodeInputRef = eval(Variable(nodeVarName)(InputPosition.NONE)) match {
             case node: LynxNode => StoredNodeInputRef(node.id)
-            case _ => ContextualNodeInputRef(varname)
+            case _ => ContextualNodeInputRef(nodeVarName)
           }
 
         relsInput += varName -> RelationshipInput(types.map(_.name).map(LynxRelationshipType), properties match {

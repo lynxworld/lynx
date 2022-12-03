@@ -48,7 +48,7 @@ case class LPTCreate(c: Create)(val in: Option[LPTNode]) extends LPTNode {
 //////////////merge//////////////////////
 case class LPTMergeTranslator(m: Merge) extends LPTNodeTranslator {
   def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
-    val matchInfo = Match(false, m.pattern, Seq.empty, m.where)(m.position)
+    val matchInfo = Match(true, m.pattern, Seq.empty, m.where)(m.position)
     val mergeIn = LPTMatchTranslator(matchInfo).translate(in)
     LPTMerge(m)(Option(mergeIn))
 
