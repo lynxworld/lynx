@@ -211,7 +211,7 @@ class O_Merge extends TestBase{
         |  (charlie:Person {name: 'Charlie Sheen'}),
         |  (wallStreet:Movie {title: 'Wall Street'})
         |MERGE (charlie)-[r:ACTED_IN]->(wallStreet)
-        |RETURN charlie.name, type(r),id(r),wallStreet.title
+        |RETURN charlie.name, type(r),wallStreet.title
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(relNum, all_nodes.size)

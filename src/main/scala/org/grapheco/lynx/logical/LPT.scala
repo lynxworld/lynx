@@ -50,18 +50,18 @@ case class LPTMergeTranslator(m: Merge) extends LPTNodeTranslator {
   def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
     val matchInfo = Match(false, m.pattern, Seq.empty, m.where)(m.position)
     val mergeIn = LPTMatchTranslator(matchInfo).translate(in)
-    val mergeInfo = LPTMerge(m)(Option(mergeIn))
+    LPTMerge(m)(Option(mergeIn))
 
-    if (m.actions.nonEmpty) LPTMergeAction(m.actions)(Option(mergeInfo))
-    else mergeInfo
+//    if (m.actions.nonEmpty) LPTMergeAction(m.actions)(Option(mergeInfo))
+//    else mergeInfo
   }
 }
 case class LPTMerge(m: Merge)(val in: Option[LPTNode]) extends LPTNode {
   override val children: Seq[LPTNode] = in.toSeq
 }
-case class LPTMergeAction(m: Seq[MergeAction])(val in: Option[LPTNode]) extends LPTNode {
-  override val children: Seq[LPTNode] = in.toSeq
-}
+//case class LPTMergeAction(m: Seq[MergeAction])(val in: Option[LPTNode]) extends LPTNode {
+//  override val children: Seq[LPTNode] = in.toSeq
+//}
 ///////////////////////////////////////
 
 //////////////////Delete////////////////
