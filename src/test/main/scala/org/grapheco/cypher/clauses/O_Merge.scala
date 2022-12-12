@@ -211,7 +211,7 @@ class O_Merge extends TestBase{
         |  (charlie:Person {name: 'Charlie Sheen'}),
         |  (wallStreet:Movie {title: 'Wall Street'})
         |MERGE (charlie)-[r:ACTED_IN]->(wallStreet)
-        |RETURN charlie.name, type(r),id(r),wallStreet.title
+        |RETURN charlie.name, type(r),wallStreet.title
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(relNum, all_nodes.size)
@@ -287,7 +287,7 @@ class O_Merge extends TestBase{
 
     Assert.assertEquals(relNum + 1, all_rels.size)
     Assert.assertEquals(nodesNum, all_nodes.size)
-    Assert.assertEquals("KNOWS", records.head("r").asInstanceOf[LynxRelationship].relationType.get)
+    Assert.assertEquals(LynxRelationshipType("KNOWS"), records.head.getAsRelationship("r").get.relationType.get)
   }
 
   @Test
