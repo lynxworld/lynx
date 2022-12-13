@@ -85,8 +85,8 @@ class C_Return extends TestBase{
     Assert.assertEquals(n2, res(0)("b").asInstanceOf[LynxNode])
     Assert.assertEquals(r1, res(0)("r").asInstanceOf[LynxRelationship])
     Assert.assertEquals(r2, res(1)("r").asInstanceOf[LynxRelationship])
-    Assert.assertEquals(List(n1, LynxList(List(r1, n2, LynxList(List())))), res(0)("p").asInstanceOf[LynxValue].value)
-    Assert.assertEquals(List(n1, LynxList(List(r2, n2, LynxList(List())))), res(1)("p").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(List(n1, r1, n2), res(0)("p").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(List(n1, r2, n2), res(1)("p").asInstanceOf[LynxValue].value)
   }
 
   @Test

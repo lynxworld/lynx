@@ -521,7 +521,6 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)],
             }
           }.toList
           DataFrame(mergeSchema, () => records.toIterator) // danger! so do because the create ops will be do lazy due to inner in the dataframe which is lazy.
-
         }
       }
       case _ => {
@@ -788,6 +787,7 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
         val nodeIds: Iterator[LynxId] = df.records.map(row => row(colIndex).asInstanceOf[LynxNode].id)
         val nodes: Iterator[Option[LynxNode]] = graphModel.setNodesLabels(nodeIds, labels.map(label => label.name).toArray)
         (colIndex, nodes.map(_.get))
+
       }
       case sp@SetPropertyItem(property, literalExpr) => {
         val Property(map, keyName) = property
@@ -795,9 +795,31 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
           case Variable(colName) =>
             df.columnsName.indexOf(colName)
         }
+        // todo : 1.case expr 2.value expr
         val newPropValue: LynxValue = eval(literalExpr)(ctx.expressionContext)
         val nodeIds: Iterator[LynxId] = df.records.map(row => row(colIndex).asInstanceOf[LynxNode].id)
         val nodes: Iterator[Option[LynxNode]] = graphModel.setNodesProperties(nodeIds, Array(keyName.name -> newPropValue))
+        (colIndex, nodes.map(_.get))
+
+      }
+      /* -cypher: MATCH (p { name: 'Peter' })
+          SET p = { name: 'Peter Smith', position: 'Entrepreneur' }
+          RETURN p.name, p.age, p.position
+       - variable: Variable(p)
+       - expression: MapExpression{name:...}
+       */
+      case em@SetExactPropertiesFromMapItem(variable, expression)=> {
+        val colIndex:Int = df.columnsName.indexOf(variable.name)
+        val valueMap: LynxMap = eval(expression)(ctx.expressionContext).asInstanceOf[LynxMap]
+        val nodeIds: Iterator[LynxId] = df.records.map(row => row(colIndex).asInstanceOf[LynxNode].id)
+        val nodes: Iterator[Option[LynxNode]] = graphModel.setNodesProperties(nodeIds, valueMap.v.toArray, true)
+        (colIndex, nodes.map(_.get))
+      }
+      case im@SetIncludingPropertiesFromMapItem(variable, expression)=> {
+        val colIndex: Int = df.columnsName.indexOf(variable.name)
+        val valueMap: LynxMap = eval(expression)(ctx.expressionContext).asInstanceOf[LynxMap]
+        val nodeIds: Iterator[LynxId] = df.records.map(row => row(colIndex).asInstanceOf[LynxNode].id)
+        val nodes: Iterator[Option[LynxNode]] = graphModel.setNodesProperties(nodeIds, valueMap.v.toArray)
         (colIndex, nodes.map(_.get))
       }
     }
@@ -805,7 +827,7 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
     val updatedIndexs: Seq[Int] = updatedColumns.map(_._1)
     val updatedCols: Seq[Iterator[LynxValue]] = updatedColumns.map(_._2)
 
-    val updatedDF = acutalExecute(DataFrame.updateColumns(updatedIndexs, updatedCols, df))
+    val updatedDF = (DataFrame.updateColumns(updatedIndexs, updatedCols, df))
 
     updatedDF
   }
