@@ -99,7 +99,7 @@ class TestBase extends LazyLogging {
       }
 
       override def setNodesProperties(nodeIds: Iterator[LynxId], data: Array[(LynxPropertyKey, Any)], cleanExistProperties: Boolean): Iterator[Option[LynxNode]] =
-        updateNodes(nodeIds, old => TestNode(old.id, old.labels, if (cleanExistProperties) Map.empty else old.props ++ data.toMap.mapValues(LynxValue.apply)))
+        updateNodes(nodeIds, old => TestNode(old.id, old.labels, (if (cleanExistProperties) Map.empty else old.props) ++ data.toMap.mapValues(LynxValue.apply)))
 
       override def setNodesLabels(nodeIds: Iterator[LynxId], labels: Array[LynxNodeLabel]): Iterator[Option[LynxNode]] =
         updateNodes(nodeIds, old => TestNode(old.id, (old.labels ++ labels.toSeq).distinct, old.props))
