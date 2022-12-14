@@ -15,7 +15,8 @@ class DefaultPhysicalPlanOptimizer(runnerContext: CypherRunnerContext) extends P
     RemoveNullProject,
     PPTFilterPushDownRule,
     JoinReferenceRule,
-    JoinTableSizeEstimateRule
+    JoinTableSizeEstimateRule,
+    StatisticsRule
   )
 
   def optimize(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = {
