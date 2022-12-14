@@ -62,7 +62,7 @@ class TestGraph extends TestBase with Graph {
       )
       case LynxBoolean(v) => CypherBoolean(v)
       case LynxFloat(v) => CypherFloat(v)
-      case LynxDuration(duration) => CypherString(duration.toString)
+      case LynxDuration(duration,_) => CypherString(duration.toString)
       case LynxInteger(v) => CypherInteger(v)
       case LynxList(v) => CypherOrderedList(v.map(lynxValue2CypherValue))
       case LynxMap(v) => CypherPropertyMap(v.map(kv => (kv._1, lynxValue2CypherValue(kv._2))))
