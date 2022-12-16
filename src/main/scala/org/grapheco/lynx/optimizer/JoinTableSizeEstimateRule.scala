@@ -78,7 +78,7 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
 
     val table1 = t1 match {
       case pj@PPTJoin(filterExpr, isSingleMatch, joinType) => joinRecursion(pj, ppc, isSingleMatch)
-      case pm@PPTMerge(mergeSchema, mergeOps) => {
+      case pm@PPTMerge(mergeSchema, mergeOps, onMatch, onCreate) => {
         val res = joinRecursion(pm.children.head.asInstanceOf[PPTJoin], ppc, isSingleMatch)
         pm.withChildren(Seq(res))
       }
@@ -86,7 +86,7 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
     }
     val table2 = t2 match {
       case pj@PPTJoin(filterExpr, isSingleMatch, joinType) => joinRecursion(pj, ppc, isSingleMatch)
-      case pm@PPTMerge(mergeSchema, mergeOps) => {
+      case pm@PPTMerge(mergeSchema, mergeOps, onMatch, onCreate) => {
         val res = joinRecursion(pm.children.head.asInstanceOf[PPTJoin], ppc, isSingleMatch)
         pm.withChildren(Seq(res))
       }
