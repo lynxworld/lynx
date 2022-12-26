@@ -20,7 +20,7 @@ class R_Union extends TestBase{
 
   val n1 = TestNode(TestId(1), Seq(LynxNodeLabel("Actor")), Map(LynxPropertyKey("name")-> LynxValue("Anthony Hopkins")))
   val n2 = TestNode(TestId(2), Seq(LynxNodeLabel("Actor")), Map(LynxPropertyKey("name")-> LynxValue("Hitchcock")))
-  val n3 = TestNode(TestId(3), Seq(LynxNodeLabel("Actor")), Map(LynxPropertyKey("name")-> LynxValue("Hellen Mirren"), LynxPropertyKey("age")-> LynxValue(36), LynxPropertyKey("hungry")->LynxValue(true)))
+  val n3 = TestNode(TestId(3), Seq(LynxNodeLabel("Actor")), Map(LynxPropertyKey("name")-> LynxValue("Helen Mirren"), LynxPropertyKey("age")-> LynxValue(36), LynxPropertyKey("hungry")->LynxValue(true)))
   val n4 = TestNode(TestId(4), Seq(LynxNodeLabel("Movie")), Map(LynxPropertyKey("name")-> LynxValue("Hitchcock"), LynxPropertyKey("age")-> LynxValue(34)))
 
   val r1 = TestRelationship(TestId(1), TestId(1), TestId(3), Option(LynxRelationshipType("KNOWS")), Map.empty)
@@ -35,18 +35,6 @@ class R_Union extends TestBase{
     nodesInput.append(("n4", NodeInput(n4.labels, n4.props.toSeq)))
 
 
-    nodesInput.foreach(e=>{
-      print(s"create (a:${e._2.labels.toList(0).value}{")
-      val props = e._2.props.toList
-      for(i <-props.indices){
-          if(i == props.size-1){
-            print(s"'${props(i)._1.value}':'${props(i)._2.value}'")
-          }else{
-            print(s"'${props(i)._1.value}':'${props(i)._2.value}',")
-          }
-      }
-      println("})")
-    })
 
     relationsInput.append(("r1", RelationshipInput(Seq(r1.relationType.get), Seq.empty, StoredNodeInputRef(r1.startNodeId), StoredNodeInputRef(r1.endNodeId))))
     relationsInput.append(("r2", RelationshipInput(Seq(r2.relationType.get), r2.props.toSeq, StoredNodeInputRef(r2.startNodeId), StoredNodeInputRef(r2.endNodeId))))
@@ -59,6 +47,7 @@ class R_Union extends TestBase{
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
   }
 
   @Test
@@ -69,13 +58,13 @@ class R_Union extends TestBase{
         |RETURN n.name AS name
         |UNION ALL
         |MATCH (n:Movie)
-        |RETURN n.title AS name
-        |""".stripMargin).records().toArray
+        |RETURN n.name AS name
+        |""".stripMargin).records().toArray.map(_.getAsString("name").get.v).sorted
 
-    Assert.assertEquals("Anthony Hopkins", res(0)("name").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("Helen Mirren", res(1)("name").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("Hitchcock", res(2)("name").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("Hitchcock", res(3)("name").asInstanceOf[LynxValue].value)
+    Assert.assertEquals("Anthony Hopkins", res(0))
+    Assert.assertEquals("Helen Mirren", res(1))
+    Assert.assertEquals("Hitchcock", res(2))
+    Assert.assertEquals("Hitchcock", res(3))
 
   }
 
@@ -87,11 +76,11 @@ class R_Union extends TestBase{
         |RETURN n.name AS name
         |UNION
         |MATCH (n:Movie)
-        |RETURN n.title AS name
-        |""".stripMargin).records().toArray
+        |RETURN n.name AS name
+        |""".stripMargin).records().toArray.map(_.getAsString("name").get.v).sorted
 
-    Assert.assertEquals("Anthony Hopkins", res(0)("name").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("Helen Mirren", res(1)("name").asInstanceOf[LynxValue].value)
-    Assert.assertEquals("Hitchcock", res(2)("name").asInstanceOf[LynxValue].value)
+    Assert.assertEquals("Anthony Hopkins", res(0))
+    Assert.assertEquals("Helen Mirren", res(1))
+    Assert.assertEquals("Hitchcock", res(2))
   }
 }
