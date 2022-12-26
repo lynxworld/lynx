@@ -105,7 +105,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
         referenceProperty ++= res._2
         res._1
       }
-      case pm@PPTMerge(mergeSchema, mergeOps) => {
+      case pm@PPTMerge(mergeSchema, mergeOps, onMatch, onCreate) => {
         pm.children.head match {
           case pj2@PPTJoin(filterExpr, isSingleMatch, joinType) => {
             pm.withChildren(Seq(joinRecursion(pj2, ppc, isSingleMatch)))
