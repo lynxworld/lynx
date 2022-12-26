@@ -119,7 +119,7 @@ class C_Aggregating extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(LynxDuration.parse("P1DT2H22.5S") , records(0)("avg(dur)"))
+    Assert.assertEquals(LynxDuration("P1DT2H22.5S").toString , records(0)("avg(dur)").toString)
   }
 
   /*
@@ -374,6 +374,6 @@ class C_Aggregating extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals("P2DT4H45S", records(0)("sum(dur)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxDuration("P2DT4H45S").toString, records(0)("sum(dur)").toString)
   }
 }
