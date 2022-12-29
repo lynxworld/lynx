@@ -102,7 +102,8 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
             case (a: LynxString, b: LynxValue) => LynxString(a.value + b.toString)
             case (a: LynxList, b: LynxList) => LynxList(a.value ++ b.value)
             case (a: LynxLocalDateTime, b: LynxDuration) => LynxLocalDateTime(a.value.plus(b.value.toNanos, ChronoUnit.NANOS))
-            case (a: LynxDate, b: LynxDuration) => LynxDate(a.value.plus(b.value.toDays,ChronoUnit.DAYS))
+            case (a: LynxDate, b: LynxDuration) => LynxDate(a.value.plus(b.value.toDays, ChronoUnit.DAYS))
+            case (a: LynxDuration, b: LynxDuration) => LynxDuration(a.value.plus(b.value).toString)
           }).getOrElse(LynxNull)
 
       case Subtract(lhs, rhs) =>
@@ -110,7 +111,8 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           (lvalue, rvalue) match {
             case (a: LynxNumber, b: LynxNumber) => a - b
             case (a: LynxLocalDateTime, b: LynxDuration) => LynxLocalDateTime(a.value.minus(b.value.toNanos, ChronoUnit.NANOS))
-            case (a: LynxDate, b: LynxDuration) => LynxDate(a.value.minus(b.value.toDays,ChronoUnit.DAYS))
+            case (a: LynxDate, b: LynxDuration) => LynxDate(a.value.minus(b.value.toDays, ChronoUnit.DAYS))
+            case (a: LynxDuration, b: LynxDuration) => LynxDuration(a.value.minus(b.value).toString)
           }).getOrElse(LynxNull)
 
       case Ors(exprs) =>
