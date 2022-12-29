@@ -175,7 +175,11 @@ class Operators extends TestBase {
    */
   @Test
   def addAndSubTimeOpEx1(): Unit = {
-    val records = runOnDemoGraph("WITH localdatetime({ year:1984, month:10, day:11, hour:12, minute:31, second:14 }) AS aDateTime, duration({ years: 12, nanoseconds: 2 }) AS aDuration\nRETURN aDateTime + aDuration, aDateTime - aDuration")
+    val records = runOnDemoGraph(
+      """
+        |WITH localdatetime({ year:1984, month:10, day:11, hour:12, minute:31, second:14 }) AS aDateTime, duration({ years: 12, nanoseconds: 2 }) AS aDuration
+        |RETURN aDateTime + aDuration, aDateTime - aDuration
+        |""".stripMargin)
       .records()
       .map(f => Map("aDateTime + aDuration" -> f("aDateTime + aDuration").asInstanceOf[LynxLocalDateTime], "aDateTime - aDuration" -> f("aDateTime - aDuration").asInstanceOf[LynxLocalDateTime]))
       .toArray
@@ -186,17 +190,24 @@ class Operators extends TestBase {
 
   @Test
   def addAndSubTimeOpEx2(): Unit = {
-    val records = runOnDemoGraph("WITH date({ year:1984, month:10, day:11 }) AS aDate, duration({ years: 12, nanoseconds: 2 }) AS aDuration\nRETURN aDate + aDuration, aDate - aDuration")
+    val records = runOnDemoGraph(
+      """
+        |WITH date({ year:1984, month:10, day:11 }) AS aDate, duration({ years: 12, nanoseconds: 2 }) AS aDuration
+        |RETURN aDate + aDuration, aDate - aDuration
+        |""".stripMargin)
       .records()
       .map(f => Map("aDate + aDuration" -> f("aDate + aDuration").asInstanceOf[LynxDate], "aDate - aDuration" -> f("aDate - aDuration").asInstanceOf[LynxDate]))
       .toArray
-    val expectResult = Map("aDate + aDuration" -> LynxDate(LocalDate.parse("1996-10-11")), "aDateTime - aDuration" -> LynxDate(LocalDate.parse("1972-10-11")))
+    val expectResult = Map("aDate + aDuration" -> LynxDate(LocalDate.parse("1996-10-11")), "aDate - aDuration" -> LynxDate(LocalDate.parse("1972-10-11")))
     Assert.assertEquals(expectResult, records(0))
   }
 
   @Test
   def addAndSubTimeOpEx3(): Unit = {
-    val records = runOnDemoGraph("RETURN (date(\"2011-01-31\")+ duration(\"P1M\"))+ duration(\"P12M\") AS date1, date(\"2011-01-31\")+(duration(\"P1M\")+ duration(\"P12M\")) AS date2")
+    val records = runOnDemoGraph(
+      """
+        |RETURN (date("2011-01-31")+ duration("P1M"))+ duration("P12M") AS date1, date("2011-01-31")+(duration("P1M")+ duration("P12M")) AS date2
+        |""".stripMargin)
       .records()
       .map(f => Map("date1" -> f("date1").asInstanceOf[LynxDate], "date2" -> f("date2").asInstanceOf[LynxDate]))
       .toArray
@@ -210,7 +221,11 @@ class Operators extends TestBase {
    */
   @Test
   def addAndSubTimeOpEx4(): Unit = {
-    val records = runOnDemoGraph("WITH duration({ years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70, nanoseconds: 1 }) AS duration1, duration({ months:1, days: -14, hours: 16, minutes: -12, seconds: 70 }) AS duration2\nRETURN duration1, duration2, duration1 + duration2, duration1 - duration2")
+    val records = runOnDemoGraph(
+      """
+        |WITH duration({ years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70, nanoseconds: 1 }) AS duration1, duration({ months:1, days: -14, hours: 16, minutes: -12, seconds: 70 }) AS duration2
+        |RETURN duration1, duration2, duration1 + duration2, duration1 - duration2
+        |""".stripMargin)
       .records()
       .map(f => Map("duration1" -> f("duration1").value, "duration2" -> f("duration2").value, "duration1 + duration2" -> f("duration1 + duration2"), "duration1 - duration2" -> f("duration1 - duration2")))
       .toArray

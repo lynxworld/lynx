@@ -4,7 +4,7 @@ import org.grapheco.lynx.procedure.{ProcedureException, ProcedureExpression, Pro
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property._
 import org.grapheco.lynx.types.structural.{HasProperty, LynxNode, LynxNodeLabel, LynxPath, LynxPropertyKey, LynxRelationship, LynxRelationshipType}
-import org.grapheco.lynx.types.time.{LynxDateTime, LynxDuration, LynxLocalDateTime}
+import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxDuration, LynxLocalDateTime, LynxTemporalValue}
 import org.grapheco.lynx.types.{LynxValue, TypeSystem}
 import org.grapheco.lynx.LynxType
 import org.grapheco.lynx.runner.{GraphModel, NodeFilter, RelationshipFilter}
@@ -102,6 +102,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
             case (a: LynxString, b: LynxValue) => LynxString(a.value + b.toString)
             case (a: LynxList, b: LynxList) => LynxList(a.value ++ b.value)
             case (a: LynxLocalDateTime, b: LynxDuration) => LynxLocalDateTime(a.value.plus(b.value.toNanos, ChronoUnit.NANOS))
+            case (a: LynxDate, b: LynxDuration) => LynxDate(a.value.plus(b.value.toDays,ChronoUnit.DAYS))
           }).getOrElse(LynxNull)
 
       case Subtract(lhs, rhs) =>
@@ -109,6 +110,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           (lvalue, rvalue) match {
             case (a: LynxNumber, b: LynxNumber) => a - b
             case (a: LynxLocalDateTime, b: LynxDuration) => LynxLocalDateTime(a.value.minus(b.value.toNanos, ChronoUnit.NANOS))
+            case (a: LynxDate, b: LynxDuration) => LynxDate(a.value.minus(b.value.toDays,ChronoUnit.DAYS))
           }).getOrElse(LynxNull)
 
       case Ors(exprs) =>
