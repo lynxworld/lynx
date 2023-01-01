@@ -15,7 +15,7 @@ case class LynxPath(elements: Seq[LynxElement]) extends LynxValue {
 
   def isEmpty: Boolean = elements.isEmpty
 
-  def length: Int = relationships.v.length
+  def length: Int = relationships.length
 
   def reversed: LynxPath = new LynxPath(elements.reverse)
 
@@ -23,9 +23,9 @@ case class LynxPath(elements: Seq[LynxElement]) extends LynxValue {
 
   def firstRelationship: Option[LynxRelationship] = elements.lift(1).map(_.asInstanceOf[LynxRelationship])
 
-  def relationships: LynxList = LynxList(elements.filter(_.isInstanceOf[LynxRelationship]).map(_.asInstanceOf[LynxRelationship]).toList)
+  def relationships: List[LynxRelationship] = elements.collect{ case r:LynxRelationship => r}.toList
 
-  def nodes: LynxList = LynxList(elements.filter(_.isInstanceOf[LynxNode]).map(_.asInstanceOf[LynxNode]).toList)
+  def nodes: List[LynxNode] = elements.collect{ case r:LynxNode => r}.toList
 
   def trim: LynxPath = new LynxPath(elements.drop(1).dropRight(1))
 

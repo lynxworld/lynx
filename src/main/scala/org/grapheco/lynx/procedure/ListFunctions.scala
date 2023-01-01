@@ -46,18 +46,7 @@ class ListFunctions {
    */
   @LynxProcedure(name = "nodes")
   def nodes(inputs: LynxPath): LynxList = {
-    inputs.nodes
-//    def fetchNodeFromList(list: LynxList): LynxNode = {
-//      list.value.filter(item => item.isInstanceOf[LynxNode]).head.asInstanceOf[LynxNode]
-//    }
-//
-//    def fetchListFromList(list: LynxList): LynxList = {
-//      list.value.filter(item => item.isInstanceOf[LynxList]).head.asInstanceOf[LynxList]
-//    }
-//
-//    val list = fetchListFromList(inputs)
-//    if (list.value.nonEmpty) List(fetchNodeFromList(inputs)) ++ nodes(fetchListFromList(inputs))
-//    else List(fetchNodeFromList(inputs))
+    LynxList(inputs.nodes)
   }
 
   /**
@@ -81,9 +70,7 @@ class ListFunctions {
    */
   @LynxProcedure(name = "relationships")
   def relationships(inputs: LynxPath): LynxList = {
-    inputs.relationships
-//    val list: LynxList = inputs.value.tail.head.asInstanceOf[LynxList]
-//    list.value.filter(value => value.isInstanceOf[LynxRelationship]).asInstanceOf[List[LynxRelationship]].reverse
+    LynxList(inputs.relationships)
   }
 
   // TODO : reverse() tail()

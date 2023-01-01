@@ -301,6 +301,7 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
       case Some(Some(Range(a, b))) => (a.map(_.value.toInt).getOrElse(1), b.map(_.value.toInt).getOrElse(Int.MaxValue))
     }
 
+
     DataFrame(schema,
       () => {
         val paths = graphModel.paths(
@@ -309,7 +310,7 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
           runner.NodeFilter(labels3.map(_.name).map(LynxNodeLabel), props3.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
           direction, upperLimit, lowerLimit)
           if (length.isEmpty) paths.map{ path => Seq(path.startNode.get, path.firstRelationship.get, path.endNode.get)}
-          else paths.map{ path => Seq(path.startNode.get, path.relationships, path.endNode.get, path.trim)}
+          else paths.map{ path => Seq(path.startNode.get, LynxList(path.relationships), path.endNode.get, path.trim)}
       }
     )
   }
