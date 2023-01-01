@@ -73,12 +73,6 @@ trait LynxValue extends Comparable[LynxValue] {
     case _ => 0
   }
 
-  //  val ordering: Ordering[LynxValue] = (x: LynxValue, y: LynxValue) => {
-  //    val o1 = LynxValue.typeOrder(x)
-  //    val o2 = LynxValue.typeOrder(y)
-  //    if (o1 == o2) x.compareTo(y)
-  //    else o1 - o2
-  //  }
 
   override def compareTo(o: LynxValue): Int = {
     val o1 = typeOrder(this)

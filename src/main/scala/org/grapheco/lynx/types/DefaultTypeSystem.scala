@@ -71,12 +71,10 @@ class DefaultTypeSystem extends TypeSystem {
       s"{<id>: ${n.id}, ${n.keys.map{ key => key.toString+": "+ n.property(key).map(format).getOrElse(NULL_STRING)}.mkString(", ")}}"
     case r: LynxRelationship => s"${r.relationType.map(":"+_).getOrElse("")}{<id>: ${r.id}, <start>: ${r.startNodeId}, <end>: ${r.endNodeId}, " +
       s"${r.keys.map{ key => key.toString+": "+ r.property(key).map(format).getOrElse(NULL_STRING)}.mkString(", ")}}"
-//    case p: LynxPath => p.elements.map{
-//      case n: LynxNode => s"(${format(n)})"
-//      case r: LynxRelationship => r.{
-//        case
-//      }
-//    }
+    case p: LynxPath => p.elements.map{
+      case n: LynxNode => s"(${format(n)})"
+      case r: LynxRelationship => s"-[${r.relationType.map(":"+_).getOrElse("")+ "{"+r.keys.map{ key => key.toString+": "+ r.property(key).map(format).getOrElse(NULL_STRING)}.mkString(", ")}}]->" //TODO direction
+    }.reduce(_+_)
     case v => v.toString
   }
 }
