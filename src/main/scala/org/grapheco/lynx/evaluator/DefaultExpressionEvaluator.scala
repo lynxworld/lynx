@@ -13,7 +13,8 @@ import org.opencypher.v9_0.expressions.functions.{Collect, Id}
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTList, CTString, ListType}
 
-import java.time.temporal.ChronoUnit
+import java.time.{Duration, LocalDateTime}
+import java.time.temporal.{ChronoUnit, TemporalUnit}
 import scala.util.matching.Regex
 
 /**
@@ -24,6 +25,7 @@ import scala.util.matching.Regex
  * @Version 0.1
  */
 class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, procedures: ProcedureRegistry) extends ExpressionEvaluator {
+
   override def typeOf(expr: Expression, definedVarTypes: Map[String, LynxType]): LynxType = {
     expr match {
       case Parameter(name, parameterType) => parameterType
@@ -70,6 +72,13 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
   }
 
   override def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue = {
+    /*a mapping for time calculation */
+    val timeUnit: Map[String, TemporalUnit] = Map(
+      "years" -> ChronoUnit.YEARS, "months" -> ChronoUnit.MONTHS, "days" -> ChronoUnit.DAYS,
+      "hours" -> ChronoUnit.HOURS, "minutes" -> ChronoUnit.MINUTES, "seconds" -> ChronoUnit.SECONDS,
+      "milliseconds" -> ChronoUnit.MILLIS, "nanoseconds" -> ChronoUnit.NANOS
+    )
+
     expr match {
       case HasLabels(expression, labels) =>
         eval(expression) match {
@@ -93,6 +102,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         else fe.procedure.execute(fe.args.map(eval(_)))
       }
 
+
       case Add(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
           // TODO other cases
@@ -103,41 +113,28 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
             case (a: LynxList, b: LynxList) => LynxList(a.value ++ b.value)
             case (a: LynxLocalDateTime, b: LynxDuration) => {
               var aVal = a.value
-              b.map.foreach(f => {
-                if (f._1 == "years") {
-                  aVal = aVal.plusYears(f._2)
-                } else if (f._1 == "months") {
-                  aVal = aVal.plusMonths(f._2)
-                } else if (f._1 == "weeks") {
-                  aVal = aVal.plusWeeks(f._2)
-                } else if (f._1 == "days") {
-                  aVal = aVal.plusDays(f._2)
-                } else if (f._1 == "hours") {
-                  aVal = aVal.plusHours(f._2)
-                } else if (f._1 == "minutes") {
-                  aVal = aVal.plusMinutes(f._2)
-                } else if (f._1 == "seconds") {
-                  aVal = aVal.plusSeconds(f._2)
-                } else if (f._1 == "nanoseconds") {
-                  aVal = aVal.plusNanos(f._2)
-                }
-              })
+              b.map.foreach(f => aVal = aVal.plus(f._2.toLong, timeUnit.get(f._1).get))
               LynxLocalDateTime(aVal)
             }
             case (a: LynxDate, b: LynxDuration) => {
               var aVal = a.value
-              b.map.foreach(f=>{
-                if(f._1=="years"){
-                  aVal = aVal.plusYears(f._2)
-                }else if(f._1=="months"){
-                  aVal = aVal.plusMonths(f._2)
-                }else if(f._1=="days"){
-                  aVal = aVal.plusDays(f._2)
-                }
+              b.map.foreach(f => {
+                /*LynxDate not support time calculation with granularity below millisecond.*/
+                if (f._1 != "nanoseconds")
+                  aVal = aVal.plus(f._2.toLong, timeUnit.get(f._1).get)
               })
               LynxDate(aVal)
             }
-            case (a: LynxDuration, b: LynxDuration) => LynxDuration(a.value.plus(b.value).toString)
+
+            case (a: LynxDuration, b: LynxDuration) => {
+              var durationMap: Map[String, Double] = Map();
+              timeUnit.foreach(f => {
+                val tmp = a.map.getOrElse(f._1, 0) + b.map.getOrElse(f._1, 0)
+                if (tmp != 0)
+                  durationMap += (f._1 -> (tmp.toDouble))
+              })
+              LynxDuration.parse(durationMap)
+            }
           }).getOrElse(LynxNull)
 
       case Subtract(lhs, rhs) =>
@@ -147,40 +144,31 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
             case (a: LynxLocalDateTime, b: LynxDuration) => {
               var aVal = a.value
               b.map.foreach(f => {
-                if (f._1 == "years") {
-                  aVal = aVal.minusYears(f._2)
-                } else if (f._1 == "months") {
-                  aVal = aVal.minusMonths(f._2)
-                } else if (f._1 == "weeks") {
-                  aVal = aVal.minusWeeks(f._2)
-                } else if (f._1 == "days") {
-                  aVal = aVal.minusDays(f._2)
-                } else if (f._1 == "hours") {
-                  aVal = aVal.minusHours(f._2)
-                } else if (f._1 == "minutes") {
-                  aVal = aVal.minusMinutes(f._2)
-                } else if (f._1 == "seconds") {
-                  aVal = aVal.minusSeconds(f._2)
-                } else if (f._1 == "nanoseconds") {
-                  aVal = aVal.minusNanos(f._2)
-                }
+                aVal = aVal.minus(f._2.toLong, timeUnit.get(f._1).get)
               })
               LynxLocalDateTime(aVal)
             }
             case (a: LynxDate, b: LynxDuration) => {
               var aVal = a.value
-              b.map.foreach(f=>{
-                if(f._1=="years"){
-                  aVal = aVal.minusYears(f._2)
-                }else if(f._1=="months"){
-                  aVal = aVal.minusMonths(f._2)
-                }else if(f._1=="days"){
-                  aVal = aVal.minusDays(f._2)
-                }
+              b.map.foreach(f => {
+                /*LynxDate not support time calculation with granularity below millisecond.*/
+                if (f._1 != "nanoseconds")
+                  aVal = aVal.minus(f._2.toLong, timeUnit.get(f._1).get)
               })
               LynxDate(aVal)
             }
-            case (a: LynxDuration, b: LynxDuration) => LynxDuration(a.value.minus(b.value).toString)
+            case (a: LynxDuration, b: LynxDuration) => {
+              if (a.value.compareTo(b.value) < 0) {
+                throw new Exception("expression a-b, Duration a is less than b")
+              }
+              var durationMap: Map[String, Double] = Map();
+              timeUnit.foreach(f => {
+                val tmp = a.map.getOrElse(f._1, 0) - b.map.getOrElse(f._1, 0)
+                if (tmp != 0)
+                  durationMap += (f._1 -> (tmp.toDouble))
+              })
+              LynxDuration.parse(durationMap)
+            }
           }).getOrElse(LynxNull)
 
       case Ors(exprs) =>
