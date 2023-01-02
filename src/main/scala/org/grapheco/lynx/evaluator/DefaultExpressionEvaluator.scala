@@ -101,7 +101,29 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
             case (a: LynxString, b: LynxString) => LynxString(a.value + b.value)
             case (a: LynxString, b: LynxValue) => LynxString(a.value + b.toString)
             case (a: LynxList, b: LynxList) => LynxList(a.value ++ b.value)
-            case (a: LynxLocalDateTime, b: LynxDuration) => LynxLocalDateTime(a.value.plus(b.value.toNanos, ChronoUnit.NANOS))
+            case (a: LynxLocalDateTime, b: LynxDuration) => {
+              var aVal = a.value
+              b.map.foreach(f => {
+                if (f._1 == "years") {
+                  aVal = aVal.plusYears(f._2)
+                } else if (f._1 == "months") {
+                  aVal = aVal.plusMonths(f._2)
+                } else if (f._1 == "weeks") {
+                  aVal = aVal.plusWeeks(f._2)
+                } else if (f._1 == "days") {
+                  aVal = aVal.plusDays(f._2)
+                } else if (f._1 == "hours") {
+                  aVal = aVal.plusHours(f._2)
+                } else if (f._1 == "minutes") {
+                  aVal = aVal.plusMinutes(f._2)
+                } else if (f._1 == "seconds") {
+                  aVal = aVal.plusSeconds(f._2)
+                } else if (f._1 == "nanoseconds") {
+                  aVal = aVal.plusNanos(f._2)
+                }
+              })
+              LynxLocalDateTime(aVal)
+            }
             case (a: LynxDate, b: LynxDuration) => LynxDate(a.value.plus(b.value.toDays, ChronoUnit.DAYS))
             case (a: LynxDuration, b: LynxDuration) => LynxDuration(a.value.plus(b.value).toString)
           }).getOrElse(LynxNull)
@@ -110,7 +132,29 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
           (lvalue, rvalue) match {
             case (a: LynxNumber, b: LynxNumber) => a - b
-            case (a: LynxLocalDateTime, b: LynxDuration) => LynxLocalDateTime(a.value.minus(b.value.toNanos, ChronoUnit.NANOS))
+            case (a: LynxLocalDateTime, b: LynxDuration) => {
+              var aVal = a.value
+              b.map.foreach(f => {
+                if (f._1 == "years") {
+                  aVal = aVal.minusYears(f._2)
+                } else if (f._1 == "months") {
+                  aVal = aVal.minusMonths(f._2)
+                } else if (f._1 == "weeks") {
+                  aVal = aVal.minusWeeks(f._2)
+                } else if (f._1 == "days") {
+                  aVal = aVal.minusDays(f._2)
+                } else if (f._1 == "hours") {
+                  aVal = aVal.minusHours(f._2)
+                } else if (f._1 == "minutes") {
+                  aVal = aVal.minusMinutes(f._2)
+                } else if (f._1 == "seconds") {
+                  aVal = aVal.minusSeconds(f._2)
+                } else if (f._1 == "nanoseconds") {
+                  aVal = aVal.minusNanos(f._2)
+                }
+              })
+              LynxLocalDateTime(aVal)
+            }
             case (a: LynxDate, b: LynxDuration) => LynxDate(a.value.minus(b.value.toDays, ChronoUnit.DAYS))
             case (a: LynxDuration, b: LynxDuration) => LynxDuration(a.value.minus(b.value).toString)
           }).getOrElse(LynxNull)

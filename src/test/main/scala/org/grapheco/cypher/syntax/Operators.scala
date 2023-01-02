@@ -206,7 +206,8 @@ class Operators extends TestBase {
   def addAndSubTimeOpEx3(): Unit = {
     val records = runOnDemoGraph(
       """
-        |RETURN (date("2011-01-31")+ duration("P1M"))+ duration("P12M") AS date1, date("2011-01-31")+(duration("P1M")+ duration("P12M")) AS date2
+        |RETURN (date("2011-01-31")+ duration("P1M"))+ duration("P12M") AS date1,
+        | date("2011-01-31")+(duration("P1M")+ duration("P12M")) AS date2
         |""".stripMargin)
       .records()
       .map(f => Map("date1" -> f("date1").asInstanceOf[LynxDate], "date2" -> f("date2").asInstanceOf[LynxDate]))
