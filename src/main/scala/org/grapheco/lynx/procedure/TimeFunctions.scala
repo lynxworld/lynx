@@ -55,13 +55,31 @@ class TimeFunctions {
 //  }
 
   @LynxProcedure(name = "localdatetime")
-  def localDatetime(inputs: LynxValue): LynxLocalDateTime = {
-    LynxLocalDateTime.parse(inputs).asInstanceOf[LynxLocalDateTime]
+  def localDateTime(inputs: LynxValue): LynxLocalDateTime = {
+    inputs match {
+      case LynxString(v) => LynxLocalDateTime.parse(v)
+      case LynxMap(v) => LynxLocalDateTime.parse(v).asInstanceOf[LynxLocalDateTime]
+    }
   }
 
   @LynxProcedure(name = "localdatetime")
   def localDatetime(): LynxLocalDateTime = {
     LynxLocalDateTime.now()
+  }
+
+  @LynxProcedure(name = "localdatetime.statement")
+  def localDateTime_Statement(): LynxLocalDateTime = {
+    LynxLocalDateTime.now()
+  }
+
+  @LynxProcedure(name = "localdatetime.realtime")
+  def localDateTime_realtime(): LynxLocalDateTime = {
+    LynxLocalDateTime.now()
+  }
+
+  @LynxProcedure(name = "localdatetime.realtime")
+  def localdatetime_realtime(inputs: LynxValue): LynxLocalDateTime = {
+    LynxLocalDateTime.parse(Map("timezone" -> inputs)).asInstanceOf[LynxLocalDateTime]
   }
 
   @LynxProcedure(name = "time")
