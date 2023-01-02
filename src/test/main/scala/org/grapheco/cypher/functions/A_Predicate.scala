@@ -242,7 +242,7 @@ class A_Predicate extends TestBase {
         |RETURN p
         |""".stripMargin).records().map(f => f("p")).toArray
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(List(n1, LynxList(List(r2, n3, LynxList(List())))), records(0).value)
+    Assert.assertEquals(List(n1, r2, n3), records(0).value)
   }
 }
 

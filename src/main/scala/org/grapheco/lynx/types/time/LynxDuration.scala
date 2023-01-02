@@ -117,8 +117,8 @@ object LynxDuration {
       case "minute" => ((value / 60) % 60).toInt
       case "hour" => ((value / Math.pow(60, 2)) % 24).toInt
       case "day" => (((value / (Math.pow(60, 2) * 24)) % 365) % 30).toInt
-      case "month" => ((value / (Math.pow(60, 2) * 24 * 30)) % 12).toInt
-      case "year" => (value / (Math.pow(60, 2) * 24 * 30 * 12)).toInt
+      case "month" => (((value / (Math.pow(60, 2) * 24)) % 365) / 30).toInt
+      case "year" => (value / (Math.pow(60, 2) * 24 * 365)).toInt
     }
   }
 
@@ -147,24 +147,35 @@ object LynxDuration {
       case v => v * 60
     }
     val second_Second: Double = map.getOrElse("second", 0) match {
-      case 0 => 0
       case s => map.getOrElse("nanoOfSecond", 0) match {
         case 0 => s
         case n => s + (n / Math.pow(10, 9))
       }
+      case 0 => 0
     }
-    year_Second + month_Second + day_Second + hour_Second + minute_Second + second_Second
+    val s1 = year_Second + month_Second + day_Second + hour_Second + minute_Second + second_Second
+    s1
   }
 
-  def standardType(second: Double, scale: Int = 9): String = {
+  def standardType(second: Double, scale: Int = 9, map: Map[String, Double] = null): String = {
     val decimal = new BigDecimal(second - second.toInt)
     val nanoSecond = decimal.setScale(scale, BigDecimal.ROUND_HALF_UP).doubleValue
 
     var t_flag = ""
-    val nano_Str: String = nanoSecond match {
+    var nano_Str = "S"
+    nano_Str = nanoSecond match {
       case 0 => "S"
       case v => t_flag = "T"
         "." + v.toString.split("\\.")(1) + "S"
+    }
+    if (nano_Str == "S" && map != null && map.getOrElse("nanoseconds", 0) != 100) {
+      val digit: Int = map.getOrElse("nanoseconds", 0).toString.split("\\.")(0).length
+      val zeroDigit: String = "000000000" + map.getOrElse("nanoseconds", 0).toString.split("\\.")(0)
+      nano_Str = map.getOrElse("nanoseconds", 0) match {
+        case 0 => "S"
+        case v: Double => t_flag = "T"
+          "." + zeroDigit.substring(digit, digit + 9) + "S"
+      }
     }
     val second_Str: String = getRemainder(second, "second") match {
       case 0 if t_flag == "T" => "0" + nano_Str
@@ -296,7 +307,7 @@ object LynxDuration {
   }
 
   def parse(map: Map[String, Double]): LynxDuration = {
-    val duration_Str = standardType(toSecond(getDurationMap(map)))
+    val duration_Str = standardType(toSecond(getDurationMap(map)), 9, map)
     if (valid(duration_Str)) {
       if (map.mapValues(_.toInt.toDouble).equals(map)) {
         LynxDuration(duration_Str, map.mapValues(_.toInt))
