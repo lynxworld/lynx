@@ -124,7 +124,19 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
               })
               LynxLocalDateTime(aVal)
             }
-            case (a: LynxDate, b: LynxDuration) => LynxDate(a.value.plus(b.value.toDays, ChronoUnit.DAYS))
+            case (a: LynxDate, b: LynxDuration) => {
+              var aVal = a.value
+              b.map.foreach(f=>{
+                if(f._1=="years"){
+                  aVal = aVal.plusYears(f._2)
+                }else if(f._1=="months"){
+                  aVal = aVal.plusMonths(f._2)
+                }else if(f._1=="days"){
+                  aVal = aVal.plusDays(f._2)
+                }
+              })
+              LynxDate(aVal)
+            }
             case (a: LynxDuration, b: LynxDuration) => LynxDuration(a.value.plus(b.value).toString)
           }).getOrElse(LynxNull)
 
@@ -155,7 +167,19 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
               })
               LynxLocalDateTime(aVal)
             }
-            case (a: LynxDate, b: LynxDuration) => LynxDate(a.value.minus(b.value.toDays, ChronoUnit.DAYS))
+            case (a: LynxDate, b: LynxDuration) => {
+              var aVal = a.value
+              b.map.foreach(f=>{
+                if(f._1=="years"){
+                  aVal = aVal.minusYears(f._2)
+                }else if(f._1=="months"){
+                  aVal = aVal.minusMonths(f._2)
+                }else if(f._1=="days"){
+                  aVal = aVal.minusDays(f._2)
+                }
+              })
+              LynxDate(aVal)
+            }
             case (a: LynxDuration, b: LynxDuration) => LynxDuration(a.value.minus(b.value).toString)
           }).getOrElse(LynxNull)
 
