@@ -11,7 +11,7 @@ import org.grapheco.lynx.util.LynxTemporalParser.splitDateTime
 import org.grapheco.lynx.util.{LynxTemporalParseException, LynxTemporalParser}
 import org.opencypher.v9_0.util.symbols.CTLocalDateTime
 
-import java.time.LocalDateTime
+import java.time.{LocalDateTime, ZoneId, ZonedDateTime}
 import java.util.{Calendar, GregorianCalendar}
 
 /**
@@ -86,6 +86,8 @@ case class LynxLocalDateTime(localDateTime: LocalDateTime) extends LynxTemporalV
 
 object LynxLocalDateTime extends LynxTemporalParser {
   def now(): LynxLocalDateTime = LynxLocalDateTime(LocalDateTime.now())
+
+  def now(zoneId: ZoneId): LynxLocalDateTime = LynxLocalDateTime(LocalDateTime.now(zoneId))
 
   def of(localDateTime: LocalDateTime): LynxLocalDateTime = LynxLocalDateTime(localDateTime)
 
