@@ -3,6 +3,7 @@ package org.grapheco.lynx.logical
 import org.grapheco.lynx.dataframe.{InnerJoin, JoinType, LeftJoin, OuterJoin}
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions._
+import org.opencypher.v9_0.parser.CypherParser.Union
 
 //pipelines a set of LPTNodes
 case class PipedTranslators(items: Seq[LPTNodeTranslator]) extends LPTNodeTranslator {
@@ -126,10 +127,17 @@ case class LPTQueryPartTranslator(part: QueryPart) extends LPTNodeTranslator {
             case d: Delete => LPTDeleteTranslator(d)
             case s: SetClause => LPTSetClauseTranslator(s)
             case r: Remove => LPTRemoveTranslator(r)
+            //case f: Foreach
           }
         ).translate(in)
+      case UnionAll(part, query) => LPTUnion(distinct = false)(LPTQueryPartTranslator(part).translate(None), LPTQueryPartTranslator(query).translate(None))
+      case UnionDistinct(part, query) => LPTUnion(distinct = true)(LPTQueryPartTranslator(part).translate(None), LPTQueryPartTranslator(query).translate(None))
     }
   }
+}
+
+case class LPTUnion(distinct: Boolean)(val a: LPTNode, val b: LPTNode) extends LPTNode {
+  override val children: Seq[LPTNode] = Seq(a,b)
 }
 
 ///////////////with,return////////////////

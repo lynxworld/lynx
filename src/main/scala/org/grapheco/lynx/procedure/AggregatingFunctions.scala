@@ -165,7 +165,7 @@ class AggregatingFunctions {
           throw ProcedureException(s"sum() can only handle numerical values, duration, and null. Got ${v}")
         }
       }
-      if (firstIsNum.get) LynxFloat(numSum) else LynxDuration(durSum.toString)
+      if (firstIsNum.get) LynxFloat(numSum) else LynxDuration.parse(durSum.toString,false)
     } else {
       LynxNull
     }

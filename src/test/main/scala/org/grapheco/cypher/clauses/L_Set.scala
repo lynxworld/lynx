@@ -206,13 +206,12 @@ class L_Set extends TestBase{
 
   @Test
   def setAPropertyUsingAParameter(): Unit = {
-    val surName = "Taylor"
     val records = runOnDemoGraph(
-      s"""
+      """
          |MATCH (n { name: 'Andy' })
-         |SET n.surname = "$surName"
+         |SET n.surname = $surName
          |RETURN n.name, n.surname
-         |""".stripMargin).records().toArray
+         |""".stripMargin, Map("surName" -> "Taylor")).records().toArray
 
     Assert.assertEquals(1, records.length)
     Assert.assertEquals("Andy", records.head("n.name").asInstanceOf[LynxValue].value)
@@ -226,7 +225,7 @@ class L_Set extends TestBase{
         |MATCH (n { name: 'Andy' })
         |SET n = $props
         |RETURN n.name, n.position, n.age, n.hungry
-        |""".stripMargin).records().toArray
+        |""".stripMargin, Map("props"->Map("name"->"Andy", "position"->"Developer"))).records().toArray
 
     Assert.assertEquals(1, records.length)
     Assert.assertEquals("Andy", records.head("n.name").asInstanceOf[LynxValue].value)

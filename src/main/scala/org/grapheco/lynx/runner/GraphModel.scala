@@ -163,24 +163,27 @@ trait GraphModel {
             endNodeFilter: NodeFilter,
             direction: SemanticDirection,
             upperLimit: Int,
-            lowerLimit: Int, startFrom: Int = 0): Iterator[LynxPath] = {
+            lowerLimit: Int): Iterator[LynxPath] = {
     val originStations = nodes(startNodeFilter)
     originStations.flatMap{ originStation =>
       val firstStop = expandNonStop(originStation, relationshipFilter, direction, lowerLimit)
       val leftSteps = Math.min(upperLimit, 100) - lowerLimit // TODO set a super upperLimit
       firstStop.flatMap(p => extendPath(p, relationshipFilter, direction, leftSteps))
     }.filter(_.endNode.forall(endNodeFilter.matches))
+      .filter(path => if (direction==BOTH) pathCheck(path) else true)
   }
-//  }(direction match {
-//      case BOTH => relationships().flatMap(item =>
-//        Seq(item, item.revert))
-//      case INCOMING => relationships().map(_.revert)
-//      case OUTGOING => relationships()
-//    }).filter {
-//      case PathTriple(startNode, rel, endNode, _) =>
-//        relationshipFilter.matches(rel) && startNodeFilter.matches(startNode) && endNodeFilter.matches(endNode)
-//    }
-//  }
+
+  /*
+    check cycle path when direction is BOTH
+    (n1)-[r1]-[n2]-[r2]-(n3) return True
+    (n1)-[r1]-[n2]-[r1]-(n1) return False
+   */
+  def pathCheck(lynxPath: LynxPath): Boolean ={
+    val rels = lynxPath.relationships // [r1,r2,r2]
+    rels.dropRight(1) // [r1,r2]
+      .zip(rels.drop(1)) // [(r1,r2), (r2,r2)]
+      .forall{ case(r1,r2) => r1!=r2}
+  }
 
   /**
    * Take a node as the starting or ending node and expand in a certain direction.
@@ -218,8 +221,17 @@ trait GraphModel {
   def expand(id: LynxId, filter: RelationshipFilter, direction: SemanticDirection): Iterator[PathTriple] =
     expand(id, direction).filter(t => filter.matches(t.storedRelation))
 
+  /*
+      Zero length paths
+
+      Using variable length paths that have the lower bound zero means that two variables can point to
+      the same node. If the path length between two nodes is zero, they are by definition the same node.
+      Note that when matching zero length paths the result may contain a match even when matching on a
+      relationship type not in use.
+   */
   def expandNonStop(start: LynxNode, relationshipFilter: RelationshipFilter, direction: SemanticDirection, steps: Int): Iterator[LynxPath] = {
-    if (steps <= 0) return Iterator(LynxPath.EMPTY)
+    if (steps < 0) return Iterator(LynxPath.EMPTY)
+    if (steps == 0) return Iterator(LynxPath.startPoint(start))
 //    expand(start.id, relationshipFilter, direction).flatMap{ triple =>
 //      expandNonStop(triple.endNode, relationshipFilter, direction, steps - 1).map{_.connectLeft(triple.toLynxPath)}
 //    }
