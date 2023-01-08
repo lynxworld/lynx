@@ -80,7 +80,7 @@ class TestList extends TestBase {
   @Test
   def listsInGeneral_5(): Unit = {
     val records = runOnDemoGraph("RETURN range(0, 10)[0..-5]").records().map(f => f("range(0, 10)[0..-5]").asInstanceOf[LynxList].value).toArray
-    compareArray(Array.range(0,7).map(f=>LynxValue(f)),records(0).toArray)
+    compareArray(Array.range(0,6).map(f=>LynxValue(f)),records(0).toArray)
   }
 
   @Test
