@@ -130,15 +130,19 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
               })
               LynxDate(aVal)
             }
-
             case (a: LynxDuration, b: LynxDuration) => { //TODO replace it with a+b, this will rewrite LynxDuration
               var durationMap: Map[String, Double] = Map();
               timeUnit.foreach(f => {
                 val tmp = a.map.getOrElse(f._1, 0) + b.map.getOrElse(f._1, 0)
                 if (tmp != 0)
-                  durationMap += (f._1 -> (tmp.toDouble))
+                  durationMap += (f._1 -> tmp.toDouble)
               })
               LynxDuration.parse(durationMap)
+            }
+            case (a:LynxDateTime,b:LynxDuration)=>{
+              var aVal = a.value
+              b.map.foreach(f => aVal = aVal.plus(f._2.toLong, timeUnit.get(f._1).get))
+              LynxDateTime(aVal)
             }
           }).getOrElse(LynxNull)
 
@@ -173,6 +177,11 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
                   durationMap += (f._1 -> (tmp.toDouble))
               })
               LynxDuration.parse(durationMap)
+            }
+            case (a:LynxDateTime,b:LynxDuration)=>{
+              var aVal = a.value
+              b.map.foreach(f => aVal = aVal.minus(f._2.toLong, timeUnit.get(f._1).get))
+              LynxDateTime(aVal)
             }
           }).getOrElse(LynxNull)
 
