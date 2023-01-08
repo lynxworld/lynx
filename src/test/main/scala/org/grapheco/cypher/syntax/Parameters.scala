@@ -8,15 +8,16 @@ import org.junit.{Assert, Before, Test}
 
 import scala.collection.mutable.ArrayBuffer
 
-class Parameters extends TestBase{
+class Parameters extends TestBase {
 
   val nodeInput = ArrayBuffer[(String, NodeInput)]()
   val relationshipInput = ArrayBuffer[(String, RelationshipInput)]()
 
-  val n1 = TestNode(TestId(1), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name")-> LynxValue("Johan")))
-  val n2 = TestNode(TestId(2), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name")-> LynxValue("Michael")))
-  val n3 = TestNode(TestId(3), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name")-> LynxValue("michael")))
-  val n4 = TestNode(TestId(4), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name")-> LynxValue("Bob")))
+  val n1 = TestNode(TestId(1), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name") -> LynxValue("Johan")))
+  val n2 = TestNode(TestId(2), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name") -> LynxValue("Michael")))
+  val n3 = TestNode(TestId(3), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name") -> LynxValue("michael")))
+  val n4 = TestNode(TestId(4), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name") -> LynxValue("Bob")))
+
   @Before
   def init(): Unit = {
     all_nodes.clear()
@@ -40,13 +41,13 @@ class Parameters extends TestBase{
         |MATCH (n:Person)
         |WHERE n.name = $name
         |RETURN n
-        |""".stripMargin,Map(("name"->"Johan"))).records().map(f => f("n").asInstanceOf[TestNode]).toArray
+        |""".stripMargin, Map(("name" -> "Johan"))).records().map(f => f("n").asInstanceOf[TestNode]).toArray
     Assert.assertEquals(n1, records(0))
   }
 
   @Test
   def stringLiteral_2(): Unit = {
-    val records =  runOnDemoGraph(
+    val records = runOnDemoGraph(
       """
         |MATCH (n:Person { name: $name })
         |RETURN n
@@ -55,20 +56,20 @@ class Parameters extends TestBase{
   }
 
   @Test
-  def regularExpression():Unit = {
-    val records =  runOnDemoGraph(
+  def regularExpression(): Unit = {
+    val records = runOnDemoGraph(
       """
         |MATCH (n:Person)
         |WHERE n.name =~ $regex
         |RETURN n.name
         |""".stripMargin, Map(("regex" -> ".*h.*"))).records().map(f => f("n.name").asInstanceOf[LynxValue].value).toArray
     Assert.assertEquals(3, records.length)
-    Assert.assertEquals(Set( "Johan","Michael","michael"), records.toSet)
+    Assert.assertEquals(Set("Johan", "Michael", "michael"), records.toSet)
   }
 
   @Test
   def caseSensitiveStringPatternMatching(): Unit = {
-    val records =  runOnDemoGraph(
+    val records = runOnDemoGraph(
       """
         |MATCH (n:Person)
         |WHERE n.name STARTS WITH $name
@@ -81,12 +82,19 @@ class Parameters extends TestBase{
   @Test
   def createNodeWithProperties(): Unit = {
     val num = nodeInput.length
-    val records = runOnDemoGraph(
+    val _ = runOnDemoGraph(
       """
         |CREATE ($props)
-        |""".stripMargin, Map("props" -> List(Map("name" -> "Andy"), Map("position" -> "Developer")))).records().map(f => f("n").asInstanceOf[TestNode]).toArray
+        |""".stripMargin, Map("props" -> Map("name" -> "Andy", "position" -> "Developer")))
+    /*after create node,check node whether not or exist*/
+    val records = runOnDemoGraph(
+      """
+        |MATCH (n)
+        |WHERE n.name='Andy'
+        |RETURN n
+        |""".stripMargin).records().map(f => f("n").asInstanceOf[TestNode]).toArray
     Assert.assertEquals(num + 1, all_nodes.size)
-    Assert.assertEquals("Andy",records(0).props(LynxPropertyKey("name")).toString)
+    Assert.assertEquals("Andy", records(0).props(LynxPropertyKey("name")).toString)
   }
 
   @Test
@@ -98,14 +106,14 @@ class Parameters extends TestBase{
         |CREATE (n:Person)
         |SET n = properties
         |RETURN n
-        |""".stripMargin, Map("props" -> List(Map("awesome" -> "true","name" -> "Andy","position" -> "Developer"),
-        Map("children" -> "3","name" -> "Michael","position" -> "Developer"))))
+        |""".stripMargin, Map("props" -> List(Map("awesome" -> "true", "name" -> "Andy", "position" -> "Developer"),
+        Map("children" -> "3", "name" -> "Michael", "position" -> "Developer"))))
       .records().map(f => f("n").asInstanceOf[TestNode]).toArray
 
     Assert.assertEquals(num + 2, all_nodes.size)
     Assert.assertEquals(2, records.length)
-    Assert.assertEquals("Andy",records(0).props(LynxPropertyKey("name")).toString)
-    Assert.assertEquals("Michael",records(1).props(LynxPropertyKey("name")).toString)
+    Assert.assertEquals("Andy", records(0).props(LynxPropertyKey("name")).toString)
+    Assert.assertEquals("Michael", records(1).props(LynxPropertyKey("name")).toString)
   }
 
   @Test
@@ -119,8 +127,8 @@ class Parameters extends TestBase{
       Map("props" -> List(Map("name" -> "Andy"), Map("position" -> "Developer"))))
       .records().map(f => f("n").asInstanceOf[TestNode]).toArray
 
-    Assert.assertEquals("Andy",records(0).props(LynxPropertyKey("name")).toString)
-    Assert.assertEquals("Developer",records(0).props(LynxPropertyKey("position")).toString)
+    Assert.assertEquals("Andy", records(0).props(LynxPropertyKey("name")).toString)
+    Assert.assertEquals("Developer", records(0).props(LynxPropertyKey("position")).toString)
   }
 
   @Test
@@ -131,7 +139,7 @@ class Parameters extends TestBase{
         |RETURN n.name
         |SKIP $s
         |LIMIT $l
-        |""".stripMargin,Map("s" -> 1,"l" -> 1)).records().map(f => f("n.name").asInstanceOf[LynxValue].value).toArray
+        |""".stripMargin, Map("s" -> 1, "l" -> 1)).records().map(f => f("n.name").asInstanceOf[LynxValue].value).toArray
     Assert.assertEquals(1, records.length)
     Assert.assertEquals(Set("michael"), records.toSet)
   }
@@ -155,7 +163,7 @@ class Parameters extends TestBase{
         |MATCH (n)
         |WHERE id(n) IN $ids
         |RETURN n.name
-        |""".stripMargin, Map("ids" -> List(1,2,3))).records().map(f => f("n.name").asInstanceOf[LynxValue].value).toArray
+        |""".stripMargin, Map("ids" -> List(1, 2, 3))).records().map(f => f("n.name").asInstanceOf[LynxValue].value).toArray
     Assert.assertEquals(3, records.length)
     Assert.assertEquals(Set("Johan", "Michael", "michael"), records.toSet)
   }
