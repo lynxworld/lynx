@@ -185,7 +185,11 @@ class TestList extends TestBase {
       }
     )
 
-    val records = runOnDemoGraph("MATCH (a:Person { name: 'Keanu Reeves' })\nRETURN [(a)-->(b) WHERE b:Movie | b.released] AS years").records()
+    val records = runOnDemoGraph("" +
+      """
+        |MATCH (a:Person { name: 'Keanu Reeves' })
+        |RETURN [(a)-[r:ACTION_IN]->(b) WHERE b:Movie | b.released] AS years
+        |""".stripMargin).records()
       .map(f => f("years").asInstanceOf[LynxList].value).toArray
 
     val expectResult = List(1997, 1999, 2000, 2003, 2003, 2003, 1995)

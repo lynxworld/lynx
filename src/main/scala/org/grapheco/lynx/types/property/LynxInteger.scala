@@ -44,5 +44,11 @@ case class LynxInteger(v: Long) extends LynxNumber {
     }
   }
 
+  def %(that: LynxNumber): LynxInteger = {
+    that match {
+      case LynxInteger(v2)=> LynxInteger(v%v2)
+    }
+  }
+
   def lynxType: IntegerType = CTInteger
 }
