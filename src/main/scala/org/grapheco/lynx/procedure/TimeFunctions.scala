@@ -221,14 +221,15 @@ class TimeFunctions {
 
 
   @LynxProcedure(name = "date.truncate")
-  def dateTruncate(unitStr: LynxString, dateValue: LynxDateTime, mapOfComponents: LynxMap): LynxDate = {
+  def dateTruncate(unitStr: LynxString, dateValue: LynxValue, mapOfComponents: LynxMap): LynxDate = {
     LynxDate.parse(Map("unitStr" -> unitStr, "dateValue" -> dateValue, "mapOfComponents" -> mapOfComponents))
   }
 
   @LynxProcedure(name = "date.truncate")
-  def dateTruncate(unitStr: LynxString, dateValue: LynxDateTime): LynxDate = {
+  def dateTruncate(unitStr: LynxString, dateValue: LynxValue): LynxDate = {
     LynxDate.parse(Map("unitStr" -> unitStr, "dateValue" -> dateValue))
   }
+
 
   @LynxProcedure(name = "datetime.truncate")
   def datetimeTruncate(): LynxDate = {

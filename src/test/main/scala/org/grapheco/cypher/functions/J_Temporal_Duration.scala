@@ -12,7 +12,15 @@ import org.junit.{Assert, Test}
  */
 class J_Temporal_Duration extends TestBase {
 
+  @Test
+  def test(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |WITH duration({ years: 12, nanoseconds: 2 }) AS aDuration
+        |RETURN aDuration
+        |""".stripMargin).records().toArray
 
+  }
   @Test
   def creatingDurationFromDurationComponents(): Unit = {
     val records = runOnDemoGraph(

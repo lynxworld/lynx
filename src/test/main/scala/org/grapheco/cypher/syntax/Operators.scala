@@ -227,12 +227,15 @@ class Operators extends TestBase {
         |WITH duration({ years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70, nanoseconds: 1 }) AS duration1, duration({ months:1, days: -14, hours: 16, minutes: -12, seconds: 70 }) AS duration2
         |RETURN duration1, duration2, duration1 + duration2, duration1 - duration2
         |""".stripMargin)
-      .records()
-      .map(f => Map("duration1" -> f("duration1").value, "duration2" -> f("duration2").value, "duration1 + duration2" -> f("duration1 + duration2"), "duration1 - duration2" -> f("duration1 - duration2")))
-      .toArray
-    val expectResult = Map("duration1" -> LynxValue("P12Y5M14DT16H13M10.000000001S"), "duration2" -> LynxValue("P1M-14DT15H49M10S"), "duration1 + duration2" -> LynxValue("P12Y6MT32H2M20.000000001S"), "duration1 - duration2" -> LynxValue("P12Y4M28DT24M0.000000001S"))
-    Assert.assertEquals(expectResult, records(0))
+      .records().toArray
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals("P12Y5M14DT16H13M10.000000001S", records(0)("duration1").toString)
+    Assert.assertEquals("P1M-14DT15H49M10S", records(0)("duration2").toString)
+    Assert.assertEquals("P12Y6MT32H2M20.000000001S", records(0)("duration1 + duration2").toString)
+    Assert.assertEquals("P12Y4M28DT24M0.000000001S", records(0)("duration1 - duration2").toString)
+
   }
+
 
   /**
    * 8.3
@@ -240,12 +243,12 @@ class Operators extends TestBase {
   @Test
   def multiAndDivTime(): Unit = {
     val records = runOnDemoGraph("WITH duration({ days: 14, minutes: 12, seconds: 70, nanoseconds: 1 }) AS aDuration\nRETURN aDuration, aDuration * 2, aDuration / 3")
-      .records()
-      .map(f => Map("aDuration" -> f("aDuration").value, "aDuration * 2" -> f("aDuration * 2").value, "aDuration / 3" -> f("aDuration / 3").value))
-      .toArray
+      .records().toArray
 
-    val expectResult = Map("aDuration" -> "P14DT13M10.000000001S", "aDuration * 2" -> "P28DT26M20.000000002S", "aDuration / 3" -> "P4DT16H4M23.333333333S")
-    Assert.assertEquals(expectResult, records)
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals("P14DT13M10.000000001S", records(0)("aDuration").toString)
+    Assert.assertEquals("P28DT26M20.000000002S", records(0)("aDuration * 2").toString)
+    Assert.assertEquals("P4DT16H4M23.333333333S", records(0)("aDuration / 3").toString)
   }
 
 
