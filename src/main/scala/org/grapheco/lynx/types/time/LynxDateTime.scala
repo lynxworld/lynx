@@ -26,7 +26,12 @@ case class LynxDateTime(zonedDateTime: ZonedDateTime) extends LynxTemporalValue 
 
   def lynxType: DateTimeType = CTDateTime
 
-  override def sameTypeCompareTo(o: LynxValue): Int = ???
+  override def sameTypeCompareTo(o: LynxValue): Int = {
+    o match {
+      case x:LynxDateTime=>zonedDateTime.compareTo(x.value)
+      case _=>throw new Exception(s"expect type LynxDateTime,but find ${o.getClass.getTypeName}")
+    }
+  }
 
 
   //LynxComponentDate
