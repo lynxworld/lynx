@@ -27,6 +27,8 @@ case class LynxPath(elements: Seq[LynxElement]) extends LynxValue {
 
   def nodes: List[LynxNode] = elements.collect{ case r:LynxNode => r}.toList
 
+  def nodeIds: List[LynxId] = nodes.map(_.id)
+
   def trim: LynxPath = new LynxPath(elements.drop(1).dropRight(1))
 
   def endNode: Option[LynxNode] = elements.lastOption.map(_.asInstanceOf[LynxNode])

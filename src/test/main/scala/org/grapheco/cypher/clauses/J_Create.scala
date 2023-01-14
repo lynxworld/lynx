@@ -151,7 +151,10 @@ class J_Create extends TestBase{
       """
         |CREATE (n:Person $props)
         |RETURN n
-        |""".stripMargin)
+        |""".stripMargin, Map("props" -> Map(
+        "name" -> "Andy",
+        "position" -> "Developer"
+      )))
     Assert.assertEquals(num + 1, all_nodes.size)
   }
 
@@ -164,7 +167,14 @@ class J_Create extends TestBase{
         |UNWIND $props AS map
         |CREATE (n)
         |SET n = map
-        |""".stripMargin)
+        |""".stripMargin, Map("props" -> List(
+          Map(
+            "name"-> "Andy",
+            "position"-> "Developer"
+          ), Map(
+            "name"-> "Michael",
+            "position"-> "Developer"
+        ))))
     Assert.assertEquals(numNode + 2, all_nodes.size)
     Assert.assertEquals(numRels + 4, all_rels.size)
   }

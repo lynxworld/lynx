@@ -240,10 +240,10 @@ class A_Match extends TestBase{
 
     val records = runOnDemoGraph(
       """
-        |MATCH p = (charlie:Person)-[* ]-(martin:Person)
+        |MATCH p = (charlie:Person)-[* { blocked:false }]-(martin:Person)
         |WHERE charlie.name = 'Charlie Sheen' AND martin.name = 'Martin Sheen'
         |RETURN p
-        |""".stripMargin).records()
+        |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
     //should get: (0)-[X,7]->(7)<-[X,8]-(1)
