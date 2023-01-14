@@ -284,7 +284,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
             // TODO: Make sure the
             case (a: LynxNumber, b: LynxNumber) => LynxBoolean(a.number.doubleValue() > b.number.doubleValue())
             case (a: LynxString, b: LynxString) => LynxBoolean(a.value > b.value)
-            case _ => LynxBoolean(lvalue > rvalue)
+            case _ => if (lvalue.getClass != rvalue.getClass) LynxNull else LynxBoolean(lvalue > rvalue)
           }
         }).getOrElse(LynxNull)
 
@@ -413,6 +413,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       //Only One-hop path-pattern is supported now
       case PatternExpression(pattern) => { // TODO
+        
         val rightNode: NodePattern = pattern.element.rightNode
         val relationship: RelationshipPattern = pattern.element.relationship
         val leftNode: NodePattern = if (pattern.element.element.isSingleNode) {
@@ -421,15 +422,13 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           throw EvaluatorException(s"PatternExpression is not fully supproted.")
         }
 
-        //        val exist: Boolean = graphModel.paths(
-        //          _transferNodePatternToFilter(leftNode),
-        //          _transferRelPatternToFilter(relationship),
-        //          _transferNodePatternToFilter(rightNode),
-        //          relationship.direction, 1, 1
-        //        ).filter(path => if (leftNode.variable.nonEmpty) path.startNode.compareTo(eval(leftNode.variable.get)) == 0 else true)
-        //          .filter(path => if (rightNode.variable.nonEmpty) path.endNode.compareTo(eval(rightNode.variable.get)) == 0 else true).nonEmpty
-
-        val exist = false
+        val exist: Boolean = graphModel.paths(
+          _transferNodePatternToFilter(leftNode),
+          _transferRelPatternToFilter(relationship),
+          _transferNodePatternToFilter(rightNode),
+          relationship.direction, 1, 1
+        ).exists(path => leftNode.variable.map(eval).forall(_.equals(path.startNode.orNull))  &&
+         rightNode.variable.map(eval).forall(_.equals(path.endNode.orNull)))
         LynxBoolean(exist)
       }
 

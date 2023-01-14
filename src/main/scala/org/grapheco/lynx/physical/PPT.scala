@@ -19,7 +19,11 @@ import org.opencypher.v9_0.util.symbols.{CTAny, CTList, CTNode, CTPath, CTRelati
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.language.postfixOps
+import scala.language.{implicitConversions, postfixOps}
+
+object Trans{
+  implicit def labelToLynxLabel(l: LabelName): LynxNodeLabel = LynxNodeLabel(l.name)
+}
 
 case class PPTPatternMatchTranslator(patternMatch: LPTPatternMatch)(implicit val plannerContext: PhysicalPlannerContext) extends PPTNodeTranslator {
   private def planPatternMatch(pm: LPTPatternMatch)(implicit ppc: PhysicalPlannerContext): PPTNode = {
@@ -692,19 +696,12 @@ case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[FormalElemen
         ops.foreach {
           case FormalNode(varName: String, labels: Seq[LabelName], properties: Option[Expression]) =>
             if (!ctxMap.contains(varName) && !nodesInput.exists(_._1 == varName)) {
-              nodesInput += varName -> NodeInput(labels.map(_.name).map(LynxNodeLabel), properties.map {
-                case MapExpression(items) =>
-                  items.map({
-                    case (k, v) => LynxPropertyKey(k.name) -> eval(v)(ec.withVars(ctxMap))
-                  })
-                case Parameter(props, param) =>
-                  val propertyMap: LynxMap = ec.param(props) match {
-                    case a: LynxMap => a
-                  }
-                  propertyMap.v.toSeq.map({
-                    case (k, v) => LynxPropertyKey(k) -> LynxValue(v)
-                  })
-              }.getOrElse(Seq.empty))
+              nodesInput += varName ->
+                NodeInput(labels.map(Trans.labelToLynxLabel),
+                  properties.map(eval(_)(ec.withVars(ctxMap))).map {
+                    case LynxMap(m) => m.map{ case (str, value) => LynxPropertyKey(str) -> value}.toSeq
+                    case _ => throw SyntaxErrorException("Property should be a Map.")
+                  }.getOrElse(Seq.empty))
             }
 
           case FormalRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) =>
@@ -718,12 +715,12 @@ case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[FormalElemen
               )
             }
 
-            relsInput += varName -> RelationshipInput(types.map(_.name).map(LynxRelationshipType), properties.map {
-              case MapExpression(items) =>
-                items.map({
-                  case (k, v) => LynxPropertyKey(k.name) -> eval(v)(ec.withVars(ctxMap))
-                })
-            }.getOrElse(Seq.empty[(LynxPropertyKey, LynxValue)]), nodeInputRef(varNameLeftNode), nodeInputRef(varNameRightNode))
+            relsInput += varName ->
+              RelationshipInput(types.map(_.name).map(LynxRelationshipType),
+                properties.map(eval(_)(ec.withVars(ctxMap))).map {
+                  case LynxMap(m) => m.map { case (str, value) => LynxPropertyKey(str) -> value }.toSeq
+                  case _ => throw SyntaxErrorException("Property should be a Map.")
+                }.getOrElse(Seq.empty), nodeInputRef(varNameLeftNode), nodeInputRef(varNameRightNode))
         }
 
         record ++ graphModel.createElements(
@@ -796,25 +793,23 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
-
+    val records = df.records.toList // danger!
     // This func return a seq. Item of the seq is composed of colIndex and the updated value on this column.
     val updatedColumns: Seq[(Int, Iterator[LynxValue])] = setItems.map {
       case sl@SetLabelItem(variable, labels) => {
         val colIndex: Int = df.schema.indexOf((variable.name, LynxNode.lynxType))
-        val nodeIds: Iterator[LynxId] = df.records.map(row => row(colIndex).asInstanceOf[LynxNode].id)
+        val nodeIds: Iterator[LynxId] = records.map(row => row(colIndex).asInstanceOf[LynxNode].id).toIterator
         val nodes: Iterator[Option[LynxNode]] = graphModel.setNodesLabels(nodeIds, labels.map(label => label.name).toArray)
         (colIndex, nodes.map(_.get))
-
-      }
+      } 
       case sp@SetPropertyItem(property, literalExpr) => {
         val Property(map, keyName) = property
         val colIndex: Int = map match {
-          case Variable(colName) =>
-            df.columnsName.indexOf(colName)
+          case Variable(colName) => df.columnsName.indexOf(colName)
         }
         // todo : 1.case expr 2.value expr
         val newPropValue: LynxValue = eval(literalExpr)(ctx.expressionContext)
-        val nodeIds: Iterator[LynxId] = df.records.map(row => row(colIndex).asInstanceOf[LynxNode].id)
+        val nodeIds: Iterator[LynxId] = records.map(row => row(colIndex).asInstanceOf[LynxNode].id).toIterator
         val nodes: Iterator[Option[LynxNode]] = graphModel.setNodesProperties(nodeIds, Array(keyName.name -> newPropValue))
         (colIndex, nodes.map(_.get))
 
@@ -828,14 +823,14 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
       case em@SetExactPropertiesFromMapItem(variable, expression) => {
         val colIndex: Int = df.columnsName.indexOf(variable.name)
         val valueMap: LynxMap = eval(expression)(ctx.expressionContext).asInstanceOf[LynxMap]
-        val nodeIds: Iterator[LynxId] = df.records.map(row => row(colIndex).asInstanceOf[LynxNode].id)
-        val nodes: Iterator[Option[LynxNode]] = graphModel.setNodesProperties(nodeIds, valueMap.v.toArray, true)
+        val nodeIds: Iterator[LynxId] = records.map(row => row(colIndex).asInstanceOf[LynxNode].id).toIterator
+        val nodes: Iterator[Option[LynxNode]] = graphModel.setNodesProperties(nodeIds, valueMap.v.toArray, cleanExistProperties = true)
         (colIndex, nodes.map(_.get))
       }
       case im@SetIncludingPropertiesFromMapItem(variable, expression) => {
         val colIndex: Int = df.columnsName.indexOf(variable.name)
         val valueMap: LynxMap = eval(expression)(ctx.expressionContext).asInstanceOf[LynxMap]
-        val nodeIds: Iterator[LynxId] = df.records.map(row => row(colIndex).asInstanceOf[LynxNode].id)
+        val nodeIds: Iterator[LynxId] = records.map(row => row(colIndex).asInstanceOf[LynxNode].id).toIterator
         val nodes: Iterator[Option[LynxNode]] = graphModel.setNodesProperties(nodeIds, valueMap.v.toArray)
         (colIndex, nodes.map(_.get))
       }
@@ -844,7 +839,7 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
     val updatedIndexs: Seq[Int] = updatedColumns.map(_._1)
     val updatedCols: Seq[Iterator[LynxValue]] = updatedColumns.map(_._2)
 
-    val updatedDF = (DataFrame.updateColumns(updatedIndexs, updatedCols, df))
+    val updatedDF = (DataFrame.updateColumns(updatedIndexs, updatedCols, DataFrame(df.schema, ()=>records.toIterator)))
 
     updatedDF
   }
