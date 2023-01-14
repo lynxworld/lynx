@@ -479,6 +479,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case DesugaredMapProjection(name, items, includeAllProps) => LynxMap(items.map(item => item.key.name -> eval(item.exp)(ec)).toMap)
 
+
       case PatternComprehension(namedPath: Option[LogicalVariable], pattern: RelationshipsPattern,
       predicate: Option[Expression], projection: Expression)=>{
         LynxValue(1)
