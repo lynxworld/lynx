@@ -170,20 +170,7 @@ trait GraphModel {
       val leftSteps = Math.min(upperLimit, 100) - lowerLimit // TODO set a super upperLimit
       firstStop.flatMap(p => extendPath(p, relationshipFilter, direction, leftSteps))
     }.filter(_.endNode.forall(endNodeFilter.matches))
-      .filter(path => if (direction==BOTH) pathCheck(path) else true)
-  }
-
-  /*
-    check cycle path when direction is BOTH
-    (n1)-[r1]-[n2]-[r2]-(n3) return True
-    (n1)-[r1]-[n2]-[r1]-(n1) return False
-   */
-  def pathCheck(lynxPath: LynxPath): Boolean ={
-    val rels = lynxPath.relationships // [r1,r2,r2]
-    rels.dropRight(1) // [r1,r2]
-      .zip(rels.drop(1)) // [(r1,r2), (r2,r2)]
-      .forall{ case(r1,r2) => r1!=r2}
-  }
+  }// path 新增节点的不能是已有的节点!!!
 
   /**
    * Take a node as the starting or ending node and expand in a certain direction.
@@ -235,9 +222,12 @@ trait GraphModel {
 //    expand(start.id, relationshipFilter, direction).flatMap{ triple =>
 //      expandNonStop(triple.endNode, relationshipFilter, direction, steps - 1).map{_.connectLeft(triple.toLynxPath)}
 //    }
-    val a = expand(start.id, relationshipFilter, direction)
-    a.flatMap { triple =>
-      expandNonStop(triple.endNode, relationshipFilter, direction, steps - 1).map {
+    // TODO check cycle
+    expand(start.id, relationshipFilter, direction)
+    .flatMap { triple =>
+      expandNonStop(triple.endNode, relationshipFilter, direction, steps - 1)
+        .filterNot(_.nodeIds.contains(triple.startNode.id))
+        .map {
         _.connectLeft(triple.toLynxPath)
       }
     }
@@ -246,8 +236,10 @@ trait GraphModel {
   def extendPath(path: LynxPath, relationshipFilter: RelationshipFilter, direction: SemanticDirection, steps: Int): Iterator[LynxPath] = {
     if (path.isEmpty || steps <= 0 ) return Iterator(path)
     Iterator(path) ++
-      expand(path.endNode.get.id, relationshipFilter, direction).map(_.toLynxPath)
-      .map(_.connectLeft(path)).flatMap(p => extendPath(p, relationshipFilter, direction, steps - 1))
+      expand(path.endNode.get.id, relationshipFilter, direction)
+        .filterNot(tri => path.nodeIds.contains(tri.endNode.id))
+        .map(_.toLynxPath)
+        .map(_.connectLeft(path)).flatMap(p => extendPath(p, relationshipFilter, direction, steps - 1))
   }
   /**
    * GraphHelper

@@ -1,6 +1,6 @@
 package org.grapheco.lynx.types.time
 
-import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.{LynxValue, TypeMismatchException}
 import org.grapheco.lynx.types.property.{LynxFloat, LynxInteger, LynxString}
 import org.grapheco.lynx.types.structural.LynxPropertyKey
 import org.grapheco.lynx.types.time.LynxComponentDate._
