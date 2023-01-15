@@ -71,6 +71,7 @@ object LynxTemporalParser {
     val splitTimeWithOffset_1: Regex = "^(.{0,40})(\\+.{0,10})$".r
     val splitTimeWithOffset_2: Regex = "^(.{0,40})(-.{0,10})$".r
     val splitTimeWithOffset_3: Regex = "^(.{0,40})(Z{1})$".r
+    val splitTime: Regex = "^(.{8})$".r
     str match {
       case splitDateTimeWithZone_6(dateStr, timeStr, offsetStr, zoneStr) => Map("dateStr" -> dateStr, "timeStr" -> timeStr, "offsetStr" -> offsetStr, "zoneStr" -> zoneStr)
       case splitDateTimeWithZone_5(dateStr, timeStr, offsetStr, zoneStr) => Map("dateStr" -> dateStr, "timeStr" -> timeStr, "offsetStr" -> offsetStr, "zoneStr" -> zoneStr)
@@ -82,6 +83,7 @@ object LynxTemporalParser {
       case splitTimeWithOffset_2(timeStr, offsetStr) => Map("timeStr" -> timeStr, "offsetStr" -> offsetStr)
       case splitTimeWithOffset_3(timeStr, offsetStr) => Map("timeStr" -> timeStr, "offsetStr" -> offsetStr)
       case splitDateTime(dateStr, timeStr) => Map("dateStr" -> dateStr, "timeStr" -> timeStr)
+      case splitTime(timeStr) => Map("timeStr" -> timeStr)
       case _ => throw new Exception("can not split Date and Time")
     }
   }

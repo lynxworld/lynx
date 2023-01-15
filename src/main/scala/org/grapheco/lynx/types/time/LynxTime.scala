@@ -75,7 +75,7 @@ object LynxTime {
 
     val map = splitDateTime(timeWithOffsetStr)
     val timeTuple = getHourMinuteSecond(map("timeStr"))
-    val offsetStr = LynxComponentTimeZone.getOffset(map.getOrElse("offsetStr", null))
+    val offsetStr = LynxComponentTimeZone.getOffset(map.getOrElse("offsetStr", "Z"))
 
     var timeStr = timeTuple._1.formatted("%02d") + ":" + timeTuple._2.formatted("%02d") + ":" + timeTuple._3.formatted("%02d") + (timeTuple._4 match {
       case 0 => ""
