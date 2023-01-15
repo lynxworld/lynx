@@ -4,7 +4,7 @@ import org.grapheco.lynx.procedure.{ProcedureException, ProcedureExpression, Pro
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property._
 import org.grapheco.lynx.types.structural.{HasProperty, LynxNode, LynxNodeLabel, LynxPath, LynxPropertyKey, LynxRelationship, LynxRelationshipType}
-import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxDuration, LynxLocalDateTime, LynxTemporalValue}
+import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxDuration, LynxLocalDateTime, LynxTemporalValue, LynxTime}
 import org.grapheco.lynx.types.{LynxValue, TypeSystem}
 import org.grapheco.lynx.{LynxException, LynxType}
 import org.grapheco.lynx.runner.{GraphModel, NodeFilter, RelationshipFilter}
@@ -131,15 +131,35 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
               LynxDate(aVal)
             }
             case (a: LynxDuration, b: LynxDuration) => { //TODO replace it with a+b, this will rewrite LynxDuration
-              var durationMap: Map[String, Double] = Map();
+              var durationMap: Map[String, Int] = Map();
               timeUnit.foreach(f => {
                 val tmp = a.map.getOrElse(f._1, 0) + b.map.getOrElse(f._1, 0)
                 if (tmp != 0)
-                  durationMap += (f._1 -> tmp.toDouble)
+                  durationMap += (f._1 -> tmp)
               })
-              LynxDuration.parse(durationMap)
+              val tmp_1 = LynxDuration.standardTypeDate(durationMap)
+              val tmp_2 = LynxDuration.standardType(LynxDuration.toSecond(durationMap))
+              //              LynxDuration(tmp, durationMap)
+              if (tmp_1.contains("S") && tmp_2.contains("S")) {
+                var tmp = tmp_1.split("H")(0) + "H" + tmp_2.split("H")(1).split("S")(0)
+                if (tmp_1.contains(".")) {
+                  tmp = tmp + "." + tmp_1.split("\\.")(1).split("S")(0)
+                  LynxDuration(tmp + "S", durationMap)
+                } else {
+                  LynxDuration(tmp + "S", durationMap)
+                }
+
+              } else {
+                LynxDuration(tmp_1, durationMap)
+              }
             }
-            case (a:LynxDateTime,b:LynxDuration)=>{
+            case (LynxTime(a), b: LynxDuration) => {
+              LynxTime(a.plusHours(b.hours).plusMinutes(b.minutesOfHour).plusSeconds(b.secondsOfMinute))
+            }
+            case (LynxDate(a), b: LynxDuration) => {
+              LynxDate(a.plusYears(b.years).plusMonths(b.monthsOfYear).plusDays(b.days))
+            }
+            case (a: LynxDateTime, b: LynxDuration) => {
               var aVal = a.value
               b.map.foreach(f => aVal = aVal.plus(f._2.toLong, timeUnit.get(f._1).get))
               LynxDateTime(aVal)
@@ -157,16 +177,22 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
               })
               LynxLocalDateTime(aVal)
             }
-            case (a: LynxDate, b: LynxDuration) => {
-              var aVal = a.value
-              b.map.foreach(f => {
-                /*LynxDate not support time calculation with granularity below millisecond.*/
-                if (f._1 != "nanoseconds")
-                  aVal = aVal.minus(f._2.toLong, timeUnit.get(f._1).get)
-              })
-              LynxDate(aVal)
+            //            case (a: LynxDate, b: LynxDuration) => {
+            //              var aVal = a.value
+            //              b.map.foreach(f => {
+            //                /*LynxDate not support time calculation with granularity below millisecond.*/
+            //                if (f._1 != "nanoseconds")
+            //                  aVal = aVal.minus(f._2.toLong, timeUnit.get(f._1).get)
+            //              })
+            //              LynxDate(aVal)
+            //            }
+            case (LynxDate(a), b: LynxDuration) => {
+              LynxDate(a.minusYears(b.years).minusMonths(b.monthsOfYear).minusDays(b.days))
             }
-            case (a: LynxDuration, b: LynxDuration) => {// TODO replace it with a-b
+            case (LynxTime(a), b: LynxDuration) => {
+              LynxTime(a.minusHours(b.hours).minusMinutes(b.minutesOfHour).minusSeconds(b.secondsOfMinute))
+            }
+            case (a: LynxDuration, b: LynxDuration) => { // TODO replace it with a-b
               if (a.value.compareTo(b.value) < 0) {
                 throw new Exception("expression a-b, Duration a is less than b")
               }
@@ -178,7 +204,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
               })
               LynxDuration.parse(durationMap)
             }
-            case (a:LynxDateTime,b:LynxDuration)=>{
+            case (a: LynxDateTime, b: LynxDuration) => {
               var aVal = a.value
               b.map.foreach(f => aVal = aVal.minus(f._2.toLong, timeUnit.get(f._1).get))
               LynxDateTime(aVal)
@@ -210,22 +236,39 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
               case (d1: LynxInteger, d2: LynxInteger) => LynxInteger(d1.value * d2.value)
             }
           }
+          case (d1: LynxDuration, LynxInteger(d2)) => {
+            var durationMap: Map[String, Double] = Map();
+            timeUnit.foreach(f => {
+              val tmp = d1.map.getOrElse(f._1, 0) * d2
+              if (tmp != 0)
+                durationMap += (f._1 -> tmp.toDouble)
+            })
+            LynxDuration.parse(durationMap)
+          }
         }
       }
 
       case Divide(lhs, rhs) => {
         (eval(lhs), eval(rhs)) match {
           case (n: LynxNumber, m: LynxNumber) => n / m
+          case (n: LynxDuration, LynxInteger(m)) => {
+            val nanos = LynxDuration.toSecond(n.map) / m
+            if (nanos - nanos.toLong == 0) {
+              LynxDuration.parse(LynxDuration.standardType(nanos))
+            } else {
+              LynxDuration(LynxDuration.standardType(nanos - Math.pow(0.1, 9)))
+            }
+          }
           case (n, m) => throw EvaluatorTypeMismatch(n.lynxType.toString, "LynxNumber")
         }
       }
 
-      case Modulo(lhs, rhs) =>{
-        (eval(lhs),eval(rhs)) match {
-          case (n:LynxInteger,m:LynxInteger) => {
-            n%m
+      case Modulo(lhs, rhs) => {
+        (eval(lhs), eval(rhs)) match {
+          case (n: LynxInteger, m: LynxInteger) => {
+            n % m
           }
-          case (n,m)=>throw EvaluatorTypeMismatch(n.lynxType.toString,"LynxInteger")
+          case (n, m) => throw EvaluatorTypeMismatch(n.lynxType.toString, "LynxInteger")
         }
       }
 
@@ -415,7 +458,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       }
 
       case Pow(lhs, rhs) => (eval(lhs), eval(rhs)) match {
-        case (number: LynxInteger,exponent:LynxInteger) => LynxInteger(Math.pow(number.value,exponent.value).toLong)
+        case (number: LynxInteger, exponent: LynxInteger) => LynxInteger(Math.pow(number.value, exponent.value).toLong)
         case (number: LynxNumber, exponent: LynxNumber) => LynxFloat(Math.pow(number.toDouble, exponent.toDouble))
         case _ => throw ProcedureException("The expression must returns tow numbers.")
       }
@@ -480,7 +523,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
 
       case PatternComprehension(namedPath: Option[LogicalVariable], pattern: RelationshipsPattern,
-      predicate: Option[Expression], projection: Expression)=>{
+      predicate: Option[Expression], projection: Expression) => {
         LynxValue(1)
       }
     }

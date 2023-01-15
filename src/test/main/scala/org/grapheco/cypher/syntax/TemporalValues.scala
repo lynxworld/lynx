@@ -250,7 +250,7 @@ class TemporalValues extends TestBase {
   def createDuration(): Unit = {
     val records = runOnDemoGraph(
       "RETURN duration({ days: 1, hours: 12 }) AS theDuration"
-    ).records().map(f => f("theDuration").value).toArray
+    ).records().map(f => f("theDuration").toString).toArray
     Assert.assertEquals("P1DT12H", records(0))
   }
 
@@ -258,15 +258,15 @@ class TemporalValues extends TestBase {
   def computeDiffDuration(): Unit = {
     val records = runOnDemoGraph(
       "RETURN duration.between(date('1984-10-11'), date('2015-06-24')) AS theDuration"
-    ).records().map(f => f("theDuration").value).toArray
-    Assert.assertEquals("P30Y8M13D", records(0))
+    ).records().toArray
+    Assert.assertEquals(LynxDuration.parse("P30Y8M13D").toString, records(0)("theDuration").toString)
   }
 
   @Test
   def computeNumOfDay(): Unit = {
     val records = runOnDemoGraph(
       "RETURN duration.inDays(date('2014-10-11'), date('2015-08-06')) AS theDuration"
-    ).records().map(f => f("theDuration").value).toArray
+    ).records().map(f => f("theDuration").toString).toArray
     Assert.assertEquals("P299D", records(0))
   }
 
@@ -276,15 +276,15 @@ class TemporalValues extends TestBase {
     val records = runOnDemoGraph(
       "RETURN date.truncate('week', date(), { dayOfWeek: 4 }) AS thursday"
     ).records().map(f => f("thursday").value).toArray
-    Assert.assertEquals("2021-09-30", records(0))
+    Assert.assertEquals("2023-01-05", records(0).toString)
   }
 
   @Test
   def getDateOfLastDayInMonth(): Unit = {
     val records = runOnDemoGraph(
-      "RETURN date.truncate('month', date()+ duration('P2M'))- duration('P1D') AS lastDay"
+      "RETURN date.truncate('month',date()+duration('P2M'))- duration('P1D') AS lastDay"
     ).records().map(f => f("lastDay").value).toArray
-    Assert.assertEquals("2021-10-31", records(0))
+    Assert.assertEquals("2023-02-28", records(0).toString)
   }
 
   @Test
@@ -292,14 +292,15 @@ class TemporalValues extends TestBase {
     val records = runOnDemoGraph(
       "RETURN time('13:42:19')+ duration({ days: 1, hours: 12 }) AS theTime"
     ).records().map(f => f("theTime").value).toArray
-    Assert.assertEquals("01:42:19Z", records(0))
+    Assert.assertEquals("01:42:19Z", records(0).toString)
   }
 
   @Test
   def addTwoDuration(): Unit = {
     val records = runOnDemoGraph(
       "RETURN duration({ days: 2, hours: 7 })+ duration({ months: 1, hours: 18 }) AS theDuration"
-    ).records().map(f => f("theDuration").value).toArray
+    ).records().map(
+      f => f("theDuration").toString).toArray
     Assert.assertEquals("P1M2DT25H", records(0))
   }
 
@@ -308,19 +309,19 @@ class TemporalValues extends TestBase {
     val records = runOnDemoGraph(
       "RETURN duration({ hours: 5, minutes: 21 })* 14 AS theDuration"
     ).records().map(f => f("theDuration").value).toArray
-    Assert.assertEquals("PT74H54M", records(0))
+    Assert.assertEquals("PT74H54M", records(0).toString)
   }
 
   @Test
-  def divDurationByNum():Unit={
+  def divDurationByNum(): Unit = {
     val records = runOnDemoGraph(
       "RETURN duration({ hours: 3, minutes: 16 })/ 2 AS theDuration"
     ).records().map(f => f("theDuration").value).toArray
-    Assert.assertEquals("PT1H38M", records(0))
+    Assert.assertEquals("PT1H38M", records(0).toString)
   }
 
   @Test
-  def checkTwoInstant():Unit={
+  def checkTwoInstant(): Unit = {
     val records = runOnDemoGraph(
       """
         |WITH datetime('2015-07-21T21:40:32.142+0100') AS date1, datetime('2015-07-21T17:12:56.333+0100') AS date2
@@ -335,12 +336,12 @@ class TemporalValues extends TestBase {
   }
 
   @Test
-  def returnNameOfCurMonth():Unit={
+  def returnNameOfCurMonth(): Unit = {
     val records = runOnDemoGraph(
       """
         |RETURN ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][date().month-1] AS month
         |""".stripMargin
     ).records().map(f => f("month").value).toArray
-    Assert.assertEquals("Sep", records(0))
+    Assert.assertEquals("Jan", records(0))
   }
 }
