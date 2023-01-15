@@ -1,6 +1,6 @@
 package org.grapheco.lynx.types.time
 
-import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.{LynxValue, TypeMismatchException}
 import org.grapheco.lynx.types.property.{LynxFloat, LynxInteger, LynxString}
 import org.grapheco.lynx.types.structural.LynxPropertyKey
 import org.grapheco.lynx.types.time.LynxComponentDate._
@@ -26,7 +26,12 @@ case class LynxDateTime(zonedDateTime: ZonedDateTime) extends LynxTemporalValue 
 
   def lynxType: DateTimeType = CTDateTime
 
-  override def sameTypeCompareTo(o: LynxValue): Int = ???
+  override def sameTypeCompareTo(o: LynxValue): Int = {
+    o match {
+      case x:LynxDateTime=>zonedDateTime.compareTo(x.value)
+      case _=>throw new Exception(s"expect type LynxDateTime,but find ${o.getClass.getTypeName}")
+    }
+  }
 
 
   //LynxComponentDate
