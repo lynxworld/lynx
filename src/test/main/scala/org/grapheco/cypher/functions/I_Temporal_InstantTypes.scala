@@ -742,10 +742,10 @@ class I_Temporal_InstantTypes extends TestBase {
         |RETURN localdatetime({ year:1984, month:10, day:11, hour:12, minute:31, second:14, millisecond: 123, microsecond: 456, nanosecond: 789 }) AS theDate
         |""".stripMargin).records().toArray
 
-    val localDateTime_1 = LocalDateTime.of(1984, 10, 11, 12, 31, 14, 123)
+    val localDateTime_1 = LynxLocalDateTime.parse("1984-10-11T12:31:14.123456789").asInstanceOf[LynxLocalDateTime]
 
     Assert.assertEquals(1, records.length)
-    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(localDateTime_1, records(0)("theDate").value))
+    Assert.assertEquals(localDateTime_1, records(0)("theDate"))
   }
 
   @Test
@@ -803,7 +803,7 @@ class I_Temporal_InstantTypes extends TestBase {
     val localdatetime_1 = LynxLocalDateTime.parse("2015-07-21T21:40:32.142")
     val localdatetime_2 = LynxLocalDateTime.parse("2015-07-21T21:40:32.142")
     val localdatetime_3 = LynxLocalDateTime.parse("2015-07-21T21:40:32")
-    val localdatetime_4 = LynxLocalDateTime.parse("2015-07-21T21:00")
+    val localdatetime_4 = LynxLocalDateTime.parse("2015202T21")
 
     Assert.assertEquals(4, records.length)
     Assert.assertEquals(localdatetime_1, records(0)("theDate"))
