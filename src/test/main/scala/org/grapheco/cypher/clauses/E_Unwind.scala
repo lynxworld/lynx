@@ -142,8 +142,8 @@ class E_Unwind extends TestBase{
     val res = runOnDemoGraph(
       """
         |UNWIND $events AS event
-        |MERGE (y:Year { year: event.year })
-        |MERGE (y)<-[:IN]-(e:Event { id: event.id })
+        |CREATE (y:Year { year: event.year })
+        |CREATE (y)<-[:IN]-(e:Event { id: event.id })
         |RETURN e.id AS x
         |ORDER BY x
         |""".stripMargin, Map("events" -> List(Map("year"->2014, "id" -> 1), Map("year" -> 2014, "id" -> 2)))).records().toArray

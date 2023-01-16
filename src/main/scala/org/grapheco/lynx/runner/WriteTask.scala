@@ -2,6 +2,7 @@ package org.grapheco.lynx.runner
 
 import org.grapheco.lynx.types.structural._
 import org.grapheco.lynx.physical.{NodeInput, RelationshipInput}
+import org.grapheco.lynx.types.LynxValue
 
 /**
  * Create and delete of nodes and relationships.
@@ -36,6 +37,9 @@ trait WriteTask {
    */
   def deleteNodes(ids: Seq[LynxId]): Unit
 
+  def updateNode(lynxId: LynxId, labels: Seq[LynxNodeLabel], props: Map[LynxPropertyKey, LynxValue]): Option[LynxNode]
+
+  def updateRelationShip(lynxId: LynxId, props: Map[LynxPropertyKey, LynxValue]): Option[LynxRelationship]
   /**
    * Set properties of nodes.
    *

@@ -1,5 +1,5 @@
 package org.grapheco.lynx.types.structural
 
-trait LynxElement {
+trait LynxElement extends HasProperty {
 
 }
