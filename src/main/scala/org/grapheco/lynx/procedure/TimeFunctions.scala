@@ -49,10 +49,10 @@ class TimeFunctions {
   }
 
 
-//  @LynxProcedure(name = "datetime")
-//  def datetime(): LynxInteger = {
-//    LynxInteger(LynxDateTime.now().epochMillis)
-//  }
+  //  @LynxProcedure(name = "datetime")
+  //  def datetime(): LynxInteger = {
+  //    LynxInteger(LynxDateTime.now().epochMillis)
+  //  }
 
   @LynxProcedure(name = "localdatetime")
   def localDateTime(inputs: LynxValue): LynxLocalDateTime = {
@@ -80,6 +80,21 @@ class TimeFunctions {
   @LynxProcedure(name = "localdatetime.realtime")
   def localdatetime_realtime(inputs: LynxValue): LynxLocalDateTime = {
     LynxLocalDateTime.parse(Map("timezone" -> inputs)).asInstanceOf[LynxLocalDateTime]
+  }
+
+  @LynxProcedure(name = "localdatetime.truncate")
+  def localdatetimeTruncate(): LynxDate = {
+    LynxDate.now()
+  }
+
+  @LynxProcedure(name = "localdatetime.truncate")
+  def localdatetimeTruncate(unitStr: LynxString, dateValue: LynxDateTime, mapOfComponents: LynxMap): LynxLocalDateTime = {
+    LynxLocalDateTime.parse(Map("unitStr" -> unitStr, "dateValue" -> dateValue, "mapOfComponents" -> mapOfComponents))
+  }
+
+  @LynxProcedure(name = "localdatetime.truncate")
+  def localdatetimeTruncate(unitStr: LynxString, dateValue: LynxDateTime): LynxLocalDateTime = {
+    LynxLocalDateTime.parse(Map("unitStr" -> unitStr, "dateValue" -> dateValue))
   }
 
   @LynxProcedure(name = "time")
