@@ -222,6 +222,13 @@ object LynxDateTime {
               }
               else v.second
             )
+            case v: LynxTime => (v.hour, v.minute,
+              if (m.contains("second")) m("second") match {
+                case v: Long => v.toInt
+                case v: LynxInteger => v.value.toInt
+              }
+              else v.second
+            )
           }
         case _ => getHourMinuteSecond(map, requiredHasDay = false)
       }
@@ -231,6 +238,7 @@ object LynxDateTime {
             case v: LocalTime => v.getNano
             case v: LynxInteger => v.value.toInt
             case LynxLocalTime(v) => v.getNano
+            case LynxTime(v) => v.getNano
           })
         case _ => getNanosecond(map, requiredHasSecond = false)
       }
