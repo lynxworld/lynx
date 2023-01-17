@@ -291,6 +291,7 @@ object LynxComponentDate {
     val (year, month, day): (Int, Int, Int)=map.getOrElse("dateValue", 0) match {
       case LynxDateTime(v) =>(v.getYear,v.getMonthValue-1,v.getDayOfMonth)
       case LynxDate(v) => (v.getYear,v.getMonthValue-1,v.getDayOfMonth)
+      case LynxLocalDateTime(v) => (v.getYear,v.getMonthValue-1,v.getDayOfMonth)
     }
 
 //    val (year, month, day): (Int, Int, Int) = (date.getYear, date.getMonthValue - 1, date.getDayOfMonth)
