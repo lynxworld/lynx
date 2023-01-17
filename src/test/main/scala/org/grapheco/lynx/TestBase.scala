@@ -98,6 +98,19 @@ class TestBase extends LazyLogging {
         _nodesToDelete += id
       }
 
+      override def updateNode(lynxId: LynxId, labels: Seq[LynxNodeLabel], props: Map[LynxPropertyKey, LynxValue]): Option[LynxNode] = {
+        val updated = _nodesBuffer.get(lynxId).orElse(nodeAt(lynxId)).map(n => TestNode(n.id, labels, props))
+        updated.foreach(newNode => _nodesBuffer.update(newNode.id, newNode))
+        updated
+      }
+
+      override def updateRelationShip(lynxId: LynxId, props: Map[LynxPropertyKey, LynxValue]): Option[LynxRelationship] = {
+        val updated = _relationshipsBuffer.get(lynxId).orElse(relationshipAt(lynxId))
+          .map(r => TestRelationship(r.id, r.startNodeId, r.endNodeId, r.relationType, props))
+        updated.foreach(newRel => _relationshipsBuffer.update(newRel.id, newRel))
+        updated
+      }
+
       override def setNodesProperties(nodeIds: Iterator[LynxId], data: Array[(LynxPropertyKey, Any)], cleanExistProperties: Boolean): Iterator[Option[LynxNode]] =
         updateNodes(nodeIds, old => TestNode(old.id, old.labels, (if (cleanExistProperties) Map.empty else old.props) ++ data.toMap.mapValues(LynxValue.apply)))
 

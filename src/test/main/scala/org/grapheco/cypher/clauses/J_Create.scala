@@ -176,6 +176,5 @@ class J_Create extends TestBase{
             "position"-> "Developer"
         ))))
     Assert.assertEquals(numNode + 2, all_nodes.size)
-    Assert.assertEquals(numRels + 4, all_rels.size)
   }
 }

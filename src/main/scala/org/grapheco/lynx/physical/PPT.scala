@@ -13,7 +13,7 @@ import org.grapheco.lynx.types.structural._
 import org.grapheco.lynx.types.time.LynxTemporalValue
 import org.grapheco.lynx.{LynxType, runner}
 import org.opencypher.v9_0.ast._
-import org.opencypher.v9_0.expressions.{NodePattern, RelationshipChain, _}
+import org.opencypher.v9_0.expressions.{Literal, NodePattern, RelationshipChain, _}
 import org.opencypher.v9_0.util.InputPosition
 import org.opencypher.v9_0.util.symbols.{CTAny, CTList, CTNode, CTPath, CTRelationship}
 
@@ -794,54 +794,106 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
     val records = df.records.toList // danger!
-    // This func return a seq. Item of the seq is composed of colIndex and the updated value on this column.
-    val updatedColumns: Seq[(Int, Iterator[LynxValue])] = setItems.map {
-      case sl@SetLabelItem(variable, labels) => {
-        val colIndex: Int = df.schema.indexOf((variable.name, LynxNode.lynxType))
-        val nodeIds: Iterator[LynxId] = records.map(row => row(colIndex).asInstanceOf[LynxNode].id).toIterator
-        val nodes: Iterator[Option[LynxNode]] = graphModel.setNodesLabels(nodeIds, labels.map(label => label.name).toArray)
-        (colIndex, nodes.map(_.get))
-      } 
-      case sp@SetPropertyItem(property, literalExpr) => {
-        val Property(map, keyName) = property
-        val colIndex: Int = map match {
-          case Variable(colName) => df.columnsName.indexOf(colName)
+    val columnsName = df.columnsName
+    /*
+    setItems case:
+      - SetLabelItem(Variable, Seq[LabelName])
+      - SetPropertyItem(LogicalProperty, Expression)
+        case expr
+      - SetExactPropertiesFromMapItem(Variable, Expression) p={...}
+      - SetIncludingPropertiesFromMapItem(Variable, Expression) p+={...}
+     */
+    def getIndex(name: String): Int = columnsName.indexOf(name) // throw
+
+    trait SetOp
+
+    case class CaseSet(caseExp: CaseExpression, propOp: (Map[LynxPropertyKey, LynxValue], Expression => LynxValue)=> Map[LynxPropertyKey, LynxValue]) extends SetOp
+
+    case class Label(labelOp: Seq[LynxNodeLabel] => Seq[LynxNodeLabel]) extends SetOp
+
+    case class Static(propOp: Map[LynxPropertyKey, LynxValue] => Map[LynxPropertyKey, LynxValue]) extends SetOp
+
+    case class Dynamic(propOp: (Map[LynxPropertyKey, LynxValue], Expression => LynxValue)=> Map[LynxPropertyKey, LynxValue]) extends SetOp
+
+    // START process for map item
+    def fromMapItem(name: String, expression: Expression, including: Boolean): (Int, SetOp) = (
+      getIndex(name),
+      expression match {
+        case l: Literal=> { // | p: Parameter
+          val theMap = toMap(eval(expression)(ctx.expressionContext))
+          if (including) Static(_ ++ theMap)
+          else Static(_ => theMap)
         }
-        // todo : 1.case expr 2.value expr
-        val newPropValue: LynxValue = eval(literalExpr)(ctx.expressionContext)
-        val nodeIds: Iterator[LynxId] = records.map(row => row(colIndex).asInstanceOf[LynxNode].id).toIterator
-        val nodes: Iterator[Option[LynxNode]] = graphModel.setNodesProperties(nodeIds, Array(keyName.name -> newPropValue))
-        (colIndex, nodes.map(_.get))
+        case _ => if (including) Dynamic((old, evalD)=> old ++ toMap(evalD(expression)))
+          else Dynamic((_, evalD)=> toMap(evalD(expression)))
+      }
+    )
 
-      }
-      /* -cypher: MATCH (p { name: 'Peter' })
-          SET p = { name: 'Peter Smith', position: 'Entrepreneur' }
-          RETURN p.name, p.age, p.position
-       - variable: Variable(p)
-       - expression: MapExpression{name:...}
-       */
-      case em@SetExactPropertiesFromMapItem(variable, expression) => {
-        val colIndex: Int = df.columnsName.indexOf(variable.name)
-        val valueMap: LynxMap = eval(expression)(ctx.expressionContext).asInstanceOf[LynxMap]
-        val nodeIds: Iterator[LynxId] = records.map(row => row(colIndex).asInstanceOf[LynxNode].id).toIterator
-        val nodes: Iterator[Option[LynxNode]] = graphModel.setNodesProperties(nodeIds, valueMap.v.toArray, cleanExistProperties = true)
-        (colIndex, nodes.map(_.get))
-      }
-      case im@SetIncludingPropertiesFromMapItem(variable, expression) => {
-        val colIndex: Int = df.columnsName.indexOf(variable.name)
-        val valueMap: LynxMap = eval(expression)(ctx.expressionContext).asInstanceOf[LynxMap]
-        val nodeIds: Iterator[LynxId] = records.map(row => row(colIndex).asInstanceOf[LynxNode].id).toIterator
-        val nodes: Iterator[Option[LynxNode]] = graphModel.setNodesProperties(nodeIds, valueMap.v.toArray)
-        (colIndex, nodes.map(_.get))
-      }
+    def toMap(v: LynxValue): Map[LynxPropertyKey, LynxValue] = v match {
+      case m: LynxMap => m .v.map{ case (str, value) => LynxPropertyKey(str) -> value}
+      case h: HasProperty => h.keys.map(k => k->h.property(k).getOrElse(LynxNull)).toMap
+      case o => throw ExecuteException(s"can't find props map from type ${o.lynxType}")
     }
+    //END
+    /*
+      Map[columnIndex, Seq[Ops]]
+     */
+    val ops: Map[Int, Seq[SetOp]] = setItems.map {
+      case SetLabelItem(Variable(name), labels) => (getIndex(name), Label(_ ++ labels.map(_.name).map(LynxNodeLabel)))
+      case SetPropertyItem(LogicalProperty(key, map), expression) =>
+        (key,expression) match {
+          case (Variable(name), l: Literal) => (getIndex(name), { // | p: Parameter
+            val newData = eval(expression)(ctx.expressionContext)
+            Static(old => old + (LynxPropertyKey(map.name) -> newData))
+          })
+          case (Variable(name), _) => (getIndex(name), Dynamic((old, evalD) => old + (LynxPropertyKey(map.name) -> evalD(expression))))
+          case (ce: CaseExpression, l: Literal) => (getIndex(ce.alternatives.head._2.asInstanceOf[Variable].name),{
+            val newData = eval(expression)(ctx.expressionContext)
+            Dynamic((old, evalD) => evalD(ce) match {
+              case LynxNull => old
+              case _ => old + (LynxPropertyKey(map.name) -> newData)
+            })
+          })
+          case (ce: CaseExpression, _) => (getIndex(ce.alternatives.head._2.asInstanceOf[Variable].name),
+            Dynamic((old, evalD) => evalD(ce) match {
+              case LynxNull => old
+              case _ => old + (LynxPropertyKey(map.name) -> evalD(expression))
+            }))
+          case _ => throw ExecuteException("Unsupported type of logical property")
+        }
+      case SetExactPropertiesFromMapItem(Variable(name), expression) => fromMapItem(name, expression, false)
+      case SetIncludingPropertiesFromMapItem(Variable(name), expression) => fromMapItem(name, expression, true)
+    }.groupBy(_._1).mapValues(_.map(_._2)) //group ops of same column
 
-    val updatedIndexs: Seq[Int] = updatedColumns.map(_._1)
-    val updatedCols: Seq[Iterator[LynxValue]] = updatedColumns.map(_._2)
+    val needIndexes = ops.keySet
 
-    val updatedDF = (DataFrame.updateColumns(updatedIndexs, updatedCols, DataFrame(df.schema, ()=>records.toIterator)))
+    DataFrame(schema, () => records.map{ record =>
+      record.zipWithIndex.map{
+        case (e:LynxElement, index) if needIndexes.contains(index) => {
+          val opsOfIt = ops(index)
+          // setLabels if e is Node
+          val updatedLabels = e match {
+            case n: LynxNode => opsOfIt.collect { case Label(labelOp) => labelOp }
+              .foldLeft(n.labels){(labels, ops)=>ops(labels)} // (default Label) => (op1) => (op2) => ... => (updated)
+            case _ => Seq.empty
+          }
 
-    updatedDF
+          val updatedProps = opsOfIt.filterNot(_.isInstanceOf[Label])
+            .foldLeft(e.keys.map(k => k->e.property(k).getOrElse(LynxNull)).toMap){
+              (props, ops) => ops match {
+                case Static(propOp) => propOp(props)
+                case Dynamic(propOp) => propOp(props, eval(_)(ctx.expressionContext.withVars(columnsName.zip(record).toMap)))
+              }
+            }
+
+          (e match {
+            case n: LynxNode => graphModel.write.updateNode(n.id, updatedLabels, updatedProps)
+            case r: LynxRelationship => graphModel.write.updateRelationShip(r.id, updatedProps)
+          }).getOrElse(LynxNull)
+        }
+        case other => other._1 // the column do not need change
+      }
+    }.toIterator)
   }
 }
 
