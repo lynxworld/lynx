@@ -166,7 +166,11 @@ object LynxDateTime {
       case LynxString(v) => v.replace(" ", "_")
       case null => map.get("datetime").orNull match {
         case LynxDateTime(v) => v.getZone.getId
-        case null => "Z"
+        case null => map.getOrElse("time", null) match {
+          case LynxTime(v) => v.getOffset.getId
+          case LynxLocalTime(v) => "Z"
+          case null => "Z"
+        }
       }
     })
 
@@ -242,9 +246,16 @@ object LynxDateTime {
           })
         case _ => getNanosecond(map, requiredHasSecond = false)
       }
-      if (map.contains("timezone") && map.contains("datetime")) {
+      if (map.contains("timezone") && map.contains("datetime") ) {
         val old_datetime = ZonedDateTime.of(year, month, day, hour, minute, second, nanoOfSecond, map("datetime") match {
           case LynxDateTime(v) => v.getZone
+        })
+        val new_datetime = old_datetime.withZoneSameInstant(zoneId)
+        return LynxDateTime(new_datetime)
+      }
+      if (map.contains("timezone") && map.get("time").toString.contains("LynxTime") ) {
+        val old_datetime = ZonedDateTime.of(year, month, day, hour, minute, second, nanoOfSecond, map("time") match {
+          case LynxTime(v) => v.getOffset
         })
         val new_datetime = old_datetime.withZoneSameInstant(zoneId)
         return LynxDateTime(new_datetime)

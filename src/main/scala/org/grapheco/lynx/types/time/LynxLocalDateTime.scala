@@ -116,7 +116,7 @@ object LynxLocalDateTime extends LynxTemporalParser {
     var v: LocalDateTime = null
     if (map.contains("timezone")) {
       if (map.size == 1) {
-        of(LocalDateTime.now(getZone(map("timezone").asInstanceOf[String])))
+        LynxLocalDateTime.now(getZone(map))
       }
       else {
         throw LynxTemporalParseException("Cannot assign time zone if also assigning other fields")
