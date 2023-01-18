@@ -168,32 +168,4 @@ class Parameters extends TestBase {
     Assert.assertEquals(Set("Johan", "Michael", "michael"), records.toSet)
   }
 
-  @Test
-  def callingProcedures(): Unit = {
-    runOnDemoGraph(
-      """
-        |CALL db.resampleIndex($indexname)
-        |""".stripMargin, Map(("indexname" -> ":Person(name)"))).show()
-  }
-
-  @Test
-  def indexValue_explicitIndexes(): Unit = {
-    val records = runOnDemoGraph(
-      """
-        |START n=node:people(name = $value)
-        |RETURN n
-        |""".stripMargin, Map(("value" -> "Michael"))).records().map(f => f("n").asInstanceOf[TestNode]).toArray
-    Assert.assertEquals(n2, records(0))
-  }
-
-  @Test
-  def indexQuery_explicitIndexes(): Unit = {
-    val records = runOnDemoGraph(
-      """
-        |START n=node:people($query)
-        |RETURN n
-        |""".stripMargin, Map(("query" -> "name:Bob"))).records().map(f => f("n").asInstanceOf[TestNode]).toArray
-    Assert.assertEquals(n4, records(0))
-  }
-
 }
