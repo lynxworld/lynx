@@ -873,7 +873,7 @@ class I_Temporal_InstantTypes extends TestBase {
         |localdatetime({ datetime:dd, day: 28, second: 42 }) AS dateTimeDDSS
         |""".stripMargin).records().toArray
 
-    val localDateTime_1 = LynxLocalDateTime.parse("1984-10-11T12:00")
+    val localDateTime_1 = LynxLocalDateTime.parse("19841011T12:00")
     val localDateTime_2 = LynxLocalDateTime.parse("1984-10-28T12:00:42")
 
     Assert.assertEquals(1, records.length)
@@ -894,20 +894,20 @@ class I_Temporal_InstantTypes extends TestBase {
         |localdatetime.truncate('second', d) AS truncSecond
         |""".stripMargin).records().toArray
 
-    val localDateTimetime_1 = LynxLocalDateTime.parse("2000-01-01T00:00")
-    val localDateTimetime_2 = LynxLocalDateTime.parse("2017-01-02T00:00")
-    val localDateTimetime_3 = LynxLocalDateTime.parse("2017-11-01T00:00")
-    val localDateTimetime_4 = LynxLocalDateTime.parse("2017-11-11T00:00")
-    val localDateTimetime_5 = LynxLocalDateTime.parse("2017-11-11T12:00:00.000000002")
-    val localDateTimetime_6 = LynxLocalDateTime.parse("2017-11-11T12:31:14")
+    val localDateTimetime_1 = LynxLocalDateTime.parse("20000101T00:00")
+    val localDateTimetime_2 = LynxLocalDateTime.parse("20170102T00:00")
+    val localDateTimetime_3 = LynxLocalDateTime.parse("20171101T00:00")
+    val localDateTimetime_4 = LynxLocalDateTime.parse("20171111T00:00")
+    val localDateTimetime_5 = LynxLocalDateTime.parse("20171111T12:00:00.000000002")
+    val localDateTimetime_6 = LynxLocalDateTime.parse("20171111T12:31:14")
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(localDateTimetime_1, records(0)("truncDay"))
-    Assert.assertEquals(localDateTimetime_2, records(0)("truncHour"))
-    Assert.assertEquals(localDateTimetime_3, records(0)("truncMinute"))
-    Assert.assertEquals(localDateTimetime_4, records(0)("truncSecond"))
-    Assert.assertEquals(localDateTimetime_5, records(0)("truncMillisecond"))
-    Assert.assertEquals(localDateTimetime_6, records(0)("truncMicrosecond"))
+    Assert.assertEquals(localDateTimetime_1, records(0)("truncMillenium"))
+    Assert.assertEquals(localDateTimetime_2, records(0)("truncYear"))
+    Assert.assertEquals(localDateTimetime_3, records(0)("truncMonth"))
+    Assert.assertEquals(localDateTimetime_4, records(0)("truncDay"))
+    Assert.assertEquals(localDateTimetime_5, records(0)("truncHour"))
+    Assert.assertEquals(localDateTimetime_6, records(0)("truncSecond"))
   }
 
 
