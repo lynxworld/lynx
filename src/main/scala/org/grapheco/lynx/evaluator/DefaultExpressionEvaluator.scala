@@ -4,17 +4,14 @@ import org.grapheco.lynx.procedure.{ProcedureException, ProcedureExpression, Pro
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property._
 import org.grapheco.lynx.types.structural.{HasProperty, LynxNode, LynxNodeLabel, LynxPath, LynxPropertyKey, LynxRelationship, LynxRelationshipType}
-import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxDuration, LynxLocalDateTime, LynxTemporalValue}
+import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxDuration, LynxLocalDateTime, LynxTemporalValue, LynxTime}
 import org.grapheco.lynx.types.{LynxValue, TypeSystem}
 import org.grapheco.lynx.{LynxException, LynxType}
 import org.grapheco.lynx.runner.{GraphModel, NodeFilter, RelationshipFilter}
-import org.grapheco.lynx.types.spatial.LynxPoint
 import org.opencypher.v9_0.expressions.functions.{Collect, Id}
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTList, CTString, ListType}
 
-import java.time.{Duration, LocalDate, LocalDateTime}
-import java.time.temporal.{ChronoUnit, TemporalUnit}
 import scala.math.abs
 import scala.util.matching.Regex
 
@@ -72,6 +69,13 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
     Some(op(l, r))
   }
 
+  def judge(value: LynxValue): Boolean = value match {
+    case LynxList(l) => l.nonEmpty
+    case LynxBoolean(v) => v
+    case LynxNull => false
+    case o => throw EvaluatorTypeMismatch(o.lynxType.toString, "Boolean")
+  }
+
   override def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue = {
 
     expr match {
@@ -112,6 +116,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
             case (a: LynxList, b: LynxList) => LynxList(a.value ++ b.value)
             case (a: LynxLocalDateTime, b: LynxDuration) => a.plusDuration(b)
             case (a: LynxDate, b: LynxDuration) => a.plusDuration(b)
+            case (a: LynxTime, b: LynxDuration) => a.plusDuration(b)
             case (a: LynxDuration, b: LynxDuration) => a.plusByMap(b)
             case (a: LynxDateTime, b: LynxDuration) => a.plusDuration(b)
           }).getOrElse(LynxNull)
@@ -123,20 +128,17 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
             case (a: LynxLocalDateTime, b: LynxDuration) => a.minusDuration(b)
             case (a: LynxDate, b: LynxDuration) => a.minusDuration(b)
             case (a: LynxDuration, b: LynxDuration) => a.minusByMap(b)
+            case (a: LynxTime, b: LynxDuration) => a.minusDuration(b)
             case (a: LynxDateTime, b: LynxDuration) => a.minusDuration(b)
           }).getOrElse(LynxNull)
 
-      case Ors(exprs) =>
-        LynxBoolean(exprs.exists(eval(_).value == true))
+      case Ors(exprs) => LynxBoolean(exprs.map(eval(_)).exists(judge))
 
-      case Ands(exprs) =>
-        LynxBoolean(exprs.forall(eval(_).value == true))
+      case Ands(exprs) => LynxBoolean(exprs.map(eval).forall(judge))
 
-      case Or(lhs, rhs) =>
-        LynxBoolean(eval(lhs).value == true || eval(rhs).value == true)
+      case Or(lhs, rhs) => LynxBoolean(judge(eval(lhs)) || judge(eval(rhs)))
 
-      case And(lhs, rhs) =>
-        LynxBoolean(eval(lhs).value == true && eval(rhs).value == true)
+      case And(lhs, rhs) => LynxBoolean(judge(eval(lhs)) && judge(eval(rhs)))
 
       case sdi: IntegerLiteral => LynxInteger(sdi.value)
 
@@ -151,12 +153,14 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
               case (d1: LynxInteger, d2: LynxInteger) => LynxInteger(d1.value * d2.value)
             }
           }
+          case (d1: LynxDuration, d2: LynxInteger) => d1.multiplyInt(d2)
         }
       }
 
       case Divide(lhs, rhs) => {
         (eval(lhs), eval(rhs)) match {
           case (n: LynxNumber, m: LynxNumber) => n / m
+          case (n: LynxDuration, m: LynxInteger) => n.divideInt(m)
           case (n, m) => throw EvaluatorTypeMismatch(n.lynxType.toString, "LynxNumber")
         }
       }
@@ -182,7 +186,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
             // TODO: Make sure the
             case (a: LynxNumber, b: LynxNumber) => LynxBoolean(a.number.doubleValue() > b.number.doubleValue())
             case (a: LynxString, b: LynxString) => LynxBoolean(a.value > b.value)
-            case _ => LynxBoolean(lvalue > rvalue)
+            case _ => if (lvalue.getClass != rvalue.getClass) LynxNull else LynxBoolean(lvalue > rvalue)
           }
         }).getOrElse(LynxNull)
 
@@ -197,13 +201,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case LessThanOrEqual(lhs, rhs) =>
         eval(GreaterThanOrEqual(rhs, lhs)(expr.position))
 
-      case Not(in) =>
-        val lynxValue: LynxValue = eval(in)
-        lynxValue match {
-          case LynxNull => LynxBoolean(false) //todo add testcase
-          case LynxBoolean(b) => LynxBoolean(!b)
-          case _ => throw EvaluatorTypeMismatch(lynxValue.lynxType.toString, "LynxBoolean")
-        }
+      case Not(in) => LynxBoolean(!judge(eval(in)))
 
       case IsNull(lhs) => {
         eval(lhs) match {
@@ -310,7 +308,8 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case MapExpression(items) => LynxMap(items.map { case (prop, expr) => prop.name -> eval(expr) }.toMap)
 
       //Only One-hop path-pattern is supported now
-      case PatternExpression(pattern) => { // TODO
+      case PatternExpression(pattern) => { // FIXME only one-hop supported now.
+
         val rightNode: NodePattern = pattern.element.rightNode
         val relationship: RelationshipPattern = pattern.element.relationship
         val leftNode: NodePattern = if (pattern.element.element.isSingleNode) {
@@ -324,11 +323,16 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         //          _transferRelPatternToFilter(relationship),
         //          _transferNodePatternToFilter(rightNode),
         //          relationship.direction, 1, 1
-        //        ).filter(path => if (leftNode.variable.nonEmpty) path.startNode.compareTo(eval(leftNode.variable.get)) == 0 else true)
-        //          .filter(path => if (rightNode.variable.nonEmpty) path.endNode.compareTo(eval(rightNode.variable.get)) == 0 else true).nonEmpty
-
-        val exist = false
-        LynxBoolean(exist)
+        //        ).exists(path => leftNode.variable.map(eval).forall(_.equals(path.startNode.orNull))  &&
+        //         rightNode.variable.map(eval).forall(_.equals(path.endNode.orNull)))
+        //        LynxBoolean(exist)
+        LynxList(graphModel.paths(
+          _transferNodePatternToFilter(leftNode),
+          _transferRelPatternToFilter(relationship),
+          _transferNodePatternToFilter(rightNode),
+          relationship.direction, 1, 1
+        ).filter(path => leftNode.variable.map(eval).forall(_.equals(path.startNode.orNull)) &&
+          rightNode.variable.map(eval).forall(_.equals(path.endNode.orNull))).toList)
       }
 
       case ip: IterablePredicateExpression => {
@@ -420,9 +424,17 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case DesugaredMapProjection(name, items, includeAllProps) => LynxMap(items.map(item => item.key.name -> eval(item.exp)(ec)).toMap)
 
+      /*
+        eg: [(a)-[r:ACTION_IN]->(b) WHERE b:Movie | b.released]
+        namedPath: None
+        pattern: (a)-[r:ACTION_IN]->(b)
+        predicate: HasLabels(b, Movie)
+        projection: Property(b, released)
+       */
       case PatternComprehension(namedPath: Option[LogicalVariable], pattern: RelationshipsPattern,
       predicate: Option[Expression], projection: Expression) => {
-        LynxValue(1)
+        // TODO
+        ???
       }
     }
   }
@@ -466,5 +478,4 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
     }
     RelationshipFilter(relationshipPattern.types.map(relType => LynxRelationshipType(relType.name)), props)
   }
-
 }

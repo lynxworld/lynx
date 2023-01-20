@@ -184,6 +184,7 @@ class TestList extends TestBase {
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
 
     val records = runOnDemoGraph("" +
       """

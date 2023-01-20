@@ -24,35 +24,38 @@ case class LynxDate(localDate: LocalDate) extends LynxTemporalValue with LynxCom
   def lynxType: DateType = CTDate
 
   def plusDuration(that: LynxDuration): LynxDate = {
-    var aVal = localDate
-    that.map.foreach(f => {
-      /*LynxDate not support time calculation with granularity below day.*/
-      val timeUnit = f._1 match {
-        case "years" => ChronoUnit.YEARS
-        case "months" => ChronoUnit.MONTHS
-        case "days" => ChronoUnit.DAYS
-        case _ => null
-      }
-      if (timeUnit != null)
-        aVal = aVal.plus(f._2.toLong, timeUnit)
-    })
-    LynxDate(aVal)
+//    var aVal = localDate
+//    that.map.foreach(f => {
+//      /*LynxDate not support time calculation with granularity below day.*/
+//      val timeUnit = f._1 match {
+//        case "years" => ChronoUnit.YEARS
+//        case "months" => ChronoUnit.MONTHS
+//        case "days" => ChronoUnit.DAYS
+//        case _ => null
+//      }
+//      if (timeUnit != null)
+//        aVal = aVal.plus(f._2.toLong, timeUnit)
+//    })
+//    LynxDate(aVal)
+    LynxDate(value.plusYears(that.years).plusMonths(that.monthsOfYear).plusDays(that.days))
   }
 
+
   def minusDuration(that: LynxDuration): LynxDate = {
-    var aVal = localDate
-    that.map.foreach(f => {
-      /*LynxDate not support time calculation with granularity below day.*/
-      val timeUnit = f._1 match {
-        case "years" => ChronoUnit.YEARS
-        case "months" => ChronoUnit.MONTHS
-        case "days" => ChronoUnit.DAYS
-        case _ => null
-      }
-      if (timeUnit != null)
-        aVal = aVal.minus(f._2.toLong, timeUnit)
-    })
-    LynxDate(aVal)
+//    var aVal = localDate
+//    that.map.foreach(f => {
+//      /*LynxDate not support time calculation with granularity below day.*/
+//      val timeUnit = f._1 match {
+//        case "years" => ChronoUnit.YEARS
+//        case "months" => ChronoUnit.MONTHS
+//        case "days" => ChronoUnit.DAYS
+//        case _ => null
+//      }
+//      if (timeUnit != null)
+//        aVal = aVal.minus(f._2.toLong, timeUnit)
+//    })
+//    LynxDate(aVal)
+    LynxDate(value.minusYears(that.years).minusMonths(that.monthsOfYear).minusDays(that.days))
   }
 
   val calendar = new GregorianCalendar()

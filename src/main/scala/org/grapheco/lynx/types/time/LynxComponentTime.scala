@@ -134,7 +134,12 @@ object LynxComponentTime {
   def truncateTime(map: Map[String, Any]): (Int, Int, Int, Int) = {
     val time = map.get("timeValue").orNull match {
       case v: LynxTime => v
-      case null => map.getOrElse("dateValue", 0).asInstanceOf[LynxDateTime]
+      case null => map.get("dateValue").orNull match {
+        case v: LynxTime => v
+        case v: LynxDateTime => v
+        case v: LynxLocalDateTime => LynxDateTime.parse(v.localDateTime.toString + "Z")
+        case null => map.getOrElse("dateValue", 0).asInstanceOf[LynxDateTime]
+      }
     }
 
     var (hour: Int, minute: Int, second: Int, nanosecond: Int, flag: Int) = map("unitStr") match {

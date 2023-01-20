@@ -24,7 +24,7 @@ object LynxComponentTimeZone {
 
   def getZone(map: Map[String, Any]): ZoneId = {
     if (map.contains("timezone")) {
-      getZone(map("timezone").asInstanceOf[String])
+      getZone(map("timezone").toString)
     }
     else {
       throw LynxTemporalParseException("map must contains 'timezone'")

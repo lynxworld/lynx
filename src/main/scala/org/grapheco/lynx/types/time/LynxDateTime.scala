@@ -1,6 +1,6 @@
 package org.grapheco.lynx.types.time
 
-import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.{LynxValue, TypeMismatchException}
 import org.grapheco.lynx.types.property.{LynxFloat, LynxInteger, LynxString}
 import org.grapheco.lynx.types.structural.LynxPropertyKey
 import org.grapheco.lynx.types.time.LynxComponentDate._
@@ -186,7 +186,11 @@ object LynxDateTime {
       case LynxString(v) => v.replace(" ", "_")
       case null => map.get("datetime").orNull match {
         case LynxDateTime(v) => v.getZone.getId
-        case null => "Z"
+        case null => map.getOrElse("time", null) match {
+          case LynxTime(v) => v.getOffset.getId
+          case LynxLocalTime(v) => "Z"
+          case null => "Z"
+        }
       }
     })
 
@@ -242,6 +246,13 @@ object LynxDateTime {
               }
               else v.second
             )
+            case v: LynxTime => (v.hour, v.minute,
+              if (m.contains("second")) m("second") match {
+                case v: Long => v.toInt
+                case v: LynxInteger => v.value.toInt
+              }
+              else v.second
+            )
           }
         case _ => getHourMinuteSecond(map, requiredHasDay = false)
       }
@@ -251,12 +262,20 @@ object LynxDateTime {
             case v: LocalTime => v.getNano
             case v: LynxInteger => v.value.toInt
             case LynxLocalTime(v) => v.getNano
+            case LynxTime(v) => v.getNano
           })
         case _ => getNanosecond(map, requiredHasSecond = false)
       }
-      if (map.contains("timezone") && map.contains("datetime")) {
+      if (map.contains("timezone") && map.contains("datetime") ) {
         val old_datetime = ZonedDateTime.of(year, month, day, hour, minute, second, nanoOfSecond, map("datetime") match {
           case LynxDateTime(v) => v.getZone
+        })
+        val new_datetime = old_datetime.withZoneSameInstant(zoneId)
+        return LynxDateTime(new_datetime)
+      }
+      if (map.contains("timezone") && map.get("time").toString.contains("LynxTime") ) {
+        val old_datetime = ZonedDateTime.of(year, month, day, hour, minute, second, nanoOfSecond, map("time") match {
+          case LynxTime(v) => v.getOffset
         })
         val new_datetime = old_datetime.withZoneSameInstant(zoneId)
         return LynxDateTime(new_datetime)
