@@ -78,7 +78,7 @@ class Operators extends TestBase {
         |RETURN p.name, p.age, p.livesIn
         |""".stripMargin)
       .records().map(f => Map("p.name" -> f("p.name").value, "p.age" -> f("p.age").value, "p.livesIn" -> f("p.livesIn").value)).toArray
-    Assert.assertEquals(Map("p.name" -> "Ellen", "p.age" -> null, "p.livesln" -> "London"), records(0))
+    Assert.assertEquals(Map("p.name" -> "Ellen", "p.age" -> null, "p.livesIn" -> "London"), records(0))
   }
 
   /**
@@ -94,8 +94,8 @@ class Operators extends TestBase {
         |SET p += { name: 'Ellen', livesIn: 'London' }
         |RETURN p.name, p.age, p.livesIn
         |""".stripMargin)
-      .records().map(f => Map("p.name" -> f("p.name").value, "p.age" -> f("p.age").value, "p.livesln" -> f("p.livesln").value)).toArray
-    Assert.assertEquals(Map("p.name" -> "Ellen", "p.age" -> 20, "p.livesln" -> "London"), records(0))
+      .records().map(f => Map("p.name" -> f("p.name").value, "p.age" -> f("p.age").value, "p.livesIn" -> f("p.livesIn").value)).toArray
+    Assert.assertEquals(Map("p.name" -> "Ellen", "p.age" -> 20, "p.livesIn" -> "London"), records(0))
   }
 
 
@@ -105,8 +105,8 @@ class Operators extends TestBase {
   @Test
   def powOp(): Unit = {
     val records = runOnDemoGraph("WITH 2 AS number, 3 AS exponent\nRETURN number ^ exponent AS result")
-      .records().map(f => f("result").value).toArray
-    Assert.assertEquals(8.0, records(0))
+      .records().toArray
+    Assert.assertEquals(LynxValue(8), records.head.get("result").get)
   }
 
   /**

@@ -727,6 +727,7 @@ case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[FormalElemen
           nodesInput,
           relsInput,
           (nodesCreated: Seq[(String, LynxNode)], relsCreated: Seq[(String, LynxRelationship)]) => {
+            graphModel.write.commit
             val created = nodesCreated.toMap ++ relsCreated
             schemaLocal.map(x => created(x._1))
           })
