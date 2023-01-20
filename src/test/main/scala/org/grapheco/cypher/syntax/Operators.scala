@@ -228,7 +228,7 @@ class Operators extends TestBase {
         |RETURN duration1, duration2, duration1 + duration2, duration1 - duration2
         |""".stripMargin)
       .records()
-      .map(f => Map("duration1" -> f("duration1").value, "duration2" -> f("duration2").value, "duration1 + duration2" -> f("duration1 + duration2"), "duration1 - duration2" -> f("duration1 - duration2")))
+      .map(f => Map("duration1" -> f("duration1"), "duration2" -> f("duration2"), "duration1 + duration2" -> f("duration1 + duration2"), "duration1 - duration2" -> f("duration1 - duration2")))
       .toArray
     val expectResult = Map("duration1" -> LynxValue("P12Y5M14DT16H13M10.000000001S"), "duration2" -> LynxValue("P1M-14DT15H49M10S"), "duration1 + duration2" -> LynxValue("P12Y6MT32H2M20.000000001S"), "duration1 - duration2" -> LynxValue("P12Y4M28DT24M0.000000001S"))
     Assert.assertEquals(expectResult, records(0))

@@ -12,6 +12,7 @@ import org.opencypher.v9_0.util.symbols.{CTDateTime, DateTimeType}
 
 import java.sql.Timestamp
 import java.time._
+import java.time.temporal.{ChronoUnit, TemporalUnit}
 import java.util.{Calendar, GregorianCalendar}
 
 /**
@@ -26,10 +27,29 @@ case class LynxDateTime(zonedDateTime: ZonedDateTime) extends LynxTemporalValue 
 
   def lynxType: DateTimeType = CTDateTime
 
+  /*a mapping for time calculation */
+  val timeUnit: Map[String, TemporalUnit] = Map(
+    "years" -> ChronoUnit.YEARS, "months" -> ChronoUnit.MONTHS, "days" -> ChronoUnit.DAYS,
+    "hours" -> ChronoUnit.HOURS, "minutes" -> ChronoUnit.MINUTES, "seconds" -> ChronoUnit.SECONDS,
+    "milliseconds" -> ChronoUnit.MILLIS, "nanoseconds" -> ChronoUnit.NANOS
+  )
+
+  def plusDuration(that: LynxDuration): LynxDateTime = {
+    var aVal = zonedDateTime
+    that.map.foreach(f => aVal = aVal.plus(f._2.toLong, timeUnit.get(f._1).get))
+    LynxDateTime(aVal)
+  }
+
+  def minusDuration(that: LynxDuration): LynxDateTime = {
+    var aVal = zonedDateTime
+    that.map.foreach(f => aVal = aVal.minus(f._2.toLong, timeUnit.get(f._1).get))
+    LynxDateTime(aVal)
+  }
+
   override def sameTypeCompareTo(o: LynxValue): Int = {
     o match {
-      case x:LynxDateTime=>zonedDateTime.compareTo(x.value)
-      case _=>throw new Exception(s"expect type LynxDateTime,but find ${o.getClass.getTypeName}")
+      case x: LynxDateTime => zonedDateTime.compareTo(x.value)
+      case _ => throw new Exception(s"expect type LynxDateTime,but find ${o.getClass.getTypeName}")
     }
   }
 
