@@ -12,7 +12,8 @@ import org.grapheco.lynx.util.LynxTemporalParser.splitDateTime
 import org.grapheco.lynx.util.{LynxTemporalParseException, LynxTemporalParser}
 import org.opencypher.v9_0.util.symbols.CTLocalDateTime
 
-import java.time.{LocalDateTime, LocalTime, ZoneId, ZonedDateTime}
+import java.time.temporal.{ChronoUnit, TemporalUnit}
+import java.time.{LocalDateTime, LocalTime, ZoneId}
 import java.util.{Calendar, GregorianCalendar}
 
 /**
@@ -28,6 +29,25 @@ case class LynxLocalDateTime(localDateTime: LocalDateTime) extends LynxTemporalV
   def lynxType: LynxType = CTLocalDateTime
 
   override def sameTypeCompareTo(o: LynxValue): Int = ???
+
+  /*a mapping for time calculation */
+  val timeUnit: Map[String, TemporalUnit] = Map(
+    "years" -> ChronoUnit.YEARS, "months" -> ChronoUnit.MONTHS, "days" -> ChronoUnit.DAYS,
+    "hours" -> ChronoUnit.HOURS, "minutes" -> ChronoUnit.MINUTES, "seconds" -> ChronoUnit.SECONDS,
+    "milliseconds" -> ChronoUnit.MILLIS, "nanoseconds" -> ChronoUnit.NANOS
+  )
+
+  def plusDuration(that: LynxDuration): LynxLocalDateTime = {
+    var aVal = localDateTime
+    that.map.foreach(f => aVal = aVal.plus(f._2.toLong, timeUnit.get(f._1).get))
+    LynxLocalDateTime(aVal)
+  }
+
+  def minusDuration(that: LynxDuration): LynxLocalDateTime = {
+    var aVal = localDateTime
+    that.map.foreach(f => aVal = aVal.minus(f._2.toLong, timeUnit.get(f._1).get))
+    LynxLocalDateTime(aVal)
+  }
 
 
   //LynxComponentDate
@@ -128,7 +148,7 @@ object LynxLocalDateTime extends LynxTemporalParser {
       return of(truncate_year, truncate_month, truncate_day, truncate_hour, truncate_minute, truncate_second, truncate_nanoOfSecond)
     }
 
-    else if (map.contains("year")|| map.contains("date")||map.contains("datetime")) {
+    else if (map.contains("year") || map.contains("date") || map.contains("datetime")) {
       val (year, month, day) = map match {
         case m if m.contains("dayOfWeek") => transformYearWeekDay(m)
         case m if m.contains("dayOfQuarter") => transformYearQuarterDay(m)

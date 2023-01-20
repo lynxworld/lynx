@@ -7,6 +7,7 @@ import org.grapheco.lynx.types.{LynxValue, TypeMismatchException}
 import org.grapheco.lynx.util.LynxTemporalParseException
 import org.opencypher.v9_0.util.symbols.{CTDate, DateType}
 
+import java.time.temporal.ChronoUnit
 import java.time.{LocalDate, ZoneId}
 import java.util.{Calendar, GregorianCalendar}
 
@@ -21,6 +22,41 @@ case class LynxDate(localDate: LocalDate) extends LynxTemporalValue with LynxCom
   def value: LocalDate = localDate
 
   def lynxType: DateType = CTDate
+
+  def plusDuration(that: LynxDuration): LynxDate = {
+//    var aVal = localDate
+//    that.map.foreach(f => {
+//      /*LynxDate not support time calculation with granularity below day.*/
+//      val timeUnit = f._1 match {
+//        case "years" => ChronoUnit.YEARS
+//        case "months" => ChronoUnit.MONTHS
+//        case "days" => ChronoUnit.DAYS
+//        case _ => null
+//      }
+//      if (timeUnit != null)
+//        aVal = aVal.plus(f._2.toLong, timeUnit)
+//    })
+//    LynxDate(aVal)
+    LynxDate(value.plusYears(that.years).plusMonths(that.monthsOfYear).plusDays(that.days))
+
+  }
+
+  def minusDuration(that: LynxDuration): LynxDate = {
+//    var aVal = localDate
+//    that.map.foreach(f => {
+//      /*LynxDate not support time calculation with granularity below day.*/
+//      val timeUnit = f._1 match {
+//        case "years" => ChronoUnit.YEARS
+//        case "months" => ChronoUnit.MONTHS
+//        case "days" => ChronoUnit.DAYS
+//        case _ => null
+//      }
+//      if (timeUnit != null)
+//        aVal = aVal.minus(f._2.toLong, timeUnit)
+//    })
+//    LynxDate(aVal)
+    LynxDate(value.minusYears(that.years).minusMonths(that.monthsOfYear).minusDays(that.days))
+  }
 
   val calendar = new GregorianCalendar()
   calendar.set(Calendar.YEAR, localDate.getYear)
