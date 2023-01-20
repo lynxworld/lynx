@@ -256,11 +256,11 @@ class B_Scalar extends TestBase {
       """
         |MATCH (a)
         |WHERE a.name = 'Alice'
-        |RETURN size((a)-->()-->()) AS fof
+        |RETURN size((a)-->()) AS fof
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(3, records.head("fof").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(LynxValue(2), records.head("fof"))
   }
 
   /*

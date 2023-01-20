@@ -151,6 +151,7 @@ case class PPTFilter(expr: Expression)(implicit in: PPTNode, val plannerContext:
       (record: Seq[LynxValue]) =>
         eval(expr)(ec.withVars(df.schema.map(_._1).zip(record).toMap)) match {
           case LynxBoolean(b) => b
+          case LynxList(l) => l.nonEmpty
           case LynxNull => false //todo check logic
         }
     }(ec)
@@ -237,9 +238,9 @@ case class PPTNodeScan(pattern: NodePattern)(implicit val plannerContext: Physic
     implicit val ec = ctx.expressionContext
 
     DataFrame(Seq(var0.name -> CTNode), () => {
-      val nodes = if (labels.isEmpty) {
+      val nodes = if (labels.isEmpty)
         graphModel.nodes(runner.NodeFilter(Seq.empty, properties.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)))
-      } else
+      else
         graphModel.nodes(runner.NodeFilter(labels.map(_.name).map(LynxNodeLabel), properties.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)))
       nodes.map(Seq(_))
     })
@@ -820,7 +821,12 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
     def fromMapItem(name: String, expression: Expression, including: Boolean): (Int, SetOp) = (
       getIndex(name),
       expression match {
-        case l: Literal=> { // | p: Parameter
+        case l: Literal=> {
+          val theMap = toMap(eval(expression)(ctx.expressionContext))
+          if (including) Static(_ ++ theMap)
+          else Static(_ => theMap)
+        }
+        case p: Parameter => {
           val theMap = toMap(eval(expression)(ctx.expressionContext))
           if (including) Static(_ ++ theMap)
           else Static(_ => theMap)
@@ -843,7 +849,11 @@ case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PPTNode, val pl
       case SetLabelItem(Variable(name), labels) => (getIndex(name), Label(_ ++ labels.map(_.name).map(LynxNodeLabel)))
       case SetPropertyItem(LogicalProperty(key, map), expression) =>
         (key,expression) match {
-          case (Variable(name), l: Literal) => (getIndex(name), { // | p: Parameter
+          case (Variable(name), l: Literal) => (getIndex(name), {
+            val newData = eval(expression)(ctx.expressionContext)
+            Static(old => old + (LynxPropertyKey(map.name) -> newData))
+          })
+          case (Variable(name), p: Parameter) => (getIndex(name), {
             val newData = eval(expression)(ctx.expressionContext)
             Static(old => old + (LynxPropertyKey(map.name) -> newData))
           })

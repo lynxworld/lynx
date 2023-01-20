@@ -72,6 +72,13 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
     Some(op(l, r))
   }
 
+  def judge(value: LynxValue): Boolean = value match {
+    case LynxList(l) => l.nonEmpty
+    case LynxBoolean(v) => v
+    case LynxNull => false
+    case o => throw EvaluatorTypeMismatch(o.lynxType.toString, "Boolean")
+  }
+
   override def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue = {
     /*a mapping for time calculation */
     val timeUnit: Map[String, TemporalUnit] = Map(
@@ -211,17 +218,13 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
             }
           }).getOrElse(LynxNull)
 
-      case Ors(exprs) =>
-        LynxBoolean(exprs.exists(eval(_).value == true))
+      case Ors(exprs) => LynxBoolean(exprs.map(eval(_)).exists(judge))
 
-      case Ands(exprs) =>
-        LynxBoolean(exprs.forall(eval(_).value == true))
+      case Ands(exprs) => LynxBoolean(exprs.map(eval).forall(judge))
 
-      case Or(lhs, rhs) =>
-        LynxBoolean(eval(lhs).value == true || eval(rhs).value == true)
+      case Or(lhs, rhs) => LynxBoolean(judge(eval(lhs)) || judge(eval(rhs)))
 
-      case And(lhs, rhs) =>
-        LynxBoolean(eval(lhs).value == true && eval(rhs).value == true)
+      case And(lhs, rhs) => LynxBoolean(judge(eval(lhs)) && judge(eval(rhs)))
 
       case sdi: IntegerLiteral => LynxInteger(sdi.value)
 
@@ -299,13 +302,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case LessThanOrEqual(lhs, rhs) =>
         eval(GreaterThanOrEqual(rhs, lhs)(expr.position))
 
-      case Not(in) =>
-        val lynxValue: LynxValue = eval(in)
-        lynxValue match {
-          case LynxNull => LynxBoolean(false) //todo add testcase
-          case LynxBoolean(b) => LynxBoolean(!b)
-          case _ => throw EvaluatorTypeMismatch(lynxValue.lynxType.toString, "LynxBoolean")
-        }
+      case Not(in) => LynxBoolean(!judge(eval(in)))
 
       case IsNull(lhs) => {
         eval(lhs) match {
@@ -412,7 +409,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case MapExpression(items) => LynxMap(items.map { case (prop, expr) => prop.name -> eval(expr) }.toMap)
 
       //Only One-hop path-pattern is supported now
-      case PatternExpression(pattern) => { // TODO
+      case PatternExpression(pattern) => { // FIXME only one-hop supported now.
         
         val rightNode: NodePattern = pattern.element.rightNode
         val relationship: RelationshipPattern = pattern.element.relationship
@@ -422,14 +419,21 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           throw EvaluatorException(s"PatternExpression is not fully supproted.")
         }
 
-        val exist: Boolean = graphModel.paths(
+//        val exist: Boolean = graphModel.paths(
+//          _transferNodePatternToFilter(leftNode),
+//          _transferRelPatternToFilter(relationship),
+//          _transferNodePatternToFilter(rightNode),
+//          relationship.direction, 1, 1
+//        ).exists(path => leftNode.variable.map(eval).forall(_.equals(path.startNode.orNull))  &&
+//         rightNode.variable.map(eval).forall(_.equals(path.endNode.orNull)))
+//        LynxBoolean(exist)
+        LynxList(graphModel.paths(
           _transferNodePatternToFilter(leftNode),
           _transferRelPatternToFilter(relationship),
           _transferNodePatternToFilter(rightNode),
           relationship.direction, 1, 1
-        ).exists(path => leftNode.variable.map(eval).forall(_.equals(path.startNode.orNull))  &&
-         rightNode.variable.map(eval).forall(_.equals(path.endNode.orNull)))
-        LynxBoolean(exist)
+        ).filter(path => leftNode.variable.map(eval).forall(_.equals(path.startNode.orNull))  &&
+         rightNode.variable.map(eval).forall(_.equals(path.endNode.orNull))).toList)
       }
 
       case ip: IterablePredicateExpression => {
@@ -521,9 +525,16 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case DesugaredMapProjection(name, items, includeAllProps) => LynxMap(items.map(item => item.key.name -> eval(item.exp)(ec)).toMap)
 
-
+      /*
+        eg: [(a)-[r:ACTION_IN]->(b) WHERE b:Movie | b.released]
+        namedPath: None
+        pattern: (a)-[r:ACTION_IN]->(b)
+        predicate: HasLabels(b, Movie)
+        projection: Property(b, released)
+       */
       case PatternComprehension(namedPath: Option[LogicalVariable], pattern: RelationshipsPattern,
       predicate: Option[Expression], projection: Expression) => {
+        // TODO
         LynxValue(1)
       }
     }
