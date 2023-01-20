@@ -31,6 +31,8 @@ class Parameters extends TestBase {
       (nodesCreated: Seq[(String, LynxNode)], relsCreated: Seq[(String, LynxRelationship)]) => {
         nodesCreated.toMap ++ relsCreated
       })
+
+    model.write.commit
   }
 
 
@@ -124,7 +126,7 @@ class Parameters extends TestBase {
         |WHERE n.name='Michael'
         |SET n = $props
         |""".stripMargin,
-      Map("props" -> List(Map("name" -> "Andy"), Map("position" -> "Developer"))))
+      Map("props" -> Map("name" -> "Andy","position" -> "Developer")))
       .records().map(f => f("n").asInstanceOf[TestNode]).toArray
 
     Assert.assertEquals("Andy", records(0).props(LynxPropertyKey("name")).toString)
