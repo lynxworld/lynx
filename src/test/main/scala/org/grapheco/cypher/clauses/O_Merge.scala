@@ -198,7 +198,7 @@ class O_Merge extends TestBase{
     Assert.assertEquals(5, records1.length)
     Assert.assertEquals(3, records2.length)
     Assert.assertEquals(nodeNum + 3, all_nodes.size)
-    Assert.assertEquals(Seq("New York", "New Jersey", "Ohio"), records2.map(f => f("n").asInstanceOf[LynxNode].property(LynxPropertyKey("name")).get.value).toSeq)
+    Assert.assertEquals(Set("New York", "New Jersey", "Ohio"), records2.map(f => f("n").asInstanceOf[LynxNode].property(LynxPropertyKey("name")).get.value).toSet)
   }
 
   @Test

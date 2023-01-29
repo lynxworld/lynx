@@ -1,6 +1,6 @@
 package org.grapheco.lynx.physical
 
-import org.grapheco.lynx.dataframe.{DataFrame, JoinType}
+import org.grapheco.lynx.dataframe.{DataFrame, InnerJoin, JoinType}
 import org.grapheco.lynx.evaluator.ExpressionContext
 import org.grapheco.lynx.logical.LPTPatternMatch
 import org.grapheco.lynx.procedure.{UnknownProcedureException, WrongArgumentException}
@@ -61,11 +61,15 @@ case class PPTJoin(filterExpr: Option[Expression], isSingleMatch: Boolean, joinT
 
     if (filterExpr.nonEmpty) {
       val ec = ctx.expressionContext
+      val ifNull = joinType match {
+        case InnerJoin => false
+        case _ => true
+      }
       df.filter {
         (record: Seq[LynxValue]) =>
           eval(filterExpr.get)(ec.withVars(df.schema.map(_._1).zip(record).toMap)) match {
             case LynxBoolean(b) => b
-            case LynxNull => false
+            case LynxNull => ifNull
           }
       }(ec)
     }
@@ -503,7 +507,7 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)],
 
   override def withChildren(children0: Seq[PPTNode]): PPTMerge = PPTMerge(mergeSchema, mergeOps, onMatch, onCreate)(children0.headOption, plannerContext)
 
-  override val schema: Seq[(String, LynxType)] = mergeSchema
+  override val schema: Seq[(String, LynxType)] = mergeSchema ++ children.head.schema
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     implicit val ec = ctx.expressionContext
@@ -511,6 +515,10 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)],
     var hasMatched = false
     // PPTMerge must has-only-has one child
     val child: PPTNode = children.head
+    // Set[(name, CreatedElement)]: aviod to create again
+    val distinct: Boolean = !(mergeOps.collectFirst { case f: FormalNode => f }.nonEmpty && mergeOps.collectFirst { case f: FormalRelationship => f }.nonEmpty)
+
+    val createdNode: mutable.HashMap[NodeInput, LynxNode] = if (distinct) mutable.HashMap[NodeInput, LynxNode]() else null
 
     val df = child match {
       case pj: PPTJoin => {
@@ -518,29 +526,29 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)],
         val dropNull = pjRes.records.dropWhile(_.exists(LynxNull.eq))
         if (dropNull.nonEmpty) {
           hasMatched = true
-          pjRes.select(mergeSchema.map { case (name, _) => (name, None) })
+          pjRes.select(schema.map { case (name, _) => (name, None) })
         } else {
           val opsMap = mergeOps.map(ele => ele.varName -> ele).toMap
-          val records = pjRes.select(mergeSchema.map { case (name, _) => (name, None) }).records.map { record =>
-            val recordMap = mergeSchema.map(_._1).zip(record).toMap
+          val records = pjRes.select(schema.map { case (name, _) => (name, None) }).records.map { record =>
+            val recordMap = schema.map(_._1).zip(record).toMap
             val nullCol = recordMap.filter(_._2 == LynxNull).keys.toSeq
-            val creation = CreateOps(nullCol.map(opsMap))(e => eval(e)(ec.withVars(recordMap)), graphModel).execute().toMap
-            record.zip(mergeSchema.map(_._1)).map {
+            val creation = CreateOps(nullCol.map(opsMap))(e => eval(e)(ec.withVars(recordMap)), graphModel).execute(createdNode).toMap
+            record.zip(schema.map(_._1)).map {
               case (LynxNull, name) => creation(name)
               case (v: LynxValue, _) => v
             }
           }.toList
-          DataFrame(mergeSchema, () => records.toIterator) // danger! so do because the create ops will be do lazy due to inner in the dataframe which is lazy.
+          DataFrame(schema, () => records.toIterator) // danger! so do because the create ops will be do lazy due to inner in the dataframe which is lazy.
         }
       }
       case _ => {
         val res = child.execute.records
         if (res.nonEmpty) {
           hasMatched = true
-          DataFrame(mergeSchema, () => res)
+          DataFrame(schema, () => res)
         } else {
           val creation = CreateOps(mergeOps)(e => eval(e)(ec), graphModel).execute()
-          DataFrame(mergeSchema, () => Iterator(mergeSchema.map(x => creation.toMap.getOrElse(x._1, LynxNull))))
+          DataFrame(schema, () => Iterator(schema.map(x => creation.toMap.getOrElse(x._1, LynxNull))))
         }
       }
     }
@@ -568,7 +576,7 @@ case class FormalNode(varName: String, labels: Seq[LabelName], properties: Optio
 case class FormalRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) extends FormalElement
 
 case class CreateOps(ops: Seq[FormalElement])(eval: Expression => LynxValue, graphModel: GraphModel) {
-  def execute(): Seq[(String, LynxValue with LynxElement)] = {
+  def execute(distinct: mutable.Map[NodeInput, LynxNode] = null): Seq[(String, LynxValue with LynxElement)] = {
     val nodesInput = ArrayBuffer[(String, NodeInput)]()
     val relsInput = ArrayBuffer[(String, RelationshipInput)]()
 
@@ -592,7 +600,22 @@ case class CreateOps(ops: Seq[FormalElement])(eval: Expression => LynxValue, gra
         }, nodeInputRef(varNameLeftNode), nodeInputRef(varNameRightNode))
     }
 
-    graphModel.createElements(nodesInput, relsInput, _ ++ _)
+    if (distinct == null) graphModel.createElements(nodesInput, relsInput, _ ++ _)
+    else {
+      val existNode = nodesInput.filter(sn => distinct.contains(sn._2))
+      val notExistNode = nodesInput.filterNot(sn => distinct.contains(sn._2))
+      def nodeRef(node: NodeInputRef): NodeInputRef = node match {
+        case ContextualNodeInputRef(name) => existNode.find(_._1 == name).map(_._2).map(distinct).map(_.id).map(StoredNodeInputRef).getOrElse(ContextualNodeInputRef(name))
+        case o => o
+      }
+      val relsInputWithNode = relsInput.map{ case(str,relInput) =>
+        (str, RelationshipInput(relInput.types, relInput.props, nodeRef(relInput.startNodeRef), nodeRef(relInput.endNodeRef)))
+      }
+      val newCreated = graphModel.createElements(notExistNode, relsInputWithNode, _ ++ _)
+      val _map = newCreated.toMap
+      distinct ++= notExistNode.map{ case (str, input) => (input, _map(str).asInstanceOf[LynxNode])}
+      existNode.map{case(str, inp) => (str,distinct(inp))} ++ newCreated
+    }
   }
 }
 

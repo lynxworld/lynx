@@ -275,11 +275,16 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         }
       }
 
-      case NotEquals(lhs, rhs) => //todo add testcase: 1) n.name == null 2) n.nullname == 'some'
-        LynxValue(eval(lhs) != eval(rhs))
+      case NotEquals(lhs, rhs) => eval(Equals(lhs, rhs)(expr.position)) match {
+        case LynxBoolean(v) => LynxBoolean(!v)
+        case LynxNull => LynxNull
+      }
 
-      case Equals(lhs, rhs) => //todo add testcase: 1) n.name == null 2) n.nullname == 'some'
-        LynxValue(eval(lhs) == eval(rhs))
+      case Equals(lhs, rhs) => (eval(lhs), eval(rhs)) match {
+        case (LynxNull, _) => LynxNull
+        case (_, LynxNull) => LynxNull
+        case (l, r) => LynxBoolean(l == r)
+      }
 
       case GreaterThan(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) => {
