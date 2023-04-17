@@ -6,11 +6,10 @@ import org.grapheco.lynx.types.property.{LynxInteger, LynxNull}
 import org.grapheco.lynx.types.structural.LynxPropertyKey
 import org.grapheco.lynx.types.time.LynxComponentDuration.{AVG_DAYS_OF_MONTH, SECOND_OF_DAY}
 import org.grapheco.lynx.types.time.LynxDuration.{getDurationMap, toSecond}
-
 import org.opencypher.v9_0.util.symbols.CTDuration
 
 import java.math.BigDecimal
-import java.time.temporal.ChronoField
+import java.time.temporal.{ChronoField, ChronoUnit, TemporalUnit}
 import java.time.{Duration, LocalDate, LocalTime, ZoneOffset}
 import java.util.regex.Pattern
 
@@ -30,7 +29,6 @@ case class LynxDuration(duration: String, map: Map[String, Int] = Map("days" -> 
 
   def value: Duration = Duration.ofNanos(nano)
 
-
   override def toString: String = duration
 
 
@@ -39,6 +37,51 @@ case class LynxDuration(duration: String, map: Map[String, Int] = Map("days" -> 
   def -(that: LynxDuration): LynxDuration = LynxDuration.parse(value.minus(that.value).toString, true)
 
   var duration_Map: Map[String, Int] = map
+  /*a mapping for time calculation */
+  val timeUnit: Map[String, TemporalUnit] = Map(
+    "years" -> ChronoUnit.YEARS, "months" -> ChronoUnit.MONTHS, "days" -> ChronoUnit.DAYS,
+    "hours" -> ChronoUnit.HOURS, "minutes" -> ChronoUnit.MINUTES, "seconds" -> ChronoUnit.SECONDS,
+    "milliseconds" -> ChronoUnit.MILLIS, "nanoseconds" -> ChronoUnit.NANOS
+  )
+
+  def plusByMap(that: LynxDuration): LynxDuration = {
+    var durationMap: Map[String, Double] = Map()
+    timeUnit.foreach(f => {
+      val tmp = map.getOrElse(f._1, 0) + that.map.getOrElse(f._1, 0)
+      if (tmp != 0)
+        durationMap += (f._1 -> tmp.toDouble)
+    })
+    LynxDuration.parse(durationMap)
+  }
+
+  def minusByMap(that: LynxDuration): LynxDuration = {
+    var durationMap: Map[String, Double] = Map()
+    timeUnit.foreach(f => {
+      val tmp = map.getOrElse(f._1, 0) - that.map.getOrElse(f._1, 0)
+      if (tmp != 0)
+        durationMap += (f._1 -> tmp.toDouble)
+    })
+    LynxDuration.parse(durationMap)
+  }
+
+  def multiplyInt(that: LynxInteger): LynxDuration = {
+    var durationMap: Map[String, Double] = Map();
+    timeUnit.foreach(f => {
+      val tmp = map.getOrElse(f._1, 0) * that.value
+      if (tmp != 0)
+        durationMap += (f._1 -> tmp.toDouble)
+    })
+    LynxDuration.parse(durationMap)
+  }
+
+  def divideInt(that: LynxInteger): LynxDuration = {
+    val nanos = LynxDuration.toSecond(map) / that.value
+    if (nanos - nanos.toLong == 0) {
+      LynxDuration.parse(LynxDuration.standardType(nanos))
+    } else {
+      LynxDuration(LynxDuration.standardType(nanos - Math.pow(0.1, 9)))
+    }
+  }
 
 
   def lynxType: LynxType = CTDuration

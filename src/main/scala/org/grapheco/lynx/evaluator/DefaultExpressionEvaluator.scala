@@ -8,13 +8,10 @@ import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxDuration, LynxL
 import org.grapheco.lynx.types.{LynxValue, TypeSystem}
 import org.grapheco.lynx.{LynxException, LynxType}
 import org.grapheco.lynx.runner.{GraphModel, NodeFilter, RelationshipFilter}
-import org.grapheco.lynx.types.spatial.LynxPoint
 import org.opencypher.v9_0.expressions.functions.{Collect, Id}
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.util.symbols.{CTAny, CTBoolean, CTFloat, CTInteger, CTList, CTString, ListType}
 
-import java.time.{Duration, LocalDate, LocalDateTime}
-import java.time.temporal.{ChronoUnit, TemporalUnit}
 import scala.math.abs
 import scala.util.matching.Regex
 
@@ -80,12 +77,6 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
   }
 
   override def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue = {
-    /*a mapping for time calculation */
-    val timeUnit: Map[String, TemporalUnit] = Map(
-      "years" -> ChronoUnit.YEARS, "months" -> ChronoUnit.MONTHS, "days" -> ChronoUnit.DAYS,
-      "hours" -> ChronoUnit.HOURS, "minutes" -> ChronoUnit.MINUTES, "seconds" -> ChronoUnit.SECONDS,
-      "milliseconds" -> ChronoUnit.MILLIS, "nanoseconds" -> ChronoUnit.NANOS
-    )
 
     expr match {
       case HasLabels(expression, labels) =>
@@ -123,99 +114,22 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
             case (a: LynxString, b: LynxString) => LynxString(a.value + b.value)
             case (a: LynxString, b: LynxValue) => LynxString(a.value + b.toString)
             case (a: LynxList, b: LynxList) => LynxList(a.value ++ b.value)
-            case (a: LynxLocalDateTime, b: LynxDuration) => {
-              var aVal = a.value
-              b.map.foreach(f => aVal = aVal.plus(f._2.toLong, timeUnit.get(f._1).get))
-              LynxLocalDateTime(aVal)
-            }
-            case (a: LynxDate, b: LynxDuration) => {
-              var aVal = a.value
-              b.map.foreach(f => {
-                /*LynxDate not support time calculation with granularity below day.*/
-                if (f._1 == "years" || f._1 == "months" || f._1 == "days")
-                  aVal = aVal.plus(f._2.toLong, timeUnit.get(f._1).get)
-              })
-              LynxDate(aVal)
-            }
-            case (a: LynxDuration, b: LynxDuration) => { //TODO replace it with a+b, this will rewrite LynxDuration
-              var durationMap: Map[String, Int] = Map();
-              timeUnit.foreach(f => {
-                val tmp = a.map.getOrElse(f._1, 0) + b.map.getOrElse(f._1, 0)
-                if (tmp != 0)
-                  durationMap += (f._1 -> tmp)
-              })
-              val tmp_1 = LynxDuration.standardTypeDate(durationMap)
-              val tmp_2 = LynxDuration.standardType(LynxDuration.toSecond(durationMap))
-              //              LynxDuration(tmp, durationMap)
-              if (tmp_1.contains("S") && tmp_2.contains("S")) {
-                var tmp = tmp_1.split("H")(0) + "H" + tmp_2.split("H")(1).split("S")(0)
-                if (tmp_1.contains(".")) {
-                  tmp = tmp + "." + tmp_1.split("\\.")(1).split("S")(0)
-                  LynxDuration(tmp + "S", durationMap)
-                } else {
-                  LynxDuration(tmp + "S", durationMap)
-                }
-
-              } else {
-                LynxDuration(tmp_1, durationMap)
-              }
-            }
-            case (LynxTime(a), b: LynxDuration) => {
-              LynxTime(a.plusHours(b.hours).plusMinutes(b.minutesOfHour).plusSeconds(b.secondsOfMinute))
-            }
-            case (LynxDate(a), b: LynxDuration) => {
-              LynxDate(a.plusYears(b.years).plusMonths(b.monthsOfYear).plusDays(b.days))
-            }
-            case (a: LynxDateTime, b: LynxDuration) => {
-              var aVal = a.value
-              b.map.foreach(f => aVal = aVal.plus(f._2.toLong, timeUnit.get(f._1).get))
-              LynxDateTime(aVal)
-            }
+            case (a: LynxLocalDateTime, b: LynxDuration) => a.plusDuration(b)
+            case (a: LynxDate, b: LynxDuration) => a.plusDuration(b)
+            case (a: LynxTime, b: LynxDuration) => a.plusDuration(b)
+            case (a: LynxDuration, b: LynxDuration) => a.plusByMap(b)
+            case (a: LynxDateTime, b: LynxDuration) => a.plusDuration(b)
           }).getOrElse(LynxNull)
 
       case Subtract(lhs, rhs) =>
         safeBinaryOp(lhs, rhs, (lvalue, rvalue) =>
           (lvalue, rvalue) match {
             case (a: LynxNumber, b: LynxNumber) => a - b
-            case (a: LynxLocalDateTime, b: LynxDuration) => {
-              var aVal = a.value
-              b.map.foreach(f => {
-                aVal = aVal.minus(f._2.toLong, timeUnit.get(f._1).get)
-              })
-              LynxLocalDateTime(aVal)
-            }
-            //            case (a: LynxDate, b: LynxDuration) => {
-            //              var aVal = a.value
-            //              b.map.foreach(f => {
-            //                /*LynxDate not support time calculation with granularity below millisecond.*/
-            //                if (f._1 != "nanoseconds")
-            //                  aVal = aVal.minus(f._2.toLong, timeUnit.get(f._1).get)
-            //              })
-            //              LynxDate(aVal)
-            //            }
-            case (LynxDate(a), b: LynxDuration) => {
-              LynxDate(a.minusYears(b.years).minusMonths(b.monthsOfYear).minusDays(b.days))
-            }
-            case (LynxTime(a), b: LynxDuration) => {
-              LynxTime(a.minusHours(b.hours).minusMinutes(b.minutesOfHour).minusSeconds(b.secondsOfMinute))
-            }
-            case (a: LynxDuration, b: LynxDuration) => { // TODO replace it with a-b
-              if (a.value.compareTo(b.value) < 0) {
-                throw new Exception("expression a-b, Duration a is less than b")
-              }
-              var durationMap: Map[String, Double] = Map();
-              timeUnit.foreach(f => {
-                val tmp = a.map.getOrElse(f._1, 0) - b.map.getOrElse(f._1, 0)
-                if (tmp != 0)
-                  durationMap += (f._1 -> (tmp.toDouble))
-              })
-              LynxDuration.parse(durationMap)
-            }
-            case (a: LynxDateTime, b: LynxDuration) => {
-              var aVal = a.value
-              b.map.foreach(f => aVal = aVal.minus(f._2.toLong, timeUnit.get(f._1).get))
-              LynxDateTime(aVal)
-            }
+            case (a: LynxLocalDateTime, b: LynxDuration) => a.minusDuration(b)
+            case (a: LynxDate, b: LynxDuration) => a.minusDuration(b)
+            case (a: LynxDuration, b: LynxDuration) => a.minusByMap(b)
+            case (a: LynxTime, b: LynxDuration) => a.minusDuration(b)
+            case (a: LynxDateTime, b: LynxDuration) => a.minusDuration(b)
           }).getOrElse(LynxNull)
 
       case Ors(exprs) => LynxBoolean(exprs.map(eval(_)).exists(judge))
@@ -239,29 +153,14 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
               case (d1: LynxInteger, d2: LynxInteger) => LynxInteger(d1.value * d2.value)
             }
           }
-          case (d1: LynxDuration, LynxInteger(d2)) => {
-            var durationMap: Map[String, Double] = Map();
-            timeUnit.foreach(f => {
-              val tmp = d1.map.getOrElse(f._1, 0) * d2
-              if (tmp != 0)
-                durationMap += (f._1 -> tmp.toDouble)
-            })
-            LynxDuration.parse(durationMap)
-          }
+          case (d1: LynxDuration, d2: LynxInteger) => d1.multiplyInt(d2)
         }
       }
 
       case Divide(lhs, rhs) => {
         (eval(lhs), eval(rhs)) match {
           case (n: LynxNumber, m: LynxNumber) => n / m
-          case (n: LynxDuration, LynxInteger(m)) => {
-            val nanos = LynxDuration.toSecond(n.map) / m
-            if (nanos - nanos.toLong == 0) {
-              LynxDuration.parse(LynxDuration.standardType(nanos))
-            } else {
-              LynxDuration(LynxDuration.standardType(nanos - Math.pow(0.1, 9)))
-            }
-          }
+          case (n: LynxDuration, m: LynxInteger) => n.divideInt(m)
           case (n, m) => throw EvaluatorTypeMismatch(n.lynxType.toString, "LynxNumber")
         }
       }
@@ -415,7 +314,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       //Only One-hop path-pattern is supported now
       case PatternExpression(pattern) => { // FIXME only one-hop supported now.
-        
+
         val rightNode: NodePattern = pattern.element.rightNode
         val relationship: RelationshipPattern = pattern.element.relationship
         val leftNode: NodePattern = if (pattern.element.element.isSingleNode) {
@@ -424,21 +323,21 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
           throw EvaluatorException(s"PatternExpression is not fully supproted.")
         }
 
-//        val exist: Boolean = graphModel.paths(
-//          _transferNodePatternToFilter(leftNode),
-//          _transferRelPatternToFilter(relationship),
-//          _transferNodePatternToFilter(rightNode),
-//          relationship.direction, 1, 1
-//        ).exists(path => leftNode.variable.map(eval).forall(_.equals(path.startNode.orNull))  &&
-//         rightNode.variable.map(eval).forall(_.equals(path.endNode.orNull)))
-//        LynxBoolean(exist)
+        //        val exist: Boolean = graphModel.paths(
+        //          _transferNodePatternToFilter(leftNode),
+        //          _transferRelPatternToFilter(relationship),
+        //          _transferNodePatternToFilter(rightNode),
+        //          relationship.direction, 1, 1
+        //        ).exists(path => leftNode.variable.map(eval).forall(_.equals(path.startNode.orNull))  &&
+        //         rightNode.variable.map(eval).forall(_.equals(path.endNode.orNull)))
+        //        LynxBoolean(exist)
         LynxList(graphModel.paths(
           _transferNodePatternToFilter(leftNode),
           _transferRelPatternToFilter(relationship),
           _transferNodePatternToFilter(rightNode),
           relationship.direction, 1, 1
-        ).filter(path => leftNode.variable.map(eval).forall(_.equals(path.startNode.orNull))  &&
-         rightNode.variable.map(eval).forall(_.equals(path.endNode.orNull))).toList)
+        ).filter(path => leftNode.variable.map(eval).forall(_.equals(path.startNode.orNull)) &&
+          rightNode.variable.map(eval).forall(_.equals(path.endNode.orNull))).toList)
       }
 
       case ip: IterablePredicateExpression => {
@@ -540,7 +439,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case PatternComprehension(namedPath: Option[LogicalVariable], pattern: RelationshipsPattern,
       predicate: Option[Expression], projection: Expression) => {
         // TODO
-        LynxValue(1)
+        ???
       }
     }
   }
@@ -584,5 +483,4 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
     }
     RelationshipFilter(relationshipPattern.types.map(relType => LynxRelationshipType(relType.name)), props)
   }
-
 }
