@@ -203,14 +203,18 @@ case class PPTExpandPath(rel: RelationshipPattern, rightNode: NodePattern)(impli
 
     DataFrame(df.schema ++ schema0, () => {
       df.records.flatMap {
-        record0 =>
+        record =>
+          val path = record.last match {
+            case p: LynxPath => p
+            case n: LynxNode => LynxPath.startPoint(n)
+          }
           graphModel.expand(
-            record0.last.asInstanceOf[LynxNode].id,
+            path.endNode.get.id,
             RelationshipFilter(types.map(_.name).map(LynxRelationshipType), properties.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
             NodeFilter(labels2.map(_.name).map(LynxNodeLabel), properties2.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
             direction)
             .map(triple =>
-              record0 ++ Seq(triple.storedRelation, triple.endNode))
+              record ++ Seq(triple.storedRelation, triple.endNode))
             .filter(item => {
               //(m)-[r]-(n)-[p]-(t), r!=p
               val relIds = item.filter(_.isInstanceOf[LynxRelationship]).map(_.asInstanceOf[LynxRelationship].id)
@@ -242,11 +246,13 @@ case class PPTNodeScan(pattern: NodePattern)(implicit val plannerContext: Physic
     implicit val ec = ctx.expressionContext
 
     DataFrame(Seq(var0.name -> CTNode), () => {
-      val nodes = if (labels.isEmpty)
-        graphModel.nodes(runner.NodeFilter(Seq.empty, properties.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)))
-      else
-        graphModel.nodes(runner.NodeFilter(labels.map(_.name).map(LynxNodeLabel), properties.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)))
-      nodes.map(Seq(_))
+      graphModel.nodes(
+        NodeFilter(
+          labels.map(_.name).map(LynxNodeLabel),
+          properties.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2)))
+            .getOrElse(Map.empty)
+        )
+      ).map(Seq(_))
     })
   }
 }
@@ -319,7 +325,9 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
           runner.NodeFilter(labels3.map(_.name).map(LynxNodeLabel), props3.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
           direction, upperLimit, lowerLimit)
         if (length.isEmpty) paths.map { path => Seq(path.startNode.get, path.firstRelationship.get, path.endNode.get) }
-        else paths.map { path => Seq(path.startNode.get, LynxList(path.relationships), path.endNode.get, path.trim) }
+        else paths.map { path => Seq(path.startNode.get, path.relationships, path.endNode.get, path) }
+//        else paths.map { path => Seq(path.startNode.get, LynxList(path.relationships), path.endNode.get, path.trim) } // fixme: huchuan 2023-04-11: why trim?
+
       }
     )
   }
@@ -419,6 +427,21 @@ case class PPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName
 
   override val schema: Seq[(String, LynxType)] = {
     Seq("CreateIndex" -> CTAny)
+  }
+}
+
+
+case class PPTDropIndex(labelName: LabelName, properties: List[PropertyKeyName])(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    graphModel._helper.dropIndex(labelName.name, properties.map(_.name).toSet)
+    DataFrame.empty
+  }
+
+  override def withChildren(children0: Seq[PPTNode]): PPTNode = this
+
+  override val schema: Seq[(String, LynxType)] = {
+    Seq("DropIndex" -> CTAny)
   }
 }
 
