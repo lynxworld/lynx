@@ -259,6 +259,7 @@ case class LPTDistinctTranslator(distinct: Boolean) extends LPTNodeTranslator {
 }
 
 case class LPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName]) extends LPTNode
+case class LPTDropIndex(labelName: LabelName, properties: List[PropertyKeyName]) extends LPTNode
 
 
 case class LPTSkipTranslator(skip: Option[Skip]) extends LPTNodeTranslator {

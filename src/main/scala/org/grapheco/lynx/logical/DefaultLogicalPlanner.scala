@@ -22,8 +22,9 @@ class DefaultLogicalPlanner(runnerContext: CypherRunnerContext) extends LogicalP
       case CreateUniquePropertyConstraint(Variable(v1), LabelName(l), List(Property(Variable(v2), PropertyKeyName(p)))) =>
         throw logical.UnknownASTNodeException(node)
 
-      case CreateIndex(labelName, properties) =>
-        LPTCreateIndex(labelName, properties)
+      case CreateIndex(labelName, properties) => LPTCreateIndex(labelName, properties)
+
+      case DropIndex(labelName, properties) => LPTDropIndex(labelName, properties)
 
       case _ =>
         throw logical.UnknownASTNodeException(node)
