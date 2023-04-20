@@ -3,6 +3,7 @@ package org.grapheco.lynx.logical
 import org.grapheco.lynx.dataframe.{InnerJoin, JoinType, LeftJoin, OuterJoin}
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions._
+import org.opencypher.v9_0.parser.CypherParser.Union
 
 //pipelines a set of LPTNodes
 case class PipedTranslators(items: Seq[LPTNodeTranslator]) extends LPTNodeTranslator {
@@ -48,20 +49,20 @@ case class LPTCreate(c: Create)(val in: Option[LPTNode]) extends LPTNode {
 //////////////merge//////////////////////
 case class LPTMergeTranslator(m: Merge) extends LPTNodeTranslator {
   def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
-    val matchInfo = Match(false, m.pattern, Seq.empty, m.where)(m.position)
+    val matchInfo = Match(true, m.pattern, Seq.empty, m.where)(m.position)
     val mergeIn = LPTMatchTranslator(matchInfo).translate(in)
-    val mergeInfo = LPTMerge(m)(Option(mergeIn))
+    LPTMerge(m)(Option(mergeIn))
 
-    if (m.actions.nonEmpty) LPTMergeAction(m.actions)(Option(mergeInfo))
-    else mergeInfo
+//    if (m.actions.nonEmpty) LPTMergeAction(m.actions)(Option(mergeInfo))
+//    else mergeInfo
   }
 }
 case class LPTMerge(m: Merge)(val in: Option[LPTNode]) extends LPTNode {
   override val children: Seq[LPTNode] = in.toSeq
 }
-case class LPTMergeAction(m: Seq[MergeAction])(val in: Option[LPTNode]) extends LPTNode {
-  override val children: Seq[LPTNode] = in.toSeq
-}
+//case class LPTMergeAction(m: Seq[MergeAction])(val in: Option[LPTNode]) extends LPTNode {
+//  override val children: Seq[LPTNode] = in.toSeq
+//}
 ///////////////////////////////////////
 
 //////////////////Delete////////////////
@@ -126,10 +127,17 @@ case class LPTQueryPartTranslator(part: QueryPart) extends LPTNodeTranslator {
             case d: Delete => LPTDeleteTranslator(d)
             case s: SetClause => LPTSetClauseTranslator(s)
             case r: Remove => LPTRemoveTranslator(r)
+            //case f: Foreach
           }
         ).translate(in)
+      case UnionAll(part, query) => LPTUnion(distinct = false)(LPTQueryPartTranslator(part).translate(None), LPTQueryPartTranslator(query).translate(None))
+      case UnionDistinct(part, query) => LPTUnion(distinct = true)(LPTQueryPartTranslator(part).translate(None), LPTQueryPartTranslator(query).translate(None))
     }
   }
+}
+
+case class LPTUnion(distinct: Boolean)(val a: LPTNode, val b: LPTNode) extends LPTNode {
+  override val children: Seq[LPTNode] = Seq(a,b)
 }
 
 ///////////////with,return////////////////

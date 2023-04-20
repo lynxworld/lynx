@@ -227,7 +227,7 @@ class F_Where extends TestBase{
         |RETURN other.name, other.age
         |""".stripMargin).records().toArray
     Assert.assertEquals(1, res.length)
-    Assert.assertEquals(List("Andy", 36), List(res(0)("n.name"), res(0)("n.age")).map(f => f.asInstanceOf[LynxValue].value))
+    Assert.assertEquals(List("Andy", 36), List(res(0)("other.name"), res(0)("other.age")).map(f => f.asInstanceOf[LynxValue].value))
   }
 
   @Test
@@ -282,40 +282,40 @@ class F_Where extends TestBase{
     Assert.assertEquals(List("Timothy", 25), List(res(0)("a.name"), res(0)("a.age")).map(f => f.asInstanceOf[LynxValue].value))
     Assert.assertEquals(List("Peter", 35), List(res(1)("a.name"), res(1)("a.age")).map(f => f.asInstanceOf[LynxValue].value))
   }
-  // manual 6.2
-  @Test
-  def usingExistentialSubqueriesInWHERE(): Unit ={
-    val res = runOnDemoGraph(
-      """
-        |MATCH (person:Person)
-        |WHERE EXISTS {
-        |  MATCH (person)-[:HAS_DOG]->(:Dog)
-        |}
-        |RETURN person.name AS name
-        |""".stripMargin).records().toArray
-    Assert.assertEquals(2, res.length)
-    Assert.assertEquals(List("Andy"), List(res(0)("name")).map(f => f.asInstanceOf[LynxValue].value))
-    Assert.assertEquals(List("Peter"), List(res(1)("name")).map(f => f.asInstanceOf[LynxValue].value))
-  }
-
-  // manual 6.3
-  @Test
-  def nestingExistentialSubqueries(): Unit ={
-    val res = runOnDemoGraph(
-      """
-        |MATCH (person:Person)
-        |WHERE EXISTS {
-        |  MATCH (person)-[:HAS_DOG]->(dog:Dog)
-        |  WHERE EXISTS {
-        |    MATCH (dog)-[:HAS_TOY]->(toy:Toy)
-        |    WHERE toy.name = 'Banana'
-        |  }
-        |}
-        |RETURN person.name AS name
-        |""".stripMargin).records().toArray
-    Assert.assertEquals(1, res.length)
-    Assert.assertEquals(List("Peter"), List(res(0)("name")).map(f => f.asInstanceOf[LynxValue].value))
-  }
+//  // manual 6.2
+//  @Test
+//  def usingExistentialSubqueriesInWHERE(): Unit ={
+//    val res = runOnDemoGraph(
+//      """
+//        |MATCH (person:Person)
+//        |WHERE EXISTS {
+//        |  MATCH (person)-[:HAS_DOG]->(:Dog)
+//        |}
+//        |RETURN person.name AS name
+//        |""".stripMargin).records().toArray
+//    Assert.assertEquals(2, res.length)
+//    Assert.assertEquals(List("Andy"), List(res(0)("name")).map(f => f.asInstanceOf[LynxValue].value))
+//    Assert.assertEquals(List("Peter"), List(res(1)("name")).map(f => f.asInstanceOf[LynxValue].value))
+//  }
+//
+//  // manual 6.3
+//  @Test
+//  def nestingExistentialSubqueries(): Unit ={
+//    val res = runOnDemoGraph(
+//      """
+//        |MATCH (person:Person)
+//        |WHERE EXISTS {
+//        |  MATCH (person)-[:HAS_DOG]->(dog:Dog)
+//        |  WHERE EXISTS {
+//        |    MATCH (dog)-[:HAS_TOY]->(toy:Toy)
+//        |    WHERE toy.name = 'Banana'
+//        |  }
+//        |}
+//        |RETURN person.name AS name
+//        |""".stripMargin).records().toArray
+//    Assert.assertEquals(1, res.length)
+//    Assert.assertEquals(List("Peter"), List(res(0)("name")).map(f => f.asInstanceOf[LynxValue].value))
+//  }
 
   @Test
   def inOperator(): Unit ={

@@ -6,11 +6,10 @@ import org.grapheco.lynx.types.property.{LynxInteger, LynxNull}
 import org.grapheco.lynx.types.structural.LynxPropertyKey
 import org.grapheco.lynx.types.time.LynxComponentDuration.{AVG_DAYS_OF_MONTH, SECOND_OF_DAY}
 import org.grapheco.lynx.types.time.LynxDuration.{getDurationMap, toSecond}
-
 import org.opencypher.v9_0.util.symbols.CTDuration
 
 import java.math.BigDecimal
-import java.time.temporal.ChronoField
+import java.time.temporal.{ChronoField, ChronoUnit, TemporalUnit}
 import java.time.{Duration, LocalDate, LocalTime, ZoneOffset}
 import java.util.regex.Pattern
 
@@ -30,15 +29,59 @@ case class LynxDuration(duration: String, map: Map[String, Int] = Map("days" -> 
 
   def value: Duration = Duration.ofNanos(nano)
 
-
   override def toString: String = duration
 
 
-  def +(that: LynxDuration): LynxDuration = LynxDuration.parse(value.plus(that.value).toString, false)
+  def +(that: LynxDuration): LynxDuration = LynxDuration.parse(value.plus(that.value).toString, true)
 
-  def -(that: LynxDuration): LynxDuration = LynxDuration.parse(value.minus(that.value).toString, false)
+  def -(that: LynxDuration): LynxDuration = LynxDuration.parse(value.minus(that.value).toString, true)
 
-  var duration_Map: Map[String, Int] = this.map
+  var duration_Map: Map[String, Int] = map
+  /*a mapping for time calculation */
+  val timeUnit: Map[String, TemporalUnit] = Map(
+    "years" -> ChronoUnit.YEARS, "months" -> ChronoUnit.MONTHS, "days" -> ChronoUnit.DAYS,
+    "hours" -> ChronoUnit.HOURS, "minutes" -> ChronoUnit.MINUTES, "seconds" -> ChronoUnit.SECONDS,
+    "milliseconds" -> ChronoUnit.MILLIS, "nanoseconds" -> ChronoUnit.NANOS
+  )
+
+  def plusByMap(that: LynxDuration): LynxDuration = {
+    var durationMap: Map[String, Double] = Map()
+    timeUnit.foreach(f => {
+      val tmp = map.getOrElse(f._1, 0) + that.map.getOrElse(f._1, 0)
+      if (tmp != 0)
+        durationMap += (f._1 -> tmp.toDouble)
+    })
+    LynxDuration.parse(durationMap)
+  }
+
+  def minusByMap(that: LynxDuration): LynxDuration = {
+    var durationMap: Map[String, Double] = Map()
+    timeUnit.foreach(f => {
+      val tmp = map.getOrElse(f._1, 0) - that.map.getOrElse(f._1, 0)
+      if (tmp != 0)
+        durationMap += (f._1 -> tmp.toDouble)
+    })
+    LynxDuration.parse(durationMap)
+  }
+
+  def multiplyInt(that: LynxInteger): LynxDuration = {
+    var durationMap: Map[String, Double] = Map();
+    timeUnit.foreach(f => {
+      val tmp = map.getOrElse(f._1, 0) * that.value
+      if (tmp != 0)
+        durationMap += (f._1 -> tmp.toDouble)
+    })
+    LynxDuration.parse(durationMap)
+  }
+
+  def divideInt(that: LynxInteger): LynxDuration = {
+    val nanos = LynxDuration.toSecond(map) / that.value
+    if (nanos - nanos.toLong == 0) {
+      LynxDuration.parse(LynxDuration.standardType(nanos))
+    } else {
+      LynxDuration(LynxDuration.standardType(nanos - Math.pow(0.1, 9)))
+    }
+  }
 
 
   def lynxType: LynxType = CTDuration
@@ -113,86 +156,102 @@ object LynxDuration {
 
   def getRemainder(value: Double, base: String): Int = {
     base match {
-      case "second" => (value % 60).toInt
-      case "minute" => ((value / 60) % 60).toInt
-      case "hour" => ((value / Math.pow(60, 2)) % 24).toInt
-      case "day" => (((value / (Math.pow(60, 2) * 24)) % 365) % 30).toInt
-      case "month" => ((value / (Math.pow(60, 2) * 24 * 30)) % 12).toInt
-      case "year" => (value / (Math.pow(60, 2) * 24 * 30 * 12)).toInt
+      case "seconds" => (value % 60).toInt
+      case "minutes" => ((value / 60) % 60).toInt
+      case "hours" => ((value / Math.pow(60, 2)) % 24).toInt
+      case "days" => (((value / (Math.pow(60, 2) * 24)) % 365) % 30).toInt
+      case "months" => (((value / (Math.pow(60, 2) * 24)) % 365) / 30).toInt
+      case "years" => (value / (Math.pow(60, 2) * 24 * 365)).toInt
     }
   }
 
   def toSecond(map: Map[String, Int]): Double = {
-    val year_Second: Double = map.getOrElse("year", 0) match {
+    val year_Second: Double = map.getOrElse("years", 0) match {
       case 0 => 0
       case v => v * 365 * SECOND_OF_DAY
     }
-    val month_Second: Double = map.getOrElse("month", 0) match {
+    val month_Second: Double = map.getOrElse("months", 0) match {
       case 0 => 0
       case v => v * 30 * SECOND_OF_DAY
     }
-    val week_Days: Int = map.getOrElse("week", 0)
+    val week_Days: Int = map.getOrElse("weeks", 0)
 
-    val day_Second: Double = map.getOrElse("day", 0) match {
+    val day_Second: Double = map.getOrElse("days", 0) match {
       case 0 if week_Days == 0 => 0
       case 0 => week_Days * 7 * SECOND_OF_DAY
       case v => (v + week_Days * 7) * SECOND_OF_DAY
     }
-    val hour_Second: Double = map.getOrElse("hour", 0) match {
+    val hour_Second: Double = map.getOrElse("hours", 0) match {
       case 0 => 0
       case v => v * Math.pow(60, 2)
     }
-    val minute_Second: Double = map.getOrElse("minute", 0) match {
+    val minute_Second: Double = map.getOrElse("minutes", 0) match {
       case 0 => 0
       case v => v * 60
     }
-    val second_Second: Double = map.getOrElse("second", 0) match {
-      case 0 => 0
-      case s => map.getOrElse("nanoOfSecond", 0) match {
+    val second_Second: Double = map.getOrElse("seconds", 0) match {
+      case s => map.getOrElse("nanoseconds", 0) match {
         case 0 => s
         case n => s + (n / Math.pow(10, 9))
       }
+      case 0 => 0
     }
-    year_Second + month_Second + day_Second + hour_Second + minute_Second + second_Second
+    val s1 = year_Second + month_Second + day_Second + hour_Second + minute_Second + second_Second
+    s1
   }
 
-  def standardType(second: Double, scale: Int = 9): String = {
+  def standardType(second: Double, scale: Int = 9, map: Map[String, Double] = null): String = {
     val decimal = new BigDecimal(second - second.toInt)
     val nanoSecond = decimal.setScale(scale, BigDecimal.ROUND_HALF_UP).doubleValue
 
     var t_flag = ""
-    val nano_Str: String = nanoSecond match {
+    var nano_Str = "S"
+    nano_Str = nanoSecond match {
       case 0 => "S"
       case v => t_flag = "T"
-        "." + v.toString.split("\\.")(1) + "S"
+        val tmp = (v + 1).toString.split("\\.")(1)
+        if (tmp.length >= 9) {
+          "." + tmp.substring(0, 9) + "S"
+        } else {
+          "." + tmp + "S"
+        }
     }
-    val second_Str: String = getRemainder(second, "second") match {
+    if (nano_Str == "S" && map != null && map.getOrElse("nanoseconds", 0) != 100) {
+      val digit: Int = map.getOrElse("nanoseconds", 0).toString.split("\\.")(0).length
+      val zeroDigit: String = "000000000" + map.getOrElse("nanoseconds", 0).toString.split("\\.")(0)
+      nano_Str = map.getOrElse("nanoseconds", 0) match {
+        case 0 => "S"
+        case v: Double => t_flag = "T"
+          "." + zeroDigit.substring(digit, digit + 9) + "S"
+      }
+    }
+    val second_Str: String = getRemainder(second, "seconds") match {
       case 0 if t_flag == "T" => "0" + nano_Str
       case 0 => ""
       case v => t_flag = "T"
         v + nano_Str
     }
-    val minute_Str: String = getRemainder(second, "minute") match {
+    val minute_Str: String = getRemainder(second, "minutes") match {
       case 0 => ""
       case v => t_flag = "T"
         v + "M"
     }
-    val hour_Str: String = getRemainder(second, "hour") match {
+    val hour_Str: String = getRemainder(second, "hours") match {
       case 0 => ""
       case v => t_flag = "T"
         v + "H"
     }
 
-    val day_Str: String = getRemainder(second, "day") match {
+    val day_Str: String = getRemainder(second, "days") match {
       case 0 => ""
       case v => v + "D"
     }
 
-    val month_Str: String = getRemainder(second, "month") match {
+    val month_Str: String = getRemainder(second, "months") match {
       case 0 => ""
       case v => v + "M"
     }
-    val year_Str: String = getRemainder(second, "year") match {
+    val year_Str: String = getRemainder(second, "years") match {
       case 0 => ""
       case v => v + "Y"
     }
@@ -201,40 +260,42 @@ object LynxDuration {
 
   def standardTypeDate(map: Map[String, Int]): String = {
 
-    val year_Str: String = map.getOrElse("year", 0) match {
+    val year_Str: String = map.getOrElse("years", 0) match {
       case 0 => ""
       case v => v + "Y"
     }
-    val month_Str: String = map.getOrElse("month", 0) match {
+    val month_Str: String = map.getOrElse("months", 0) match {
       case 0 => ""
       case v => v + "M"
     }
-    val week_Str: Int = map.getOrElse("week", 0)
+    val week_Str: Int = map.getOrElse("weeks", 0)
 
-    val day_Str: String = map.getOrElse("day", 0) match {
+    val day_Str: String = map.getOrElse("days", 0) match {
       case 0 if week_Str == 0 => ""
       case 0 => (week_Str * 7) + "D"
       case v => (v + week_Str * 7) + "D"
     }
     //T
     var t_flag = ""
-    val hour_Str: String = map.getOrElse("hour", 0) match {
+    val hour_Str: String = map.getOrElse("hours", 0) match {
       case 0 => ""
       case v => t_flag = "T"
         v + "H"
     }
-    val minute_Str: String = map.getOrElse("minute", 0) match {
+    val minute_Str: String = map.getOrElse("minutes", 0) match {
       case 0 => ""
       case v => t_flag = "T"
         v + "M"
     }
-    val second_Str: String = map.getOrElse("second", 0) match {
+    val second_Str: String = map.getOrElse("seconds", 0) match {
       case 0 => ""
-      case s => map.getOrElse("nanoOfSecond", 0) match {
+      case s => map.getOrElse("nanoseconds", 0) match {
         case 0 => t_flag = "T"
           s + "S"
         case n => t_flag = "T"
-          s + "." + (n / Math.pow(10, 9)).toString.split("\\.")(1) + "S"
+          val zeroDigit: String = "000000000" + n
+          val digit: Int = n.toString.length
+          s + "." + zeroDigit.substring(digit, digit + 9).replaceAll("(0)+$", "") + "S"
       }
 
     }
@@ -255,9 +316,9 @@ object LynxDuration {
     nanosecond = (microsecond - microsecond.toInt) * Math.pow(10, 3) + map.getOrElse("nanoseconds", 0.toDouble)
     nanoOfSecond = millisecond * Math.pow(0.1, 3) + microsecond * Math.pow(0.1, 6) + nanosecond * Math.pow(0.1, 9)
 
-    Map("year" -> year.toInt, "month" -> month.toInt, "week" -> week.toInt, "day" -> day.toInt,
+    Map("years" -> year.toInt, "months" -> month.toInt, "weeks" -> week.toInt, "days" -> day.toInt,
       //T
-      "hour" -> hour.toInt, "minute" -> minute.toInt, "second" -> second.toInt, "nanoOfSecond" -> (nanoOfSecond * Math.pow(10, 9)).toInt)
+      "hours" -> hour.toInt, "minutes" -> minute.toInt, "seconds" -> second.toInt, "nanoseconds" -> (nanoOfSecond * Math.pow(10, 9)).toInt)
   }
 
   def getDurationMap(lynxDuration_Str: String): (String, Map[String, Double]) = {
@@ -296,9 +357,21 @@ object LynxDuration {
   }
 
   def parse(map: Map[String, Double]): LynxDuration = {
-    val duration_Str = standardType(toSecond(getDurationMap(map)))
+    val duration_Str = standardType(toSecond(getDurationMap(map)), 9, map)
     if (valid(duration_Str)) {
-      if (map.mapValues(_.toInt.toDouble).equals(map)) {
+      var flag = false
+      map.values.foreach(f => if (f < 0) {
+        flag = true
+      })
+      if (flag) {
+        var tmp = LynxDuration.standardTypeDate(map.mapValues(_.toInt))
+        if (tmp.contains("T") && duration_Str.contains("T")) {
+          tmp = tmp.split("T")(0) + "T" + duration_Str.split("T")(1)
+          LynxDuration(tmp, map.mapValues(_.toInt))
+        } else {
+          LynxDuration(tmp, map.mapValues(_.toInt))
+        }
+      } else if (map.mapValues(_.toInt.toDouble).equals(map)) {
         LynxDuration(duration_Str, map.mapValues(_.toInt))
       } else {
         LynxDuration(duration_Str, getDurationMap(map))
@@ -325,8 +398,8 @@ object LynxDuration {
     else {
       val lynxLocalDateTime = LynxLocalDateTime.parse(lynxDuration_Str.replace("P", ""))
       val lynxDuration_map =
-        Map("year" -> lynxLocalDateTime.year, "month" -> lynxLocalDateTime.month, "day" -> lynxLocalDateTime.day,
-          "hour" -> lynxLocalDateTime.hour, "minute" -> lynxLocalDateTime.minute, "second" -> lynxLocalDateTime.second, "nanoOfSecond" -> lynxLocalDateTime.fraction)
+        Map("years" -> lynxLocalDateTime.year, "months" -> lynxLocalDateTime.month, "days" -> lynxLocalDateTime.day,
+          "hours" -> lynxLocalDateTime.hour, "minutes" -> lynxLocalDateTime.minute, "seconds" -> lynxLocalDateTime.second, "nanoseconds" -> lynxLocalDateTime.fraction)
       if (valid(standardTypeDate(lynxDuration_map))) {
         LynxDuration(standardTypeDate(lynxDuration_map), lynxDuration_map)
       } else {
@@ -336,8 +409,12 @@ object LynxDuration {
   }
 
   def dateBetween(begin: LocalDate, end: LocalDate): Double = {
-    if (begin == null || end == null) return 0
-    ((end.getYear - begin.getYear) * 365 + (end.getMonthValue - begin.getMonthValue) * 30 + (end.getDayOfMonth - begin.getDayOfMonth)) * SECOND_OF_DAY
+    if (begin == null || end == null) return 0.toDouble
+    if ((end.getYear - begin.getYear) > 0 && (((end.getMonthValue - begin.getMonthValue) < 0) || (((end.getDayOfMonth - begin.getDayOfMonth) < 0) && ((end.getMonthValue - begin.getMonthValue - 1) < 0)))) {
+      ((end.getYear - begin.getYear) * 365 + (end.getMonthValue - begin.getMonthValue) * 30 + (end.getDayOfMonth - begin.getDayOfMonth - 5)) * SECOND_OF_DAY
+    } else {
+      ((end.getYear - begin.getYear) * 365 + (end.getMonthValue - begin.getMonthValue) * 30 + (end.getDayOfMonth - begin.getDayOfMonth)) * SECOND_OF_DAY
+    }
   }
 
 

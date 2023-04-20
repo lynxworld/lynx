@@ -216,18 +216,15 @@ class A_Match extends TestBase{
     val records = runOnDemoGraph(
       """
         |MATCH p = (actor {name: 'Charlie Sheen'})-[r:ACTED_IN*2]-(co_actor)
-        |RETURN p
+        |RETURN relationships(p)
         |""".stripMargin).records().toArray
     Assert.assertEquals(2, records.length)
-    val link1 = records(0)("p").asInstanceOf[LynxValue].value.asInstanceOf[List[LynxValue]](1).value.asInstanceOf[List[LynxValue]](0).value.asInstanceOf[List[LynxValue]]
-    val link2 = records(1)("p").asInstanceOf[LynxValue].value.asInstanceOf[List[LynxValue]](1).value.asInstanceOf[List[LynxValue]](0).value.asInstanceOf[List[LynxValue]]
+    val rels1 = records(0)("relationships(p)").value
+    val rels2 = records(1)("relationships(p)").value
 
-    Assert.assertEquals(List(r4, r2), link1)
-    Assert.assertEquals(List(r4, r5), link2)
+    Assert.assertEquals(List(r4, r5), rels1)
+    Assert.assertEquals(List(r4, r2), rels2)
 
-    // should get:
-    //[:ACTED_IN[0]{role:"Bud Fox"},:ACTED_IN[2]{role:"Gordon Gekko"}]
-    //[:ACTED_IN[0]{role:"Bud Fox"},:ACTED_IN[1]{role:"Carl Fox"}]
   }
 
   @Test
@@ -243,10 +240,10 @@ class A_Match extends TestBase{
 
     val records = runOnDemoGraph(
       """
-        |MATCH p = (charlie:Person)-[* {blocked:false}]-(martin:Person)
+        |MATCH p = (charlie:Person)-[* { blocked:false }]-(martin:Person)
         |WHERE charlie.name = 'Charlie Sheen' AND martin.name = 'Martin Sheen'
         |RETURN p
-        |""".stripMargin).records()
+        |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
     //should get: (0)-[X,7]->(7)<-[X,8]-(1)
@@ -272,8 +269,8 @@ class A_Match extends TestBase{
         |""".stripMargin).records().map(f => f("p").asInstanceOf[LynxValue].value).toArray
 
     Assert.assertEquals(2, records.length)
-    Assert.assertEquals(List(n2, LynxList(List(r3, m2, LynxList(List())))), records.head)
-    Assert.assertEquals(List(n2, LynxList(List(r2, m1, LynxList(List())))), records(1))
+    Assert.assertEquals(List(n2, r3, m2), records.head)
+    Assert.assertEquals(List(n2, r2, m1), records(1))
   }
 
   @Test
@@ -367,7 +364,7 @@ class A_Match extends TestBase{
         |MATCH (n)
         |WHERE id(n) IN [1, 3, 5]
         |RETURN n
-        |""".stripMargin).records().map(f => f("n").asInstanceOf[LynxValue].value).toArray
+        |""".stripMargin).records().map(_.getAsNode("n").get).toArray.sortBy(_.id.toLynxInteger.value)
     Assert.assertEquals(3, records.length)
     Assert.assertEquals(n1, records.head)
     Assert.assertEquals(n3, records(1))

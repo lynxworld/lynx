@@ -1,6 +1,6 @@
 package org.grapheco.lynx.types.time
 
-import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.{LynxValue, TypeMismatchException}
 import org.grapheco.lynx.types.property.{LynxFloat, LynxInteger, LynxString}
 import org.grapheco.lynx.types.structural.LynxPropertyKey
 import org.grapheco.lynx.types.time.LynxComponentDate._
@@ -12,6 +12,7 @@ import org.opencypher.v9_0.util.symbols.{CTDateTime, DateTimeType}
 
 import java.sql.Timestamp
 import java.time._
+import java.time.temporal.{ChronoUnit, TemporalUnit}
 import java.util.{Calendar, GregorianCalendar}
 
 /**
@@ -26,7 +27,31 @@ case class LynxDateTime(zonedDateTime: ZonedDateTime) extends LynxTemporalValue 
 
   def lynxType: DateTimeType = CTDateTime
 
-  override def sameTypeCompareTo(o: LynxValue): Int = ???
+  /*a mapping for time calculation */
+  val timeUnit: Map[String, TemporalUnit] = Map(
+    "years" -> ChronoUnit.YEARS, "months" -> ChronoUnit.MONTHS, "days" -> ChronoUnit.DAYS,
+    "hours" -> ChronoUnit.HOURS, "minutes" -> ChronoUnit.MINUTES, "seconds" -> ChronoUnit.SECONDS,
+    "milliseconds" -> ChronoUnit.MILLIS, "nanoseconds" -> ChronoUnit.NANOS
+  )
+
+  def plusDuration(that: LynxDuration): LynxDateTime = {
+    var aVal = zonedDateTime
+    that.map.foreach(f => aVal = aVal.plus(f._2.toLong, timeUnit.get(f._1).get))
+    LynxDateTime(aVal)
+  }
+
+  def minusDuration(that: LynxDuration): LynxDateTime = {
+    var aVal = zonedDateTime
+    that.map.foreach(f => aVal = aVal.minus(f._2.toLong, timeUnit.get(f._1).get))
+    LynxDateTime(aVal)
+  }
+
+  override def sameTypeCompareTo(o: LynxValue): Int = {
+    o match {
+      case x: LynxDateTime => zonedDateTime.compareTo(x.value)
+      case _ => throw new Exception(s"expect type LynxDateTime,but find ${o.getClass.getTypeName}")
+    }
+  }
 
 
   //LynxComponentDate
@@ -161,7 +186,11 @@ object LynxDateTime {
       case LynxString(v) => v.replace(" ", "_")
       case null => map.get("datetime").orNull match {
         case LynxDateTime(v) => v.getZone.getId
-        case null => "Z"
+        case null => map.getOrElse("time", null) match {
+          case LynxTime(v) => v.getOffset.getId
+          case LynxLocalTime(v) => "Z"
+          case null => "Z"
+        }
       }
     })
 
@@ -217,6 +246,13 @@ object LynxDateTime {
               }
               else v.second
             )
+            case v: LynxTime => (v.hour, v.minute,
+              if (m.contains("second")) m("second") match {
+                case v: Long => v.toInt
+                case v: LynxInteger => v.value.toInt
+              }
+              else v.second
+            )
           }
         case _ => getHourMinuteSecond(map, requiredHasDay = false)
       }
@@ -226,12 +262,20 @@ object LynxDateTime {
             case v: LocalTime => v.getNano
             case v: LynxInteger => v.value.toInt
             case LynxLocalTime(v) => v.getNano
+            case LynxTime(v) => v.getNano
           })
         case _ => getNanosecond(map, requiredHasSecond = false)
       }
-      if (map.contains("timezone") && map.contains("datetime")) {
+      if (map.contains("timezone") && map.contains("datetime") ) {
         val old_datetime = ZonedDateTime.of(year, month, day, hour, minute, second, nanoOfSecond, map("datetime") match {
           case LynxDateTime(v) => v.getZone
+        })
+        val new_datetime = old_datetime.withZoneSameInstant(zoneId)
+        return LynxDateTime(new_datetime)
+      }
+      if (map.contains("timezone") && map.get("time").toString.contains("LynxTime") ) {
+        val old_datetime = ZonedDateTime.of(year, month, day, hour, minute, second, nanoOfSecond, map("time") match {
+          case LynxTime(v) => v.getOffset
         })
         val new_datetime = old_datetime.withZoneSameInstant(zoneId)
         return LynxDateTime(new_datetime)

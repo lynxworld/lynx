@@ -244,63 +244,104 @@ class TemporalValues extends TestBase {
   }
 
   /**
-   * 5.0 examples
+   * @author along
    */
   @Test
-  def examples(): Unit = {
-    val cypher: List[Map[String, String]] = List(
-      Map("cypher" -> "RETURN duration({ days: 1, hours: 12 }) AS theDuration",
-        "col" -> "theDuration", "result" -> "P1DT12H"),
-      Map("cypher" -> "RETURN duration.between(date('1984-10-11'), date('2015-06-24')) AS theDuration",
-        "col" -> "theDuration", "result" -> "P30Y8M13D"),
-      Map("cypher" -> "RETURN duration.inDays(date('2014-10-11'), date('2015-08-06')) AS theDuration",
-        "col" -> "theDuration", "result" -> "P299D"),
-      Map("cypher" -> "RETURN date.truncate('week', date(), { dayOfWeek: 4 }) AS thursday",
-        "col" -> "thursday", "result" -> "2021-09-30"),
-      Map("cypher" -> "RETURN date.truncate('month', date()+ duration('P2M'))- duration('P1D') AS lastDay",
-        "col" -> "lastDay", "result" -> "2021-10-31"),
-      Map("cypher" -> "RETURN time('13:42:19')+ duration({ days: 1, hours: 12 }) AS theTime",
-        "col" -> "theTime", "result" -> "01:42:19Z"),
-      Map("cypher" -> "RETURN duration({ days: 2, hours: 7 })+ duration({ months: 1, hours: 18 }) AS theDuration",
-        "col" -> "theDuration", "result" -> "P1M2DT25H"),
-      Map("cypher" -> "RETURN duration({ hours: 5, minutes: 21 })* 14 AS theDuration",
-        "col" -> "theDuration", "result" -> "PT74H54M"),
-      Map("cypher" -> "RETURN duration({ hours: 3, minutes: 16 })/ 2 AS theDuration",
-        "col" -> "theDuration", "result" -> "PT1H38M"),
-      Map("cypher" ->
-        """
-          |WITH datetime('2015-07-21T21:40:32.142+0100') AS date1, datetime('2015-07-21T17:12:56.333+0100') AS date2
-          |RETURN
-          |CASE
-          |WHEN date1 < date2
-          |THEN date1 + duration("P1D")> date2
-          |ELSE date2 + duration("P1D")> date1 END AS lessThanOneDayApart
-          |""".stripMargin,
-        "col" -> "lessThanOneDayApart", "result" -> "true"),
-      Map("cypher" -> "RETURN [\"Jan\", \"Feb\", \"Mar\", \"Apr\", \"May\", \"Jun\", \"Jul\", \"Aug\", \"Sep\", \"Oct\", \"Nov\", \"Dec\"][date().month-1] AS month",
-        "col" -> "month", "result" -> "Sep")
-    )
+  def createDuration(): Unit = {
+    val records = runOnDemoGraph(
+      "RETURN duration({ days: 1, hours: 12 }) AS theDuration"
+    ).records().map(f => f("theDuration").toString).toArray
+    Assert.assertEquals("P1DT12H", records(0))
+  }
 
-    var flag = 0
-    cypher.foreach(e => {
-      try {
-        val records = runOnDemoGraph(e("cypher")).records().map(f => f(e("col")).value.toString).toArray
-        Assert.assertEquals(e("result"), records(0))
-      } catch {
-        case ex: AssertionError => {
-          logger.error("AssertError for cypher:" + e("cypher"))
-          logger.error(ex.toString + "\n\n")
-          flag += 1
-        }
-        case ex: Exception => {
-          logger.error("ScalaError for cypher:" + e("cypher"))
-          logger.error(ex.toString + "\n\n")
-          flag += 1
-        }
-      }
-    })
-    if (flag > 0) {
-      throw new Exception("The example find error cypher " + flag + "/" + cypher.length)
-    }
+  @Test
+  def computeDiffDuration(): Unit = {
+    val records = runOnDemoGraph(
+      "RETURN duration.between(date('1984-10-11'), date('2015-06-24')) AS theDuration"
+    ).records().toArray
+    Assert.assertEquals(LynxDuration.parse("P30Y8M13D").toString, records(0)("theDuration").toString)
+  }
+
+  @Test
+  def computeNumOfDay(): Unit = {
+    val records = runOnDemoGraph(
+      "RETURN duration.inDays(date('2014-10-11'), date('2015-08-06')) AS theDuration"
+    ).records().map(f => f("theDuration").toString).toArray
+    Assert.assertEquals("P299D", records(0))
+  }
+
+  /*TODO*/
+  @Test
+  def getDateInWeek(): Unit = {
+    val records = runOnDemoGraph(
+      "RETURN date.truncate('week', date(), { dayOfWeek: 4 }) AS thursday"
+    ).records().map(f => f("thursday").value).toArray
+    Assert.assertEquals("2023-01-05", records(0).toString)
+  }
+
+  @Test
+  def getDateOfLastDayInMonth(): Unit = {
+    val records = runOnDemoGraph(
+      "RETURN date.truncate('month',date()+duration('P2M'))- duration('P1D') AS lastDay"
+    ).records().map(f => f("lastDay").value).toArray
+    Assert.assertEquals("2023-02-28", records(0).toString)
+  }
+
+  @Test
+  def addDurationToDate(): Unit = {
+    val records = runOnDemoGraph(
+      "RETURN time('13:42:19')+ duration({ days: 1, hours: 12 }) AS theTime"
+    ).records().map(f => f("theTime").value).toArray
+    Assert.assertEquals("01:42:19Z", records(0).toString)
+  }
+
+  @Test
+  def addTwoDuration(): Unit = {
+    val records = runOnDemoGraph(
+      "RETURN duration({ days: 2, hours: 7 })+ duration({ months: 1, hours: 18 }) AS theDuration"
+    ).records().map(
+      f => f("theDuration").toString).toArray
+    Assert.assertEquals("P1M2DT25H", records(0))
+  }
+
+  @Test
+  def multipleDurationByNum(): Unit = {
+    val records = runOnDemoGraph(
+      "RETURN duration({ hours: 5, minutes: 21 })* 14 AS theDuration"
+    ).records().map(f => f("theDuration").value).toArray
+    Assert.assertEquals("PT74H54M", records(0).toString)
+  }
+
+  @Test
+  def divDurationByNum(): Unit = {
+    val records = runOnDemoGraph(
+      "RETURN duration({ hours: 3, minutes: 16 })/ 2 AS theDuration"
+    ).records().map(f => f("theDuration").value).toArray
+    Assert.assertEquals("PT1H38M", records(0).toString)
+  }
+
+  @Test
+  def checkTwoInstant(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |WITH datetime('2015-07-21T21:40:32.142+0100') AS date1, datetime('2015-07-21T17:12:56.333+0100') AS date2
+        |RETURN
+        |CASE
+        |WHEN date1 < date2
+        |THEN date1 + duration("P1D")> date2
+        |ELSE date2 + duration("P1D")> date1 END AS lessThanOneDayApart
+        |""".stripMargin
+    ).records().map(f => f("lessThanOneDayApart").value).toArray
+    Assert.assertEquals(true, records(0))
+  }
+
+  @Test
+  def returnNameOfCurMonth(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |RETURN ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][date().month-1] AS month
+        |""".stripMargin
+    ).records().map(f => f("month").value).toArray
+    Assert.assertEquals("Jan", records(0))
   }
 }

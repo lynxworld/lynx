@@ -80,7 +80,7 @@ class TestList extends TestBase {
   @Test
   def listsInGeneral_5(): Unit = {
     val records = runOnDemoGraph("RETURN range(0, 10)[0..-5]").records().map(f => f("range(0, 10)[0..-5]").asInstanceOf[LynxList].value).toArray
-    compareArray(Array.range(0,7).map(f=>LynxValue(f)),records(0).toArray)
+    compareArray(Array.range(0,6).map(f=>LynxValue(f)),records(0).toArray)
   }
 
   @Test
@@ -184,8 +184,13 @@ class TestList extends TestBase {
         nodesCreated.toMap ++ relsCreated
       }
     )
+    model.write.commit
 
-    val records = runOnDemoGraph("MATCH (a:Person { name: 'Keanu Reeves' })\nRETURN [(a)-->(b) WHERE b:Movie | b.released] AS years").records()
+    val records = runOnDemoGraph("" +
+      """
+        |MATCH (a:Person { name: 'Keanu Reeves' })
+        |RETURN [(a)-[r:ACTION_IN]->(b) WHERE b:Movie | b.released] AS years
+        |""".stripMargin).records()
       .map(f => f("years").asInstanceOf[LynxList].value).toArray
 
     val expectResult = List(1997, 1999, 2000, 2003, 2003, 2003, 1995)

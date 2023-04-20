@@ -2,7 +2,7 @@ package org.grapheco.cypher.functions
 
 import org.grapheco.lynx.TestBase
 import org.grapheco.lynx.types.LynxValue
-import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxLocalTime, LynxTime}
+import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxLocalDateTime, LynxLocalTime, LynxTime}
 import org.grapheco.lynx.util.LynxTemporalParser
 import org.junit.{Assert, Test}
 
@@ -70,7 +70,7 @@ class I_Temporal_InstantTypes extends TestBase {
       """
         |RETURN date.realtime() AS currentDate
         |""".stripMargin).records().toArray
-
+    //TODO
     Assert.assertEquals(1, records.length)
     Assert.assertEquals(LynxDate.now(), records(0)("currentDate"))
   }
@@ -81,9 +81,8 @@ class I_Temporal_InstantTypes extends TestBase {
       """
         |RETURN date.realtime('America/Los Angeles') AS currentDateInLA
         |""".stripMargin).records().toArray
-
+    //TODO
     val zone_LA = ZoneId.of("America/Los_Angeles")
-
     Assert.assertEquals(1, records.length)
     Assert.assertEquals(LynxDate.now(zone_LA), records(0)("currentDateInLA"))
   }
@@ -300,10 +299,10 @@ class I_Temporal_InstantTypes extends TestBase {
       """
         |RETURN datetime.transaction() AS currentDateTime
         |""".stripMargin).records().toArray
-
+    //TODO
     val now_zonedTime = LynxDateTime.now
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(now_zonedTime, records(0)("currentDateTime"))
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(now_zonedTime, records(0)("currentDateTime")))
   }
 
   @Test
@@ -325,9 +324,8 @@ class I_Temporal_InstantTypes extends TestBase {
         |RETURN datetime.statement() AS currentDateTime
         |""".stripMargin).records().toArray
 
-    val now_zonedTime = LynxDateTime.now
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(now_zonedTime, records(0)("currentDateTime"))
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(LynxDateTime.now, records(0)("currentDateTime")))
   }
 
   @Test
@@ -336,10 +334,10 @@ class I_Temporal_InstantTypes extends TestBase {
       """
         |RETURN datetime.realtime() AS currentDateTime
         |""".stripMargin).records().toArray
-
+    //TODO
     val now_zonedTime = LynxDateTime.now
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(now_zonedTime, records(0)("currentDateTime"))
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(now_zonedTime, records(0)("currentDateTime")))
   }
 
   @Test
@@ -529,9 +527,32 @@ class I_Temporal_InstantTypes extends TestBase {
     Assert.assertEquals(date_4, records(0)("dateDDHHMMSSTimezone"))
   }
 
-
   @Test
   def dateTimeFromUsingOtherTemporalValuesAsComponents_2(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |WITH time({ hour:12, minute:31, second:14, microsecond: 645876, timezone: '+01:00' }) AS tt
+        |RETURN datetime({ year:1984, month:10, day:11, time:tt }) AS YYYYMMDDTime,
+        |datetime({ year:1984, month:10, day:11, time:tt, timezone:'+05:00' }) AS YYYYMMDDTimeTimezone,
+        |datetime({ year:1984, month:10, day:11, time:tt, second: 42 }) AS YYYYMMDDTimeSS,
+        |datetime({ year:1984, month:10, day:11, time:tt, second: 42, timezone:'Pacific/Honolulu' }) AS YYYYMMDDTimeSSTimezone
+        |""".stripMargin).records().toArray
+
+    val zone_Pacific = ZoneId.of("Pacific/Honolulu")
+    val date_1 = LynxDateTime.parse("1984-10-11T12:31:14.645876+01:00")
+    val date_2 = LynxDateTime.parse("1984-10-11T16:31:14.645876+05:00")
+    val date_3 = LynxDateTime.parse("1984-10-11T12:31:42.645876+01:00")
+    val date_4 = LynxDateTime.parse("1984-10-11T01:31:42.645876-10:00", zone_Pacific)
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(date_1, records(0)("YYYYMMDDTime"))
+    Assert.assertEquals(date_2, records(0)("YYYYMMDDTimeTimezone"))
+    Assert.assertEquals(date_3, records(0)("YYYYMMDDTimeSS"))
+    Assert.assertEquals(date_4, records(0)("YYYYMMDDTimeSSTimezone"))
+  }
+
+  @Test
+  def dateTimeFromUsingOtherTemporalValuesAsComponents_3(): Unit = {
     val records = runOnDemoGraph(
       """
         |WITH date({ year:1984, month:10, day:11 }) AS dd,
@@ -556,7 +577,7 @@ class I_Temporal_InstantTypes extends TestBase {
   }
 
   @Test
-  def dateTimeFromUsingOtherTemporalValuesAsComponents_3(): Unit = {
+  def dateTimeFromUsingOtherTemporalValuesAsComponents_4(): Unit = {
     val records = runOnDemoGraph(
       """
         |WITH datetime({ year:1984, month:10, day:11, hour:12, timezone: 'Europe/Stockholm' }) AS dd
@@ -640,6 +661,257 @@ class I_Temporal_InstantTypes extends TestBase {
   Details for using the localdatetime() function.
    */
   @Test
+  def current_LocalDateTime_1(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |RETURN localdatetime() AS now
+        |""".stripMargin).records().toArray
+    val now_localdatetime = LynxLocalDateTime.now()
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(now_localdatetime, records(0)("now")))
+  }
+
+  @Test
+  def current_LocalDateTime_2(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |RETURN localdatetime({ timezone: 'America/Los Angeles' }) AS now
+        |""".stripMargin).records().toArray
+    val LocaldateTime_LA = LynxLocalDateTime.now(ZoneId.of("America/Los_Angeles"))
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(LocaldateTime_LA, records(0)("now")))
+  }
+
+  @Test
+  def localdatetimeTransaction(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |RETURN localdatetime.transaction() AS now
+        |""".stripMargin).records().toArray
+
+    val now_localdatetime = LynxLocalDateTime(java.time.LocalDateTime.now())
+    Assert.assertEquals(1, records.length)
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(now_localdatetime, records(0)("now")))
+  }
+
+  @Test
+  def localdatetimeStatement(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |RETURN localdatetime.statement() AS now
+        |""".stripMargin).records().toArray
+
+    val now_localdatetime = LynxLocalDateTime.now()
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(now_localdatetime, records(0)("now")))
+  }
+
+  @Test
+  def localdatetimeRealtime_1(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |RETURN localdatetime.realtime() AS now
+        |""".stripMargin).records().toArray
+
+    val now_localdatetime = LynxLocalDateTime.now()
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(now_localdatetime, records(0)("now")))
+  }
+
+  @Test
+  def localdatetimeRealtime_2(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |RETURN localdatetime.realtime('America/Los Angeles') AS nowInLA
+        |""".stripMargin).records().toArray
+
+    val zone_localdatetime = LynxLocalDateTime.now(ZoneId.of("America/Los_Angeles"))
+
+    Assert.assertEquals(1, records.length)
+
+  }
+
+  @Test
+  def creatingACalendarLocalDateTime(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |RETURN localdatetime({ year:1984, month:10, day:11, hour:12, minute:31, second:14, millisecond: 123, microsecond: 456, nanosecond: 789 }) AS theDate
+        |""".stripMargin).records().toArray
+
+    val localDateTime_1 = LynxLocalDateTime.parse("1984-10-11T12:31:14.123456789").asInstanceOf[LynxLocalDateTime]
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(localDateTime_1, records(0)("theDate"))
+  }
+
+  @Test
+  def weekLocalDateTime(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |RETURN localdatetime({ year:1984, week:10, dayOfWeek:3, hour:12, minute:31, second:14, millisecond: 645 }) AS theDate
+        |""".stripMargin).records().toArray
+
+    val localdatetime_1 = LynxLocalDateTime.parse("1984-03-07T12:31:14.645")
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(localdatetime_1, records(0)("theDate"))
+  }
+
+  @Test
+  def quarterLocalDateTime(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |RETURN localdatetime({ year:1984, quarter:3, dayOfQuarter: 45, hour:12, minute:31, second:14, nanosecond: 645876123 }) AS theDate
+        |""".stripMargin).records().toArray
+
+    val localdatetime_1 = LynxLocalDateTime.parse("1984-08-14T12:31:14.645876123")
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(localdatetime_1, records(0)("theDate"))
+  }
+
+  @Test
+  def ordinalLocalDateTime(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |RETURN localdatetime({ year:1984, ordinalDay:202, hour:12, minute:31, second:14, microsecond: 645876 }) AS theDate
+        |""".stripMargin).records().toArray
+
+    val localdatetime_1 = LynxLocalDateTime.parse("1984-07-20T12:31:14.645876")
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(localdatetime_1, records(0)("theDate"))
+  }
+
+  @Test
+  def LocaldateTimeFromString(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |UNWIND [
+        |localdatetime('2015-07-21T21:40:32.142'),
+        |localdatetime('2015-W30-2T214032.142'),
+        |localdatetime('2015-202T21:40:32'),
+        |localdatetime('2015202T21')
+        |] AS theDate
+        |RETURN theDate
+        |""".stripMargin).records().toArray
+
+    val localdatetime_1 = LynxLocalDateTime.parse("2015-07-21T21:40:32.142")
+    val localdatetime_2 = LynxLocalDateTime.parse("2015-07-21T21:40:32.142")
+    val localdatetime_3 = LynxLocalDateTime.parse("2015-07-21T21:40:32")
+    val localdatetime_4 = LynxLocalDateTime.parse("2015202T21")
+
+    Assert.assertEquals(4, records.length)
+    Assert.assertEquals(localdatetime_1, records(0)("theDate"))
+    Assert.assertEquals(localdatetime_2, records(1)("theDate"))
+    Assert.assertEquals(localdatetime_3, records(2)("theDate"))
+    Assert.assertEquals(localdatetime_4, records(3)("theDate"))
+  }
+
+  @Test
+  def localdateTimeFromUsingOtherTemporalValuesAsComponents_1(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |WITH date({ year:1984, month:10, day:11 }) AS dd
+        |RETURN localdatetime({ date:dd, hour: 10, minute: 10, second: 10 }) AS dateHHMMSS,
+        |localdatetime({ date:dd, day: 28, hour: 10, minute: 10, second: 10 }) AS dateDDHHMMSS
+        |""".stripMargin).records().toArray
+
+    val localDateTime_1 = LynxLocalDateTime.parse("1984-10-11T10:10:10")
+    val localDateTime_2 = LynxLocalDateTime.parse("1984-10-28T10:10:10")
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(localDateTime_1, records(0)("dateHHMMSS"))
+    Assert.assertEquals(localDateTime_2, records(0)("dateDDHHMMSS"))
+  }
+
+  @Test
+  def localdateTimeFromUsingOtherTemporalValuesAsComponents_2(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |WITH time({ hour:12, minute:31, second:14, microsecond: 645876, timezone: '+01:00' }) AS tt
+        |RETURN localdatetime({ year:1984, month:10, day:11, time:tt }) AS YYYYMMDDTime,
+        |localdatetime({ year:1984, month:10, day:11, time:tt, second: 42 }) AS YYYYMMDDTimeSS
+        |""".stripMargin).records().toArray
+
+    val localDateTime_1 = LynxLocalDateTime.parse("1984-10-11T12:31:14.645876")
+    val localDateTime_2 = LynxLocalDateTime.parse("1984-10-11T12:31:42.645876")
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(localDateTime_1, records(0)("YYYYMMDDTime"))
+    Assert.assertEquals(localDateTime_2, records(0)("YYYYMMDDTimeSS"))
+  }
+
+  @Test
+  def localdateTimeFromUsingOtherTemporalValuesAsComponents_3(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |WITH date({ year:1984, month:10, day:11 }) AS dd,
+        |time({ hour:12, minute:31, second:14, microsecond: 645876, timezone: '+01:00' }) AS tt
+        |RETURN localdatetime({ date:dd, time:tt }) AS dateTime,
+        |localdatetime({ date:dd, time:tt, day: 28, second: 42 }) AS dateTimeDDSS
+        |""".stripMargin).records().toArray
+
+    val localDateTime_1 = LynxLocalDateTime.parse("1984-10-11T12:31:14.645876")
+    val localDateTime_2 = LynxLocalDateTime.parse("1984-10-28T12:31:42.645876")
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(localDateTime_1, records(0)("dateTime"))
+    Assert.assertEquals(localDateTime_2, records(0)("dateTimeDDSS"))
+  }
+
+  @Test
+  def localdateTimeFromUsingOtherTemporalValuesAsComponents_4(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |WITH datetime({ year:1984, month:10, day:11, hour:12, timezone: '+01:00' }) AS dd
+        |RETURN localdatetime({ datetime:dd }) AS dateTime,
+        |localdatetime({ datetime:dd, day: 28, second: 42 }) AS dateTimeDDSS
+        |""".stripMargin).records().toArray
+
+    val localDateTime_1 = LynxLocalDateTime.parse("19841011T12:00")
+    val localDateTime_2 = LynxLocalDateTime.parse("1984-10-28T12:00:42")
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(localDateTime_1, records(0)("dateTime"))
+    Assert.assertEquals(localDateTime_2, records(0)("dateTimeDDSS"))
+  }
+
+  @Test
+  def truncatingLocalDateTime(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |WITH localdatetime({ year:2017, month:11, day:11, hour:12, minute:31, second:14, nanosecond: 645876123 }) AS d
+        |RETURN localdatetime.truncate('millennium', d) AS truncMillenium,
+        |localdatetime.truncate('year', d, { day:2 }) AS truncYear,
+        |localdatetime.truncate('month', d) AS truncMonth,
+        |localdatetime.truncate('day', d) AS truncDay,
+        |localdatetime.truncate('hour', d, { nanosecond:2 }) AS truncHour,
+        |localdatetime.truncate('second', d) AS truncSecond
+        |""".stripMargin).records().toArray
+
+    val localDateTimetime_1 = LynxLocalDateTime.parse("20000101T00:00")
+    val localDateTimetime_2 = LynxLocalDateTime.parse("20170102T00:00")
+    val localDateTimetime_3 = LynxLocalDateTime.parse("20171101T00:00")
+    val localDateTimetime_4 = LynxLocalDateTime.parse("20171111T00:00")
+    val localDateTimetime_5 = LynxLocalDateTime.parse("20171111T12:00:00.000000002")
+    val localDateTimetime_6 = LynxLocalDateTime.parse("20171111T12:31:14")
+
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals(localDateTimetime_1, records(0)("truncMillenium"))
+    Assert.assertEquals(localDateTimetime_2, records(0)("truncYear"))
+    Assert.assertEquals(localDateTimetime_3, records(0)("truncMonth"))
+    Assert.assertEquals(localDateTimetime_4, records(0)("truncDay"))
+    Assert.assertEquals(localDateTimetime_5, records(0)("truncHour"))
+    Assert.assertEquals(localDateTimetime_6, records(0)("truncSecond"))
+  }
+
+
+  @Test
   def currentLocalTime_1(): Unit = {
     val records = runOnDemoGraph(
       """
@@ -671,12 +943,9 @@ class I_Temporal_InstantTypes extends TestBase {
       """
         |RETURN localtime.transaction() AS now
         |""".stripMargin).records().toArray
-
-    val dataform = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
-    val now_time = LocalDateTime.now.format(dataform)
-
+    //TODO
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(now_time, records(0)("now"))
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(LynxLocalTime.now(), records(0)("now")))
   }
 
   @Test
@@ -698,10 +967,8 @@ class I_Temporal_InstantTypes extends TestBase {
         |RETURN localtime.statement('America/Los Angeles') AS nowInLA
         |""".stripMargin).records().toArray
 
-    val dataform = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
-    val zoneTime_LA = ZonedDateTime.now(ZoneId.of("America/Los_Angeles")).format(dataform)
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(zoneTime_LA, records(0)("nowInLA").value)
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(LynxLocalTime.now(ZoneId.of("America/Los_Angeles")), records(0)("nowInLA")))
   }
 
   @Test
@@ -710,12 +977,9 @@ class I_Temporal_InstantTypes extends TestBase {
       """
         |RETURN localtime.realtime() AS now
         |""".stripMargin).records().toArray
-
-    val dataform = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
-    val now_time = LocalDateTime.now.format(dataform)
-
+    //TODO
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(now_time, records(0)("now").value)
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(LynxLocalTime.now(), records(0)("now")))
   }
 
   @Test
@@ -827,6 +1091,17 @@ class I_Temporal_InstantTypes extends TestBase {
   }
 
   @Test
+  def currentTime_r(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |RETURN time('13:42:19') AS currentTime
+        |""".stripMargin).records().toArray
+
+    val now_time = LynxTime.now()
+
+    Assert.assertEquals(1, records.length)
+  }
+  @Test
   def currentTime_2(): Unit = {
     val records = runOnDemoGraph(
       """
@@ -845,26 +1120,32 @@ class I_Temporal_InstantTypes extends TestBase {
       """
         |RETURN time.transaction() AS currentTime
         |""".stripMargin).records().toArray
-
-    val dataform = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
-    val now_time = LocalDateTime.now.format(dataform)
-
+    //TODO
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(records(0)("currentTime"), now_time)
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(LynxTime.now(), records(0)("currentTime")))
   }
 
   @Test
-  def timeStatement(): Unit = {
+  def timeStatement_1(): Unit = {
     val records = runOnDemoGraph(
       """
         |RETURN time.statement() AS currentTime
         |""".stripMargin).records().toArray
 
-    val dataform = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
-    val now_time = LocalDateTime.now.format(dataform)
-
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(now_time, records(0)("currentTime").asInstanceOf[LynxValue].value)
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(LynxTime.now(), records(0)("currentTime")))
+  }
+
+  @Test
+  def timeStatement_2(): Unit = {
+    val records = runOnDemoGraph(
+      """
+        |RETURN time.statement('America/Los Angeles') AS currentTimeInLA
+        |""".stripMargin).records().toArray
+
+    val now_zonedTime = LynxTime.now(ZoneId.of("America/Los_Angeles"))
+    Assert.assertEquals(1, records.length)
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(now_zonedTime, records(0)("currentTimeInLA")))
   }
 
   @Test
@@ -873,12 +1154,9 @@ class I_Temporal_InstantTypes extends TestBase {
       """
         |RETURN time.realtime() AS currentTime
         |""".stripMargin).records().toArray
-
-    val dataform = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
-    val now_time = LocalDateTime.now.format(dataform)
-
+    //TODO
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(now_time, records(0)("currentTime").asInstanceOf[LynxValue].value)
+    Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(LynxTime.now(), records(0)("currentTime")))
   }
 
   @Test

@@ -78,7 +78,7 @@ class Operators extends TestBase {
         |RETURN p.name, p.age, p.livesIn
         |""".stripMargin)
       .records().map(f => Map("p.name" -> f("p.name").value, "p.age" -> f("p.age").value, "p.livesIn" -> f("p.livesIn").value)).toArray
-    Assert.assertEquals(Map("p.name" -> "Ellen", "p.age" -> null, "p.livesln" -> "London"), records(0))
+    Assert.assertEquals(Map("p.name" -> "Ellen", "p.age" -> null, "p.livesIn" -> "London"), records(0))
   }
 
   /**
@@ -94,8 +94,8 @@ class Operators extends TestBase {
         |SET p += { name: 'Ellen', livesIn: 'London' }
         |RETURN p.name, p.age, p.livesIn
         |""".stripMargin)
-      .records().map(f => Map("p.name" -> f("p.name").value, "p.age" -> f("p.age").value, "p.livesln" -> f("p.livesln").value)).toArray
-    Assert.assertEquals(Map("p.name" -> "Ellen", "p.age" -> 20, "p.livesln" -> "London"), records(0))
+      .records().map(f => Map("p.name" -> f("p.name").value, "p.age" -> f("p.age").value, "p.livesIn" -> f("p.livesIn").value)).toArray
+    Assert.assertEquals(Map("p.name" -> "Ellen", "p.age" -> 20, "p.livesIn" -> "London"), records(0))
   }
 
 
@@ -105,8 +105,8 @@ class Operators extends TestBase {
   @Test
   def powOp(): Unit = {
     val records = runOnDemoGraph("WITH 2 AS number, 3 AS exponent\nRETURN number ^ exponent AS result")
-      .records().map(f => f("result").value).toArray
-    Assert.assertEquals(8.0, records(0))
+      .records().toArray
+    Assert.assertEquals(LynxValue(8), records.head.get("result").get)
   }
 
   /**
@@ -175,7 +175,11 @@ class Operators extends TestBase {
    */
   @Test
   def addAndSubTimeOpEx1(): Unit = {
-    val records = runOnDemoGraph("WITH localdatetime({ year:1984, month:10, day:11, hour:12, minute:31, second:14 }) AS aDateTime, duration({ years: 12, nanoseconds: 2 }) AS aDuration\nRETURN aDateTime + aDuration, aDateTime - aDuration")
+    val records = runOnDemoGraph(
+      """
+        |WITH localdatetime({ year:1984, month:10, day:11, hour:12, minute:31, second:14 }) AS aDateTime, duration({ years: 12, nanoseconds: 2 }) AS aDuration
+        |RETURN aDateTime + aDuration, aDateTime - aDuration
+        |""".stripMargin)
       .records()
       .map(f => Map("aDateTime + aDuration" -> f("aDateTime + aDuration").asInstanceOf[LynxLocalDateTime], "aDateTime - aDuration" -> f("aDateTime - aDuration").asInstanceOf[LynxLocalDateTime]))
       .toArray
@@ -186,17 +190,25 @@ class Operators extends TestBase {
 
   @Test
   def addAndSubTimeOpEx2(): Unit = {
-    val records = runOnDemoGraph("WITH date({ year:1984, month:10, day:11 }) AS aDate, duration({ years: 12, nanoseconds: 2 }) AS aDuration\nRETURN aDate + aDuration, aDate - aDuration")
+    val records = runOnDemoGraph(
+      """
+        |WITH date({ year:1984, month:10, day:11 }) AS aDate, duration({ years: 12, nanoseconds: 2 }) AS aDuration
+        |RETURN aDate + aDuration, aDate - aDuration
+        |""".stripMargin)
       .records()
       .map(f => Map("aDate + aDuration" -> f("aDate + aDuration").asInstanceOf[LynxDate], "aDate - aDuration" -> f("aDate - aDuration").asInstanceOf[LynxDate]))
       .toArray
-    val expectResult = Map("aDate + aDuration" -> LynxDate(LocalDate.parse("1996-10-11")), "aDateTime - aDuration" -> LynxDate(LocalDate.parse("1972-10-11")))
+    val expectResult = Map("aDate + aDuration" -> LynxDate(LocalDate.parse("1996-10-11")), "aDate - aDuration" -> LynxDate(LocalDate.parse("1972-10-11")))
     Assert.assertEquals(expectResult, records(0))
   }
 
   @Test
   def addAndSubTimeOpEx3(): Unit = {
-    val records = runOnDemoGraph("RETURN (date(\"2011-01-31\")+ duration(\"P1M\"))+ duration(\"P12M\") AS date1, date(\"2011-01-31\")+(duration(\"P1M\")+ duration(\"P12M\")) AS date2")
+    val records = runOnDemoGraph(
+      """
+        |RETURN (date("2011-01-31")+ duration("P1M"))+ duration("P12M") AS date1,
+        | date("2011-01-31")+(duration("P1M")+ duration("P12M")) AS date2
+        |""".stripMargin)
       .records()
       .map(f => Map("date1" -> f("date1").asInstanceOf[LynxDate], "date2" -> f("date2").asInstanceOf[LynxDate]))
       .toArray
@@ -210,13 +222,19 @@ class Operators extends TestBase {
    */
   @Test
   def addAndSubTimeOpEx4(): Unit = {
-    val records = runOnDemoGraph("WITH duration({ years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70, nanoseconds: 1 }) AS duration1, duration({ months:1, days: -14, hours: 16, minutes: -12, seconds: 70 }) AS duration2\nRETURN duration1, duration2, duration1 + duration2, duration1 - duration2")
-      .records()
-      .map(f => Map("duration1" -> f("duration1").value, "duration2" -> f("duration2").value, "duration1 + duration2" -> f("duration1 + duration2"), "duration1 - duration2" -> f("duration1 - duration2")))
-      .toArray
-    val expectResult = Map("duration1" -> LynxValue("P12Y5M14DT16H13M10.000000001S"), "duration2" -> LynxValue("P1M-14DT15H49M10S"), "duration1 + duration2" -> LynxValue("P12Y6MT32H2M20.000000001S"), "duration1 - duration2" -> LynxValue("P12Y4M28DT24M0.000000001S"))
-    Assert.assertEquals(expectResult, records(0))
+    val records = runOnDemoGraph(
+      """
+        |WITH duration({ years: 12, months: 5, days: 14, hours: 16, minutes: 12, seconds: 70, nanoseconds: 1 }) AS duration1, duration({ months:1, days: -14, hours: 16, minutes: -12, seconds: 70 }) AS duration2
+        |RETURN duration1, duration2, duration1 + duration2, duration1 - duration2
+        |""".stripMargin)
+      .records().toArray
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals("P12Y5M14DT16H13M10.000000001S", records(0)("duration1").toString)
+    Assert.assertEquals("P1M-14DT15H49M10S", records(0)("duration2").toString)
+    Assert.assertEquals("P12Y6MT32H2M20.000000001S", records(0)("duration1 + duration2").toString)
+    Assert.assertEquals("P12Y4M28DT24M0.000000001S", records(0)("duration1 - duration2").toString)
   }
+
 
   /**
    * 8.3
@@ -224,12 +242,12 @@ class Operators extends TestBase {
   @Test
   def multiAndDivTime(): Unit = {
     val records = runOnDemoGraph("WITH duration({ days: 14, minutes: 12, seconds: 70, nanoseconds: 1 }) AS aDuration\nRETURN aDuration, aDuration * 2, aDuration / 3")
-      .records()
-      .map(f => Map("aDuration" -> f("aDuration").value, "aDuration * 2" -> f("aDuration * 2").value, "aDuration / 3" -> f("aDuration / 3").value))
-      .toArray
+      .records().toArray
 
-    val expectResult = Map("aDuration" -> "P14DT13M10.000000001S", "aDuration * 2" -> "P28DT26M20.000000002S", "aDuration / 3" -> "P4DT16H4M23.333333333S")
-    Assert.assertEquals(expectResult, records)
+    Assert.assertEquals(1, records.length)
+    Assert.assertEquals("P14DT13M10.000000001S", records(0)("aDuration").toString)
+    Assert.assertEquals("P28DT26M20.000000002S", records(0)("aDuration * 2").toString)
+    Assert.assertEquals("P4DT16H4M23.333333333S", records(0)("aDuration / 3").toString)
   }
 
 

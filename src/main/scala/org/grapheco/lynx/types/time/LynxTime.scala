@@ -26,6 +26,15 @@ case class LynxTime(offsetTime: OffsetTime) extends LynxTemporalValue with LynxC
 
   override def sameTypeCompareTo(o: LynxValue): Int = ???
 
+  def plusDuration(that:LynxDuration):LynxTime={
+    LynxTime(value.plusHours(that.hours).plusMinutes(that.minutesOfHour).plusSeconds(that.secondsOfMinute))
+  }
+
+  def minusDuration(that:LynxDuration):LynxTime={
+    LynxTime(value.minusHours(that.hours).minusMinutes(that.minutesOfHour).minusSeconds(that.secondsOfMinute))
+  }
+
+
   //LynxComponentTime
   var hour: Int = offsetTime.getHour
   var minute: Int = offsetTime.getMinute
@@ -75,7 +84,7 @@ object LynxTime {
 
     val map = splitDateTime(timeWithOffsetStr)
     val timeTuple = getHourMinuteSecond(map("timeStr"))
-    val offsetStr = LynxComponentTimeZone.getOffset(map.getOrElse("offsetStr", null))
+    val offsetStr = LynxComponentTimeZone.getOffset(map.getOrElse("offsetStr", "Z"))
 
     var timeStr = timeTuple._1.formatted("%02d") + ":" + timeTuple._2.formatted("%02d") + ":" + timeTuple._3.formatted("%02d") + (timeTuple._4 match {
       case 0 => ""
