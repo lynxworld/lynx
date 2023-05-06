@@ -325,7 +325,7 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
           runner.NodeFilter(labels3.map(_.name).map(LynxNodeLabel), props3.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
           direction, upperLimit, lowerLimit)
         if (length.isEmpty) paths.map { path => Seq(path.startNode.get, path.firstRelationship.get, path.endNode.get) }
-        else paths.map { path => Seq(path.startNode.get, path.relationships, path.endNode.get, path) }
+        else paths.map { path => Seq(path.startNode.get, LynxList(path.relationships), path.endNode.get, path) }
 //        else paths.map { path => Seq(path.startNode.get, LynxList(path.relationships), path.endNode.get, path.trim) } // fixme: huchuan 2023-04-11: why trim?
 
       }
