@@ -348,4 +348,14 @@ class LDBCQueryTest {
         .flatMap(_.property(LynxPropertyKey("creationDate")))
         .map(_.asInstanceOf[LynxDate]).exists(LynxDate.today.equals))
   }
+
+  @Test
+  def test(): Unit = {
+    ldbcTestBase.run(
+      """
+        |MATCH (p:Person{firstName:'Ali'})-[:KNOWS*1..3]-(n:Person)-[:HAS_INTEREST]->(t:Tag)
+        |RETURN n,t
+        |LIMIT 30
+        |""".stripMargin, Map.empty).show()
+  }
 }
