@@ -1,6 +1,11 @@
 package org.grapheco.lynx.optimizer
 
 import org.grapheco.lynx.physical._
+import org.grapheco.lynx.runner.{EQUAL, ExecutionContext, IN, PropOp}
+import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
+import org.grapheco.lynx.types.property.LynxString
+import org.grapheco.lynx.types.structural.LynxPropertyKey
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.util.InputPosition
 
@@ -80,26 +85,31 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
     val labelMap: mutable.Map[String, Seq[LabelName]] = mutable.Map.empty
     val notPushDown: ArrayBuffer[Expression] = ArrayBuffer.empty
     val propItems: mutable.Map[String, ArrayBuffer[(PropertyKeyName, Expression)]] = mutable.Map.empty
+    val propOpsItems: mutable.Map[String, ArrayBuffer[(PropertyKeyName, Expression)]] = mutable.Map.empty
     val regexPattern: mutable.Map[String, ArrayBuffer[RegexMatch]] = mutable.Map.empty
 
-    extractParamsFromFilterExpression(expression, labelMap, propItems, regexPattern, notPushDown)
-
+    extractParamsFromFilterExpression(expression, labelMap, propItems, propOpsItems,regexPattern, notPushDown)
     propItems.foreach {
       case (name, exprs) =>
         exprs.size match {
           case 0 => {}
           case _ => {
-            propertyMap += name -> Option(MapExpression(List(exprs: _*))(InputPosition(0, 0, 0)))
+            propertyMap += name -> Option(
+              ListLiteral(Seq(
+                MapExpression(List(exprs: _*))(InputPosition(0, 0, 0))
+                ,MapExpression(List(propOpsItems.get(name).get: _*))(InputPosition(0, 0, 0))
+              ))(InputPosition(0,0,0))
+            )
           }
         }
     }
-
     (labelMap.toMap, propertyMap.toMap, notPushDown)
   }
 
   def extractParamsFromFilterExpression(filters: Expression,
                                         labelMap: mutable.Map[String, Seq[LabelName]],
                                         propMap: mutable.Map[String, ArrayBuffer[(PropertyKeyName, Expression)]],
+                                        propOpsMap: mutable.Map[String, ArrayBuffer[(PropertyKeyName, Expression)]],
                                         regexPattern: mutable.Map[String, ArrayBuffer[RegexMatch]],
                                         notPushDown: ArrayBuffer[Expression]): Unit = {
 
@@ -112,6 +122,8 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
             case Variable(name) => {
               if (propMap.contains(name)) propMap(name).append((pkn, rhs))
               else propMap += name -> ArrayBuffer((pkn, rhs))
+              if (propOpsMap.contains(name)) propOpsMap(name).append((pkn, StringLiteral("EQUAL")(InputPosition(0,0,0))))
+              else propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("EQUAL")(InputPosition(0,0,0))))
             }
           }
         }
@@ -123,7 +135,18 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
           }
         }
       }
-      case a@Ands(andExpress) => andExpress.foreach(exp => extractParamsFromFilterExpression(exp, labelMap, propMap, regexPattern, notPushDown))
+      case in@In(Property(expr, pkn), rhs) =>{
+        expr match {
+          case Variable(name)=>{
+            if (propMap.contains(name)) propMap(name).append((pkn,rhs))
+            else propMap += name -> ArrayBuffer((pkn,rhs))
+            if (propOpsMap.contains(name)) propOpsMap(name).append((pkn, StringLiteral("IN")(InputPosition(0,0,0))))
+            else propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("IN")(InputPosition(0,0,0))))
+
+          }
+        }
+      }
+      case a@Ands(andExpress) => andExpress.foreach(exp => extractParamsFromFilterExpression(exp, labelMap, propMap, propOpsMap, regexPattern, notPushDown))
       case other => notPushDown += other
     }
   }
