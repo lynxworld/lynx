@@ -9,6 +9,7 @@ object STARTS_WITH extends PropOp
 object ENDS_WITH extends PropOp
 object CONTAIN  extends PropOp
 object REGULAR extends PropOp
+object IN extends PropOp
 /**
  * labels note: the node with both LABEL1 and LABEL2 labels.
  *
