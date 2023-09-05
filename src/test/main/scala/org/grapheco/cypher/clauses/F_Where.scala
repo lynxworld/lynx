@@ -95,6 +95,31 @@ class F_Where extends TestBase{
   }
 
   @Test
+  def filterOnNodePropertyLess(): Unit = {
+    val res = runOnDemoGraph(
+      """
+        |MATCH (n:Person)
+        |WHERE n.age > 99
+        |AND  n.age < 37
+        |RETURN n.name, n.age
+        |""".stripMargin).records().toArray
+
+    Assert.assertEquals(List("Timothy", 25), List(res(0)("n.name"), res(0)("n.age")).map(f => f.asInstanceOf[LynxValue].value))
+  }
+
+  @Test
+  def filterInNodeProperty(): Unit = {
+    val res = runOnDemoGraph(
+      """
+        |MATCH (n:Person)
+        |WHERE n.name IN ["Timothy"]
+        |RETURN n
+        |""".stripMargin).records().toArray
+
+    //Assert.assertEquals(List("Timothy", 25), List(res(0)("n.name"), res(0)("n.age")).map(f => f.asInstanceOf[LynxValue].value))
+  }
+
+  @Test
   def filterOnRelationshipProperty(): Unit ={
     val res = runOnDemoGraph(
       """

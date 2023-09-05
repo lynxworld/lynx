@@ -4,7 +4,7 @@ import org.grapheco.lynx.dataframe.{DataFrame, InnerJoin, JoinType}
 import org.grapheco.lynx.evaluator.ExpressionContext
 import org.grapheco.lynx.logical.LPTPatternMatch
 import org.grapheco.lynx.procedure.{UnknownProcedureException, WrongArgumentException}
-import org.grapheco.lynx.runner.{ExecutionContext, GraphModel, NodeFilter, RelationshipFilter}
+import org.grapheco.lynx.runner.{CONTAINS, EQUAL, ExecutionContext, GREATER_THAN, GREATER_THAN_OR_EQUAL, GraphModel, IN, LESS_THAN, LESS_THAN_OR_EQUAL, NOT_EQUAL, NodeFilter, PropOp, RelationshipFilter}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.{LynxCompositeValue, LynxList, LynxMap}
 import org.grapheco.lynx.types.property.{LynxBoolean, LynxInteger, LynxNull, LynxNumber, LynxString}
@@ -201,6 +201,26 @@ case class PPTExpandPath(rel: RelationshipPattern, rightNode: NodePattern)(impli
 
     implicit val ec = ctx.expressionContext
 
+    val (rightProperties, rightProps) = if(properties2.isEmpty) (Map.empty[LynxPropertyKey,LynxValue], Map.empty[LynxPropertyKey,PropOp])
+    else properties2.get match {
+      case li@ListLiteral(expressions) =>
+        (eval(expressions(0)).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))
+          , eval(expressions(1)).asInstanceOf[LynxMap].value.map(kv => {
+          val v_2: PropOp = kv._2.value.toString match {
+            case "IN" => IN
+            case "EQUAL" => EQUAL
+            case "NOTEQUALS" => NOT_EQUAL
+            case "LessThan" => LESS_THAN
+            case "LessThanOrEqual" => LESS_THAN_OR_EQUAL
+            case "GreaterThan" => GREATER_THAN
+            case "GreaterThanOrEqual" => GREATER_THAN_OR_EQUAL
+            case "Contains" => CONTAINS
+            case _ => throw new scala.Exception("unexpected PropOp" + kv._2.value)
+          }
+          (LynxPropertyKey(kv._1), v_2)
+        }))
+    }
+
     DataFrame(df.schema ++ schema0, () => {
       df.records.flatMap {
         record =>
@@ -211,7 +231,7 @@ case class PPTExpandPath(rel: RelationshipPattern, rightNode: NodePattern)(impli
           graphModel.expand(
             path.endNode.get.id,
             RelationshipFilter(types.map(_.name).map(LynxRelationshipType), properties.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
-            NodeFilter(labels2.map(_.name).map(LynxNodeLabel), properties2.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
+            NodeFilter(labels2.map(_.name).map(LynxNodeLabel), rightProperties, rightProps),
             direction)
             .map(triple =>
               record ++ Seq(triple.storedRelation, triple.endNode))
@@ -245,12 +265,32 @@ case class PPTNodeScan(pattern: NodePattern)(implicit val plannerContext: Physic
     baseNode: Option[LogicalVariable]) = pattern
     implicit val ec = ctx.expressionContext
 
+    val (nodeProperties, nodeProps) = if (properties.isEmpty) (Map.empty[LynxPropertyKey, LynxValue], Map.empty[LynxPropertyKey, PropOp])
+    else properties.get match {
+      case li@ListLiteral(expressions) => {
+        (eval(expressions(0)).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))
+          , eval(expressions(1)).asInstanceOf[LynxMap].value.map(kv => {
+          val v_2: PropOp = kv._2.value.toString match {
+            case "IN" => IN
+            case "EQUAL" => EQUAL
+            case "NOTEQUALS" => NOT_EQUAL
+            case "LessThan" => LESS_THAN
+            case "LessThanOrEqual" => LESS_THAN_OR_EQUAL
+            case "GreaterThan" => GREATER_THAN
+            case "GreaterThanOrEqual" => GREATER_THAN_OR_EQUAL
+            case "Contains" => CONTAINS
+            case _ => throw new scala.Exception("unexpected PropOp" + kv._2.value)
+          }
+          (LynxPropertyKey(kv._1), v_2)
+        }))
+      }
+    }
+
     DataFrame(Seq(var0.name -> CTNode), () => {
       graphModel.nodes(
         NodeFilter(
           labels.map(_.name).map(LynxNodeLabel),
-          properties.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2)))
-            .getOrElse(Map.empty)
+          nodeProperties, nodeProps
         )
       ).map(Seq(_))
     })
@@ -316,13 +356,53 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
       case Some(Some(Range(a, b))) => (a.map(_.value.toInt).getOrElse(1), b.map(_.value.toInt).getOrElse(Int.MaxValue))
     }
 
+    val (leftProperties, leftProps) = if(props1.isEmpty) (Map.empty[LynxPropertyKey,LynxValue], Map.empty[LynxPropertyKey,PropOp])
+    else props1.get match {
+      case li@ListLiteral(expressions) =>
+        (eval(expressions(0)).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))
+          , eval(expressions(1)).asInstanceOf[LynxMap].value.map(kv => {
+          val v_2: PropOp = kv._2.value.toString match {
+            case "IN" => IN
+            case "EQUAL" => EQUAL
+            case "NOTEQUALS" => NOT_EQUAL
+            case "LessThan" => LESS_THAN
+            case "LessThanOrEqual" => LESS_THAN_OR_EQUAL
+            case "GreaterThan" => GREATER_THAN
+            case "GreaterThanOrEqual" => GREATER_THAN_OR_EQUAL
+            case "Contains" => CONTAINS
+            case _ => throw new scala.Exception("unexpected PropOp" + kv._2.value)
+          }
+          (LynxPropertyKey(kv._1), v_2)
+        }))
+    }
 
+    val (rightProperties, rightProps) = if(props3.isEmpty) (Map.empty[LynxPropertyKey,LynxValue], Map.empty[LynxPropertyKey,PropOp])
+    else props3.get match {
+      case li@ListLiteral(expressions) =>
+        (eval(expressions(0)).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))
+          , eval(expressions(1)).asInstanceOf[LynxMap].value.map(kv => {
+          val v_2: PropOp = kv._2.value.toString match {
+            case "IN" => IN
+            case "EQUAL" => EQUAL
+            case "NOTEQUALS" => NOT_EQUAL
+            case "LessThan" => LESS_THAN
+            case "LessThanOrEqual" => LESS_THAN_OR_EQUAL
+            case "GreaterThan" => GREATER_THAN
+            case "GreaterThanOrEqual" => GREATER_THAN_OR_EQUAL
+            case "Contains" => CONTAINS
+            case _ => throw new scala.Exception("unexpected PropOp" + kv._2.value)
+          }
+          (LynxPropertyKey(kv._1), v_2)
+        }))
+    }
+    println(runner.NodeFilter(labels1.map(_.name).map(LynxNodeLabel), leftProperties,leftProps))
+    println(runner.NodeFilter(labels3.map(_.name).map(LynxNodeLabel), rightProperties, rightProps))
     DataFrame(schema,
       () => {
         val paths = graphModel.paths(
-          runner.NodeFilter(labels1.map(_.name).map(LynxNodeLabel), props1.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
+          runner.NodeFilter(labels1.map(_.name).map(LynxNodeLabel), leftProperties, leftProps),
           runner.RelationshipFilter(types.map(_.name).map(LynxRelationshipType), props2.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
-          runner.NodeFilter(labels3.map(_.name).map(LynxNodeLabel), props3.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
+          runner.NodeFilter(labels3.map(_.name).map(LynxNodeLabel), rightProperties, rightProps),
           direction, upperLimit, lowerLimit)
         if (length.isEmpty) paths.map { path => Seq(path.startNode.get, path.firstRelationship.get, path.endNode.get) }
         else paths.map { path => Seq(path.startNode.get, LynxList(path.relationships), path.endNode.get, path) }

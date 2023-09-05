@@ -30,6 +30,8 @@ trait LynxValue extends Comparable[LynxValue] {
 
   def <=(lynxValue: LynxValue): Boolean = this.compareTo(lynxValue) <= 0
 
+  def valueEq(lynxValue: LynxValue): Boolean = this.compareTo(lynxValue) == 0
+
   def sameTypeCompareTo(o: LynxValue): Int
 
   /*

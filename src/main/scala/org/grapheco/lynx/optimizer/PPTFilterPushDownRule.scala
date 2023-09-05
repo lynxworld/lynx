@@ -80,16 +80,22 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
     val labelMap: mutable.Map[String, Seq[LabelName]] = mutable.Map.empty
     val notPushDown: ArrayBuffer[Expression] = ArrayBuffer.empty
     val propItems: mutable.Map[String, ArrayBuffer[(PropertyKeyName, Expression)]] = mutable.Map.empty
+    val propOpsItems: mutable.Map[String, ArrayBuffer[(PropertyKeyName, Expression)]] = mutable.Map.empty
     val regexPattern: mutable.Map[String, ArrayBuffer[RegexMatch]] = mutable.Map.empty
 
-    extractParamsFromFilterExpression(expression, labelMap, propItems, regexPattern, notPushDown)
+    extractParamsFromFilterExpression(expression, labelMap, propItems, propOpsItems, regexPattern, notPushDown)
 
     propItems.foreach {
       case (name, exprs) =>
         exprs.size match {
           case 0 => {}
           case _ => {
-            propertyMap += name -> Option(MapExpression(List(exprs: _*))(InputPosition(0, 0, 0)))
+            propertyMap += name -> Option(
+              ListLiteral(Seq(
+                MapExpression(List(exprs: _*))(InputPosition(0, 0, 0))
+                , MapExpression(List(propOpsItems.get(name).get: _*))(InputPosition(0, 0, 0))
+              ))(InputPosition(0, 0, 0))
+            )
           }
         }
     }
@@ -100,9 +106,9 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
   def extractParamsFromFilterExpression(filters: Expression,
                                         labelMap: mutable.Map[String, Seq[LabelName]],
                                         propMap: mutable.Map[String, ArrayBuffer[(PropertyKeyName, Expression)]],
+                                        propOpsMap: mutable.Map[String, ArrayBuffer[(PropertyKeyName, Expression)]],
                                         regexPattern: mutable.Map[String, ArrayBuffer[RegexMatch]],
                                         notPushDown: ArrayBuffer[Expression]): Unit = {
-
     filters match {
       case e@Equals(Property(expr, pkn), rhs) => {
         rhs match {
@@ -112,8 +118,29 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
             case Variable(name) => {
               if (propMap.contains(name)) propMap(name).append((pkn, rhs))
               else propMap += name -> ArrayBuffer((pkn, rhs))
+              if (propOpsMap.contains(name)) propOpsMap(name).append((pkn, StringLiteral("EQUAL")(InputPosition(0, 0, 0))))
+              else propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("EQUAL")(InputPosition(0, 0, 0))))
             }
           }
+        }
+      }
+      case ne@Not(expr) => {
+        expr match {
+          case e@Equals(Property(expr, pkn), rhs) => {
+            rhs match {
+              // Do not push down the Equals is rhs is a Variable.
+              case Variable(v) => notPushDown += e
+              case _ => expr match {
+                case Variable(name) => {
+                  if (propMap.contains(name)) propMap(name).append((pkn, rhs))
+                  else propMap += name -> ArrayBuffer((pkn, rhs))
+                  if (propOpsMap.contains(name)) propOpsMap(name).append((pkn, StringLiteral("NOTEQUALS")(InputPosition(0, 0, 0))))
+                  else propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("NOTEQUALS")(InputPosition(0, 0, 0))))
+                }
+              }
+            }
+          }
+          case _ => throw new scala.Exception("unexpected 'NOT' expression!") // support '<>' operator for now. TODO: expand others not  expression
         }
       }
       case hl@HasLabels(expr, labels) => {
@@ -123,7 +150,107 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
           }
         }
       }
-      case a@Ands(andExpress) => andExpress.foreach(exp => extractParamsFromFilterExpression(exp, labelMap, propMap, regexPattern, notPushDown))
+      case greaterThan@GreaterThan(Property(expr, pkn), rhs) => {
+        expr match {
+          case Variable(name) => {
+            if (propMap.contains(name)) {
+              propMap(name).append((pkn, rhs))
+            }
+            else {
+              propMap += name -> ArrayBuffer((pkn, rhs))
+            }
+            if (propOpsMap.contains(name)) {
+              propOpsMap(name).append((pkn, StringLiteral("GreaterThan")(InputPosition(0, 0, 0))))
+            }
+            else {
+              propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("GreaterThan")(InputPosition(0, 0, 0))))
+            }
+          }
+        }
+      }
+      case greaterThanOrEq@GreaterThanOrEqual(Property(expr, pkn), rhs) => {
+        expr match {
+          case Variable(name) => {
+            if (propMap.contains(name)) {
+              propMap(name).append((pkn, rhs))
+            }
+            else {
+              propMap += name -> ArrayBuffer((pkn, rhs))
+            }
+            if (propOpsMap.contains(name)) {
+              propOpsMap(name).append((pkn, StringLiteral("GreaterThanOrEqual")(InputPosition(0, 0, 0))))
+            }
+            else {
+              propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("GreaterThanOrEqual")(InputPosition(0, 0, 0))))
+            }
+          }
+        }
+      }
+      case lessThan@LessThan(Property(expr, pkn), rhs) => {
+        expr match {
+          case Variable(name) => {
+            if (propMap.contains(name)) {
+              propMap(name).append((pkn, rhs))
+            }
+            else {
+              propMap += name -> ArrayBuffer((pkn, rhs))
+            }
+            if (propOpsMap.contains(name)) {
+              propOpsMap(name).append((pkn, StringLiteral("LessThan")(InputPosition(0, 0, 0))))
+            }
+            else {
+              propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("LessThan")(InputPosition(0, 0, 0))))
+            }
+          }
+        }
+      }
+      case lessThanOrEq@LessThanOrEqual(Property(expr, pkn), rhs) => {
+        expr match {
+          case Variable(name) => {
+            if (propMap.contains(name)) {
+              propMap(name).append((pkn, rhs))
+            }
+            else {
+              propMap += name -> ArrayBuffer((pkn, rhs))
+            }
+            if (propOpsMap.contains(name)) {
+              propOpsMap(name).append((pkn, StringLiteral("LessThanOrEqual")(InputPosition(0, 0, 0))))
+            }
+            else {
+              propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("LessThanOrEqual")(InputPosition(0, 0, 0))))
+            }
+          }
+        }
+      }
+      case in@In(Property(expr, pkn), rhs) => {
+        expr match {
+          case Variable(name) => {
+            if (propMap.contains(name)) propMap(name).append((pkn, rhs))
+            else propMap += name -> ArrayBuffer((pkn, rhs))
+            if (propOpsMap.contains(name)) propOpsMap(name).append((pkn, StringLiteral("IN")(InputPosition(0, 0, 0))))
+            else propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("IN")(InputPosition(0, 0, 0))))
+          }
+        }
+      }
+      case contains@Contains(Property(expr, pkn), rhs) => {
+        expr match {
+          case Variable(name) => {
+            if (propMap.contains(name)) {
+              propMap(name).append((pkn, rhs))
+            }
+            else {
+              propMap += name -> ArrayBuffer((pkn, rhs))
+            }
+            if (propOpsMap.contains(name)) {
+              propOpsMap(name).append((pkn, StringLiteral("Contains")(InputPosition(0, 0, 0))))
+            }
+            else {
+              propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("Contains")(InputPosition(0, 0, 0))))
+            }
+          }
+        }
+      }
+      case a@Ands(andExpress) => andExpress.foreach(exp => extractParamsFromFilterExpression(exp, labelMap, propMap, propOpsMap, regexPattern, notPushDown, propItemsAndOpsItems))
       case other => notPushDown += other
     }
   }
@@ -138,7 +265,7 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
   def pptFilterPushDownRule(pf: PPTFilter, pnode: PPTNode, ppc: PhysicalPlannerContext): (Seq[PPTNode], Boolean) = {
     pf.children match {
       case Seq(pns@PPTNodeScan(pattern)) => {
-        val patternAndSet = pushExprToNodePattern(pf.expr, pattern)
+        val patternAndSet =  handleNodeAndsExpression(pf.expr, pattern)
         if (patternAndSet._3) {
           if (patternAndSet._2.isEmpty) (Seq(PPTNodeScan(patternAndSet._1)(ppc)), true)
           else (Seq(PPTFilter(patternAndSet._2.head)(PPTNodeScan(patternAndSet._1)(ppc), ppc)), true)
@@ -165,6 +292,7 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
     }
   }
 
+  @deprecated
   def pushExprToNodePattern(expression: Expression, pattern: NodePattern): (NodePattern, Set[Expression], Boolean) = {
     expression match {
       case e@Equals(Property(expr, pkn), rhs) => {
