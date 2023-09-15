@@ -6,6 +6,8 @@ import org.grapheco.lynx.types.structural._
 import org.opencypher.v9_0.expressions.SemanticDirection
 import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
 
+import scala.collection.mutable
+
 trait GraphModel {
 
   /**
@@ -147,6 +149,29 @@ trait GraphModel {
 
   def commit(): Boolean = this.write.commit
 
+  def singleShortestPath(startNodeId: LynxId,
+                         endNodeId: LynxId,
+                         relationship: RelationshipFilter,
+                         direction: SemanticDirection,
+                         lowerLimit: Int = 0,
+                         upperLimit: Int = 64
+                        ): LynxPath = {
+    val paths: mutable.Seq[LynxPath] = allPaths(startNodeId, endNodeId, relationship, direction, lowerLimit, upperLimit)
+    if (paths.isEmpty) LynxPath.EMPTY else paths.head
+  }
+
+
+  def allShortestPaths(startNodeId: LynxId,
+                       endNodeId: LynxId,
+                       relationship: RelationshipFilter,
+                       direction: SemanticDirection,
+                       lowerLimit: Int = 0,
+                       upperLimit: Int = 64
+                      ): mutable.Seq[LynxPath] = {
+    val paths: mutable.Seq[LynxPath] = allPaths(startNodeId, endNodeId, relationship, direction, lowerLimit, upperLimit)
+    if (paths.isEmpty) mutable.Seq() else paths.filter(path => path.nodeIds.length == paths.map(path => path.nodeIds.length).min)
+  }
+
   /**
    * Get the paths that meets the conditions
    *
@@ -245,4 +270,66 @@ trait GraphModel {
    * GraphHelper
    */
   val _helper: GraphModelHelper = GraphModelHelper(this)
+
+  // TODO: @LIUYINGDI
+  class Hit(var node: LynxNode, var path: LynxPath, var set: mutable.Set[LynxNode])
+
+  object Hit {
+    def init(node: LynxNode): Hit = {
+      new Hit(node, LynxPath.startPoint(node), mutable.Set(node))
+    }
+
+    def extend(node: LynxNode, hit: Hit): Hit = {
+      new Hit(node, hit.path.append(node), hit.set + node)
+    }
+  }
+
+
+  def allPaths(startNodeId: LynxId,
+               endNodeId: LynxId,
+               relationship: RelationshipFilter,
+               direction: SemanticDirection,
+               lowerLimit: Int = 0,
+               upperLimit: Int = 64
+              ): mutable.Seq[LynxPath] = {
+    if (lowerLimit > upperLimit) {
+      throw new IllegalArgumentException("IllegalArgumentException: `lowerLimit` cannot be greater than `upperLimit`.")
+    }
+    val startNode: LynxNode = nodeAt(startNodeId).get
+    val endNode: LynxNode = nodeAt(endNodeId).get
+    var data: mutable.Seq[mutable.Seq[Hit]] = mutable.Seq(mutable.Seq(Hit.init(startNode)))
+    var continueExtend = true
+    var nextStep = 1
+    while (data.length <= upperLimit && continueExtend) {
+      var nextHits: mutable.Seq[Hit] = mutable.Seq.empty
+      for (hit: Hit <- data(nextStep - 1)) {
+        if (hit.node != endNode) {
+          for (nextNode: PathTriple <- expand(hit.node.id, relationship, direction)) {
+            if (!hit.set.contains(nextNode.endNode)) {
+              nextHits = nextHits :+ Hit.extend(nextNode.endNode, hit)
+            }
+          }
+        }
+      }
+      if (nextHits.isEmpty) {
+        continueExtend = false
+      } else {
+        data = data :+ nextHits
+      }
+      nextStep += 1
+    }
+    var paths: mutable.Seq[LynxPath] = mutable.Seq.empty
+    if (lowerLimit < data.length) {
+      for (index <- lowerLimit to math.min(upperLimit, data.length - 1)) {
+        for (hit <- data(index)) {
+          if (hit.node == endNode) {
+            paths = paths :+ hit.path
+          }
+        }
+      }
+    }
+    // for (path <- paths) println(path.nodeIds)
+    paths
+  }
+
 }

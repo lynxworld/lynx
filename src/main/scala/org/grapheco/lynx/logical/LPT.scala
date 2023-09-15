@@ -293,6 +293,10 @@ case class LPTPatternMatch(headNode: NodePattern, chain: Seq[(RelationshipPatter
   extends LPTNode {
 }
 
+case class LPTShortestPaths(headNode: NodePattern, chain: Seq[(RelationshipPattern, NodePattern)], single: Boolean,  resName : String)
+  extends LPTNode {
+}
+
 case class LPTMatchTranslator(m: Match) extends LPTNodeTranslator {
   def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
     //run match TODO OptionalMatch
@@ -317,7 +321,7 @@ case class LPTMatchTranslator(m: Match) extends LPTNodeTranslator {
       case EveryPath(element: PatternElement) => matchPattern(element)
       case NamedPatternPart(variable: Variable, patternPart: AnonymousPatternPart) => {
         patternPart match {
-          case ShortestPaths(element, single) => throw new Exception("ShortestPaths not supported.")
+          case ShortestPaths(element, single) => shortestPathsMatchPattern(element, single, variable.name)
         }
       }
     }
@@ -343,6 +347,29 @@ case class LPTMatchTranslator(m: Match) extends LPTNodeTranslator {
       rightNode: NodePattern) =>
         val mp = matchPattern(leftChain)
         LPTPatternMatch(mp.headNode, mp.chain :+ (relationship -> rightNode))
+    }
+  }
+
+  private def shortestPathsMatchPattern(element: PatternElement, single: Boolean, resName: String)(implicit lpc: LogicalPlannerContext): LPTShortestPaths = {
+    element match {
+      //match (m:label1)
+      case np: NodePattern =>
+        LPTShortestPaths(np, Seq.empty, single, resName)
+
+      //match ()-[]->()
+      case rc@RelationshipChain(
+      leftNode: NodePattern,
+      relationship: RelationshipPattern,
+      rightNode: NodePattern) =>
+        LPTShortestPaths(leftNode, Seq(relationship -> rightNode), single, resName)
+
+      //match ()-[]->()-...-[r:type]->(n:label2)
+      case rc@RelationshipChain(
+      leftChain: RelationshipChain,
+      relationship: RelationshipPattern,
+      rightNode: NodePattern) =>
+        val mp = shortestPathsMatchPattern(leftChain, single, resName)
+        LPTShortestPaths(mp.headNode, mp.chain :+ (relationship -> rightNode), single, resName)
     }
   }
 }
