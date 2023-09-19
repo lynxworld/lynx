@@ -34,12 +34,14 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case ll@LPTSkip(expr) => PPTSkip(expr)(plan(ll.in), plannerContext)
       case lj@LPTJoin(isSingleMatch, joinType) => PPTJoin(None, isSingleMatch, joinType)(plan(lj.a), plan(lj.b), plannerContext)
       case patternMatch: LPTPatternMatch => PPTPatternMatchTranslator(patternMatch)(plannerContext).translate(None)
+      case lPTShortestPaths : LPTShortestPaths => LPTShortestPathTranslator(lPTShortestPaths)(plannerContext).translate(None)
       case li@LPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName]) => PPTCreateIndex(labelName, properties)(plannerContext)
       case li@LPTDropIndex(labelName: LabelName, properties: List[PropertyKeyName]) => PPTDropIndex(labelName, properties)(plannerContext)
       case sc@LPTSetClause(d) => PPTSetClauseTranslator(d.items).translate(sc.in.map(plan(_)))(plannerContext)
       case lr@LPTRemove(r) => PPTRemoveTranslator(r.items).translate(lr.in.map(plan(_)))(plannerContext)
       case lu@LPTUnwind(u) => PPTUnwindTranslator(u.expression, u.variable).translate(lu.in.map(plan(_)))(plannerContext)
       case un@LPTUnion(distinct) => PPTUnion(distinct)(plan(un.a), plan(un.b), plannerContext)
+      case _ => throw new Exception("physical plan not support:" +logicalPlan)
     }
   }
 }

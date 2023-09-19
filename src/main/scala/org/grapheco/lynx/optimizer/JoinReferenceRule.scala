@@ -19,7 +19,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     val variable = pattern.variable
     val properties = pattern.properties
 
-    if (properties.isDefined) {
+    if (properties.isDefined && properties.get.isInstanceOf[MapExpression]) {
       val MapExpression(items) = properties.get.asInstanceOf[MapExpression]
       // filter1 is the reference filter condition
       val filter1 = items.filterNot(item => item._2.isInstanceOf[Literal])
@@ -98,6 +98,20 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
           case (value1, None) => PPTRelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
           case (None, value2) => PPTRelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
           case (value1, value2) => PPTRelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
+        }
+      }
+      case shortestPaths: PPTShortestPath => {
+        val PPTShortestPath(rel: RelationshipPattern, leftPattern: NodePattern, rightPattern: NodePattern, single: Boolean, resName: String) = shortestPaths
+        val leftChecked = checkNodeReference(leftPattern)
+        val rightChecked = checkNodeReference(rightPattern)
+        referenceProperty ++= leftChecked._1
+        referenceProperty ++= rightChecked._1
+
+        (leftChecked._2, rightChecked._2) match {
+          case (None, None) => table
+          case (value1, None) => PPTShortestPath(rel, leftChecked._2.get, rightPattern, single, resName)(ppc)
+          case (None, value2) => PPTShortestPath(rel, leftPattern, rightChecked._2.get, single, resName)(ppc)
+          case (value1, value2) => PPTShortestPath(rel, leftChecked._2.get, rightChecked._2.get, single, resName)(ppc)
         }
       }
       case pe@PPTExpandPath(rel, rightPattern) => {
