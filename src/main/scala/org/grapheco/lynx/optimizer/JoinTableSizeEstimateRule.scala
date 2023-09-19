@@ -40,6 +40,7 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
           }
         )
       }
+      case _ => return 0
     })
 
     if (labels.nonEmpty) {

@@ -1,6 +1,6 @@
 package org.grapheco.lynx.optimizer
 
-import org.grapheco.lynx.physical._
+import org.grapheco.lynx.physical.{PPTShortestPath, _}
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.util.InputPosition
 
@@ -51,6 +51,10 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
                                 pj: PPTJoin, ppc: PhysicalPlannerContext): PPTNode = {
     val res = pj.children.map {
       case pn@PPTNodeScan(pattern) => PPTNodeScan(getNewNodePattern(pattern, labelMap, propMap))(ppc)
+      case path : PPTShortestPath => {
+        val PPTShortestPath(rel: RelationshipPattern, leftNode: NodePattern, rightNode: NodePattern, single: Boolean, resName: String) = path
+        PPTShortestPath(rel, getNewNodePattern(leftNode, labelMap, propMap), getNewNodePattern(rightNode, labelMap, propMap), single, resName)(ppc)
+      }
       case pr@PPTRelationshipScan(rel, leftNode, rightNode) =>
         PPTRelationshipScan(rel, getNewNodePattern(leftNode, labelMap, propMap), getNewNodePattern(rightNode, labelMap, propMap))(ppc)
       case pjj@PPTJoin(filterExpr, isSingleMatch, joinType) => pptFilterThenJoinPushDown(propMap, labelMap, pjj, ppc)
@@ -250,7 +254,7 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
           }
         }
       }
-      case a@Ands(andExpress) => andExpress.foreach(exp => extractParamsFromFilterExpression(exp, labelMap, propMap, propOpsMap, regexPattern, notPushDown, propItemsAndOpsItems))
+      case a@Ands(andExpress) => andExpress.foreach(exp => extractParamsFromFilterExpression(exp, labelMap, propMap, propOpsMap, regexPattern, notPushDown))
       case other => notPushDown += other
     }
   }
@@ -279,6 +283,17 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
             (Seq(PPTRelationshipScan(rel, patternsAndSet._1, patternsAndSet._2)(ppc)), true)
           else
             (Seq(PPTFilter(patternsAndSet._3.head)(PPTRelationshipScan(rel, patternsAndSet._1, patternsAndSet._2)(ppc), ppc)), true)
+        }
+        else (null, false)
+      }
+      case Seq(path: PPTShortestPath) => {
+        val PPTShortestPath(rel: RelationshipPattern, left: NodePattern, right: NodePattern, single: Boolean, resName: String) = path
+        val patternsAndSet = pushExprToRelationshipPattern(pf.expr, left, right)
+        if (patternsAndSet._4) {
+          if (patternsAndSet._3.isEmpty)
+            (Seq(PPTShortestPath(rel, patternsAndSet._1, patternsAndSet._2, single, resName)(ppc)), true)
+          else
+            (Seq(PPTFilter(patternsAndSet._3.head)(PPTShortestPath(rel, patternsAndSet._1, patternsAndSet._2, single, resName)(ppc), ppc)), true)
         }
         else (null, false)
       }
