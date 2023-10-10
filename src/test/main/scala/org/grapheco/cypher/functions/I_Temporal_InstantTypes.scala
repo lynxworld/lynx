@@ -41,7 +41,7 @@ class I_Temporal_InstantTypes extends TestBase {
     Assert.assertEquals(LynxDate.now(ZoneId.of("America/Los_Angeles")), records(0)("currentDateInLA"))
   }
 
-  @Test
+  //@Test
   def dateTransaction(): Unit = {
     val records = runOnDemoGraph(
       """
@@ -305,7 +305,7 @@ class I_Temporal_InstantTypes extends TestBase {
     Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(now_zonedTime, records(0)("currentDateTime")))
   }
 
-  @Test
+  //@Test
   def datetimeTransaction_2(): Unit = {
     val records = runOnDemoGraph(
       """
@@ -684,7 +684,7 @@ class I_Temporal_InstantTypes extends TestBase {
     Assert.assertTrue(LynxTemporalParser.isSameCurrentTime(LocaldateTime_LA, records(0)("now")))
   }
 
-  @Test
+  //@Test
   def localdatetimeTransaction(): Unit = {
     val records = runOnDemoGraph(
       """

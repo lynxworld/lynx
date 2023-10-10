@@ -1,6 +1,8 @@
 package org.grapheco.lynx.runner
 
 import org.grapheco.lynx.types.composite.LynxList
+import org.grapheco.lynx.types.property.LynxBoolean
+import org.grapheco.lynx.types.property.LynxBoolean.TRUE
 import org.grapheco.lynx.types.{LynxValue, TypeMismatchException}
 import org.grapheco.lynx.types.structural.{LynxNode, LynxNodeLabel, LynxPropertyKey}
 
@@ -41,63 +43,72 @@ case class NodeFilter(labels: Seq[LynxNodeLabel],
                       properties: Map[LynxPropertyKey, LynxValue],
                       propOps: Map[LynxPropertyKey, PropOp] = Map.empty) {
   def matches(node: LynxNode): Boolean = {
-
-    labels.forall(node.labels.contains) &&
-      properties.forall {
-        case (propertyName, value) =>
-          if (!propOps.contains(propertyName)) {
-            false
-          } else {
-            val maybeOp: Option[PropOp] = propOps.get(propertyName)
-            maybeOp match {
-              case Some(EQUAL) => {
-                node.property(propertyName).exists(value.equals)
-              }
-              case Some(NOT_EQUAL) => {
-                if (node.property(propertyName).exists(value.equals)) false else true
-              }
-              case Some(IN) => {
-                val lynxValues: List[LynxValue] = value.asInstanceOf[LynxList].value
-                lynxValues.foreach(
-                  f => if (node.property(propertyName).get.valueEq(f)) {
-                    true
-                  })
-                false
-              }
-              case Some(LESS_THAN) =>
-                val nodeValue = node.property(propertyName)
-                if (nodeValue.isEmpty)  false else nodeValue.get.<(value)
-              case Some(LESS_THAN_OR_EQUAL) => {
-                val nodeValue = node.property(propertyName)
-                if (nodeValue.isEmpty) false else nodeValue.get.<=(value)
-              }
-              case Some(GREATER_THAN) => {
-                val nodeValue = node.property(propertyName)
-                if (nodeValue.isEmpty) false else nodeValue.get.>(value)
-              }
-              case Some(GREATER_THAN_OR_EQUAL) => {
-                val nodeValue = node.property(propertyName)
-                if (nodeValue.isEmpty) false else nodeValue.get.>=(value)
-              }
-              case Some(CONTAINS) => {
-                val lynxValue: LynxValue = node.property(propertyName).get
-                lynxValue.value match {
-                  case lynxStr: String =>
-                    value.value match {
-                      case str: String =>
-                        lynxStr.contains(str)
-                      case _ =>
-                        false
-                    }
-                  case _ =>
-                    false
+    if (propOps.isEmpty) { // Compatible with empty propOps. e.g.PPTRelationshipScan
+      labels.forall(node.labels.contains) &&
+        properties.forall {
+          case (propertyName, value) => node.property(propertyName).exists(value.equals)
+        }
+    }
+    else {
+      labels.forall(node.labels.contains) &&
+        properties.forall {
+          case (propertyName, value) =>
+            if (!propOps.contains(propertyName)) {
+              false
+            } else {
+              val maybeOp: Option[PropOp] = propOps.get(propertyName)
+              maybeOp match {
+                case Some(EQUAL) => {
+                  node.property(propertyName).exists(value.equals)
                 }
+                case Some(NOT_EQUAL) => {
+                  if (node.property(propertyName).exists(value.equals)) false else true
+                }
+                case Some(IN) => {
+                  val lynxValues: List[LynxValue] = value.asInstanceOf[LynxList].value
+                  lynxValues.foreach(
+                    f => if (node.property(propertyName).get.valueEq(f)) {
+                     return true
+                    })
+                  false
+                }
+                case Some(LESS_THAN) =>
+                  val nodeValue = node.property(propertyName)
+                  if (nodeValue.isEmpty) false else nodeValue.get.<(value)
+                case Some(LESS_THAN_OR_EQUAL) => {
+                  val nodeValue = node.property(propertyName)
+                  if (nodeValue.isEmpty) false else nodeValue.get.<=(value)
+                }
+                case Some(GREATER_THAN) => {
+                  val nodeValue = node.property(propertyName)
+                  if (nodeValue.isEmpty) false else {
+                    val bool = nodeValue.get.>(value)
+                    bool
+                  }
+                }
+                case Some(GREATER_THAN_OR_EQUAL) => {
+                  val nodeValue = node.property(propertyName)
+                  if (nodeValue.isEmpty) false else nodeValue.get.>=(value)
+                }
+                case Some(CONTAINS) => {
+                  val lynxValue: LynxValue = node.property(propertyName).get
+                  lynxValue.value match {
+                    case lynxStr: String =>
+                      value.value match {
+                        case str: String =>
+                          lynxStr.contains(str)
+                        case _ =>
+                          false
+                      }
+                    case _ =>
+                      false
+                  }
+                }
+                case _ => throw new scala.Exception("unexpected PropOp")
               }
-              case _ => throw new scala.Exception("unexpected PropOp")
             }
-          }
-
-        case _ => false
-      }
+          case _ => false
+        }
+    }
   }
 }

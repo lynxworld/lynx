@@ -97,7 +97,7 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
             propertyMap += name -> Option(
               ListLiteral(Seq(
                 MapExpression(List(exprs: _*))(InputPosition(0, 0, 0))
-                , MapExpression(List(propOpsItems.get(name).get: _*))(InputPosition(0, 0, 0))
+                , MapExpression(List(propOpsItems(name): _*))(InputPosition(0, 0, 0))
               ))(InputPosition(0, 0, 0))
             )
           }
@@ -120,10 +120,20 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
           case Variable(v) => notPushDown += e
           case _ => expr match {
             case Variable(name) => {
-              if (propMap.contains(name)) propMap(name).append((pkn, rhs))
-              else propMap += name -> ArrayBuffer((pkn, rhs))
-              if (propOpsMap.contains(name)) propOpsMap(name).append((pkn, StringLiteral("EQUAL")(InputPosition(0, 0, 0))))
-              else propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("EQUAL")(InputPosition(0, 0, 0))))
+              if (propMap.contains(name)) {
+                //propMap(name).append((pkn, rhs))
+                notPushDown += filters
+              }
+              else {
+                propMap += name -> ArrayBuffer((pkn, rhs))
+              }
+              if (propOpsMap.contains(name)) {
+                //propOpsMap(name).append((pkn, StringLiteral("EQUAL")(InputPosition(0, 0, 0))))
+                notPushDown += filters
+              }
+              else {
+                propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("EQUAL")(InputPosition(0, 0, 0))))
+              }
             }
           }
         }
@@ -136,15 +146,25 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
               case Variable(v) => notPushDown += e
               case _ => expr match {
                 case Variable(name) => {
-                  if (propMap.contains(name)) propMap(name).append((pkn, rhs))
-                  else propMap += name -> ArrayBuffer((pkn, rhs))
-                  if (propOpsMap.contains(name)) propOpsMap(name).append((pkn, StringLiteral("NOTEQUALS")(InputPosition(0, 0, 0))))
-                  else propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("NOTEQUALS")(InputPosition(0, 0, 0))))
+                  if (propMap.contains(name)) {
+                    //propMap(name).append((pkn, rhs))
+                    notPushDown += filters
+                  }
+                  else {
+                    propMap += name -> ArrayBuffer((pkn, rhs))
+                  }
+                  if (propOpsMap.contains(name)) {
+                    //propOpsMap(name).append((pkn, StringLiteral("NOTEQUALS")(InputPosition(0, 0, 0))))
+                    notPushDown += filters
+                  }
+                  else {
+                    propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("NOTEQUALS")(InputPosition(0, 0, 0))))
+                  }
                 }
               }
             }
           }
-          case _ => throw new scala.Exception("unexpected 'NOT' expression!") // support '<>' operator for now. TODO: expand others not  expression
+          case _ => notPushDown += filters // support '<>' operator for now. TODO: expand others expression
         }
       }
       case hl@HasLabels(expr, labels) => {
@@ -152,106 +172,157 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
           case Variable(name) => {
             labelMap += name -> labels
           }
+          case _ => notPushDown += filters // TODO: expand others expression
         }
+
       }
       case greaterThan@GreaterThan(Property(expr, pkn), rhs) => {
         expr match {
           case Variable(name) => {
-            if (propMap.contains(name)) {
-              propMap(name).append((pkn, rhs))
-            }
-            else {
-              propMap += name -> ArrayBuffer((pkn, rhs))
-            }
-            if (propOpsMap.contains(name)) {
-              propOpsMap(name).append((pkn, StringLiteral("GreaterThan")(InputPosition(0, 0, 0))))
-            }
-            else {
-              propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("GreaterThan")(InputPosition(0, 0, 0))))
+            if (!labelMap.contains(name)) {
+            } else {
+              if (propMap.contains(name)) {
+                //propMap(name).append((pkn, rhs)) // TODO: push down all expressions of same label.
+                notPushDown += filters
+              }
+              else {
+                propMap += name -> ArrayBuffer((pkn, rhs))
+              }
+              if (propOpsMap.contains(name)) {
+                //propOpsMap(name).append((pkn, StringLiteral("GreaterThan")(InputPosition(0, 0, 0))))
+                notPushDown += filters
+              }
+              else {
+                propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("GreaterThan")(InputPosition(0, 0, 0))))
+              }
             }
           }
+          case _ => notPushDown += filters // TODO: expand others expression
         }
       }
       case greaterThanOrEq@GreaterThanOrEqual(Property(expr, pkn), rhs) => {
         expr match {
           case Variable(name) => {
-            if (propMap.contains(name)) {
-              propMap(name).append((pkn, rhs))
-            }
-            else {
-              propMap += name -> ArrayBuffer((pkn, rhs))
-            }
-            if (propOpsMap.contains(name)) {
-              propOpsMap(name).append((pkn, StringLiteral("GreaterThanOrEqual")(InputPosition(0, 0, 0))))
-            }
-            else {
-              propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("GreaterThanOrEqual")(InputPosition(0, 0, 0))))
+            if (!labelMap.contains(name)) {
+              notPushDown += filters
+            } else {
+              if (propMap.contains(name)) {
+                //propMap(name).append((pkn, rhs))
+                notPushDown += filters
+              }
+              else {
+                propMap += name -> ArrayBuffer((pkn, rhs))
+              }
+              if (propOpsMap.contains(name)) {
+                //propOpsMap(name).append((pkn, StringLiteral("GreaterThanOrEqual")(InputPosition(0, 0, 0))))
+                notPushDown += filters
+              }
+              else {
+                propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("GreaterThanOrEqual")(InputPosition(0, 0, 0))))
+              }
             }
           }
+          case _ => notPushDown += filters // TODO: expand others expression
         }
       }
       case lessThan@LessThan(Property(expr, pkn), rhs) => {
         expr match {
           case Variable(name) => {
-            if (propMap.contains(name)) {
-              propMap(name).append((pkn, rhs))
-            }
-            else {
-              propMap += name -> ArrayBuffer((pkn, rhs))
-            }
-            if (propOpsMap.contains(name)) {
-              propOpsMap(name).append((pkn, StringLiteral("LessThan")(InputPosition(0, 0, 0))))
-            }
-            else {
-              propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("LessThan")(InputPosition(0, 0, 0))))
+            if (!labelMap.contains(name)) { // fixme: push down all labels
+              notPushDown += filters
+            } else {
+              if (propMap.contains(name)) {
+                //propMap(name).append((pkn, rhs))
+                notPushDown += filters
+              }
+              else {
+                propMap += name -> ArrayBuffer((pkn, rhs))
+              }
+              if (propOpsMap.contains(name)) {
+                //propOpsMap(name).append((pkn, StringLiteral("LessThan")(InputPosition(0, 0, 0))))
+                notPushDown += filters
+              }
+              else {
+                propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("LessThan")(InputPosition(0, 0, 0))))
+              }
             }
           }
+          case _ => notPushDown += filters // TODO: expand others expression
         }
       }
       case lessThanOrEq@LessThanOrEqual(Property(expr, pkn), rhs) => {
         expr match {
           case Variable(name) => {
-            if (propMap.contains(name)) {
-              propMap(name).append((pkn, rhs))
-            }
-            else {
-              propMap += name -> ArrayBuffer((pkn, rhs))
-            }
-            if (propOpsMap.contains(name)) {
-              propOpsMap(name).append((pkn, StringLiteral("LessThanOrEqual")(InputPosition(0, 0, 0))))
-            }
-            else {
-              propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("LessThanOrEqual")(InputPosition(0, 0, 0))))
+            if (!labelMap.contains(name)) {
+              notPushDown += filters
+            } else {
+              if (propMap.contains(name)) {
+                //propMap(name).append((pkn, rhs))
+                notPushDown += filters
+              }
+              else {
+                propMap += name -> ArrayBuffer((pkn, rhs))
+              }
+              if (propOpsMap.contains(name)) {
+                //propOpsMap(name).append((pkn, StringLiteral("LessThanOrEqual")(InputPosition(0, 0, 0))))
+                notPushDown += filters
+              }
+              else {
+                propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("LessThanOrEqual")(InputPosition(0, 0, 0))))
+              }
             }
           }
+          case _ => notPushDown += filters // TODO: expand others expression
         }
       }
       case in@In(Property(expr, pkn), rhs) => {
         expr match {
           case Variable(name) => {
-            if (propMap.contains(name)) propMap(name).append((pkn, rhs))
-            else propMap += name -> ArrayBuffer((pkn, rhs))
-            if (propOpsMap.contains(name)) propOpsMap(name).append((pkn, StringLiteral("IN")(InputPosition(0, 0, 0))))
-            else propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("IN")(InputPosition(0, 0, 0))))
+            if (!labelMap.contains(name)) {
+              notPushDown += filters
+            } else {
+              if (propMap.contains(name)) {
+                //propMap(name).append((pkn, rhs))
+                notPushDown += filters
+              }
+              else {
+                propMap += name -> ArrayBuffer((pkn, rhs))
+              }
+              if (propOpsMap.contains(name)) {
+                //propOpsMap(name).append((pkn, StringLiteral("IN")(InputPosition(0, 0, 0))))
+                notPushDown += filters
+              }
+              else {
+                propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("IN")(InputPosition(0, 0, 0))))
+              }
+            }
           }
+          case _ => notPushDown += filters // TODO: expand others expression
         }
       }
       case contains@Contains(Property(expr, pkn), rhs) => {
         expr match {
           case Variable(name) => {
-            if (propMap.contains(name)) {
-              propMap(name).append((pkn, rhs))
-            }
-            else {
-              propMap += name -> ArrayBuffer((pkn, rhs))
-            }
-            if (propOpsMap.contains(name)) {
-              propOpsMap(name).append((pkn, StringLiteral("Contains")(InputPosition(0, 0, 0))))
-            }
-            else {
-              propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("Contains")(InputPosition(0, 0, 0))))
+            if (!labelMap.contains(name)) {
+              notPushDown += filters
+            } else {
+              if (propMap.contains(name)) {
+                //propMap(name).append((pkn, rhs))
+                notPushDown += filters
+              }
+              else {
+                propMap += name -> ArrayBuffer((pkn, rhs))
+              }
+              if (propOpsMap.contains(name)) {
+                //propOpsMap(name).append((pkn, StringLiteral("Contains")(InputPosition(0, 0, 0))))
+                notPushDown += filters
+              }
+              else {
+                propOpsMap += name -> ArrayBuffer((pkn, StringLiteral("Contains")(InputPosition(0, 0, 0))))
+              }
             }
           }
+          case _ => notPushDown += filters // TODO: expand others expression
         }
       }
       case a@Ands(andExpress) => andExpress.foreach(exp => extractParamsFromFilterExpression(exp, labelMap, propMap, propOpsMap, regexPattern, notPushDown))

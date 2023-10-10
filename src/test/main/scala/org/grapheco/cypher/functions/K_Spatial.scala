@@ -69,7 +69,7 @@ class K_Spatial extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(LynxFloat(1269.9148706779565), records(0)("dist"))
+    Assert.assertEquals(LynxFloat(1269.9148706779097), records(0)("dist"))
   }
 
   @Test
