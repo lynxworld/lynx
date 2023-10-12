@@ -9,7 +9,7 @@ import org.junit.Test
  * @author: LiamGao
  * @create: 2022-02-28 18:52
  */
-class Q_CreateUnique extends TestBase{
+class Q_CreateUnique_deprecated extends TestBase{
 
   @Test
   def cypher1(): Unit ={

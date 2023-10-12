@@ -299,8 +299,10 @@ case class PPTNodeScan(pattern: NodePattern)(implicit val plannerContext: Physic
           (LynxPropertyKey(kv._1), v_2)
         }))
       }
+      case _ => {
+        (properties.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty), Map.empty[LynxPropertyKey, PropOp])
+      }
     }
-
     DataFrame(Seq(var0.name -> CTNode), () => {
       graphModel.nodes(
         NodeFilter(
@@ -497,9 +499,9 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
       case Some(Some(Range(a, b))) => (a.map(_.value.toInt).getOrElse(1), b.map(_.value.toInt).getOrElse(Int.MaxValue))
     }
 
-    val (leftProperties, leftProps) = if(props1.isEmpty) (Map.empty[LynxPropertyKey,LynxValue], Map.empty[LynxPropertyKey,PropOp])
+    val (leftProperties, leftProps)  = if(props1.isEmpty) (Map.empty[LynxPropertyKey,LynxValue], Map.empty[LynxPropertyKey,PropOp])
     else props1.get match {
-      case li@ListLiteral(expressions) =>
+      case li@ListLiteral(expressions) => {
         (eval(expressions(0)).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))
           , eval(expressions(1)).asInstanceOf[LynxMap].value.map(kv => {
           val v_2: PropOp = kv._2.value.toString match {
@@ -515,11 +517,16 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
           }
           (LynxPropertyKey(kv._1), v_2)
         }))
+      }
+      case _ => {
+        (props1.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty), Map.empty[LynxPropertyKey, PropOp])
+      }
+
     }
 
     val (rightProperties, rightProps) = if(props3.isEmpty) (Map.empty[LynxPropertyKey,LynxValue], Map.empty[LynxPropertyKey,PropOp])
     else props3.get match {
-      case li@ListLiteral(expressions) =>
+      case li@ListLiteral(expressions) => {
         (eval(expressions(0)).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))
           , eval(expressions(1)).asInstanceOf[LynxMap].value.map(kv => {
           val v_2: PropOp = kv._2.value.toString match {
@@ -535,6 +542,10 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
           }
           (LynxPropertyKey(kv._1), v_2)
         }))
+      }
+      case _ => {
+        (props3.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty), Map.empty[LynxPropertyKey, PropOp])
+      }
     }
     println(runner.NodeFilter(labels1.map(_.name).map(LynxNodeLabel), leftProperties,leftProps))
     println(runner.NodeFilter(labels3.map(_.name).map(LynxNodeLabel), rightProperties, rightProps))
@@ -547,7 +558,7 @@ case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, 
           direction, upperLimit, lowerLimit)
         if (length.isEmpty) paths.map { path => Seq(path.startNode.get, path.firstRelationship.get, path.endNode.get) }
         else paths.map { path => Seq(path.startNode.get, LynxList(path.relationships), path.endNode.get, path) }
-//        else paths.map { path => Seq(path.startNode.get, LynxList(path.relationships), path.endNode.get, path.trim) } // fixme: huchuan 2023-04-11: why trim?
+        //        else paths.map { path => Seq(path.startNode.get, LynxList(path.relationships), path.endNode.get, path.trim) } // fixme: huchuan 2023-04-11: why trim?
 
       }
     )

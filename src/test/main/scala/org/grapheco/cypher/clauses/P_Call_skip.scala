@@ -14,7 +14,7 @@ import scala.collection.mutable.ArrayBuffer
  * @author: LiamGao
  * @create: 2022-02-28 16:14
  */
-class P_Call extends TestBase{
+class P_Call_skip extends TestBase{
   val nodesInput = ArrayBuffer[(String, NodeInput)]()
   val relationsInput = ArrayBuffer[(String, RelationshipInput)]()
 
