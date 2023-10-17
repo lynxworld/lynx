@@ -1,16 +1,17 @@
 package org.grapheco.lynx.runner
 
 import com.typesafe.scalalogging.LazyLogging
-import org.grapheco.lynx.dataframe.{DefaultDataFrameOperator, DataFrameOperator}
+import org.grapheco.lynx._
+import org.grapheco.lynx.dataframe.{DataFrameOperator, DefaultDataFrameOperator}
 import org.grapheco.lynx.evaluator.{DefaultExpressionEvaluator, ExpressionEvaluator}
 import org.grapheco.lynx.logical.{DefaultLogicalPlanner, LPTNode, LogicalPlanner, LogicalPlannerContext}
-import org.grapheco.lynx.parser.{CachedQueryParser, DefaultQueryParser, QueryParser}
-import org.grapheco.lynx.procedure._
-import org.grapheco.lynx.types.{DefaultTypeSystem, LynxValue, TypeSystem}
-import org.grapheco.lynx.util.FormatUtils
-import org.grapheco.lynx._
 import org.grapheco.lynx.optimizer.{DefaultPhysicalPlanOptimizer, PhysicalPlanOptimizer}
+import org.grapheco.lynx.parser.{CachedQueryParser, DefaultQueryParser, QueryParser}
 import org.grapheco.lynx.physical.{DefaultPhysicalPlanner, PPTNode, PhysicalPlanner, PhysicalPlannerContext}
+import org.grapheco.lynx.procedure._
+import org.grapheco.lynx.types.{DefaultTypeSystem, TypeSystem}
+import org.grapheco.lynx.util.FormatUtils
+import org.grapheco.lynx.util.FormatUtils.convertPatternComprehension
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.SemanticState
 
@@ -21,20 +22,24 @@ import org.opencypher.v9_0.ast.semantics.SemanticState
  * @Date 2022/4/27
  * @Version 0.1
  */
-class CypherRunner(graphModel: GraphModel) extends LazyLogging {
+class CypherRunner(var graphModel: GraphModel, var proceduresName: Seq[String] = Seq.empty) extends LazyLogging {
+  proceduresName ++= Seq(
+    classOf[AggregatingFunctions].getName,
+    classOf[ListFunctions].getName,
+    classOf[LogarithmicFunctions].getName,
+    classOf[NumericFunctions].getName,
+    classOf[PredicateFunctions].getName,
+    classOf[StringFunctions].getName,
+    classOf[TimeFunctions].getName,
+    classOf[TrigonometricFunctions].getName,
+    classOf[SpatialFunctions].getName,
+    classOf[FullTextIndexFunctions].getName)
+  private val proceduresClass: Seq[Class[_]] = proceduresName.map(name => getClassByName(name).get)
   protected lazy val types: TypeSystem = new DefaultTypeSystem()
   val scalarFunctions: ScalarFunctions = new ScalarFunctions(graphModel)
   protected lazy val procedures: WithGraphModelProcedureRegistry = new WithGraphModelProcedureRegistry(types,
     scalarFunctions,
-    classOf[AggregatingFunctions],
-    classOf[ListFunctions],
-    classOf[LogarithmicFunctions],
-    classOf[NumericFunctions],
-    classOf[PredicateFunctions],
-    classOf[StringFunctions],
-    classOf[TimeFunctions],
-    classOf[TrigonometricFunctions],
-    classOf[SpatialFunctions])
+    proceduresClass:_*)
   protected lazy val expressionEvaluator: ExpressionEvaluator = new DefaultExpressionEvaluator(graphModel, types, procedures)
   protected lazy val dataFrameOperator: DataFrameOperator = new DefaultDataFrameOperator(expressionEvaluator)
   private implicit lazy val runnerContext = CypherRunnerContext(types, procedures, dataFrameOperator, expressionEvaluator, graphModel)
@@ -46,7 +51,8 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
   def compile(query: String): (Statement, Map[String, Any], SemanticState) = queryParser.parse(query)
 
   def run(query: String, param: Map[String, Any]): LynxResult = {
-    val (statement, param2, state) = queryParser.parse(query)
+    val query2 = convertPatternComprehension(query)
+    val (statement, param2, state) = queryParser.parse(query2)
     logger.debug(s"AST tree: ${statement}")
 
     val logicalPlannerContext = LogicalPlannerContext(param ++ param2, runnerContext)
@@ -103,5 +109,12 @@ class CypherRunner(graphModel: GraphModel) extends LazyLogging {
       }
     }
   }
-
+  def getClassByName[T](className: String): Option[Class[_]] = {
+    try {
+      val classLoader = Thread.currentThread.getContextClassLoader
+      Some(classLoader.loadClass(className))
+    } catch {
+      case _: ClassNotFoundException => None
+    }
+  }
 }

@@ -49,12 +49,19 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
   protected def evalPathStep(step: PathStep)(implicit ec: ExpressionContext): LynxPath = {
     step match {
       case NilPathStep => LynxPath.EMPTY
-      case f: NodePathStep => LynxPath.startPoint(eval(f.node).asInstanceOf[LynxNode]).append(evalPathStep(f.next))
+      case f: NodePathStep => {
+        val path = f.next match {
+          case m: MultiRelationshipPathStep => LynxPath.EMPTY
+          case _ => LynxPath.startPoint(eval(f.node).asInstanceOf[LynxNode])
+        }
+        path.append(evalPathStep(f.next))
+      }
       case m: MultiRelationshipPathStep => (m.rel match {
         case Variable(r) => ec.vars(r + "LINK")
         case _ => throw ProcedureException("")
       }).asInstanceOf[LynxPath]
-        .append(eval(m.toNode.get).asInstanceOf[LynxNode]).append(evalPathStep(m.next))
+        //.append(eval(m.toNode.get).asInstanceOf[LynxNode])
+        //.append(evalPathStep(m.next))
       case s: SingleRelationshipPathStep => LynxPath.singleRel(eval(s.rel).asInstanceOf[LynxRelationship])
         .append(eval(s.toNode.get).asInstanceOf[LynxNode])
         .append(evalPathStep(s.next))
@@ -406,8 +413,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         val variableName = scope.variable.name
         eval(expression) match {
           case list: LynxList => {
-            var result = LynxList(List())
-
+            var result = list
             if (scope.innerPredicate.isDefined) {
               result = LynxList(list.v.filter {
                 listValue => eval(scope.innerPredicate.get)(ec.withVars(ec.vars + (variableName -> listValue))).asInstanceOf[LynxBoolean].value

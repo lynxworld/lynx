@@ -127,7 +127,7 @@ case class LPTQueryPartTranslator(part: QueryPart) extends LPTNodeTranslator {
             case d: Delete => LPTDeleteTranslator(d)
             case s: SetClause => LPTSetClauseTranslator(s)
             case r: Remove => LPTRemoveTranslator(r)
-            //case f: Foreach
+            case f: Foreach => LPTForeachTranslator(f)
           }
         ).translate(in)
       case UnionAll(part, query) => LPTUnion(distinct = false)(LPTQueryPartTranslator(part).translate(None), LPTQueryPartTranslator(query).translate(None))
@@ -154,6 +154,20 @@ case class LPTReturnTranslator(r: Return) extends LPTNodeTranslator {
         LPTSelectTranslator(ri),
         LPTDistinctTranslator(distinct)
       )).translate(in)
+  }
+}
+///////////////Foreach////////////////
+case class LPTForeachTranslator(f: Foreach) extends LPTNodeTranslator {
+  def translate(in: Option[LPTNode])(implicit plannerContext: LogicalPlannerContext): LPTNode = {
+    val Foreach(variable, expression, updates) = f
+
+    val translatedClauses = updates.map {
+      case setClause: SetClause => {
+        LPTSetClauseTranslator(setClause)
+      }
+      case _ => throw new Exception("clause in foreach not support:") //todo : support others clauses
+    }
+    PipedTranslators(translatedClauses).translate(in)
   }
 }
 

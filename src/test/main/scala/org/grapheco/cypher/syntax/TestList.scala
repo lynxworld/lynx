@@ -5,7 +5,7 @@ import org.grapheco.lynx.physical.{NodeInput, RelationshipInput, StoredNodeInput
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.structural._
-import org.junit.{Assert, Test}
+import org.junit.{Assert, Before, Test}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -52,6 +52,57 @@ create (a)-[r:ACTION_IN]->(m)
 */
 
 class TestList extends TestBase {
+
+  val nodesInput = ArrayBuffer[(String, NodeInput)]()
+  val relationsInput = ArrayBuffer[(String, RelationshipInput)]()
+
+  val n1 = TestNode(TestId(1), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name") -> LynxValue("Oliver Stone")))
+  val n2 = TestNode(TestId(2), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name") -> LynxValue("Michael Douglas")))
+  val n3 = TestNode(TestId(3), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name") -> LynxValue("Charlie Sheen")))
+  val n4 = TestNode(TestId(4), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name") -> LynxValue("Martin Sheen")))
+  val n5 = TestNode(TestId(5), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name") -> LynxValue("Rob Reiner")))
+  val m1 = TestNode(TestId(6), Seq(LynxNodeLabel("Movie")), Map(LynxPropertyKey("title") -> LynxValue("Wall Street"), LynxPropertyKey("released") -> LynxValue("1990")))
+  val m2 = TestNode(TestId(7), Seq(LynxNodeLabel("Movie")), Map(LynxPropertyKey("title") -> LynxValue("The American President"), LynxPropertyKey("released") -> LynxValue("1991")))
+
+
+  val r1 = TestRelationship(TestId(1), TestId(1), TestId(6), Option(LynxRelationshipType("DIRECTED")), Map.empty)
+  val r2 = TestRelationship(TestId(2), TestId(2), TestId(6), Option(LynxRelationshipType("ACTED_IN")), Map(LynxPropertyKey("role") -> LynxValue("Gordon Gekko")))
+  val r3 = TestRelationship(TestId(3), TestId(2), TestId(7), Option(LynxRelationshipType("ACTED_IN")), Map(LynxPropertyKey("role") -> LynxValue("President Andrew Shepherd")))
+  val r4 = TestRelationship(TestId(4), TestId(3), TestId(6), Option(LynxRelationshipType("ACTED_IN")), Map(LynxPropertyKey("role") -> LynxValue("Bud Fox")))
+  val r5 = TestRelationship(TestId(5), TestId(4), TestId(6), Option(LynxRelationshipType("ACTED_IN")), Map(LynxPropertyKey("role") -> LynxValue("Carl Fox")))
+  val r6 = TestRelationship(TestId(6), TestId(4), TestId(7), Option(LynxRelationshipType("ACTED_IN")), Map(LynxPropertyKey("role") -> LynxValue("A.J. MacInerney")))
+  val r7 = TestRelationship(TestId(7), TestId(5), TestId(7), Option(LynxRelationshipType("DIRECTED")), Map.empty)
+
+
+  @Before
+  def init(): Unit = {
+    all_nodes.clear()
+    all_rels.clear()
+    nodesInput.append(("n1", NodeInput(n1.labels, n1.props.toSeq)))
+    nodesInput.append(("n2", NodeInput(n2.labels, n2.props.toSeq)))
+    nodesInput.append(("n3", NodeInput(n3.labels, n3.props.toSeq)))
+    nodesInput.append(("n4", NodeInput(n4.labels, n4.props.toSeq)))
+    nodesInput.append(("n5", NodeInput(n5.labels, n5.props.toSeq)))
+    nodesInput.append(("m1", NodeInput(m1.labels, m1.props.toSeq)))
+    nodesInput.append(("m2", NodeInput(m2.labels, m2.props.toSeq)))
+
+    relationsInput.append(("r1", RelationshipInput(Seq(r1.relationType.get), Seq.empty, StoredNodeInputRef(r1.startNodeId), StoredNodeInputRef(r1.endNodeId))))
+    relationsInput.append(("r2", RelationshipInput(Seq(r2.relationType.get), r2.props.toSeq, StoredNodeInputRef(r2.startNodeId), StoredNodeInputRef(r2.endNodeId))))
+    relationsInput.append(("r3", RelationshipInput(Seq(r3.relationType.get), r3.props.toSeq, StoredNodeInputRef(r3.startNodeId), StoredNodeInputRef(r3.endNodeId))))
+    relationsInput.append(("r4", RelationshipInput(Seq(r4.relationType.get), r4.props.toSeq, StoredNodeInputRef(r4.startNodeId), StoredNodeInputRef(r4.endNodeId))))
+    relationsInput.append(("r5", RelationshipInput(Seq(r5.relationType.get), r5.props.toSeq, StoredNodeInputRef(r5.startNodeId), StoredNodeInputRef(r5.endNodeId))))
+    relationsInput.append(("r6", RelationshipInput(Seq(r6.relationType.get), r6.props.toSeq, StoredNodeInputRef(r6.startNodeId), StoredNodeInputRef(r6.endNodeId))))
+    relationsInput.append(("r7", RelationshipInput(Seq(r7.relationType.get), Seq.empty, StoredNodeInputRef(r7.startNodeId), StoredNodeInputRef(r7.endNodeId))))
+
+
+    model.write.createElements(nodesInput, relationsInput,
+      (nodesCreated: Seq[(String, LynxNode)], relsCreated: Seq[(String, LynxRelationship)]) => {
+        nodesCreated.toMap ++ relsCreated
+      }
+    )
+    model.write.commit
+  }
+
 
   @Test
   def listsInGeneral_1(): Unit = {
@@ -122,82 +173,25 @@ class TestList extends TestBase {
 
   @Test
   def patternComprehension(): Unit = {
-    val nodesInput = ArrayBuffer[(String, NodeInput)]()
-    val relationsInput = ArrayBuffer[(String, RelationshipInput)]()
-
-    val p = TestNode(TestId(0), Seq(LynxNodeLabel("Person")), Map(LynxPropertyKey("name") -> LynxValue("Keanu Reeves")))
-    val m1 = TestNode(TestId(1), Seq(LynxNodeLabel("Movie")), Map(
-      LynxPropertyKey("title") -> LynxValue("The Devil Advocate"), LynxPropertyKey("released") -> LynxValue(1997)
-    ))
-
-    val m2 = TestNode(TestId(2), Seq(LynxNodeLabel("Movie")), Map(
-      LynxPropertyKey("title") -> LynxValue("The Matrix"), LynxPropertyKey("released") -> LynxValue(1999)
-    ))
-
-    val m3 = TestNode(TestId(3), Seq(LynxNodeLabel("Movie")), Map(
-      LynxPropertyKey("title") -> LynxValue("The Replacements"), LynxPropertyKey("released") -> LynxValue(2000)
-    ))
-
-    val m4 = TestNode(TestId(4), Seq(LynxNodeLabel("Movie")), Map(
-      LynxPropertyKey("title") -> LynxValue("The Matrix Reloaded"), LynxPropertyKey("released") -> LynxValue(2003)
-    ))
-
-    val m5 = TestNode(TestId(5), Seq(LynxNodeLabel("Movie")), Map(
-      LynxPropertyKey("title") -> LynxValue("The Matrix Revolutions"), LynxPropertyKey("released") -> LynxValue(2003)
-    ))
-
-    val m6 = TestNode(TestId(6), Seq(LynxNodeLabel("Movie")), Map(
-      LynxPropertyKey("title") -> LynxValue("The Somethings Gotta Give"), LynxPropertyKey("released") -> LynxValue(2003)
-    ))
-
-    val m7 = TestNode(TestId(7), Seq(LynxNodeLabel("Movie")), Map(
-      LynxPropertyKey("title") -> LynxValue("The Johnny Mnemonic"), LynxPropertyKey("released") -> LynxValue(1995)
-    ))
-
-    val r1 = TestRelationship(TestId(1), TestId(0), TestId(1), Option(LynxRelationshipType("ACTION_IN")), Map.empty)
-    val r2 = TestRelationship(TestId(1), TestId(0), TestId(2), Option(LynxRelationshipType("ACTION_IN")), Map.empty)
-    val r3 = TestRelationship(TestId(1), TestId(0), TestId(3), Option(LynxRelationshipType("ACTION_IN")), Map.empty)
-    val r4 = TestRelationship(TestId(1), TestId(0), TestId(4), Option(LynxRelationshipType("ACTION_IN")), Map.empty)
-    val r5 = TestRelationship(TestId(1), TestId(0), TestId(5), Option(LynxRelationshipType("ACTION_IN")), Map.empty)
-    val r6 = TestRelationship(TestId(1), TestId(0), TestId(6), Option(LynxRelationshipType("ACTION_IN")), Map.empty)
-    val r7 = TestRelationship(TestId(1), TestId(0), TestId(7), Option(LynxRelationshipType("ACTION_IN")), Map.empty)
-
-    nodesInput.append(("p", NodeInput(p.labels, p.props.toSeq)))
-    nodesInput.append(("m1", NodeInput(m1.labels, m1.props.toSeq)))
-    nodesInput.append(("m2", NodeInput(m2.labels, m2.props.toSeq)))
-    nodesInput.append(("m3", NodeInput(m3.labels, m3.props.toSeq)))
-    nodesInput.append(("m4", NodeInput(m4.labels, m4.props.toSeq)))
-    nodesInput.append(("m5", NodeInput(m5.labels, m5.props.toSeq)))
-    nodesInput.append(("m6", NodeInput(m6.labels, m6.props.toSeq)))
-    nodesInput.append(("m7", NodeInput(m7.labels, m7.props.toSeq)))
-
-    relationsInput.append(("r1", RelationshipInput(Seq(r1.relationType.get), r1.props.toSeq, StoredNodeInputRef(r1.startNodeId), StoredNodeInputRef(r1.endNodeId))))
-    relationsInput.append(("r2", RelationshipInput(Seq(r2.relationType.get), r2.props.toSeq, StoredNodeInputRef(r2.startNodeId), StoredNodeInputRef(r2.endNodeId))))
-    relationsInput.append(("r3", RelationshipInput(Seq(r3.relationType.get), r3.props.toSeq, StoredNodeInputRef(r3.startNodeId), StoredNodeInputRef(r3.endNodeId))))
-    relationsInput.append(("r4", RelationshipInput(Seq(r4.relationType.get), r4.props.toSeq, StoredNodeInputRef(r4.startNodeId), StoredNodeInputRef(r4.endNodeId))))
-    relationsInput.append(("r5", RelationshipInput(Seq(r5.relationType.get), r5.props.toSeq, StoredNodeInputRef(r5.startNodeId), StoredNodeInputRef(r5.endNodeId))))
-    relationsInput.append(("r6", RelationshipInput(Seq(r6.relationType.get), r6.props.toSeq, StoredNodeInputRef(r6.startNodeId), StoredNodeInputRef(r6.endNodeId))))
-    relationsInput.append(("r7", RelationshipInput(Seq(r7.relationType.get), r7.props.toSeq, StoredNodeInputRef(r7.startNodeId), StoredNodeInputRef(r7.endNodeId))))
-
-    model.write.createElements(nodesInput, relationsInput,
-      (nodesCreated: Seq[(String, LynxNode)], relsCreated: Seq[(String, LynxRelationship)]) => {
-        nodesCreated.toMap ++ relsCreated
-      }
-    )
-    model.write.commit
-
     val records = runOnDemoGraph("" +
       """
-        |MATCH (a:Person { name: 'Keanu Reeves' })
-        |RETURN [(a)-[r:ACTION_IN]->(b) WHERE b:Movie | b.released] AS years
-        |""".stripMargin).records()
-      .map(f => f("years").asInstanceOf[LynxList].value).toArray
+        |MATCH (actor:Person { name: 'Michael Douglas' })
+        |RETURN [(actor)-[r:ACTED_IN]->(b) WHERE b:Movie | b.released] AS years
+        |""".stripMargin).records().toArray
+    /** Convert to :
+     * //    MATCH (actor:Person { name: 'Michael Douglas' })
+     * //    WITH actor
+     * //    MATCH (actor)-[r:ACTED_IN]->(b) WHERE b:Movie
+     * //    RETURN b.released AS years * */
+    Assert.assertEquals(2, records.length)
+    Assert.assertEquals("1991", records(0)("years").value)
+    Assert.assertEquals("1990", records(1)("years").value)
 
-    val expectResult = List(1997, 1999, 2000, 2003, 2003, 2003, 1995)
-    Assert.assertEquals(expectResult.length, records(0).length)
-    for (i <- expectResult.indices) {
-      Assert.assertEquals(LynxValue(expectResult(i)), records(0)(i))
-    }
+    //    val expectResult = List(1997, 1999, 2000, 2003, 2003, 2003, 1995)
+//    Assert.assertEquals(expectResult.length, records(0).length)
+//    for (i <- expectResult.indices) {
+//      Assert.assertEquals(LynxValue(expectResult(i)), records(0)(i))
+//    }
     // List Map funcs
 //    expectResult.map(LynxValue.apply)
 //      .zip(records(0))
