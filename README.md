@@ -28,18 +28,18 @@
 <br />
 <div align="center">
   <a href="https://github.com/lynxworld/lynx">
-    <img src="logo.png" alt="Logo" width="240" height="240">
+    <img src="logo.png" alt="Logo" width="360">
   </a>
 
-<h3 align="center">Lynx</h3>
+<h3 align="center">Lynx: A Graph Query Framework for Multiple Heterogeneous Data Sources</h3>
 
   <p align="center">
-    project_description
+    Lynx is a general graph query framework to simplify querying graph data by converting complex statements into basic graph operations. Instead of connecting directly to the data sources, Lynx retrieves data through user-implemented interfaces for those graph operations. 
     <br />
 <!--     <a href="https://github.com/lynxworld/lynx"><strong>Explore the docs »</strong></a> -->
     <br />
     <br />
-    <a href="https://www.youtube.com/watch?v=bFhMIkksMl8&t=480s">View Demo</a>
+    <a href="https://www.youtube.com/watch?v=bFhMIkksMl8">View Demo</a>
     ·
     <a href="https://github.com/lynxworld/lynx/issues">Report Bug</a>
     ·
@@ -78,79 +78,39 @@
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
-
-
-Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `github_username`, `repo_name`, `twitter_handle`, `linkedin_username`, `email_client`, `email`, `project_title`, `project_description`
+### Intruduction
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-
-
-
-
-
+### Architecture and Workflow
+![lynx_arch](https://github.com/lynxworld/lynx/assets/18690803/7ecf0d73-673d-4df1-a17d-f0f8471a2b63)
 <!-- GETTING STARTED -->
 ## Getting Started
 
-This is an example of how you may give instructions on setting up your project locally.
-To get a local copy up and running follow these simple example steps.
+### Import
+Import Lynx by Maven.
+```xml
+  <dependency>
+      <groupId>org.grapheco</groupId>
+      <artifactId>lynx</artifactId>
+      <version>0.6</version>
+  </dependency>
+```
 
-### Prerequisites
+### How to use
 
-This is an example of how to list things you need to use the software and how to install them.
-* npm
-  ```sh
-  npm install npm@latest -g
-  ```
-
-### Installation
-
-1. Get a free API Key at [https://example.com](https://example.com)
-2. Clone the repo
-   ```sh
-   git clone https://github.com/github_username/repo_name.git
-   ```
-3. Install NPM packages
-   ```sh
-   npm install
-   ```
-4. Enter your API in `config.js`
-   ```js
-   const API_KEY = 'ENTER YOUR API';
-   ```
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-
-
-<!-- USAGE EXAMPLES -->
-## Usage
-
-Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
-
-_For more examples, please refer to the [Documentation](https://example.com)_
+1. Implementa
+2. Runner
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 
 
-<!-- CONTRIBUTING -->
-## Contributing
 
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
-
-If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
-Don't forget to give the project a star! Thanks again!
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
+## Demo Video
+We have a demo video at VLDB2023:
+[![Lynx](https://res.cloudinary.com/marcomontalbano/image/upload/v1697510614/video_to_markdown/images/youtube--bFhMIkksMl8-c05b58ac6eb4c4700831b2b3070cd403.jpg)](https://www.youtube.com/watch?v=bFhMIkksMl8 "Lynx")
 
 <!-- Citation -->
 ## Citation
