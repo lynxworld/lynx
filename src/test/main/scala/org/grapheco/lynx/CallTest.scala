@@ -32,6 +32,20 @@ class CallTest extends TestBase {
   }
 
   @Test
+  def testFullTextIndexQuery(): Unit = {
+    var rs = runOnDemoGraph("call db.index.fulltext.queryNodes(\"111\", \"222\")")
+    Assert.assertEquals(1, rs.records().size)
+  }
+
+  @Test
+  def testFullTextIndexCreate(): Unit = {
+    var rs = runOnDemoGraph("call db.index.fulltext.createNodeIndex(\"111\", [\"222\"],  [\"333\"])")
+    Assert.assertEquals(1, rs.records().size)
+
+
+  }
+
+  @Test
   def testWrongCall(): Unit = {
     Assert.assertThrows(classOf[UnknownProcedureException], new ThrowingRunnable() {
       override def run(): Unit = {
@@ -101,7 +115,7 @@ class CallTest extends TestBase {
   def testPower(): Unit = {
     val rs = runOnDemoGraph("match (n) return power(n.age, 3)").records().next()
   }
-  
+
   @Test
   def testSumGroupBy(): Unit = {
     val rs = runOnDemoGraph("match (n) return n.gender, sum(n.age)").records().next()

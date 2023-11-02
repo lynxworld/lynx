@@ -231,7 +231,7 @@ class Operators extends TestBase {
     Assert.assertEquals(1, records.length)
     Assert.assertEquals("P12Y5M14DT16H13M10.000000001S", records(0)("duration1").toString)
     Assert.assertEquals("P1M-14DT15H49M10S", records(0)("duration2").toString)
-    Assert.assertEquals("P12Y6MT32H2M20.000000001S", records(0)("duration1 + duration2").toString)
+    Assert.assertEquals("P12Y6M1DT8H2M20.000000001S", records(0)("duration1 + duration2").toString) //32H == 1DT8H
     Assert.assertEquals("P12Y4M28DT24M0.000000001S", records(0)("duration1 - duration2").toString)
   }
 
