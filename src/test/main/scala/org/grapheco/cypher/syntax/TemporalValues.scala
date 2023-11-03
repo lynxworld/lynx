@@ -276,7 +276,6 @@ class TemporalValues extends TestBase {
   @Test
   def getDateInWeek(): Unit = {
     val thursday = LocalDate.now()
-      .plusWeeks(1)
       .`with`(TemporalAdjusters.nextOrSame(java.time.DayOfWeek.THURSDAY))
     val formattedDate = thursday.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
     println(formattedDate)
