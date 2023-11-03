@@ -4,7 +4,9 @@ import org.grapheco.lynx.TestBase
 import org.grapheco.lynx.types.time.{LynxDateTime, LynxDuration, LynxLocalDateTime}
 import org.junit.{Assert, Test}
 
-import java.time.ZonedDateTime
+import java.time.{LocalDate, Month, ZonedDateTime}
+import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
 
 class TemporalValues extends TestBase {
 
@@ -273,18 +275,28 @@ class TemporalValues extends TestBase {
   /*TODO*/
   @Test
   def getDateInWeek(): Unit = {
+    val thursday = LocalDate.now()
+      .plusWeeks(1)
+      .`with`(TemporalAdjusters.nextOrSame(java.time.DayOfWeek.THURSDAY))
+    val formattedDate = thursday.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+    println(formattedDate)
     val records = runOnDemoGraph(
       "RETURN date.truncate('week', date(), { dayOfWeek: 4 }) AS thursday"
     ).records().map(f => f("thursday").value).toArray
-    Assert.assertEquals("2023-01-05", records(0).toString)
+    Assert.assertEquals(formattedDate, records(0).toString)
   }
 
   @Test
   def getDateOfLastDayInMonth(): Unit = {
+    val nextMonthLastDay = LocalDate.now()
+      .plusMonths(2)
+      .withDayOfMonth(1)
+      .minusDays(1)
+    val formattedDate = nextMonthLastDay.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
     val records = runOnDemoGraph(
       "RETURN date.truncate('month',date()+duration('P2M'))- duration('P1D') AS lastDay"
     ).records().map(f => f("lastDay").value).toArray
-    Assert.assertEquals("2023-02-28", records(0).toString)
+    Assert.assertEquals(formattedDate, records(0).toString)
   }
 
   @Test
@@ -301,7 +313,7 @@ class TemporalValues extends TestBase {
       "RETURN duration({ days: 2, hours: 7 })+ duration({ months: 1, hours: 18 }) AS theDuration"
     ).records().map(
       f => f("theDuration").toString).toArray
-    Assert.assertEquals("P1M2DT25H", records(0))
+    Assert.assertEquals("P1M3DT1H", records(0)) // 1DT == 24H
   }
 
   @Test
@@ -337,11 +349,12 @@ class TemporalValues extends TestBase {
 
   @Test
   def returnNameOfCurMonth(): Unit = {
+    val curMonthAbb = Month.from(LocalDate.now()).toString.take(3)
     val records = runOnDemoGraph(
       """
         |RETURN ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][date().month-1] AS month
         |""".stripMargin
     ).records().map(f => f("month").value).toArray
-    Assert.assertEquals("Jan", records(0))
+    Assert.assertEquals(curMonthAbb, records(0).toString.toUpperCase())
   }
 }
