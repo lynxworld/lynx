@@ -7,7 +7,7 @@
     <groupId>org.grapheco</groupId>
     <artifactId>lynx</artifactId>
     <packaging>jar</packaging>
-    <version>0.6</version>
+    <version>0.65</version>
 
     <name>Lynx</name>
     <description>A graph query engine framework</description>
@@ -147,7 +147,7 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.13.1</version>
+            <version>4.13</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
