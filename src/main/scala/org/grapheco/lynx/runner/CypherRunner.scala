@@ -1,10 +1,13 @@
 package org.grapheco.lynx.runner
 
 import com.typesafe.scalalogging.LazyLogging
+import hu.webarticum.treeprinter.printer.boxing.BoxingTreePrinter
 import org.grapheco.lynx._
 import org.grapheco.lynx.dataframe.{DataFrameOperator, DefaultDataFrameOperator}
 import org.grapheco.lynx.evaluator.{DefaultExpressionEvaluator, ExpressionEvaluator}
-import org.grapheco.lynx.logical.{DefaultLogicalPlanner, LPTNode, LogicalPlanner, LogicalPlannerContext}
+import org.grapheco.lynx.logical.planner.{DefaultLogicalPlanner, LogicalPlanner}
+import org.grapheco.lynx.logical.LogicalPlannerContext
+import org.grapheco.lynx.logical.plans.LogicalPlan
 import org.grapheco.lynx.optimizer.{DefaultPhysicalPlanOptimizer, PhysicalPlanOptimizer}
 import org.grapheco.lynx.parser.{CachedQueryParser, DefaultQueryParser, QueryParser}
 import org.grapheco.lynx.physical.{DefaultPhysicalPlanner, PPTNode, PhysicalPlanner, PhysicalPlannerContext}
@@ -85,7 +88,7 @@ class CypherRunner(var graphModel: GraphModel, var proceduresName: Seq[String] =
 
       override def getASTStatement(): (Statement, Map[String, Any]) = (statement, param2)
 
-      override def getLogicalPlan(): LPTNode = logicalPlan
+      override def getLogicalPlan(): LogicalPlan = logicalPlan
 
       override def getPhysicalPlan(): PPTNode = physicalPlan
 

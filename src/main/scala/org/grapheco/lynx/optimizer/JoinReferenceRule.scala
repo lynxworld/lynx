@@ -79,6 +79,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     var referenceProperty = Seq[((LogicalVariable, PropertyKeyName), Expression)]()
     var referenceExpression = Seq[Expression]()
     val newTable = table match {
+      case pw@PPTWith() => pw
       case ps@PPTNodeScan(pattern) => {
         val checked = checkNodeReference(pattern)
         referenceProperty = referenceProperty ++ checked._1

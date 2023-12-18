@@ -2,7 +2,8 @@ package org.grapheco.lynx.physical
 
 import org.grapheco.lynx.dataframe.{DataFrame, InnerJoin, JoinType}
 import org.grapheco.lynx.evaluator.ExpressionContext
-import org.grapheco.lynx.logical.{LPTPatternMatch, LPTShortestPaths}
+import org.grapheco.lynx.logical.plans
+import org.grapheco.lynx.logical.plans.{LogicalApply, LogicalPatternMatch, LogicalShortestPaths, LogicalWith}
 import org.grapheco.lynx.procedure.{UnknownProcedureException, WrongArgumentException}
 import org.grapheco.lynx.runner.{CONTAINS, EQUAL, ExecutionContext, GREATER_THAN, GREATER_THAN_OR_EQUAL, GraphModel, IN, LESS_THAN, LESS_THAN_OR_EQUAL, NOT_EQUAL, NodeFilter, PropOp, RelationshipFilter}
 import org.grapheco.lynx.types.LynxValue
@@ -25,9 +26,9 @@ object Trans{
   implicit def labelToLynxLabel(l: LabelName): LynxNodeLabel = LynxNodeLabel(l.name)
 }
 
-case class LPTShortestPathTranslator(lPTShortestPaths : LPTShortestPaths)(implicit val plannerContext: PhysicalPlannerContext) extends PPTNodeTranslator {
-  private def planShortestPaths(paths: LPTShortestPaths)(implicit ppc: PhysicalPlannerContext): PPTNode = {
-    val LPTShortestPaths(headNode: NodePattern, chain: Seq[(RelationshipPattern, NodePattern)], single, resName) = paths
+case class LPTShortestPathTranslator(lPTShortestPaths : LogicalShortestPaths)(implicit val plannerContext: PhysicalPlannerContext) extends PPTNodeTranslator {
+  private def planShortestPaths(paths: LogicalShortestPaths)(implicit ppc: PhysicalPlannerContext): PPTNode = {
+    val LogicalShortestPaths(headNode: NodePattern, chain: Seq[(RelationshipPattern, NodePattern)], single, resName) = paths
     chain.toList match {
       //match (m)-[r]-(n)
       case List(Tuple2(rel, rightNode)) => PPTShortestPath(rel, headNode, rightNode, single, resName)(ppc)
@@ -40,20 +41,49 @@ case class LPTShortestPathTranslator(lPTShortestPaths : LPTShortestPaths)(implic
   }
 }
 
-case class PPTPatternMatchTranslator(patternMatch: LPTPatternMatch)(implicit val plannerContext: PhysicalPlannerContext) extends PPTNodeTranslator {
-  private def planPatternMatch(pm: LPTPatternMatch)(implicit ppc: PhysicalPlannerContext): PPTNode = {
-    val LPTPatternMatch(headNode: NodePattern, chain: Seq[(RelationshipPattern, NodePattern)]) = pm
-    chain.toList match {
-      //match (m)
-      case Nil => PPTNodeScan(headNode)(ppc)
-      //match (m)-[r]-(n)
-      case List(Tuple2(rel, rightNode)) => PPTRelationshipScan(rel, headNode, rightNode)(ppc)
-      //match (m)-[r]-(n)-...-[p]-(z)
-      case _ =>
-        val (lastRelationship, lastNode) = chain.last
-        val dropped = chain.dropRight(1)
-        val part = planPatternMatch(LPTPatternMatch(headNode, dropped))(ppc)
-        PPTExpandPath(lastRelationship, lastNode)(part, plannerContext)
+case class FromArgument(str: String)(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override def withChildren(children0: Seq[PPTNode]): FromArgument = FromArgument(str)(plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = Seq((str, CTNode)) // Fixme: hard code
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    ctx.arguments.select(Seq((str, None)))
+  }
+}
+
+
+// TODO: very complex, need more think!
+case class PPTPatternMatchTranslator(patternMatch: LogicalPatternMatch)(implicit val plannerContext: PhysicalPlannerContext) extends PPTNodeTranslator {
+  private def planPatternMatch(pm: LogicalPatternMatch)(implicit ppc: PhysicalPlannerContext): PPTNode = {
+    // TODO: if arguments is not the first variable?
+    val argumentHit = ppc.argumentContext.contains(patternMatch.headNode.variable.map(_.name).getOrElse(""))
+    val LogicalPatternMatch(optional, variableName, headNode: NodePattern, chain: Seq[(RelationshipPattern, NodePattern)]) = pm
+    if (argumentHit){
+      chain.toList match {
+        //match (m)
+        case Nil => FromArgument(headNode.variable.get.name)(ppc)
+        //match (m)-[r]-(n)
+//        case List(Tuple2(rel, rightNode)) => PPTRelationshipScan(rel, headNode, rightNode)(ppc)
+        //match (m)-[r]-(n)-...-[p]-(z)
+        case _ =>
+          val (lastRelationship, lastNode) = chain.last
+          val dropped = chain.dropRight(1)
+          val part = planPatternMatch(LogicalPatternMatch(optional, variableName, headNode, dropped))(ppc)
+          PPTExpandPath(lastRelationship, lastNode)(part, plannerContext)
+      }
+    } else{
+      chain.toList match {
+        //match (m)
+        case Nil => PPTNodeScan(headNode)(ppc)
+        //match (m)-[r]-(n)
+        case List(Tuple2(rel, rightNode)) => PPTRelationshipScan(rel, headNode, rightNode)(ppc)
+        //match (m)-[r]-(n)-...-[p]-(z)
+        case _ =>
+          val (lastRelationship, lastNode) = chain.last
+          val dropped = chain.dropRight(1)
+          val part = planPatternMatch(LogicalPatternMatch(optional, variableName, headNode, dropped))(ppc)
+          PPTExpandPath(lastRelationship, lastNode)(part, plannerContext)
+      }
     }
   }
 
@@ -62,8 +92,23 @@ case class PPTPatternMatchTranslator(patternMatch: LPTPatternMatch)(implicit val
   }
 }
 
+case class PPTApply()(from: PPTNode, applyTo: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = Seq(from, applyTo)
+  override val schema: Seq[(String, LynxType)] = applyTo.schema ++ from.schema
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val _df1 = from.execute(ctx)
+    val df1 = DataFrame.cached(_df1.schema, _df1.records.toArray.toSeq)
+    val df2 = applyTo.execute(ctx.withArguments(df1))
+    val j = df2.join(df1, isSingleMatch = true, InnerJoin)
+    j
+  }
+
+  override def withChildren(children0: Seq[PPTNode]): PPTApply = PPTApply()(children0.head, children0(1), plannerContext)
+}
+
 /*
- @param joinType: InnerJoin/FullJoin/LeftJoin/RightJoin
+ @param joinType: InnerJoinPPTApply/FullJoin/LeftJoin/RightJoin
  */
 case class PPTJoin(filterExpr: Option[Expression], isSingleMatch: Boolean, joinType: JoinType)(a: PPTNode, b: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override val children: Seq[PPTNode] = Seq(a, b)
@@ -236,6 +281,13 @@ case class PPTExpandPath(rel: RelationshipPattern, rightNode: NodePattern)(impli
         }))
     }
 
+    val (lowerLimit, upperLimit) = length match {
+      case None => (1, 1)
+      case Some(None) => (1, Int.MaxValue)
+      case Some(Some(Range(a, b))) => (a.map(_.value.toInt).getOrElse(1), b.map(_.value.toInt).getOrElse(Int.MaxValue))
+    }
+    val endNodeFilter = NodeFilter(labels2.map(_.name).map(LynxNodeLabel), rightProperties, rightProps)
+
     DataFrame(df.schema ++ schema0, () => {
       df.records.flatMap {
         record =>
@@ -243,18 +295,22 @@ case class PPTExpandPath(rel: RelationshipPattern, rightNode: NodePattern)(impli
             case p: LynxPath => p
             case n: LynxNode => LynxPath.startPoint(n)
           }
-          graphModel.expand(
-            path.endNode.get.id,
-            RelationshipFilter(types.map(_.name).map(LynxRelationshipType), properties.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
-            NodeFilter(labels2.map(_.name).map(LynxNodeLabel), rightProperties, rightProps),
-            direction)
-            .map(triple =>
-              record ++ Seq(triple.storedRelation, triple.endNode))
-            .filter(item => {
-              //(m)-[r]-(n)-[p]-(t), r!=p
-              val relIds = item.filter(_.isInstanceOf[LynxRelationship]).map(_.asInstanceOf[LynxRelationship].id)
-              relIds.size == relIds.toSet.size
-            })
+
+          val exd = graphModel.varExpand(
+              path.endNode.get,
+              RelationshipFilter(types.map(_.name).map(LynxRelationshipType), properties.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
+              direction, Math.min(upperLimit, 10),lowerLimit
+            )
+            .filter(_.endNode.forall(endNodeFilter.matches))
+
+            exd.map{path =>
+              record.:+(LynxList(path.relationships)).:+(path.endNode.get)
+            }
+//            .filter(item => { // TODO: rewrite this filter as a PPT
+//              //(m)-[r]-(n)-[p]-(t), r!=p
+//              val relIds = item.filter(_.isInstanceOf[LynxRelationship]).map(_.asInstanceOf[LynxRelationship].id)
+//              relIds.size == relIds.toSet.size
+//            })
       }
     })
   }
@@ -576,6 +632,16 @@ case class PPTCreateUnit(items: Seq[ReturnItem])(val plannerContext: PhysicalPla
   }
 }
 
+case class PPTWith()(implicit in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+  override val children: Seq[PPTNode] = Seq(in)
+
+  override def withChildren(children0: Seq[PPTNode]): PPTWith = PPTWith()(children0.head, plannerContext)
+
+  override val schema: Seq[(String, LynxType)] = in.schema
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = in.execute(ctx)
+}
+
 case class PPTSelect(columns: Seq[(String, Option[String])])(implicit in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override val children: Seq[PPTNode] = Seq(in)
 
@@ -648,10 +714,10 @@ case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: Proced
   }
 }
 
-case class PPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName])(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+case class PPTCreateIndex(labelName: String, properties: List[String])(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
-    graphModel._helper.createIndex(labelName.name, properties.map(_.name).toSet)
+    graphModel._helper.createIndex(labelName, properties.toSet)
     DataFrame.empty
   }
 
@@ -663,10 +729,10 @@ case class PPTCreateIndex(labelName: LabelName, properties: List[PropertyKeyName
 }
 
 
-case class PPTDropIndex(labelName: LabelName, properties: List[PropertyKeyName])(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+case class PPTDropIndex(labelName: String, properties: List[String])(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
-    graphModel._helper.dropIndex(labelName.name, properties.map(_.name).toSet)
+    graphModel._helper.dropIndex(labelName, properties.toSet)
     DataFrame.empty
   }
 
@@ -679,13 +745,13 @@ case class PPTDropIndex(labelName: LabelName, properties: List[PropertyKeyName])
 
 ///////////////////////merge/////////////
 
-case class PPTMergeTranslator(m: Merge) extends PPTNodeTranslator {
+case class PPTMergeTranslator(p: Pattern, a: Seq[MergeAction]) extends PPTNodeTranslator {
   def translate(in: Option[PPTNode])(implicit plannerContext: PhysicalPlannerContext): PPTNode = {
     val definedVars = in.map(_.schema.map(_._1)).getOrElse(Seq.empty).toSet
     val mergeOps = mutable.ArrayBuffer[FormalElement]()
     val mergeSchema = mutable.ArrayBuffer[(String, LynxType)]()
 
-    m.pattern.patternParts.foreach {
+    p.patternParts.foreach {
       case EveryPath(element) => {
         element match {
           case NodePattern(var1: Option[LogicalVariable], labels1, properties1, _) => {
@@ -702,8 +768,8 @@ case class PPTMergeTranslator(m: Merge) extends PPTNodeTranslator {
 
     PPTMerge(mergeSchema,
       mergeOps,
-      m.actions collect { case m: OnMatch => m },
-      m.actions collect { case c: OnCreate => c })(in, plannerContext)
+      a collect { case m: OnMatch => m },
+      a collect { case c: OnCreate => c })(in, plannerContext)
   }
 
   private def buildMerge(chain: RelationshipChain, definedVars: Set[String], mergeSchema: mutable.ArrayBuffer[(String, LynxType)], mergeOps: mutable.ArrayBuffer[FormalElement]): String = {
@@ -874,10 +940,10 @@ case class CreateOps(ops: Seq[FormalElement])(eval: Expression => LynxValue, gra
   }
 }
 
-case class PPTCreateTranslator(c: Create) extends PPTNodeTranslator {
+case class PPTCreateTranslator(p: Pattern) extends PPTNodeTranslator {
   def translate(in: Option[PPTNode])(implicit plannerContext: PhysicalPlannerContext): PPTNode = {
     val definedVars = in.map(_.schema.map(_._1)).getOrElse(Seq.empty).toSet
-    val (schemaLocal, ops) = c.pattern.patternParts.foldLeft((Seq.empty[(String, LynxType)], Seq.empty[FormalElement])) {
+    val (schemaLocal, ops) = p.patternParts.foldLeft((Seq.empty[(String, LynxType)], Seq.empty[FormalElement])) {
       (result, part) =>
         val (schema1, ops1) = result
         part match {
@@ -1021,23 +1087,23 @@ case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[FormalElemen
  * @param in
  * @param plannerContext
  */
-case class PPTDelete(delete: Delete)(implicit val in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
+case class PPTDelete(expressions: Seq[Expression], forced: Boolean)(implicit val in: PPTNode, val plannerContext: PhysicalPlannerContext) extends AbstractPPTNode {
   override val children: Seq[PPTNode] = Seq(in)
 
-  override def withChildren(children0: Seq[PPTNode]): PPTDelete = PPTDelete(delete)(children0.head, plannerContext)
+  override def withChildren(children0: Seq[PPTNode]): PPTDelete = PPTDelete(expressions, forced)(children0.head, plannerContext)
 
   override val schema: Seq[(String, LynxType)] = Seq.empty
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = { // TODO so many bugs !
     val df = in.execute(ctx)
-    delete.expressions foreach { exp =>
+    expressions foreach { exp =>
       val projected = df.project(Seq(("delete", exp)))(ctx.expressionContext)
       val (_, elementType) = projected.schema.head
       elementType match {
         case CTNode => graphModel.deleteNodesSafely(
           dropNull(projected.records) map {
             _.asInstanceOf[LynxNode].id
-          }, delete.forced)
+          }, forced)
         case CTRelationship => graphModel.deleteRelations(
           dropNull(projected.records) map {
             _.asInstanceOf[LynxRelationship].id

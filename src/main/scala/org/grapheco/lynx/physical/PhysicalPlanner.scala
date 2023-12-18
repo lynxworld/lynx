@@ -1,7 +1,7 @@
 package org.grapheco.lynx.physical
 
-import org.grapheco.lynx.logical.LPTNode
+import org.grapheco.lynx.logical.plans.LogicalPlan
 
 trait PhysicalPlanner {
-  def plan(logicalPlan: LPTNode)(implicit plannerContext: PhysicalPlannerContext): PPTNode
+  def plan(logicalPlan: LogicalPlan)(implicit plannerContext: PhysicalPlannerContext): PPTNode
 }

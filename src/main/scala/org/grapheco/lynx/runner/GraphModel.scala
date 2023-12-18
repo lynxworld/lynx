@@ -197,6 +197,16 @@ trait GraphModel {
     }.filter(_.endNode.forall(endNodeFilter.matches))
   }// path 新增节点的不能是已有的节点!!!
 
+  def varExpand(start: LynxNode,
+                relationshipFilter: RelationshipFilter,
+                direction: SemanticDirection,
+                upperLimit: Int,
+                lowerLimit: Int): Iterator[LynxPath] = {
+    val firstStop = expandNonStop(start, relationshipFilter, direction, lowerLimit)
+    val leftSteps = Math.min(upperLimit, 100) - lowerLimit // TODO set a super upperLimit
+    firstStop.flatMap(p => extendPath(p, relationshipFilter, direction, leftSteps))
+  }
+
   /**
    * Take a node as the starting or ending node and expand in a certain direction.
    *
