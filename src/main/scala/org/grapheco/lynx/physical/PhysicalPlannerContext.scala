@@ -12,7 +12,9 @@ import scala.collection.mutable
  * @Date 2022/4/27
  * @Version 0.1
  */
-case class PhysicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runnerContext: CypherRunnerContext, var pptContext: mutable.Map[String, Any] = mutable.Map.empty) {
+case class PhysicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runnerContext: CypherRunnerContext, var pptContext: mutable.Map[String, Any] = mutable.Map.empty,
+                                 val argumentContext: Seq[String] = Seq.empty) {
+  def withArgumentsContext(ac: Seq[String]): PhysicalPlannerContext = PhysicalPlannerContext(parameterTypes, runnerContext, pptContext, ac)
 }
 
 object PhysicalPlannerContext {
