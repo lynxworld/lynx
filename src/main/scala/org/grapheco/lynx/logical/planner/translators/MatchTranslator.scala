@@ -2,9 +2,9 @@ package org.grapheco.lynx.logical.planner.translators
 
 import org.grapheco.lynx.dataframe.{InnerJoin, LeftJoin, OuterJoin}
 import org.grapheco.lynx.logical.planner.{LogicalTranslator, translators}
-import org.grapheco.lynx.logical.plans.{LogicalApply, LogicalJoin, LogicalPatternMatch, LogicalPlan, LogicalShortestPaths, LogicalWith}
+import org.grapheco.lynx.logical.plans.{LogicalApply, LogicalJoin, LogicalPatternMatch, LogicalPlan, LogicalShortestPaths, LogicalUnwind, LogicalWith}
 import org.grapheco.lynx.logical.{LogicalPlannerContext, plans}
-import org.opencypher.v9_0.ast.{Match, Where}
+import org.opencypher.v9_0.ast.{AliasedReturnItem, Match, ReturnItems, Where}
 import org.opencypher.v9_0.expressions._
 
 import scala.annotation.tailrec
@@ -28,6 +28,8 @@ case class MatchTranslator(m: Match) extends LogicalTranslator {
     in match {
       case None => filtered
       case Some(w:LogicalWith) => LogicalApply(w.ri.items)(w,filtered)
+      case Some(w:LogicalUnwind) => LogicalApply(Seq(AliasedReturnItem(w.u.variable)))(w,filtered)
+      case Some(a:LogicalApply) => LogicalApply(a.ri)(a, filtered)
       case Some(left) => plans.LogicalJoin(false, if (optional) LeftJoin else InnerJoin)(left, filtered) // danger!
     }
   }

@@ -1,6 +1,7 @@
 package org.grapheco.lynx.optimizer
 
-import org.grapheco.lynx.physical.{PPTNode, PhysicalPlannerContext}
+import org.grapheco.lynx.physical.PhysicalPlannerContext
+import org.grapheco.lynx.physical.plans.PhysicalPlan
 import org.grapheco.lynx.runner.CypherRunnerContext
 
 /**
@@ -19,7 +20,7 @@ class DefaultPhysicalPlanOptimizer(runnerContext: CypherRunnerContext) extends P
     StatisticsRule
   )
 
-  def optimize(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = {
+  def optimize(plan: PhysicalPlan, ppc: PhysicalPlannerContext): PhysicalPlan = {
     rules.foldLeft(plan)((optimized, rule) => rule.apply(optimized, ppc))
   }
 }

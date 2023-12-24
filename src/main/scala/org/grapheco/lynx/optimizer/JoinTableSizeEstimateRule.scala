@@ -1,6 +1,7 @@
 package org.grapheco.lynx.optimizer
 
 import org.grapheco.lynx.physical._
+import org.grapheco.lynx.physical.plans.{PPTJoin, PPTMerge, PhysicalPlan, PPTNodeScan, PPTRelationshipScan}
 import org.grapheco.lynx.runner.GraphModel
 import org.opencypher.v9_0.expressions.{Literal, MapExpression, NodePattern, RelationshipPattern}
 
@@ -12,9 +13,9 @@ import scala.collection.mutable
  */
 object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
 
-  override def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = optimizeBottomUp(plan,
+  override def apply(plan: PhysicalPlan, ppc: PhysicalPlannerContext): PhysicalPlan = optimizeBottomUp(plan,
     {
-      case pnode: PPTNode => {
+      case pnode: PhysicalPlan => {
         pnode.children match {
           case Seq(pj@PPTJoin(filterExpr, isSingleMatch, joinType)) => {
             val res = joinRecursion(pj, ppc, isSingleMatch)
@@ -59,21 +60,21 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
     else graphModel._helper.estimateRelationship(rel.types.head.name)
   }
 
-  def estimate(table: PPTNode, ppc: PhysicalPlannerContext): Long = {
+  def estimate(table: PhysicalPlan, ppc: PhysicalPlannerContext): Long = {
     table match {
       case ps@PPTNodeScan(pattern) => estimateNodeRow(pattern, ppc.runnerContext.graphModel)
       case pr@PPTRelationshipScan(rel, left, right) => estimateRelationshipRow(rel, left, right, ppc.runnerContext.graphModel)
     }
   }
 
-  def estimateTableSize(parent: PPTJoin, table1: PPTNode, table2: PPTNode, ppc: PhysicalPlannerContext): PPTNode = {
+  def estimateTableSize(parent: PPTJoin, table1: PhysicalPlan, table2: PhysicalPlan, ppc: PhysicalPlannerContext): PhysicalPlan = {
     val estimateTable1 = estimate(table1, ppc)
     val estimateTable2 = estimate(table2, ppc)
     if (estimateTable1 <= estimateTable2) PPTJoin(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
     else PPTJoin(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
   }
 
-  def joinRecursion(parent: PPTJoin, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PPTNode = {
+  def joinRecursion(parent: PPTJoin, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PhysicalPlan = {
     val t1 = parent.children.head
     val t2 = parent.children.last
 

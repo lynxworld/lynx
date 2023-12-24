@@ -1,6 +1,7 @@
 package org.grapheco.lynx.optimizer
 
-import org.grapheco.lynx.physical.{PPTShortestPath, _}
+import org.grapheco.lynx.physical.plans.{PPTExpandPath, PPTFilter, PPTJoin, PhysicalPlan, PPTNodeScan, PPTRelationshipScan, PPTShortestPath}
+import org.grapheco.lynx.physical._
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.util.InputPosition
 
@@ -16,8 +17,8 @@ import scala.collection.mutable.ArrayBuffer
  * NodePattern(n)                                                         NodePattern(n: label='xxx')
  */
 object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
-  override def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = optimizeBottomUp(plan, {
-    case pnode: PPTNode => {
+  override def apply(plan: PhysicalPlan, ppc: PhysicalPlannerContext): PhysicalPlan = optimizeBottomUp(plan, {
+    case pnode: PhysicalPlan => {
       pnode.children match {
         case Seq(pf@PPTFilter(exprs)) => {
           val res = pptFilterPushDownRule(pf, pnode, ppc)
@@ -33,7 +34,7 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
     }
   })
 
-  def pptJoinPushDown(pj: PPTJoin, ppc: PhysicalPlannerContext): PPTNode = {
+  def pptJoinPushDown(pj: PPTJoin, ppc: PhysicalPlannerContext): PhysicalPlan = {
     val res = pj.children.map {
       case pf@PPTFilter(expr) => {
         val res = pptFilterPushDownRule(pf, pj, ppc)
@@ -48,32 +49,32 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
 
   def pptFilterThenJoinPushDown(propMap: Map[String, Option[Expression]],
                                 labelMap: Map[String, Seq[LabelName]],
-                                pj: PPTJoin, ppc: PhysicalPlannerContext): PPTNode = {
+                                pj: PPTJoin, ppc: PhysicalPlannerContext): PhysicalPlan = {
     val res = pj.children.map {
-      case pn@PPTNodeScan(pattern) => PPTNodeScan(getNewNodePattern(pattern, labelMap, propMap))(ppc)
+      case pn@PPTNodeScan(pattern) => plans.PPTNodeScan(getNewNodePattern(pattern, labelMap, propMap))(ppc)
       case path : PPTShortestPath => {
         val PPTShortestPath(rel: RelationshipPattern, leftNode: NodePattern, rightNode: NodePattern, single: Boolean, resName: String) = path
-        PPTShortestPath(rel, getNewNodePattern(leftNode, labelMap, propMap), getNewNodePattern(rightNode, labelMap, propMap), single, resName)(ppc)
+        plans.PPTShortestPath(rel, getNewNodePattern(leftNode, labelMap, propMap), getNewNodePattern(rightNode, labelMap, propMap), single, resName)(ppc)
       }
       case pr@PPTRelationshipScan(rel, leftNode, rightNode) =>
-        PPTRelationshipScan(rel, getNewNodePattern(leftNode, labelMap, propMap), getNewNodePattern(rightNode, labelMap, propMap))(ppc)
+        plans.PPTRelationshipScan(rel, getNewNodePattern(leftNode, labelMap, propMap), getNewNodePattern(rightNode, labelMap, propMap))(ppc)
       case pjj@PPTJoin(filterExpr, isSingleMatch, joinType) => pptFilterThenJoinPushDown(propMap, labelMap, pjj, ppc)
       case f => f
     }
     pj.withChildren(res)
   }
 
-  def pptFilterThenJoin(parent: PPTFilter, pj: PPTJoin, ppc: PhysicalPlannerContext): (Seq[PPTNode], Boolean) = {
+  def pptFilterThenJoin(parent: PPTFilter, pj: PPTJoin, ppc: PhysicalPlannerContext): (Seq[PhysicalPlan], Boolean) = {
     val (labelMap, propertyMap, notPushDown) = extractFromFilterExpression(parent.expr)
 
     val res = pptFilterThenJoinPushDown(propertyMap, labelMap, pj, ppc)
 
     notPushDown.size match {
       case 0 => (Seq(res), true)
-      case 1 => (Seq(PPTFilter(notPushDown.head)(res, ppc)), true)
+      case 1 => (Seq(plans.PPTFilter(notPushDown.head)(res, ppc)), true)
       case 2 => {
         val expr = Ands(Set(notPushDown: _*))(InputPosition(0, 0, 0))
-        (Seq(PPTFilter(expr)(res, ppc)), true)
+        (Seq(plans.PPTFilter(expr)(res, ppc)), true)
       }
       case _ => (Seq(res), true)
     }
@@ -337,13 +338,13 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
    * @param ppc   context
    * @return a seq and a flag, flag == true means push-down works
    */
-  def pptFilterPushDownRule(pf: PPTFilter, pnode: PPTNode, ppc: PhysicalPlannerContext): (Seq[PPTNode], Boolean) = {
+  def pptFilterPushDownRule(pf: PPTFilter, pnode: PhysicalPlan, ppc: PhysicalPlannerContext): (Seq[PhysicalPlan], Boolean) = {
     pf.children match {
       case Seq(pns@PPTNodeScan(pattern)) => {
         val patternAndSet =  handleNodeAndsExpression(pf.expr, pattern)
         if (patternAndSet._3) {
-          if (patternAndSet._2.isEmpty) (Seq(PPTNodeScan(patternAndSet._1)(ppc)), true)
-          else (Seq(PPTFilter(patternAndSet._2.head)(PPTNodeScan(patternAndSet._1)(ppc), ppc)), true)
+          if (patternAndSet._2.isEmpty) (Seq(plans.PPTNodeScan(patternAndSet._1)(ppc)), true)
+          else (Seq(plans.PPTFilter(patternAndSet._2.head)(plans.PPTNodeScan(patternAndSet._1)(ppc), ppc)), true)
         }
         else (null, false)
       }
@@ -351,9 +352,9 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
         val patternsAndSet = pushExprToRelationshipPattern(pf.expr, left, right)
         if (patternsAndSet._4) {
           if (patternsAndSet._3.isEmpty)
-            (Seq(PPTRelationshipScan(rel, patternsAndSet._1, patternsAndSet._2)(ppc)), true)
+            (Seq(plans.PPTRelationshipScan(rel, patternsAndSet._1, patternsAndSet._2)(ppc)), true)
           else
-            (Seq(PPTFilter(patternsAndSet._3.head)(PPTRelationshipScan(rel, patternsAndSet._1, patternsAndSet._2)(ppc), ppc)), true)
+            (Seq(plans.PPTFilter(patternsAndSet._3.head)(plans.PPTRelationshipScan(rel, patternsAndSet._1, patternsAndSet._2)(ppc), ppc)), true)
         }
         else (null, false)
       }
@@ -362,16 +363,16 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
         val patternsAndSet = pushExprToRelationshipPattern(pf.expr, left, right)
         if (patternsAndSet._4) {
           if (patternsAndSet._3.isEmpty)
-            (Seq(PPTShortestPath(rel, patternsAndSet._1, patternsAndSet._2, single, resName)(ppc)), true)
+            (Seq(plans.PPTShortestPath(rel, patternsAndSet._1, patternsAndSet._2, single, resName)(ppc)), true)
           else
-            (Seq(PPTFilter(patternsAndSet._3.head)(PPTShortestPath(rel, patternsAndSet._1, patternsAndSet._2, single, resName)(ppc), ppc)), true)
+            (Seq(plans.PPTFilter(patternsAndSet._3.head)(plans.PPTShortestPath(rel, patternsAndSet._1, patternsAndSet._2, single, resName)(ppc), ppc)), true)
         }
         else (null, false)
       }
       case Seq(pep@PPTExpandPath(rel, right)) => {
         val expandAndSet = expandPathPushDown(pf.expr, right, pep, ppc)
         if (expandAndSet._2.isEmpty) (Seq(expandAndSet._1), true)
-        else (Seq(PPTFilter(expandAndSet._2.head)(expandAndSet._1, ppc)), true)
+        else (Seq(plans.PPTFilter(expandAndSet._2.head)(expandAndSet._1, ppc)), true)
       }
       case Seq(pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex)) => pptFilterThenJoin(pf, pj, ppc)
       case _ => (null, false)
@@ -464,7 +465,7 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
   }
 
   def expandPathPushDown(expression: Expression, right: NodePattern,
-                         pep: PPTExpandPath, ppc: PhysicalPlannerContext): (PPTNode, Set[Expression]) = {
+                         pep: PPTExpandPath, ppc: PhysicalPlannerContext): (PhysicalPlan, Set[Expression]) = {
     val (nodeLabels, nodeProperties, otherExpressions) = extractFromFilterExpression(expression)
 
     val topExpandPath = bottomUpExpandPath(nodeLabels, nodeProperties, pep, ppc)
@@ -477,17 +478,17 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
   }
 
   def bottomUpExpandPath(nodeLabels: Map[String, Seq[LabelName]], nodeProperties: Map[String, Option[Expression]],
-                         pptNode: PPTNode, ppc: PhysicalPlannerContext): PPTNode = {
+                         pptNode: PhysicalPlan, ppc: PhysicalPlannerContext): PhysicalPlan = {
     pptNode match {
       case e@PPTExpandPath(rel, right) =>
         val newPEP = bottomUpExpandPath(nodeLabels: Map[String, Seq[LabelName]], nodeProperties: Map[String, Option[Expression]], e.children.head, ppc)
         val expandRightPattern = getNewNodePattern(right, nodeLabels, nodeProperties)
-        PPTExpandPath(rel, expandRightPattern)(newPEP, ppc)
+        plans.PPTExpandPath(rel, expandRightPattern)(newPEP, ppc)
 
       case r@PPTRelationshipScan(rel, left, right) => {
         val leftPattern = getNewNodePattern(left, nodeLabels, nodeProperties)
         val rightPattern = getNewNodePattern(right, nodeLabels, nodeProperties)
-        PPTRelationshipScan(rel, leftPattern, rightPattern)(ppc)
+        plans.PPTRelationshipScan(rel, leftPattern, rightPattern)(ppc)
       }
     }
   }

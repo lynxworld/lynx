@@ -1,5 +1,7 @@
 package org.grapheco.lynx.optimizer
-import org.grapheco.lynx.physical.{PPTAggregation, PPTNode, PPTNodeCountFromStatistics, PPTNodeScan, PPTRelationshipCountFromStatistics, PPTRelationshipScan, PhysicalPlannerContext}
+
+import org.grapheco.lynx.physical.plans.{PPTAggregation, PhysicalPlan, PPTNodeCountFromStatistics, PPTNodeScan, PPTRelationshipCountFromStatistics, PPTRelationshipScan}
+import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.procedure.ProcedureExpression
 import org.grapheco.lynx.types.structural.{LynxNodeLabel, LynxRelationshipType}
 import org.opencypher.v9_0.ast.AliasedReturnItem
@@ -7,7 +9,7 @@ import org.opencypher.v9_0.expressions.SemanticDirection.BOTH
 import org.opencypher.v9_0.expressions.{FunctionInvocation, FunctionName, Namespace, NodePattern, RelationshipPattern, Variable}
 
 object StatisticsRule extends PhysicalPlanOptimizerRule{
-  override def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode =
+  override def apply(plan: PhysicalPlan, ppc: PhysicalPlannerContext): PhysicalPlan =
     if(ppc.runnerContext.graphModel.statistics==null) plan
     else optimizeBottomUp(plan, {
       case parent@PPTAggregation(aggregations, groupings) => {

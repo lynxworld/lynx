@@ -1,7 +1,7 @@
 package org.grapheco.lynx
 
 import org.grapheco.lynx.logical.plans.LogicalPlan
-import org.grapheco.lynx.physical.PPTNode
+import org.grapheco.lynx.physical.plans.PhysicalPlan
 import org.opencypher.v9_0.ast.Statement
 
 trait PlanAware {
@@ -9,7 +9,7 @@ trait PlanAware {
 
   def getLogicalPlan(): LogicalPlan
 
-  def getPhysicalPlan(): PPTNode
+  def getPhysicalPlan(): PhysicalPlan
 
-  def getOptimizerPlan(): PPTNode
+  def getOptimizerPlan(): PhysicalPlan
 }

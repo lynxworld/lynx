@@ -1,6 +1,7 @@
 package org.grapheco.lynx.optimizer
 
-import org.grapheco.lynx.physical.{PPTNode, PPTProject, PhysicalPlannerContext}
+import org.grapheco.lynx.physical.plans.{PhysicalPlan, PPTProject}
+import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.opencypher.v9_0.ast.AliasedReturnItem
 
 /**
@@ -12,9 +13,9 @@ import org.opencypher.v9_0.ast.AliasedReturnItem
  */
 object RemoveNullProject extends PhysicalPlanOptimizerRule {
 
-  override def apply(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = optimizeBottomUp(plan,
+  override def apply(plan: PhysicalPlan, ppc: PhysicalPlannerContext): PhysicalPlan = optimizeBottomUp(plan,
     {
-      case pnode: PPTNode =>
+      case pnode: PhysicalPlan =>
         pnode.children match {
           case Seq(p@PPTProject(ri)) if ri.items.forall {
             case AliasedReturnItem(expression, variable) => expression == variable

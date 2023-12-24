@@ -43,12 +43,13 @@ class LDBCQueryTest {
   }
 
   def run(cypher: String, params: Map[String, Any]): Unit ={
-    try {
-      val r = ldbcTestBase.run(cypher, params)
-    } catch {
-      case ex: Exception => Assert.assertEquals("ShortestPaths not supported.", ex.getMessage)
-      case _ => Assert.assertTrue(false)
-    }
+
+//    try {
+      ldbcTestBase.run(cypher, params)
+//    } catch {
+//      case ex: Exception => Assert.assertEquals("ShortestPaths not supported.", ex.getMessage)
+//      case _ => Assert.assertTrue(false)
+//    }
   }
 
   val update_person_id = List("219791209300010", "226388279066632", "226388279066641", "210995116277761", "200000000000014", "200000000000016", "204398046511148", "215393162788899", "226388279066650", "221990232555526", "221990232555527", "200000000000027", "215393162788910", "210995116277782", "215393162788912", "200000000000033", "210995116277783", "226388279066664", "232985348833291", "200000000000047", "228587302322180", "202199023255557", "232985348833319", "228587302322191", "228587302322196")

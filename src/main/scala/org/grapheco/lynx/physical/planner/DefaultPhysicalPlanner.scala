@@ -1,10 +1,10 @@
-package org.grapheco.lynx.physical
+package org.grapheco.lynx.physical.planner
 
-import org.grapheco.lynx.logical._
-import org.grapheco.lynx._
-import org.grapheco.lynx.logical.plans.{LogicalAggregation, LogicalApply, LogicalCreate, LogicalCreateIndex, LogicalCreateUnit, LogicalDelete, LogicalDistinct, LogicalDropIndex, LogicalFilter, LogicalJoin, LogicalLimit, LogicalMerge, LogicalOrderBy, LogicalPatternMatch, LogicalPlan, LogicalProcedureCall, LogicalProject, LogicalRemove, LogicalSelect, LogicalSetClause, LogicalShortestPaths, LogicalSkip, LogicalUnion, LogicalUnwind, LogicalWith}
+import org.grapheco.lynx.logical.plans._
+import org.grapheco.lynx.physical._
+import org.grapheco.lynx.physical.planner.translators.{LPTShortestPathTranslator, PPTCreateTranslator, PPTMergeTranslator, PPTPatternMatchTranslator, PPTRemoveTranslator, PPTSetClauseTranslator, PPTUnwindTranslator}
+import org.grapheco.lynx.physical.plans.{PPTAggregation, PPTApply, PPTDelete, PPTDistinct, PPTDropIndex, PPTFilter, PPTJoin, PPTLimit, PhysicalPlan, PPTOrderBy, PPTProcedureCall, PPTProject, PPTSelect, PPTSkip, PPTUnion, PPTWith}
 import org.grapheco.lynx.runner.CypherRunnerContext
-import org.opencypher.v9_0.ast.{Create, Delete, Merge, MergeAction, ReturnItems}
 import org.opencypher.v9_0.expressions._
 
 /**
@@ -15,7 +15,7 @@ import org.opencypher.v9_0.expressions._
  * @Version 0.1
  */
 class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends PhysicalPlanner {
-  override def plan(logicalPlan: LogicalPlan)(implicit plannerContext: PhysicalPlannerContext): PPTNode = {
+  override def plan(logicalPlan: LogicalPlan)(implicit plannerContext: PhysicalPlannerContext): PhysicalPlan = {
     implicit val runnerContext: CypherRunnerContext = plannerContext.runnerContext
     logicalPlan match {
       case LogicalProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]]) =>
@@ -29,13 +29,13 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case la@LogicalAggregation(a, g) => PPTAggregation(a, g)(plan(la.in), plannerContext)
       case lc@LogicalCreateUnit(items) => PPTCreateUnit(items)(plannerContext)
       case lf@LogicalFilter(expr) => PPTFilter(expr)(plan(lf.in), plannerContext)
-      case lw@LogicalWith(ri) => PPTWith()(plan(lw.in), plannerContext)
+      case lw@LogicalWith(ri) => PPTWith(ri)(plan(lw.in), plannerContext)
       case ld@LogicalDistinct() => PPTDistinct()(plan(ld.in), plannerContext)
       case ll@LogicalLimit(expr) => PPTLimit(expr)(plan(ll.in), plannerContext)
       case lo@LogicalOrderBy(sortItem) => PPTOrderBy(sortItem)(plan(lo.in), plannerContext)
       case ll@LogicalSkip(expr) => PPTSkip(expr)(plan(ll.in), plannerContext)
       case lj@LogicalJoin(isSingleMatch, joinType) => PPTJoin(None, isSingleMatch, joinType)(plan(lj.a), plan(lj.b), plannerContext)
-      case ap@LogicalApply(ri) => PPTApply()(plan(ap.left), plan(ap.right)(plannerContext.withArgumentsContext(ri.map(_.name))), plannerContext.withArgumentsContext(ri.map(_.name)))
+      case ap@LogicalApply(ri) => PPTApply(ri)(plan(ap.left), plan(ap.right)(plannerContext.withArgumentsContext(ri.map(_.name))), plannerContext.withArgumentsContext(ri.map(_.name)))
       case patternMatch: LogicalPatternMatch => PPTPatternMatchTranslator(patternMatch)(plannerContext).translate(None)
       case lPTShortestPaths : LogicalShortestPaths => LPTShortestPathTranslator(lPTShortestPaths)(plannerContext).translate(None)
       case li@LogicalCreateIndex(labelName: String, properties: List[String]) => PPTCreateIndex(labelName, properties)(plannerContext)
