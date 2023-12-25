@@ -1,6 +1,6 @@
 package org.grapheco.lynx.optimizer
 
-import org.grapheco.lynx.physical.plans.{PPTAggregation, PhysicalPlan, PPTNodeCountFromStatistics, PPTNodeScan, PPTRelationshipCountFromStatistics, PPTRelationshipScan}
+import org.grapheco.lynx.physical.plans.{Aggregation, PhysicalPlan, PPTNodeCountFromStatistics, PPTNodeScan, PPTRelationshipCountFromStatistics, PPTRelationshipScan}
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.procedure.ProcedureExpression
 import org.grapheco.lynx.types.structural.{LynxNodeLabel, LynxRelationshipType}
@@ -12,7 +12,7 @@ object StatisticsRule extends PhysicalPlanOptimizerRule{
   override def apply(plan: PhysicalPlan, ppc: PhysicalPlannerContext): PhysicalPlan =
     if(ppc.runnerContext.graphModel.statistics==null) plan
     else optimizeBottomUp(plan, {
-      case parent@PPTAggregation(aggregations, groupings) => {
+      case parent@Aggregation(aggregations, groupings) => {
         aggregations.collectFirst {
           case AliasedReturnItem(
           ProcedureExpression(FunctionInvocation(Namespace(List()), FunctionName("count"),

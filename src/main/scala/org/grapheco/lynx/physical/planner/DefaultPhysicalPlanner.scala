@@ -3,7 +3,7 @@ package org.grapheco.lynx.physical.planner
 import org.grapheco.lynx.logical.plans._
 import org.grapheco.lynx.physical._
 import org.grapheco.lynx.physical.planner.translators.{LPTShortestPathTranslator, PPTCreateTranslator, PPTMergeTranslator, PPTPatternMatchTranslator, PPTRemoveTranslator, PPTSetClauseTranslator, PPTUnwindTranslator}
-import org.grapheco.lynx.physical.plans.{PPTAggregation, PPTApply, PPTDelete, PPTDistinct, PPTDropIndex, PPTFilter, PPTJoin, PPTLimit, PhysicalPlan, PPTOrderBy, PPTProcedureCall, PPTProject, PPTSelect, PPTSkip, PPTUnion, PPTWith}
+import org.grapheco.lynx.physical.plans.{Aggregation, Apply, PPTDelete, PPTDistinct, PPTDropIndex, PPTFilter, PPTJoin, PPTLimit, PhysicalPlan, PPTOrderBy, PPTProcedureCall, PPTProject, PPTSelect, PPTSkip, PPTUnion, PPTWith}
 import org.grapheco.lynx.runner.CypherRunnerContext
 import org.opencypher.v9_0.expressions._
 
@@ -26,7 +26,7 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case ld@LogicalDelete(expressions,forced) => PPTDelete(expressions, forced)(plan(ld.in), plannerContext)
       case ls@LogicalSelect(columns: Seq[(String, Option[String])]) => PPTSelect(columns)(plan(ls.in), plannerContext)
       case lp@LogicalProject(ri) => PPTProject(ri)(plan(lp.in), plannerContext)
-      case la@LogicalAggregation(a, g) => PPTAggregation(a, g)(plan(la.in), plannerContext)
+      case la@LogicalAggregation(a, g) => Aggregation(a, g)(plan(la.in), plannerContext)
       case lc@LogicalCreateUnit(items) => PPTCreateUnit(items)(plannerContext)
       case lf@LogicalFilter(expr) => PPTFilter(expr)(plan(lf.in), plannerContext)
       case lw@LogicalWith(ri) => PPTWith(ri)(plan(lw.in), plannerContext)
@@ -35,7 +35,7 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case lo@LogicalOrderBy(sortItem) => PPTOrderBy(sortItem)(plan(lo.in), plannerContext)
       case ll@LogicalSkip(expr) => PPTSkip(expr)(plan(ll.in), plannerContext)
       case lj@LogicalJoin(isSingleMatch, joinType) => PPTJoin(None, isSingleMatch, joinType)(plan(lj.a), plan(lj.b), plannerContext)
-      case ap@LogicalApply(ri) => PPTApply(ri)(plan(ap.left), plan(ap.right)(plannerContext.withArgumentsContext(ri.map(_.name))), plannerContext.withArgumentsContext(ri.map(_.name)))
+      case ap@LogicalAndThen(ri) => Apply(ri)(plan(ap.first), plan(ap._then)(plannerContext.withArgumentsContext(ri.map(_.name))), plannerContext.withArgumentsContext(ri.map(_.name)))
       case patternMatch: LogicalPatternMatch => PPTPatternMatchTranslator(patternMatch)(plannerContext).translate(None)
       case lPTShortestPaths : LogicalShortestPaths => LPTShortestPathTranslator(lPTShortestPaths)(plannerContext).translate(None)
       case li@LogicalCreateIndex(labelName: String, properties: List[String]) => PPTCreateIndex(labelName, properties)(plannerContext)

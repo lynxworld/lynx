@@ -3,7 +3,7 @@ package org.grapheco.lynx.physical
 import org.grapheco.lynx.dataframe.{DataFrame, InnerJoin, JoinType}
 import org.grapheco.lynx.evaluator.ExpressionContext
 import org.grapheco.lynx.logical.plans
-import org.grapheco.lynx.logical.plans.{LogicalApply, LogicalPatternMatch, LogicalShortestPaths, LogicalWith}
+import org.grapheco.lynx.logical.plans.{LogicalAndThen, LogicalPatternMatch, LogicalShortestPaths, LogicalWith}
 import org.grapheco.lynx.physical.planner.PPTNodeTranslator
 import org.grapheco.lynx.physical.plans.{AbstractPhysicalPlan, PPTExpandPath, PPTMerge, PhysicalPlan, PPTNodeScan, PPTRelationshipScan, PPTRemove, PPTSetClause, PPTShortestPath, PPTUnwind}
 import org.grapheco.lynx.procedure.{UnknownProcedureException, WrongArgumentException}

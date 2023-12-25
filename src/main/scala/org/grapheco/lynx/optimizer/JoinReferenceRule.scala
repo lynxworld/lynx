@@ -1,7 +1,7 @@
 package org.grapheco.lynx.optimizer
 
 import org.grapheco.lynx.physical._
-import org.grapheco.lynx.physical.plans.{PPTDistinct, PPTExpandPath, PPTFilter, PPTJoin, PPTMerge, PhysicalPlan, PPTNodeScan, PPTRelationshipScan, PPTSelect, PPTShortestPath, PPTUnwind, PPTWith}
+import org.grapheco.lynx.physical.plans.{Apply, PPTDistinct, PPTExpandPath, PPTFilter, PPTJoin, PPTMerge, PPTNodeScan, PPTRelationshipScan, PPTSelect, PPTShortestPath, PPTUnwind, PPTWith, PhysicalPlan}
 import org.opencypher.v9_0.expressions._
 
 import scala.collection.mutable
@@ -81,6 +81,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     var referenceExpression = Seq[Expression]()
     val newTable = table match {
       case pw@PPTWith(ri) => pw
+      case pa:Apply => pa
       case ps@PPTNodeScan(pattern) => {
         val checked = checkNodeReference(pattern)
         referenceProperty = referenceProperty ++ checked._1

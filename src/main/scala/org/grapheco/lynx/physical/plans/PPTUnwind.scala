@@ -19,7 +19,7 @@ case class PPTUnwind(expression: Expression, variable: Variable)(implicit val in
       val df = inNode.execute(ctx) // dataframe of in
       val colName = schema map { case (name, _) => name }
       DataFrame(schema, () => df.records flatMap { record =>
-        val recordCtx = ctx.expressionContext.withVars(colName zip (record) toMap)
+        val recordCtx = ctx.expressionContext.withVars(colName.zip(record).toMap)
         val rsl = (expressionEvaluator.eval(expression)(recordCtx) match {
           case list: LynxList => list.value
           case element: LynxValue => List(element)

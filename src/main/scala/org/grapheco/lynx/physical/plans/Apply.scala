@@ -6,7 +6,7 @@ import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.runner.ExecutionContext
 import org.opencypher.v9_0.ast.{ReturnItem, ReturnItems}
 
-case class PPTApply(ri: Seq[ReturnItem])(from: PhysicalPlan, applyTo: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
+case class Apply(ri: Seq[ReturnItem])(from: PhysicalPlan, applyTo: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
   override val children: Seq[PhysicalPlan] = Seq(from, applyTo)
   override val schema: Seq[(String, LynxType)] = applyTo.schema ++ from.schema
 
@@ -18,5 +18,5 @@ case class PPTApply(ri: Seq[ReturnItem])(from: PhysicalPlan, applyTo: PhysicalPl
     j
   }
 
-  override def withChildren(children0: Seq[PhysicalPlan]): PPTApply = PPTApply(ri: Seq[ReturnItem])(children0.head, children0(1), plannerContext)
+  override def withChildren(children0: Seq[PhysicalPlan]): Apply = Apply(ri: Seq[ReturnItem])(children0.head, children0(1), plannerContext)
 }
