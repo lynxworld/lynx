@@ -4,6 +4,8 @@ import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.physical.plans.PhysicalPlan
 import org.grapheco.lynx.runner.CypherRunnerContext
 
+import scala.language.implicitConversions
+
 /**
  * @ClassName DefaultPhysicalPlanOptimizer
  * @Description
@@ -13,12 +15,14 @@ import org.grapheco.lynx.runner.CypherRunnerContext
  */
 class DefaultPhysicalPlanOptimizer(runnerContext: CypherRunnerContext) extends PhysicalPlanOptimizer {
   val rules = Seq[PhysicalPlanOptimizerRule](
-    RemoveNullProject,
+//    RemoveNullProject,
     PPTFilterPushDownRule,
-    JoinReferenceRule,
-    JoinTableSizeEstimateRule,
-    StatisticsRule
+//    JoinReferenceRule,
+//    JoinTableSizeEstimateRule,
+//    StatisticsRule
   )
+
+  implicit def ops(p: PhysicalPlan): OperablePhysicalPlan = new OperablePhysicalPlan(p)
 
   def optimize(plan: PhysicalPlan, ppc: PhysicalPlannerContext): PhysicalPlan = {
     rules.foldLeft(plan)((optimized, rule) => rule.apply(optimized, ppc))

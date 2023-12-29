@@ -13,6 +13,11 @@
     <description>A graph query engine framework</description>
     <url>https://github.com/lynxworld/lynx</url>
 
+    <properties>
+        <scala.version>2.12.8</scala.version>
+        <scala-maven.version>4.8.1</scala-maven.version>
+    </properties>
+
     <build>
         <plugins>
             <plugin>
@@ -20,7 +25,7 @@
                 <!--mvn clean scala:compile compile-->
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
-                <version>4.8.1</version>
+                <version>${scala-maven.version}</version>
                 <executions>
                     <execution>
                         <id>compile-scala</id>
@@ -40,7 +45,7 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <scalaVersion>2.12.8</scalaVersion>
+                    <scalaVersion>${scala.version}</scalaVersion>
                 </configuration>
             </plugin>
             <plugin>

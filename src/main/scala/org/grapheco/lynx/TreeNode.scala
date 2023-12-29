@@ -5,7 +5,10 @@ import scala.collection.mutable
 
 trait TreeNode {
   type SerialType <: TreeNode
-  val children: Seq[SerialType] = Seq.empty
+  def children: Seq[SerialType] = Seq(left, right).flatten
+
+  var left: Option[SerialType]
+  var right: Option[SerialType]
 
   def pretty: String = {
     val lines = new mutable.ArrayBuffer[String]

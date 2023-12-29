@@ -18,10 +18,15 @@ import scala.collection.mutable.ArrayBuffer
  */
 object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
   override def apply(plan: PhysicalPlan, ppc: PhysicalPlannerContext): PhysicalPlan = optimizeBottomUp(plan, {
+    case filter: PPTFilter =>{
+      val res = pptFilterPushDownRule(filter, ppc)
+      if (res._2) res._1.head
+      else filter
+    }
     case pnode: PhysicalPlan => {
       pnode.children match {
         case Seq(pf@PPTFilter(exprs)) => {
-          val res = pptFilterPushDownRule(pf, pnode, ppc)
+          val res = pptFilterPushDownRule(pf, ppc)
           if (res._2) pnode.withChildren(res._1)
           else pnode
         }
@@ -37,7 +42,7 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
   def pptJoinPushDown(pj: PPTJoin, ppc: PhysicalPlannerContext): PhysicalPlan = {
     val res = pj.children.map {
       case pf@PPTFilter(expr) => {
-        val res = pptFilterPushDownRule(pf, pj, ppc)
+        val res = pptFilterPushDownRule(pf, ppc)
         if (res._2) res._1.head
         else pf
       }
@@ -338,7 +343,7 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
    * @param ppc   context
    * @return a seq and a flag, flag == true means push-down works
    */
-  def pptFilterPushDownRule(pf: PPTFilter, pnode: PhysicalPlan, ppc: PhysicalPlannerContext): (Seq[PhysicalPlan], Boolean) = {
+  def pptFilterPushDownRule(pf: PPTFilter, ppc: PhysicalPlannerContext): (Seq[PhysicalPlan], Boolean) = {
     pf.children match {
       case Seq(pns@PPTNodeScan(pattern)) => {
         val patternAndSet =  handleNodeAndsExpression(pf.expr, pattern)

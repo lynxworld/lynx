@@ -17,10 +17,11 @@ import org.opencypher.v9_0.util.symbols.{CTNode, CTPath, CTRelationship}
  * @param in
  * @param plannerContext
  */
-case class PPTDelete(expressions: Seq[Expression], forced: Boolean)(implicit val in: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
-  override val children: Seq[PhysicalPlan] = Seq(in)
-
-  override def withChildren(children0: Seq[PhysicalPlan]): PPTDelete = PPTDelete(expressions, forced)(children0.head, plannerContext)
+case class PPTDelete(expressions: Seq[Expression], forced: Boolean)(in: PhysicalPlan)
+  extends AbstractPhysicalPlan(Some(in)) {
+//  override val children: Seq[PhysicalPlan] = Seq(in)
+//
+//  override def withChildren(children0: Seq[PhysicalPlan]): PPTDelete = PPTDelete(expressions, forced)(children0.head, plannerContext)
 
   override val schema: Seq[(String, LynxType)] = Seq.empty
 

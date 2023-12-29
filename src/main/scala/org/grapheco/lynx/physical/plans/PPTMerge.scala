@@ -82,6 +82,9 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)],
         override def execute(implicit ctx: ExecutionContext): DataFrame = df
 
         override def withChildren(children0: Seq[PhysicalPlan]): PhysicalPlan = ???
+
+        override var left: Option[PhysicalPlan] = ???
+        override var right: Option[PhysicalPlan] = ???
       }, plannerContext).execute(ctx)
     } else df
   }
