@@ -11,13 +11,7 @@ import org.grapheco.lynx.types.structural._
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions._
 
-case class PPTSetClause(setItems: Seq[SetItem])(implicit val in: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan with WritePlan {
-
-  override val children: Seq[PhysicalPlan] = Seq(in)
-
-  override def withChildren(children0: Seq[PhysicalPlan]): PPTSetClause = PPTSetClause(setItems)(children0.head, plannerContext)
-
-  override val schema: Seq[(String, LynxType)] = in.schema
+case class PPTSet(setItems: Seq[SetItem])(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan(l) with WritePlan {
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)

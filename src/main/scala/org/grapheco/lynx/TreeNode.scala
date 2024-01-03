@@ -3,7 +3,7 @@ package org.grapheco.lynx
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-trait TreeNode {
+trait TreeNode{
   type SerialType <: TreeNode
   def children: Seq[SerialType] = Seq(left, right).flatten
 

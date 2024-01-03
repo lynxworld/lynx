@@ -78,6 +78,10 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
     SortMergeJoiner.join(a, b, joinColumns, joinType)
   }
 
+  override def cross(a: DataFrame, b: DataFrame): DataFrame = {
+    DataFrame(a.schema ++ b.schema, () => a.records.flatMap(ra => b.records.map(ra ++ _)))
+  }
+
   /*
   * @param: df is a DataFrame
   * @function: Remove the duplicated rows in the df.

@@ -9,7 +9,7 @@ import org.opencypher.v9_0.ast.{AliasedReturnItem, Unwind}
 case class UnwindTranslator(u: Unwind) extends LogicalTranslator {
   override def translate(in: Option[LogicalPlan])(implicit plannerContext: LogicalPlannerContext): LogicalPlan = {
     in match {
-      case Some(w:LogicalWith) => LogicalAndThen(w.ri.items ++ Seq(AliasedReturnItem(u.variable)))(w, LogicalUnwind(u))
+      case Some(w:LogicalWith) => LogicalAndThen()(w, LogicalUnwind(u))
       case _ => LogicalUnwind(u)(in)
     }
   }

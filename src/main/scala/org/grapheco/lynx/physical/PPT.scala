@@ -5,7 +5,7 @@ import org.grapheco.lynx.evaluator.ExpressionContext
 import org.grapheco.lynx.logical.plans
 import org.grapheco.lynx.logical.plans.{LogicalAndThen, LogicalPatternMatch, LogicalShortestPaths, LogicalWith}
 import org.grapheco.lynx.physical.planner.PPTNodeTranslator
-import org.grapheco.lynx.physical.plans.{AbstractPhysicalPlan, PPTExpandPath, PPTMerge, PhysicalPlan, PPTNodeScan, PPTRelationshipScan, PPTRemove, PPTSetClause, PPTShortestPath, PPTUnwind}
+import org.grapheco.lynx.physical.plans.{AbstractPhysicalPlan, PPTExpandPath, PPTMerge, PPTNodeScan, PPTRelationshipScan, PPTRemove, PPTSet, PPTShortestPath, PPTUnwind, PhysicalPlan, SinglePhysicalPlan}
 import org.grapheco.lynx.procedure.{UnknownProcedureException, WrongArgumentException}
 import org.grapheco.lynx.runner.{CONTAINS, EQUAL, ExecutionContext, GREATER_THAN, GREATER_THAN_OR_EQUAL, GraphModel, IN, LESS_THAN, LESS_THAN_OR_EQUAL, NOT_EQUAL, NodeFilter, PropOp, RelationshipFilter}
 import org.grapheco.lynx.types.LynxValue
@@ -131,12 +131,10 @@ case class CreateOps(ops: Seq[FormalElement])(eval: Expression => LynxValue, gra
 
 
 
-case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[FormalElement])(implicit val in: Option[PhysicalPlan], val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
-  override val children: Seq[PhysicalPlan] = in.toSeq
-
-  override def withChildren(children0: Seq[PhysicalPlan]): PPTCreate = PPTCreate(schemaLocal, ops)(children0.headOption, plannerContext)
-
-  override val schema: Seq[(String, LynxType)] = in.map(_.schema).getOrElse(Seq.empty) ++ schemaLocal
+case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[FormalElement])(l: Option[PhysicalPlan], val plannerContext: PhysicalPlannerContext)
+  extends AbstractPhysicalPlan(l) {
+  def in: Option[PhysicalPlan] = this.left
+  override def schema: Seq[(String, LynxType)] = in.map(_.schema).getOrElse(Seq.empty) ++ schemaLocal
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     implicit val ec = ctx.expressionContext

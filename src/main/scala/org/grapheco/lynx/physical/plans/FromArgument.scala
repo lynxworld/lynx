@@ -6,8 +6,7 @@ import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.runner.ExecutionContext
 import org.opencypher.v9_0.util.symbols.CTNode
 
-case class FromArgument(str: String)(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
-  override def withChildren(children0: Seq[PhysicalPlan]): FromArgument = FromArgument(str)(plannerContext)
+case class FromArgument(str: String)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
 
   override val schema: Seq[(String, LynxType)] = Seq((str, CTNode)) // Fixme: hard code
 

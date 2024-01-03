@@ -7,7 +7,7 @@ import org.grapheco.lynx.runner.ExecutionContext
 import org.grapheco.lynx.types.property.LynxInteger
 import org.grapheco.lynx.types.structural.LynxNodeLabel
 
-case class PPTNodeCountFromStatistics(label: Option[LynxNodeLabel], variableName: String)(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
+case class PPTNodeCountFromStatistics(label: Option[LynxNodeLabel], variableName: String)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
   override val schema: Seq[(String, LynxType)] = Seq((variableName, LynxInteger(0).lynxType))
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
@@ -15,6 +15,4 @@ case class PPTNodeCountFromStatistics(label: Option[LynxNodeLabel], variableName
     val res = label.map(label => stat.numNodeByLabel(label)).getOrElse(stat.numNode)
     DataFrame(schema, () => Iterator(Seq(LynxInteger(res))))
   }
-
-  override def withChildren(children0: Seq[PhysicalPlan]): PhysicalPlan = ???
 }

@@ -8,9 +8,8 @@ import org.grapheco.lynx.runner.ExecutionContext
 import org.opencypher.v9_0.ast.{AscSortItem, DescSortItem, SortItem}
 import org.opencypher.v9_0.expressions.Expression
 
-case class PPTOrderBy(sortItem: Seq[SortItem])(implicit in: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
-  override val schema: Seq[(String, LynxType)] = in.schema
-  override val children: Seq[PhysicalPlan] = Seq(in)
+case class PPTOrderBy(sortItem: Seq[SortItem])(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext)
+  extends SinglePhysicalPlan(l) {
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
@@ -26,5 +25,4 @@ case class PPTOrderBy(sortItem: Seq[SortItem])(implicit in: PhysicalPlan, val pl
     df.orderBy(sortItems2)(ec)
   }
 
-  override def withChildren(children0: Seq[PhysicalPlan]): PhysicalPlan = PPTOrderBy(sortItem)(children0.head, plannerContext)
 }

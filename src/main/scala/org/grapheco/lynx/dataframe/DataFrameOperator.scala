@@ -19,6 +19,8 @@ trait DataFrameOperator {
 
   def join(a: DataFrame, b: DataFrame, joinColumn: Seq[String], joinType: JoinType): DataFrame
 
+  def cross(a: DataFrame, b: DataFrame): DataFrame
+
   def distinct(df: DataFrame): DataFrame
 
   def orderBy(df: DataFrame, sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame

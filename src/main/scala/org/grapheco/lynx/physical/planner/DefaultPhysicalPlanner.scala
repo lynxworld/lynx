@@ -3,7 +3,7 @@ package org.grapheco.lynx.physical.planner
 import org.grapheco.lynx.logical.plans._
 import org.grapheco.lynx.physical._
 import org.grapheco.lynx.physical.planner.translators.{LPTShortestPathTranslator, PPTCreateTranslator, PPTMergeTranslator, PPTPatternMatchTranslator, PPTRemoveTranslator, PPTSetClauseTranslator, PPTUnwindTranslator}
-import org.grapheco.lynx.physical.plans.{Aggregation, Apply, PPTDelete, PPTDistinct, PPTDropIndex, PPTFilter, PPTJoin, PPTLimit, PhysicalPlan, PPTOrderBy, PPTProcedureCall, PPTProject, PPTSelect, PPTSkip, PPTUnion, PPTWith}
+import org.grapheco.lynx.physical.plans.{Aggregation, Apply, Cross, PPTDelete, PPTDistinct, PPTDropIndex, PPTFilter, PPTJoin, PPTLimit, PPTOrderBy, PPTProcedureCall, PPTProject, PPTSelect, PPTSkip, PPTUnion, PPTWith, PhysicalPlan}
 import org.grapheco.lynx.runner.CypherRunnerContext
 import org.opencypher.v9_0.expressions._
 
@@ -35,7 +35,13 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
       case lo@LogicalOrderBy(sortItem) => PPTOrderBy(sortItem)(plan(lo.in), plannerContext)
       case ll@LogicalSkip(expr) => PPTSkip(expr)(plan(ll.in), plannerContext)
       case lj@LogicalJoin(isSingleMatch, joinType) => PPTJoin(None, isSingleMatch, joinType)(plan(lj.a), plan(lj.b), plannerContext)
-      case ap@LogicalAndThen(ri) => Apply(ri)(plan(ap.first), plan(ap._then)(plannerContext.withArgumentsContext(ri.map(_.name))), plannerContext.withArgumentsContext(ri.map(_.name)))
+      case lc@LogicalCross() => Cross()(plan(lc.a), plan(lc.b), plannerContext)
+      case ap@LogicalAndThen() => {
+        val first = plan(ap.first)
+        val contextWithArg: PhysicalPlannerContext = plannerContext.withArgumentsContext(first.schema.map(_._1))
+        val andThen = plan(ap._then)(contextWithArg)
+        Apply()(first, andThen, contextWithArg)
+      }
       case patternMatch: LogicalPatternMatch => PPTPatternMatchTranslator(patternMatch)(plannerContext).translate(None)
       case lPTShortestPaths : LogicalShortestPaths => LPTShortestPathTranslator(lPTShortestPaths)(plannerContext).translate(None)
       case li@LogicalCreateIndex(labelName: String, properties: List[String]) => PPTCreateIndex(labelName, properties)(plannerContext)

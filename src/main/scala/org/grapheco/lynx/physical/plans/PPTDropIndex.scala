@@ -13,8 +13,6 @@ case class PPTDropIndex(labelName: String, properties: List[String])(implicit va
     DataFrame.empty
   }
 
-  override def withChildren(children0: Seq[PhysicalPlan]): PhysicalPlan = this
-
   override val schema: Seq[(String, LynxType)] = {
     Seq("DropIndex" -> CTAny)
   }

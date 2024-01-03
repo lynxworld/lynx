@@ -9,11 +9,8 @@ import org.opencypher.v9_0.ast.ReturnItem
 case class Aggregation(aggregations: Seq[ReturnItem], groupings: Seq[ReturnItem])
                       (implicit val in: PhysicalPlan, val plannerContext: PhysicalPlannerContext)
   extends AbstractPhysicalPlan(Some(in)) {
-//  override val children: Seq[PhysicalPlan] = Seq(in)
-//
-//  override def withChildren(children0: Seq[PhysicalPlan]): Aggregation = Aggregation(aggregations, groupings)(children0.head, plannerContext)
 
-  override val schema: Seq[(String, LynxType)] =
+  override def schema: Seq[(String, LynxType)] =
     (groupings ++ aggregations).map(x => x.name -> typeOf(x.expression, in.schema.toMap))
 
 

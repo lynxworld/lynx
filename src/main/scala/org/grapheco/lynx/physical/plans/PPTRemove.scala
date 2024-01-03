@@ -8,13 +8,7 @@ import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.structural.{LynxNode, LynxRelationship}
 import org.opencypher.v9_0.ast.{RemoveItem, RemoveLabelItem, RemovePropertyItem}
 
-case class PPTRemove(removeItems: Seq[RemoveItem])(implicit val in: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
-
-  override val children: Seq[PhysicalPlan] = Seq(in)
-
-  override def withChildren(children0: Seq[PhysicalPlan]): PPTRemove = PPTRemove(removeItems)(children0.head, plannerContext)
-
-  override val schema: Seq[(String, LynxType)] = in.schema
+case class PPTRemove(removeItems: Seq[RemoveItem])(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan(l) {
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)

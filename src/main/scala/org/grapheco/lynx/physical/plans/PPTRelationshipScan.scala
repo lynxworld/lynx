@@ -10,8 +10,7 @@ import org.grapheco.lynx.{LynxType, runner}
 import org.opencypher.v9_0.expressions.{Expression, LabelName, ListLiteral, LogicalVariable, NodePattern, Range, RelTypeName, RelationshipPattern, SemanticDirection}
 import org.opencypher.v9_0.util.symbols.{CTList, CTNode, CTPath, CTRelationship}
 
-case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, rightNode: NodePattern)(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
-  override def withChildren(children0: Seq[PhysicalPlan]): PPTRelationshipScan = PPTRelationshipScan(rel, leftNode, rightNode)(plannerContext)
+case class PPTRelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, rightNode: NodePattern)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
 
   override val schema: Seq[(String, LynxType)] = {
     val RelationshipPattern(

@@ -15,11 +15,13 @@ import scala.language.implicitConversions
  */
 class DefaultPhysicalPlanOptimizer(runnerContext: CypherRunnerContext) extends PhysicalPlanOptimizer {
   val rules = Seq[PhysicalPlanOptimizerRule](
-//    RemoveNullProject,
+    ApplyPushDownRule,
+    RemoveNullProject,
     PPTFilterPushDownRule,
-//    JoinReferenceRule,
-//    JoinTableSizeEstimateRule,
-//    StatisticsRule
+    RemoveApplyRule,
+    JoinReferenceRule,
+    JoinTableSizeEstimateRule,
+    StatisticsRule
   )
 
   implicit def ops(p: PhysicalPlan): OperablePhysicalPlan = new OperablePhysicalPlan(p)

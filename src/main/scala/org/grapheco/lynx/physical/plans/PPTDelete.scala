@@ -17,13 +17,9 @@ import org.opencypher.v9_0.util.symbols.{CTNode, CTPath, CTRelationship}
  * @param in
  * @param plannerContext
  */
-case class PPTDelete(expressions: Seq[Expression], forced: Boolean)(in: PhysicalPlan)
-  extends AbstractPhysicalPlan(Some(in)) {
-//  override val children: Seq[PhysicalPlan] = Seq(in)
-//
-//  override def withChildren(children0: Seq[PhysicalPlan]): PPTDelete = PPTDelete(expressions, forced)(children0.head, plannerContext)
+case class PPTDelete(expressions: Seq[Expression], forced: Boolean)(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan(l) {
 
-  override val schema: Seq[(String, LynxType)] = Seq.empty
+  override def schema: Seq[(String, LynxType)] = Seq.empty
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = { // TODO so many bugs !
     val df = in.execute(ctx)
@@ -49,6 +45,5 @@ case class PPTDelete(expressions: Seq[Expression], forced: Boolean)(in: Physical
 
     DataFrame.empty
   }
-
 
 }

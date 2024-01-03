@@ -8,8 +8,7 @@ import org.grapheco.lynx.runner.ExecutionContext
 import org.grapheco.lynx.types.property.LynxNull
 import org.opencypher.v9_0.expressions.{Expression, Namespace, ProcedureName}
 
-case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
-  override def withChildren(children0: Seq[PhysicalPlan]): PPTProcedureCall = PPTProcedureCall(procedureNamespace, procedureName, declaredArguments)(plannerContext)
+case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
 
   val Namespace(parts: List[String]) = procedureNamespace
   val ProcedureName(name: String) = procedureName
@@ -19,7 +18,7 @@ case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: Proced
       throw UnknownProcedureException(parts, name)
     }
 
-  override val schema: Seq[(String, LynxType)] = procedure.outputs
+  override def schema: Seq[(String, LynxType)] = procedure.outputs
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val args = declaredArguments match {

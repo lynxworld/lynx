@@ -11,8 +11,17 @@ import org.opencypher.v9_0.expressions.Expression
 /*
  @param joinType: InnerJoinPPTApply/FullJoin/LeftJoin/RightJoin
  */
-case class PPTJoin(filterExpr: Option[Expression], isSingleMatch: Boolean, joinType: JoinType)(a: PhysicalPlan, b: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
-  override val children: Seq[PhysicalPlan] = Seq(a, b)
+case class PPTJoin(filterExpr: Option[Expression],
+                   isSingleMatch: Boolean,
+                   joinType: JoinType)
+                  (l: PhysicalPlan, r: PhysicalPlan, val plannerContext: PhysicalPlannerContext)
+  extends DoublePhysicalPlan(l,r) {
+//  override val children: Seq[PhysicalPlan] = Seq(a, b)
+
+  val a:PhysicalPlan = this.left.get
+  val b:PhysicalPlan = this.right.get
+
+  override def schema: Seq[(String, LynxType)] = (a.schema ++ b.schema).distinct
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df1 = a.execute(ctx)
@@ -37,7 +46,7 @@ case class PPTJoin(filterExpr: Option[Expression], isSingleMatch: Boolean, joinT
     else df
   }
 
-  override def withChildren(children0: Seq[PhysicalPlan]): PPTJoin = PPTJoin(filterExpr, isSingleMatch, joinType)(children0.head, children0(1), plannerContext)
+//  override def withChildren(children0: Seq[PhysicalPlan]): PPTJoin = PPTJoin(filterExpr, isSingleMatch, joinType)(children0.head, children0(1), plannerContext)
 
-  override val schema: Seq[(String, LynxType)] = (a.schema ++ b.schema).distinct
+
 }

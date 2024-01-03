@@ -23,12 +23,10 @@ import scala.collection.mutable
 case class PPTMerge(mergeSchema: Seq[(String, LynxType)],
                     mergeOps: Seq[FormalElement],
                     onMatch: Seq[OnMatch],
-                    onCreate: Seq[OnCreate])(implicit val in: Option[PhysicalPlan], val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
-  override val children: Seq[PhysicalPlan] = in.toSeq
+                    onCreate: Seq[OnCreate])(l: Option[PhysicalPlan], val plannerContext: PhysicalPlannerContext)
+  extends AbstractPhysicalPlan(l) {
 
-  override def withChildren(children0: Seq[PhysicalPlan]): PPTMerge = PPTMerge(mergeSchema, mergeOps, onMatch, onCreate)(children0.headOption, plannerContext)
-
-  override val schema: Seq[(String, LynxType)] = mergeSchema ++ children.head.schema
+  override def schema: Seq[(String, LynxType)] = mergeSchema ++ left.map(_.schema).getOrElse(Seq.empty)
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     implicit val ec = ctx.expressionContext
@@ -76,15 +74,13 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)],
     // actions
     val items = if (hasMatched) onMatch.flatMap(_.action.items) else onCreate.flatMap(_.action.items)
     if (items.nonEmpty) {
-      PPTSetClause(items)(new PhysicalPlan { // temp PPTNode to execute SetClause
+      PPTSet(items)(new PhysicalPlan { // temp PPTNode to execute SetClause
         override val schema: Seq[(String, LynxType)] = df.schema
 
         override def execute(implicit ctx: ExecutionContext): DataFrame = df
 
-        override def withChildren(children0: Seq[PhysicalPlan]): PhysicalPlan = ???
-
-        override var left: Option[PhysicalPlan] = ???
-        override var right: Option[PhysicalPlan] = ???
+        override var left: Option[PhysicalPlan] = None
+        override var right: Option[PhysicalPlan] = None
       }, plannerContext).execute(ctx)
     } else df
   }

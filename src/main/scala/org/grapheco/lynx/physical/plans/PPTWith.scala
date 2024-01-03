@@ -6,12 +6,12 @@ import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.runner.ExecutionContext
 import org.opencypher.v9_0.ast.ReturnItems
 
-case class PPTWith(ri: ReturnItems)(implicit in: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
-  override val children: Seq[PhysicalPlan] = Seq(in)
+case class PPTWith(ri: ReturnItems)(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext)
+  extends SinglePhysicalPlan(l) {
+  override def schema: Seq[(String, LynxType)] = ri.items.map(x => x.name)
+    .map(x => x -> in.schema.toMap.get(x).get)
 
-  override def withChildren(children0: Seq[PhysicalPlan]): PPTWith = PPTWith(ri: ReturnItems)(children0.head, plannerContext)
-
-  override val schema: Seq[(String, LynxType)] = in.schema
-
-  override def execute(implicit ctx: ExecutionContext): DataFrame = in.execute(ctx)
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    in.execute(ctx).select(ri.items.map(x => x.name -> None))
+  }
 }

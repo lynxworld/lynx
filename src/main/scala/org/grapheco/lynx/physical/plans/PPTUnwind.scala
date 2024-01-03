@@ -9,10 +9,10 @@ import org.grapheco.lynx.types.composite.LynxList
 import org.opencypher.v9_0.expressions.{Expression, Variable}
 import org.opencypher.v9_0.util.symbols.CTAny
 
-case class PPTUnwind(expression: Expression, variable: Variable)(implicit val in: Option[PhysicalPlan], val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
-  override val children: Seq[PhysicalPlan] = in.toSeq
-
-  override val schema: Seq[(String, LynxType)] = in.map(_.schema).getOrElse(Seq.empty) ++ Seq((variable.name, CTAny)) // TODO it is CTAny?
+case class PPTUnwind(expression: Expression, variable: Variable)(l: Option[PhysicalPlan], val plannerContext: PhysicalPlannerContext)
+  extends AbstractPhysicalPlan(l) {
+  def in: Option[PhysicalPlan] = this.left
+  override def schema: Seq[(String, LynxType)] = in.map(_.schema).getOrElse(Seq.empty) ++ Seq((variable.name, CTAny)) // TODO it is CTAny?
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = // fixme
     in map { inNode =>

@@ -2,7 +2,7 @@ package org.grapheco.lynx.logical.planner.translators
 
 import org.grapheco.lynx.dataframe.{InnerJoin, LeftJoin, OuterJoin}
 import org.grapheco.lynx.logical.planner.{LogicalTranslator, translators}
-import org.grapheco.lynx.logical.plans.{LogicalAndThen, LogicalJoin, LogicalPatternMatch, LogicalPlan, LogicalShortestPaths, LogicalUnwind, LogicalWith}
+import org.grapheco.lynx.logical.plans.{LogicalAndThen, LogicalCross, LogicalJoin, LogicalPatternMatch, LogicalPlan, LogicalShortestPaths, LogicalUnwind, LogicalWith}
 import org.grapheco.lynx.logical.{LogicalPlannerContext, plans}
 import org.opencypher.v9_0.ast.{AliasedReturnItem, Match, ReturnItems, Where}
 import org.opencypher.v9_0.expressions._
@@ -20,16 +20,17 @@ case class MatchTranslator(m: Match) extends LogicalTranslator {
     val matched = combined.drop(1).foldLeft(combined.head)(
       (a, b) =>
         if (a == b) LogicalJoin(true, InnerJoin)(a, b)
-        else plans.LogicalJoin(true, OuterJoin)(a, b)
+//        else plans.LogicalJoin(true, OuterJoin)(a, b)
+        else LogicalCross()(a, b)
     )
     //    val matched = parts.drop(1).foldLeft(parts.head)((a,b) => LPTJoin(true, InnerJoin)(a, b))
     val filtered = WhereTranslator(where).translate(Some(matched))
 
     in match {
       case None => filtered
-      case Some(w:LogicalWith) => LogicalAndThen(w.ri.items)(w,filtered)
-      case Some(w:LogicalUnwind) => LogicalAndThen(Seq(AliasedReturnItem(w.u.variable)))(w,filtered)
-      case Some(a:LogicalAndThen) => LogicalAndThen(a.ri)(a, filtered)
+      case Some(w:LogicalWith) => LogicalAndThen()(w,filtered)
+      case Some(w:LogicalUnwind) => LogicalAndThen()(w,filtered)
+      case Some(a:LogicalAndThen) => LogicalAndThen()(a, filtered)
       case Some(left) => plans.LogicalJoin(false, if (optional) LeftJoin else InnerJoin)(left, filtered) // danger!
     }
   }

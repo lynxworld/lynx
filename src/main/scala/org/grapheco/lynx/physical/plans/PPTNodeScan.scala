@@ -10,11 +10,9 @@ import org.grapheco.lynx.types.structural.{LynxNodeLabel, LynxPropertyKey}
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.util.symbols.CTNode
 
-case class PPTNodeScan(pattern: NodePattern)(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
+case class PPTNodeScan(pattern: NodePattern)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
 
-  override def withChildren(children0: Seq[PhysicalPlan]): PPTNodeScan = PPTNodeScan(pattern)(plannerContext)
-
-  override val schema: Seq[(String, LynxType)] = {
+  override def schema: Seq[(String, LynxType)] = {
     val NodePattern(
     Some(var0: LogicalVariable),
     labels: Seq[LabelName],
