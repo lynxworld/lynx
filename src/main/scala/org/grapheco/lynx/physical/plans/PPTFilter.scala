@@ -11,8 +11,6 @@ import org.opencypher.v9_0.expressions.Expression
 
 case class PPTFilter(expr: Expression)(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan(l) {
 
-  override def schema: Seq[(String, LynxType)] = in.schema
-
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
     val ec = ctx.expressionContext
@@ -25,5 +23,5 @@ case class PPTFilter(expr: Expression)(l: PhysicalPlan, val plannerContext: Phys
         }
     }(ec)
   }
-  
+
 }

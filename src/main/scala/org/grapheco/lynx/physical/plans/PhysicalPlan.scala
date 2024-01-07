@@ -42,9 +42,7 @@ trait PhysicalPlan extends TreeNode{
     this
   }
 
-  def description: String = ""
-
-//  override def toString: String = s"${this.getClass.getSimpleName}($description)[${this.schema.map(_._1).mkString(",")}]"
+  override def description: String = s"[${this.schema.map(_._1).mkString(",")}]_$toString"
 
 }
 
