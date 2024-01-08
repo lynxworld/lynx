@@ -7,8 +7,8 @@ import org.grapheco.lynx.runner.ExecutionContext
 import org.opencypher.v9_0.ast.ReturnItem
 
 case class Aggregation(aggregations: Seq[ReturnItem], groupings: Seq[ReturnItem])
-                      (implicit val in: PhysicalPlan, val plannerContext: PhysicalPlannerContext)
-  extends AbstractPhysicalPlan(Some(in)) {
+                      (l: PhysicalPlan, val plannerContext: PhysicalPlannerContext)
+  extends SinglePhysicalPlan(l) {
 
   override def schema: Seq[(String, LynxType)] =
     (groupings ++ aggregations).map(x => x.name -> typeOf(x.expression, in.schema.toMap))
