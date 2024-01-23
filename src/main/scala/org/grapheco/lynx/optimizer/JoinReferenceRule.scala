@@ -1,7 +1,7 @@
 package org.grapheco.lynx.optimizer
 
 import org.grapheco.lynx.physical._
-import org.grapheco.lynx.physical.plans.{Apply, PPTDistinct, PPTExpandPath, PPTFilter, PPTJoin, PPTMerge, PPTNodeScan, PPTRelationshipScan, PPTSelect, PPTShortestPath, PPTUnwind, PPTWith, PhysicalPlan}
+import org.grapheco.lynx.physical.plans.{Apply, Distinct, Expand, CreateUnit, Filter, Join, Merge, NodeScan, RelationshipScan, Select, ShortestPath, Unwind, With, PhysicalPlan}
 import org.opencypher.v9_0.expressions._
 
 import scala.collection.mutable
@@ -37,7 +37,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     else (Seq.empty, None)
   }
 
-  def checkFilterReference(pptFilter: PPTFilter): (Seq[Expression], Option[PPTFilter]) = {
+  def checkFilterReference(pptFilter: Filter): (Seq[Expression], Option[Filter]) = {
     pptFilter.expr match {
       case in@In(lhs, rhs) => {
         (Seq(in), Some(pptFilter))
@@ -45,28 +45,28 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     }
   }
 
-  def checkExpandPath(pe: PPTExpandPath, ppc: PhysicalPlannerContext): (PhysicalPlan, Seq[((LogicalVariable, PropertyKeyName), Expression)]) = {
+  def checkExpandPath(pe: Expand, ppc: PhysicalPlannerContext): (PhysicalPlan, Seq[((LogicalVariable, PropertyKeyName), Expression)]) = {
     pe.children match {
-      case Seq(pr@PPTRelationshipScan(rel, leftPattern, rightPattern)) => {
+      case Seq(pr@RelationshipScan(rel, leftPattern, rightPattern)) => {
         val leftChecked = checkNodeReference(leftPattern)
         val rightChecked = checkNodeReference(rightPattern)
 
         val res = (leftChecked._2, rightChecked._2) match {
           case (None, None) => pr
-          case (value1, None) => plans.PPTRelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
-          case (None, value2) => plans.PPTRelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
-          case (value1, value2) => plans.PPTRelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
+          case (value1, None) => plans.RelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
+          case (None, value2) => plans.RelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
+          case (value1, value2) => plans.RelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
         }
 
         (pe.withChildren(Seq(res)), leftChecked._1 ++ rightChecked._1)
       }
-      case Seq(pe2@PPTExpandPath(rel, rightPattern)) => {
+      case Seq(pe2@Expand(rel, rightPattern)) => {
         val res = checkExpandPath(pe2, ppc)
         val rightChecked = checkNodeReference(rightPattern)
 
         val newPPTExpandPath = {
           if (rightChecked._2.nonEmpty) {
-            plans.PPTExpandPath(rel, rightChecked._2.get)(res._1, ppc)
+            plans.Expand(rel, rightChecked._2.get)(res._1, ppc)
           }
           else pe2.withChildren(Seq(res._1))
         }
@@ -80,17 +80,17 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     var referenceProperty = Seq[((LogicalVariable, PropertyKeyName), Expression)]()
     var referenceExpression = Seq[Expression]()
     val newTable = table match {
-      case pw@PPTWith(ri) => pw
+      case pw@With(ri) => pw
       case pa:Apply => pa
-      case ps@PPTNodeScan(pattern) => {
+      case ps@NodeScan(pattern) => {
         val checked = checkNodeReference(pattern)
         referenceProperty = referenceProperty ++ checked._1
         if (checked._2.isDefined) {
-          plans.PPTNodeScan(checked._2.get)(ppc)
+          plans.NodeScan(checked._2.get)(ppc)
         }
         else ps
       }
-      case pr@PPTRelationshipScan(rel, leftPattern, rightPattern) => {
+      case pr@RelationshipScan(rel, leftPattern, rightPattern) => {
         val leftChecked = checkNodeReference(leftPattern)
         val rightChecked = checkNodeReference(rightPattern)
         referenceProperty ++= leftChecked._1
@@ -98,13 +98,13 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
 
         (leftChecked._2, rightChecked._2) match {
           case (None, None) => table
-          case (value1, None) => plans.PPTRelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
-          case (None, value2) => plans.PPTRelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
-          case (value1, value2) => plans.PPTRelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
+          case (value1, None) => plans.RelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
+          case (None, value2) => plans.RelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
+          case (value1, value2) => plans.RelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
         }
       }
-      case shortestPaths: PPTShortestPath => {
-        val PPTShortestPath(rel: RelationshipPattern, leftPattern: NodePattern, rightPattern: NodePattern, single: Boolean, resName: String) = shortestPaths
+      case shortestPaths: ShortestPath => {
+        val ShortestPath(rel: RelationshipPattern, leftPattern: NodePattern, rightPattern: NodePattern, single: Boolean, resName: String) = shortestPaths
         val leftChecked = checkNodeReference(leftPattern)
         val rightChecked = checkNodeReference(rightPattern)
         referenceProperty ++= leftChecked._1
@@ -112,19 +112,19 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
 
         (leftChecked._2, rightChecked._2) match {
           case (None, None) => table
-          case (value1, None) => plans.PPTShortestPath(rel, leftChecked._2.get, rightPattern, single, resName)(ppc)
-          case (None, value2) => plans.PPTShortestPath(rel, leftPattern, rightChecked._2.get, single, resName)(ppc)
-          case (value1, value2) => plans.PPTShortestPath(rel, leftChecked._2.get, rightChecked._2.get, single, resName)(ppc)
+          case (value1, None) => plans.ShortestPath(rel, leftChecked._2.get, rightPattern, single, resName)(ppc)
+          case (None, value2) => plans.ShortestPath(rel, leftPattern, rightChecked._2.get, single, resName)(ppc)
+          case (value1, value2) => plans.ShortestPath(rel, leftChecked._2.get, rightChecked._2.get, single, resName)(ppc)
         }
       }
-      case pe@PPTExpandPath(rel, rightPattern) => {
+      case pe@Expand(rel, rightPattern) => {
         val res = checkExpandPath(pe, ppc)
         referenceProperty ++= res._2
         res._1
       }
-      case pm@PPTMerge(mergeSchema, mergeOps, onMatch, onCreate) => {
+      case pm@Merge(mergeSchema, mergeOps, onMatch, onCreate) => {
         pm.children.head match {
-          case pj2@PPTJoin(filterExpr, isSingleMatch, joinType) => {
+          case pj2@Join(filterExpr, isSingleMatch, joinType) => {
             pm.withChildren(Seq(joinRecursion(pj2, ppc, isSingleMatch)))
           }
           case _ => {
@@ -132,9 +132,9 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
           }
         }
       }
-      case ps@PPTSelect(columns) => {
+      case ps@Select(columns) => {
         ps.children.head match {
-          case pj2@PPTJoin(filterExpr, isSingleMatch, joinType) => {
+          case pj2@Join(filterExpr, isSingleMatch, joinType) => {
             ps.withChildren(Seq(joinRecursion(pj2, ppc, isSingleMatch)))
           }
           case _ => {
@@ -142,24 +142,25 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
           }
         }
       }
-      case pc@PPTCreateUnit(items) => pc
+      case pc@CreateUnit(items) => pc
 
-      case pf@PPTFilter(expr) => {
+      case pf@Filter(expr) => {
         val (children, refProp, otherExprs) = joinReferenceRule(pf.children.head, ppc)
         referenceProperty ++= refProp
         referenceExpression ++= Seq(expr)
         children
       }
-      case pj1@PPTJoin(filterExpr, isSingleMatch, joinType) => {
+      case pj1@Join(filterExpr, isSingleMatch, joinType) => {
         joinRecursion(pj1, ppc, isSingleMatch)
       }
-      case pu@PPTUnwind(expr, variable) => pu
-      case pd@PPTDistinct() => pd
+      case pu@Unwind(expr, variable) => pu
+      case pd@Distinct() => pd
+      case p: PhysicalPlan => p
     }
     (newTable, referenceProperty, referenceExpression)
   }
 
-  def joinRecursion(pj: PPTJoin, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PhysicalPlan = {
+  def joinRecursion(pj: Join, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PhysicalPlan = {
     val (operator1, referenceProps1, otherExprs1) = joinReferenceRule(pj.children.head, ppc)
     val (operator2, referenceProps2, otherExprs2) = joinReferenceRule(pj.children.last, ppc)
     val table1 = operator1
@@ -178,8 +179,8 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
         else referenceProps.head._1._1.position
       }
 
-      if (filterExpressions.length == 1) PPTJoin(Option(filterExpressions.head), isSingleMatch, pj.joinType)(table1, table2, ppc)
-      else PPTJoin(Option(Ands(filterExpressions.toSet)(_position)), isSingleMatch, pj.joinType)(table1, table2, ppc)
+      if (filterExpressions.length == 1) Join(Option(filterExpressions.head), isSingleMatch, pj.joinType)(table1, table2, ppc)
+      else Join(Option(Ands(filterExpressions.toSet)(_position)), isSingleMatch, pj.joinType)(table1, table2, ppc)
     } else pj
   }
 
@@ -187,7 +188,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     {
       case pnode: PhysicalPlan =>
         pnode.children match {
-          case Seq(pj@PPTJoin(filterExpr, isSingleMatch, bigTableIndex)) => {
+          case Seq(pj@Join(filterExpr, isSingleMatch, bigTableIndex)) => {
             val res1 = joinRecursion(pj, ppc, isSingleMatch)
             pnode.withChildren(Seq(res1))
           }

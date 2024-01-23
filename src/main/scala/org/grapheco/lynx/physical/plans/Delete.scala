@@ -17,7 +17,7 @@ import org.opencypher.v9_0.util.symbols.{CTNode, CTPath, CTRelationship}
  * @param in
  * @param plannerContext
  */
-case class PPTDelete(expressions: Seq[Expression], forced: Boolean)(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan(l) {
+case class Delete(expressions: Seq[Expression], forced: Boolean)(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan(l) {
 
   override def schema: Seq[(String, LynxType)] = Seq.empty
 

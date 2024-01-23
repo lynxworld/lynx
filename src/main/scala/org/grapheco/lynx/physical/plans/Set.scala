@@ -11,7 +11,7 @@ import org.grapheco.lynx.types.structural._
 import org.opencypher.v9_0.ast._
 import org.opencypher.v9_0.expressions._
 
-case class PPTSet(setItems: Seq[SetItem])(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan(l) with WritePlan {
+case class Set(setItems: Seq[SetItem])(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan(l) with WritePlan {
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)

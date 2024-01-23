@@ -1,6 +1,6 @@
 package org.grapheco.lynx.optimizer
 
-import org.grapheco.lynx.physical.plans.{PhysicalPlan, PPTProject}
+import org.grapheco.lynx.physical.plans.{PhysicalPlan, Project}
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.opencypher.v9_0.ast.AliasedReturnItem
 
@@ -17,7 +17,7 @@ object RemoveNullProject extends PhysicalPlanOptimizerRule {
     {
       case pnode: PhysicalPlan =>
         pnode.children match {
-          case Seq(p@PPTProject(ri)) if ri.items.forall {
+          case Seq(p@Project(ri)) if ri.items.forall {
             case AliasedReturnItem(expression, variable) => expression == variable
           } => pnode.withChildren(pnode.children.filterNot(_ eq p) ++ p.children)
 

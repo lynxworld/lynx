@@ -1,7 +1,7 @@
 package org.grapheco.lynx.optimizer
 
 import org.grapheco.lynx.physical._
-import org.grapheco.lynx.physical.plans.{PPTJoin, PPTMerge, PhysicalPlan, PPTNodeScan, PPTRelationshipScan}
+import org.grapheco.lynx.physical.plans.{Join, Merge, PhysicalPlan, NodeScan, RelationshipScan}
 import org.grapheco.lynx.runner.GraphModel
 import org.opencypher.v9_0.expressions.{Literal, MapExpression, NodePattern, RelationshipPattern}
 
@@ -17,7 +17,7 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
     {
       case pnode: PhysicalPlan => {
         pnode.children match {
-          case Seq(pj@PPTJoin(filterExpr, isSingleMatch, joinType)) => {
+          case Seq(pj@Join(filterExpr, isSingleMatch, joinType)) => {
             val res = joinRecursion(pj, ppc, isSingleMatch)
             pnode.withChildren(Seq(res))
           }
@@ -62,43 +62,43 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
 
   def estimate(table: PhysicalPlan, ppc: PhysicalPlannerContext): Long = {
     table match {
-      case ps@PPTNodeScan(pattern) => estimateNodeRow(pattern, ppc.runnerContext.graphModel)
-      case pr@PPTRelationshipScan(rel, left, right) => estimateRelationshipRow(rel, left, right, ppc.runnerContext.graphModel)
+      case ps@NodeScan(pattern) => estimateNodeRow(pattern, ppc.runnerContext.graphModel)
+      case pr@RelationshipScan(rel, left, right) => estimateRelationshipRow(rel, left, right, ppc.runnerContext.graphModel)
     }
   }
 
-  def estimateTableSize(parent: PPTJoin, table1: PhysicalPlan, table2: PhysicalPlan, ppc: PhysicalPlannerContext): PhysicalPlan = {
+  def estimateTableSize(parent: Join, table1: PhysicalPlan, table2: PhysicalPlan, ppc: PhysicalPlannerContext): PhysicalPlan = {
     val estimateTable1 = estimate(table1, ppc)
     val estimateTable2 = estimate(table2, ppc)
-    if (estimateTable1 <= estimateTable2) PPTJoin(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
-    else PPTJoin(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
+    if (estimateTable1 <= estimateTable2) Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
+    else Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
   }
 
-  def joinRecursion(parent: PPTJoin, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PhysicalPlan = {
+  def joinRecursion(parent: Join, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PhysicalPlan = {
     val t1 = parent.children.head
     val t2 = parent.children.last
 
     val table1 = t1 match {
-      case pj@PPTJoin(filterExpr, isSingleMatch, joinType) => joinRecursion(pj, ppc, isSingleMatch)
-      case pm@PPTMerge(mergeSchema, mergeOps, onMatch, onCreate) => {
-        val res = joinRecursion(pm.children.head.asInstanceOf[PPTJoin], ppc, isSingleMatch)
+      case pj@Join(filterExpr, isSingleMatch, joinType) => joinRecursion(pj, ppc, isSingleMatch)
+      case pm@Merge(mergeSchema, mergeOps, onMatch, onCreate) => {
+        val res = joinRecursion(pm.children.head.asInstanceOf[Join], ppc, isSingleMatch)
         pm.withChildren(Seq(res))
       }
       case _ => t1
     }
     val table2 = t2 match {
-      case pj@PPTJoin(filterExpr, isSingleMatch, joinType) => joinRecursion(pj, ppc, isSingleMatch)
-      case pm@PPTMerge(mergeSchema, mergeOps, onMatch, onCreate) => {
-        val res = joinRecursion(pm.children.head.asInstanceOf[PPTJoin], ppc, isSingleMatch)
+      case pj@Join(filterExpr, isSingleMatch, joinType) => joinRecursion(pj, ppc, isSingleMatch)
+      case pm@Merge(mergeSchema, mergeOps, onMatch, onCreate) => {
+        val res = joinRecursion(pm.children.head.asInstanceOf[Join], ppc, isSingleMatch)
         pm.withChildren(Seq(res))
       }
       case _ => t2
     }
 
-    if ((table1.isInstanceOf[PPTNodeScan] || table1.isInstanceOf[PPTRelationshipScan])
-      && (table2.isInstanceOf[PPTNodeScan] || table2.isInstanceOf[PPTRelationshipScan])) {
+    if ((table1.isInstanceOf[NodeScan] || table1.isInstanceOf[RelationshipScan])
+      && (table2.isInstanceOf[NodeScan] || table2.isInstanceOf[RelationshipScan])) {
       estimateTableSize(parent, table1, table2, ppc)
     }
-    else PPTJoin(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
+    else Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
   }
 }

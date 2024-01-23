@@ -5,7 +5,7 @@ import org.grapheco.lynx.dataframe.DataFrame
 import org.grapheco.lynx.physical.{PhysicalPlannerContext, SyntaxErrorException}
 import org.grapheco.lynx.runner.ExecutionContext
 
-case class PPTUnion(distinct: Boolean)(a: PhysicalPlan, b: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends DoublePhysicalPlan(a,b) {
+case class Union(distinct: Boolean)(a: PhysicalPlan, b: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends DoublePhysicalPlan(a,b) {
 
   override def schema: Seq[(String, LynxType)] = left.get.schema
 

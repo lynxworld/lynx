@@ -10,7 +10,7 @@ import org.grapheco.lynx.{LynxType, runner}
 import org.opencypher.v9_0.expressions.{Expression, LabelName, ListLiteral, LogicalVariable, NodePattern, Range, RelTypeName, RelationshipPattern, SemanticDirection}
 import org.opencypher.v9_0.util.symbols.{CTList, CTNode, CTPath, CTRelationship}
 
-case class PPTShortestPath(rel: RelationshipPattern, leftNode: NodePattern, rightNode: NodePattern, single: Boolean, resName: String)(val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
+case class ShortestPath(rel: RelationshipPattern, leftNode: NodePattern, rightNode: NodePattern, single: Boolean, resName: String)(val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
 
 
   override val schema: Seq[(String, LynxType)] = {

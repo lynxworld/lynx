@@ -5,7 +5,7 @@ import org.grapheco.lynx.evaluator.ExpressionContext
 import org.grapheco.lynx.logical.plans
 import org.grapheco.lynx.logical.plans.{LogicalAndThen, LogicalPatternMatch, LogicalShortestPaths, LogicalWith}
 import org.grapheco.lynx.physical.planner.PPTNodeTranslator
-import org.grapheco.lynx.physical.plans.{AbstractPhysicalPlan, PPTExpandPath, PPTMerge, PPTNodeScan, PPTRelationshipScan, PPTRemove, PPTSet, PPTShortestPath, PPTUnwind, PhysicalPlan, SinglePhysicalPlan}
+import org.grapheco.lynx.physical.plans.{AbstractPhysicalPlan, Expand, Merge, NodeScan, RelationshipScan, Remove, Set, ShortestPath, Unwind, PhysicalPlan, SinglePhysicalPlan}
 import org.grapheco.lynx.procedure.{UnknownProcedureException, WrongArgumentException}
 import org.grapheco.lynx.runner.{CONTAINS, EQUAL, ExecutionContext, GREATER_THAN, GREATER_THAN_OR_EQUAL, GraphModel, IN, LESS_THAN, LESS_THAN_OR_EQUAL, NOT_EQUAL, NodeFilter, PropOp, RelationshipFilter}
 import org.grapheco.lynx.types.LynxValue
@@ -31,17 +31,6 @@ object Trans{
 
 
 
-case class PPTCreateUnit(items: Seq[ReturnItem])(val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
-  override def withChildren(children0: Seq[PhysicalPlan]): PPTCreateUnit = PPTCreateUnit(items)(plannerContext)
-
-  override val schema: Seq[(String, LynxType)] =
-    items.map(item => item.name -> typeOf(item.expression))
-
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
-    createUnitDataFrame(items)
-  }
-
-}
 
 
 
@@ -53,19 +42,8 @@ case class PPTCreateUnit(items: Seq[ReturnItem])(val plannerContext: PhysicalPla
 
 
 
-case class PPTCreateIndex(labelName: String, properties: List[String])(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
 
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
-    graphModel._helper.createIndex(labelName, properties.toSet)
-    DataFrame.empty
-  }
 
-  override def withChildren(children0: Seq[PhysicalPlan]): PhysicalPlan = this
-
-  override val schema: Seq[(String, LynxType)] = {
-    Seq("CreateIndex" -> CTAny)
-  }
-}
 
 
 

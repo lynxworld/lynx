@@ -3,7 +3,7 @@ package org.grapheco.lynx.physical.planner.translators
 import org.grapheco.lynx.logical.plans.LogicalPatternMatch
 import org.grapheco.lynx.physical
 import org.grapheco.lynx.physical.planner.PPTNodeTranslator
-import org.grapheco.lynx.physical.plans.{FromArgument, PPTExpandPath, PPTNodeScan, PPTRelationshipScan, PhysicalPlan}
+import org.grapheco.lynx.physical.plans.{FromArgument, Expand, NodeScan, RelationshipScan, PhysicalPlan}
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.opencypher.v9_0.expressions.{NodePattern, RelationshipPattern}
 
@@ -18,26 +18,26 @@ case class PPTPatternMatchTranslator(patternMatch: LogicalPatternMatch)(implicit
         //match (m)
         case Nil => FromArgument(headNode.variable.get.name)(ppc)
         //match (m)-[r]-(n)
-        //        case List(Tuple2(rel, rightNode)) => PPTRelationshipScan(rel, headNode, rightNode)(ppc)
+        case List(Tuple2(rel, rightNode)) => RelationshipScan(rel, headNode, rightNode)(ppc)
         //match (m)-[r]-(n)-...-[p]-(z)
         case _ =>
           val (lastRelationship, lastNode) = chain.last
           val dropped = chain.dropRight(1)
           val part = planPatternMatch(LogicalPatternMatch(optional, variableName, headNode, dropped))(ppc)
-          PPTExpandPath(lastRelationship, lastNode)(part, plannerContext)
+          Expand(lastRelationship, lastNode)(part, plannerContext)
       }
     } else {
       chain.toList match {
         //match (m)
-        case Nil => PPTNodeScan(headNode)(ppc)
+        case Nil => NodeScan(headNode)(ppc)
         //match (m)-[r]-(n)
-        case List(Tuple2(rel, rightNode)) => PPTRelationshipScan(rel, headNode, rightNode)(ppc)
+        case List(Tuple2(rel, rightNode)) => RelationshipScan(rel, headNode, rightNode)(ppc)
         //match (m)-[r]-(n)-...-[p]-(z)
         case _ =>
           val (lastRelationship, lastNode) = chain.last
           val dropped = chain.dropRight(1)
           val part = planPatternMatch(LogicalPatternMatch(optional, variableName, headNode, dropped))(ppc)
-          physical.plans.PPTExpandPath(lastRelationship, lastNode)(part, plannerContext)
+          Expand(lastRelationship, lastNode)(part, plannerContext)
       }
     }
   }

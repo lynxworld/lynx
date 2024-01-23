@@ -1,5 +1,5 @@
 package org.grapheco.lynx.optimizer
-import org.grapheco.lynx.physical.plans.{Apply, PPTFilter, PPTProject, PhysicalPlan}
+import org.grapheco.lynx.physical.plans.{Apply, Filter, Project, PhysicalPlan}
 import org.opencypher.v9_0.expressions.Variable
 
 object ApplyPushDownRule extends PhysicalPlanOptimizerRule {
@@ -52,7 +52,7 @@ object ApplyPushDownRule extends PhysicalPlanOptimizerRule {
   }
 
   private def extraUsage(p: PhysicalPlan): Seq[String] = p match {
-    case _@PPTFilter(expr) => expr.findByAllClass[Variable].map(_.name)
+    case _@Filter(expr) => expr.findByAllClass[Variable].map(_.name)
     case _ => Seq.empty
   }
 }

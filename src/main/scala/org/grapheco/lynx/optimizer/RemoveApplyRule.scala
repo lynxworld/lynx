@@ -1,7 +1,7 @@
 package org.grapheco.lynx.optimizer
 
 import org.grapheco.lynx.physical.PhysicalPlannerContext
-import org.grapheco.lynx.physical.plans.{Apply, FromArgument, PPTUnwind, PhysicalPlan}
+import org.grapheco.lynx.physical.plans.{Apply, FromArgument, Unwind, PhysicalPlan}
 
 object RemoveApplyRule extends PhysicalPlanOptimizerRule {
   override def apply(plan: PhysicalPlan, ppc: PhysicalPlannerContext): PhysicalPlan = optimizeBottomUp(plan, {
@@ -15,7 +15,7 @@ object RemoveApplyRule extends PhysicalPlanOptimizerRule {
            ║
           [A]
       */
-      case Some(uw:PPTUnwind) => {
+      case Some(uw:Unwind) => {
         uw.withChildren(apply.left)
       }
 

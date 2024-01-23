@@ -2,7 +2,7 @@ package org.grapheco.lynx.physical.planner.translators
 
 import org.grapheco.lynx.LynxType
 import org.grapheco.lynx.physical.planner.PPTNodeTranslator
-import org.grapheco.lynx.physical.plans.{PPTMerge, PhysicalPlan}
+import org.grapheco.lynx.physical.plans.{Merge, PhysicalPlan}
 import org.grapheco.lynx.physical._
 import org.opencypher.v9_0.ast.{MergeAction, OnCreate, OnMatch}
 import org.opencypher.v9_0.expressions.{EveryPath, Expression, LabelName, LogicalVariable, NodePattern, Pattern, Range, RelTypeName, RelationshipChain, RelationshipPattern, SemanticDirection}
@@ -31,7 +31,7 @@ case class PPTMergeTranslator(p: Pattern, a: Seq[MergeAction]) extends PPTNodeTr
       }
     }
 
-    PPTMerge(mergeSchema,
+    Merge(mergeSchema,
       mergeOps,
       a collect { case m: OnMatch => m },
       a collect { case c: OnCreate => c })(in, plannerContext)

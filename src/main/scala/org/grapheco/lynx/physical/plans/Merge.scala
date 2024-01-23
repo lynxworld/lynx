@@ -20,10 +20,10 @@ import scala.collection.mutable
  * @param in
  * @param plannerContext
  */
-case class PPTMerge(mergeSchema: Seq[(String, LynxType)],
-                    mergeOps: Seq[FormalElement],
-                    onMatch: Seq[OnMatch],
-                    onCreate: Seq[OnCreate])(l: Option[PhysicalPlan], val plannerContext: PhysicalPlannerContext)
+case class Merge(mergeSchema: Seq[(String, LynxType)],
+                 mergeOps: Seq[FormalElement],
+                 onMatch: Seq[OnMatch],
+                 onCreate: Seq[OnCreate])(l: Option[PhysicalPlan], val plannerContext: PhysicalPlannerContext)
   extends AbstractPhysicalPlan(l) {
 
   override def schema: Seq[(String, LynxType)] = mergeSchema ++ left.map(_.schema).getOrElse(Seq.empty)
@@ -40,7 +40,7 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)],
     val createdNode: mutable.HashMap[NodeInput, LynxNode] = if (distinct) mutable.HashMap[NodeInput, LynxNode]() else null
 
     val df = child match {
-      case pj: PPTJoin => {
+      case pj: Join => {
         val pjRes = pj.execute
         val dropNull = pjRes.records.dropWhile(_.exists(LynxNull.eq))
         if (dropNull.nonEmpty) {
@@ -74,7 +74,7 @@ case class PPTMerge(mergeSchema: Seq[(String, LynxType)],
     // actions
     val items = if (hasMatched) onMatch.flatMap(_.action.items) else onCreate.flatMap(_.action.items)
     if (items.nonEmpty) {
-      PPTSet(items)(new PhysicalPlan { // temp PPTNode to execute SetClause
+      Set(items)(new PhysicalPlan { // temp PPTNode to execute SetClause
         override val schema: Seq[(String, LynxType)] = df.schema
 
         override def execute(implicit ctx: ExecutionContext): DataFrame = df

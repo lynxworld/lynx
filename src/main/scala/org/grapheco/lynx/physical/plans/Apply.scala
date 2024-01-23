@@ -17,7 +17,9 @@ case class Apply()(l: PhysicalPlan, r: PhysicalPlan, val plannerContext: Physica
     val _df1 = from.execute(ctx)
     val df1 = DataFrame.cached(_df1.schema, _df1.records.toArray.toSeq)
     val df2 = applyTo.execute(ctx.withArguments(df1))
-    val j = df2.join(df1, isSingleMatch = true, InnerJoin) //TODO inner?
+//    val j = df2.join(df1, isSingleMatch = true, InnerJoin) //TODO inner?
+//    val j = df1.cross(df2)
+    val j = df1.join(df2, isSingleMatch = true, InnerJoin)
     j
   }
 

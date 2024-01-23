@@ -11,10 +11,10 @@ import org.opencypher.v9_0.expressions.Expression
 /*
  @param joinType: InnerJoinPPTApply/FullJoin/LeftJoin/RightJoin
  */
-case class PPTJoin(filterExpr: Option[Expression],
-                   isSingleMatch: Boolean,
-                   joinType: JoinType)
-                  (l: PhysicalPlan, r: PhysicalPlan, val plannerContext: PhysicalPlannerContext)
+case class Join(filterExpr: Option[Expression],
+                isSingleMatch: Boolean,
+                joinType: JoinType)
+               (l: PhysicalPlan, r: PhysicalPlan, val plannerContext: PhysicalPlannerContext)
   extends DoublePhysicalPlan(l,r) {
 //  override val children: Seq[PhysicalPlan] = Seq(a, b)
 

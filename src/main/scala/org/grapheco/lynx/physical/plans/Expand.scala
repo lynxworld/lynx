@@ -10,10 +10,8 @@ import org.grapheco.lynx.types.structural._
 import org.opencypher.v9_0.expressions.{Expression, LabelName, ListLiteral, LogicalVariable, NodePattern, Range, RelTypeName, RelationshipPattern, SemanticDirection}
 import org.opencypher.v9_0.util.symbols.{CTNode, CTRelationship}
 
-case class PPTExpandPath(rel: RelationshipPattern, rightNode: NodePattern)(implicit in: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
-  override val children: Seq[PhysicalPlan] = Seq(in)
-
-  override def withChildren(children0: Seq[PhysicalPlan]): PPTExpandPath = PPTExpandPath(rel, rightNode)(children0.head, plannerContext)
+case class Expand(rel: RelationshipPattern, rightNode: NodePattern)(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext)
+  extends SinglePhysicalPlan(l) {
 
   override val schema: Seq[(String, LynxType)] = {
     val RelationshipPattern(

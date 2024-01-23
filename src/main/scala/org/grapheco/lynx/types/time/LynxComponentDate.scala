@@ -319,12 +319,8 @@ object LynxComponentDate {
       case LynxString("month")
       => calendar.set(year, month, 1)
       case LynxString("week")
-      => calendar.set(year, month, 1)
-        calendar.set(Calendar.DAY_OF_MONTH, calendar.get(Calendar.DAY_OF_WEEK) match {
-          case 1 => 2
-          case 2 => 1
-          case v => 10 - v.toInt
-        })
+      => calendar.set(year, month, day)
+        calendar.set(Calendar.DAY_OF_WEEK, 1)
       case LynxString("day")
       => calendar.set(year, month, day)
       case _ => calendar.set(year, month, day)

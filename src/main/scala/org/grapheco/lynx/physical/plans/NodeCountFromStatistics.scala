@@ -5,15 +5,14 @@ import org.grapheco.lynx.dataframe.DataFrame
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.runner.ExecutionContext
 import org.grapheco.lynx.types.property.LynxInteger
-import org.grapheco.lynx.types.structural.LynxRelationshipType
+import org.grapheco.lynx.types.structural.LynxNodeLabel
 
-case class PPTRelationshipCountFromStatistics(relType: Option[LynxRelationshipType], variableName: String)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
+case class NodeCountFromStatistics(label: Option[LynxNodeLabel], variableName: String)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
   override val schema: Seq[(String, LynxType)] = Seq((variableName, LynxInteger(0).lynxType))
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val stat = plannerContext.runnerContext.graphModel.statistics
-    val res = relType.map(ttype => stat.numRelationshipByType(ttype)).getOrElse(stat.numRelationship)
+    val res = label.map(label => stat.numNodeByLabel(label)).getOrElse(stat.numNode)
     DataFrame(schema, () => Iterator(Seq(LynxInteger(res))))
   }
-
 }

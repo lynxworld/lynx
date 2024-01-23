@@ -90,7 +90,7 @@ class G_Mathematical_Trigonometric extends TestBase {
         |""".stripMargin).records().toArray
 
     Assert.assertEquals(1, records.length)
-    Assert.assertEquals(179.9998479605043, records(0)("degrees(3.14159)").asInstanceOf[LynxValue].value)
+    Assert.assertEquals(179.9998479605043, records(0).getAsDouble("degrees(3.14159)").get.v, 0.000001)
   }
 
   @Test

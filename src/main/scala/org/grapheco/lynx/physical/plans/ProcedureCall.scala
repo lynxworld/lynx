@@ -8,7 +8,7 @@ import org.grapheco.lynx.runner.ExecutionContext
 import org.grapheco.lynx.types.property.LynxNull
 import org.opencypher.v9_0.expressions.{Expression, Namespace, ProcedureName}
 
-case class PPTProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
+case class ProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
 
   val Namespace(parts: List[String]) = procedureNamespace
   val ProcedureName(name: String) = procedureName
