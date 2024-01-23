@@ -22,6 +22,8 @@ trait DataFrameOps {
     operator.join(srcFrame, b, commonColNames, joinType)
   }
 
+  def cross(b: DataFrame): DataFrame = operator.cross(srcFrame, b)
+
   def filter(predicate: Seq[LynxValue] => Boolean)(ctx: ExpressionContext): DataFrame = operator.filter(srcFrame, predicate)(ctx)
 
   def take(num: Int): DataFrame = operator.take(srcFrame, num)

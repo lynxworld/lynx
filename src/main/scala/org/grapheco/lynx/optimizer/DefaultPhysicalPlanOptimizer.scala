@@ -1,7 +1,10 @@
 package org.grapheco.lynx.optimizer
 
-import org.grapheco.lynx.physical.{PPTNode, PhysicalPlannerContext}
+import org.grapheco.lynx.physical.PhysicalPlannerContext
+import org.grapheco.lynx.physical.plans.PhysicalPlan
 import org.grapheco.lynx.runner.CypherRunnerContext
+
+import scala.language.implicitConversions
 
 /**
  * @ClassName DefaultPhysicalPlanOptimizer
@@ -12,14 +15,18 @@ import org.grapheco.lynx.runner.CypherRunnerContext
  */
 class DefaultPhysicalPlanOptimizer(runnerContext: CypherRunnerContext) extends PhysicalPlanOptimizer {
   val rules = Seq[PhysicalPlanOptimizerRule](
+    ApplyPushDownRule,
     RemoveNullProject,
     PPTFilterPushDownRule,
+    RemoveApplyRule,
     JoinReferenceRule,
     JoinTableSizeEstimateRule,
     StatisticsRule
   )
 
-  def optimize(plan: PPTNode, ppc: PhysicalPlannerContext): PPTNode = {
+  implicit def ops(p: PhysicalPlan): OperablePhysicalPlan = new OperablePhysicalPlan(p)
+
+  def optimize(plan: PhysicalPlan, ppc: PhysicalPlannerContext): PhysicalPlan = {
     rules.foldLeft(plan)((optimized, rule) => rule.apply(optimized, ppc))
   }
 }

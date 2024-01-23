@@ -3,32 +3,31 @@ package org.grapheco.lynx
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-trait TreeNode {
+trait TreeNode{
   type SerialType <: TreeNode
-  val children: Seq[SerialType] = Seq.empty
+  def children: Seq[SerialType] = Seq(left, right).flatten
 
-  def pretty: String = {
-    val lines = new mutable.ArrayBuffer[String]
+  var left: Option[SerialType]
+  var right: Option[SerialType]
 
-    @tailrec
-    def recTreeToString(toPrint: List[TreeNode], prefix: String, stack: List[List[TreeNode]]): Unit = {
-      toPrint match {
-        case Nil =>
-          stack match {
-            case Nil =>
-            case top :: remainingStack =>
-              recTreeToString(top, prefix.dropRight(4), remainingStack)
-          }
-        case last :: Nil =>
-          lines += s"$prefix╙──${last.toString}"
-          recTreeToString(last.children.toList, s"$prefix    ", Nil :: stack)
-        case next :: siblings =>
-          lines += s"$prefix╟──${next.toString}"
-          recTreeToString(next.children.toList, s"$prefix║   ", siblings :: stack)
-      }
+  def pretty: String = recTreeToString(List(this), "", Nil).mkString("\n")
+
+  def description: String = this.toString
+
+  def recTreeToString(toPrint: List[TreeNode], prefix: String, stack: List[List[TreeNode]]): Seq[String] = {
+    toPrint match {
+      case Nil =>
+        stack match {
+          case Nil => Seq.empty
+          case top :: remainingStack =>
+            recTreeToString(top, prefix.dropRight(4), remainingStack)
+        }
+      case last :: Nil =>
+        Seq(s"$prefix╙──${last.description}") ++
+        recTreeToString(last.children.toList, s"$prefix    ", Nil :: stack)
+      case next :: siblings =>
+        Seq(s"$prefix╟──${next.description}") ++
+        recTreeToString(next.children.toList, s"$prefix║   ", siblings :: stack)
     }
-
-    recTreeToString(List(this), "", Nil)
-    lines.mkString("\n")
   }
 }

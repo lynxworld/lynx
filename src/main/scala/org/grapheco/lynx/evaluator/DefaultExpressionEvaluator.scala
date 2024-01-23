@@ -62,7 +62,11 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       }).asInstanceOf[LynxPath]
         //.append(eval(m.toNode.get).asInstanceOf[LynxNode])
         //.append(evalPathStep(m.next))
-      case s: SingleRelationshipPathStep => LynxPath.singleRel(eval(s.rel).asInstanceOf[LynxRelationship])
+      case s: SingleRelationshipPathStep => LynxPath.singleRel(
+          eval(s.rel) match {
+            case r: LynxRelationship => r
+            case o: LynxList => o.v.head.asInstanceOf[LynxRelationship]
+          })
         .append(eval(s.toNode.get).asInstanceOf[LynxNode])
         .append(evalPathStep(s.next))
     }

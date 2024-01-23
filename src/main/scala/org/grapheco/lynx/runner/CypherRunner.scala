@@ -1,7 +1,6 @@
 package org.grapheco.lynx.runner
 
 import com.typesafe.scalalogging.LazyLogging
-import hu.webarticum.treeprinter.printer.boxing.BoxingTreePrinter
 import org.grapheco.lynx._
 import org.grapheco.lynx.dataframe.{DataFrameOperator, DefaultDataFrameOperator}
 import org.grapheco.lynx.evaluator.{DefaultExpressionEvaluator, ExpressionEvaluator}
@@ -10,7 +9,9 @@ import org.grapheco.lynx.logical.LogicalPlannerContext
 import org.grapheco.lynx.logical.plans.LogicalPlan
 import org.grapheco.lynx.optimizer.{DefaultPhysicalPlanOptimizer, PhysicalPlanOptimizer}
 import org.grapheco.lynx.parser.{CachedQueryParser, DefaultQueryParser, QueryParser}
-import org.grapheco.lynx.physical.{DefaultPhysicalPlanner, PPTNode, PhysicalPlanner, PhysicalPlannerContext}
+import org.grapheco.lynx.physical.planner.{DefaultPhysicalPlanner, PhysicalPlanner}
+import org.grapheco.lynx.physical.PhysicalPlannerContext
+import org.grapheco.lynx.physical.plans.PhysicalPlan
 import org.grapheco.lynx.procedure._
 import org.grapheco.lynx.types.{DefaultTypeSystem, TypeSystem}
 import org.grapheco.lynx.util.FormatUtils
@@ -90,9 +91,9 @@ class CypherRunner(var graphModel: GraphModel, var proceduresName: Seq[String] =
 
       override def getLogicalPlan(): LogicalPlan = logicalPlan
 
-      override def getPhysicalPlan(): PPTNode = physicalPlan
+      override def getPhysicalPlan(): PhysicalPlan = physicalPlan
 
-      override def getOptimizerPlan(): PPTNode = optimizedPhysicalPlan
+      override def getOptimizerPlan(): PhysicalPlan = optimizedPhysicalPlan
 
       override def cache(): LynxResult = {
         val source = this

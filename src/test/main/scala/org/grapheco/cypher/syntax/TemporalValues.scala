@@ -278,7 +278,7 @@ class TemporalValues extends TestBase {
     val thursday = LocalDate.now()
       .`with`(TemporalAdjusters.nextOrSame(java.time.DayOfWeek.THURSDAY))
     val formattedDate = thursday.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-    println(formattedDate)
+//    println(formattedDate)
     val records = runOnDemoGraph(
       "RETURN date.truncate('week', date(), { dayOfWeek: 4 }) AS thursday"
     ).records().map(f => f("thursday").value).toArray
