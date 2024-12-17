@@ -1,5 +1,7 @@
-新增函数支持, 修改了一系列函数实现
-修复collect(n)返回结果丢失n类型, 返回Any的问题
-完善functions文档
-调整项目结构, 目前拆分types
-完善了Duration和Time
+1.引入自动化格式工具Scalafmt
+ -- 添加 Scalafmt 插件到 SBT
+ -- 配置 Scalafmt
+ -- 将 Scalafmt 集成到 CI/CD
+2.更新throw信息，提供更详细的错误信息，指出是 Map 中缺少哪些关键信息导致无法解析
+
+小组成员：zwt、lls

@@ -1,0 +1,25 @@
+name: Format Scala Code
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 11
+        uses: actions/setup-java@v2
+        with:
+          java-version: '11'
+      - name: Set up SBT
+        run: |
+          echo "addSbtPlugin(\"org.scalameta\" % \"sbt-scalafmt\" % \"2.4.2\")" >> project/plugins.sbt
+          sbt update
+      - name: Format Scala Code
+        run: sbt scalafmt

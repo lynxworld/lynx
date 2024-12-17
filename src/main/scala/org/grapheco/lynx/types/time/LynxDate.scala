@@ -145,6 +145,6 @@ object LynxDate {
         case v: LynxString => v.value.toString.replace(" ", "_")
       })))
     }
-    throw LynxTemporalParseException("can not parse date from map")
+    throw LynxTemporalParseException(s"Missing required keys in the map to parse date. Map content: $map")//原来为throw LynxTemporalParseException("can not parse date from map") 更改后提供更详细的错误信息，指出是 Map 中缺少哪些关键信息导致无法解析
   }
 }
