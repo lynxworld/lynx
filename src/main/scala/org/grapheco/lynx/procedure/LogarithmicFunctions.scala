@@ -32,6 +32,11 @@ class LogarithmicFunctions {
     math.log10(x.number.doubleValue())
   }
 
+  @LynxProcedure(name = "logb")
+  def logb(base: LynxNumber, x: LynxNumber): Double = {
+    math.log(x.number.doubleValue()) / math.log(base.number.doubleValue())
+  }
+  
   @LynxProcedure(name = "sqrt")
   def sqrt(x: LynxNumber): Double = {
     math.sqrt(x.number.doubleValue())

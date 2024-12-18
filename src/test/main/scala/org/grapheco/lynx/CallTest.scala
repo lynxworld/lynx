@@ -179,6 +179,11 @@ class CallTest extends TestBase {
   }
 
   @Test
+  def testLogb(): Unit ={
+    Assertions.assertEquals(LynxFloat(3.0), runOnDemoGraph(s"return logb(8,2) as value").records().next()("value"))
+  }
+
+  @Test
   def testSqrt(): Unit ={
     Assertions.assertEquals(LynxFloat(16.0), runOnDemoGraph(s"return sqrt(256) as value").records().next()("value"))
   }
@@ -238,6 +243,20 @@ class CallTest extends TestBase {
     Assertions.assertEquals(LynxFloat(0.5463024898437905), runOnDemoGraph(s"return tan(0.5) as value").records().next()("value"))
   }
 
+  @Test
+  def testSinh(): Unit ={
+    Assertions.assertEquals(LynxFloat(0.5210953054937474), runOnDemoGraph(s"return sinh(0.5) as value").records().next()("value"))
+  }
+
+  @Test
+  def testCosh(): Unit ={
+    Assertions.assertEquals(LynxFloat(1.1276259652063807), runOnDemoGraph(s"return cosh(0.5) as value").records().next()("value"))
+  }
+
+  @Test
+  def testTanh(): Unit ={
+    Assertions.assertEquals(LynxFloat(0.46211715726000974), runOnDemoGraph(s"return tanh(0.5) as value").records().next()("value"))
+  }
   // String Functions
   @Test
   def testLeft(): Unit ={
