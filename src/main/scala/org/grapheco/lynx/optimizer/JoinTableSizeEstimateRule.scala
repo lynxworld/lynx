@@ -15,44 +15,38 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
 
   override def apply(plan: PhysicalPlan, ppc: PhysicalPlannerContext): PhysicalPlan = optimizeBottomUp(plan,
     {
-      case pnode: PhysicalPlan => {
-        pnode.children match {
-          case Seq(pj@Join(filterExpr, isSingleMatch, joinType)) => {
-            val res = joinRecursion(pj, ppc, isSingleMatch)
-            pnode.withChildren(Seq(res))
-          }
-          case _ => pnode
-        }
+      case pnode: PhysicalPlan if isJoinNode(pnode) => {
+        val joinedPlan = joinRecursion(pnode.asInstanceOf[Join], ppc, getIsSingleMatch(pnode))
+        pnode.withChildren(Seq(joinedPlan))
       }
+      case pnode => pnode
     }
   )
 
+  private def isJoinNode(plan: PhysicalPlan): Boolean = plan match {
+    case Join(_, _, _) => true
+    case _ => false
+  }
+
+  private def getIsSingleMatch(plan: PhysicalPlan): Boolean = plan match {
+    case Join(_, isSingleMatch, _) => isSingleMatch
+    case _ => false
+  }
+
   def estimateNodeRow(pattern: NodePattern, graphModel: GraphModel): Long = {
-    val countMap = mutable.Map[String, Long]()
-    val labels = pattern.labels.map(l => l.name)
-    val prop = pattern.properties.map({
-      case MapExpression(items) => {
-        items.map(
-          p => {
-            p._2 match {
-              case b: Literal => (p._1.name, b.value)
-              case _ => (p._1.name, null)
-            }
-          }
-        )
+    val labels = pattern.labels.map(_.name)
+    val prop = pattern.properties.collect {
+      case MapExpression(items) => items.map {
+        case p if p._2.isInstanceOf[Literal] => (p._1.name, p._2.value)
+        case _ => (p._1.name, null)
       }
-      case _ => return 0
-    })
+    }.flatten
 
     if (labels.nonEmpty) {
-      val minLabelAndCount = labels.map(label => (label, graphModel._helper.estimateNodeLabel(label))).minBy(f => f._2)
-
-      if (prop.isDefined) {
-        prop.get.map(f => graphModel._helper.estimateNodeProperty(minLabelAndCount._1, f._1, f._2)).min
-      }
-      else minLabelAndCount._2
-    }
-    else graphModel.statistics.numNode
+      val minLabelAndCount = labels.map(label => (label, graphModel._helper.estimateNodeLabel(label))).minBy(_._2)
+      val estimatedPropCount = if (prop.nonEmpty) prop.map(f => graphModel._helper.estimateNodeProperty(minLabelAndCount._1, f._1, f._2)).min else minLabelAndCount._2
+      estimatedPropCount
+    } else graphModel.statistics.numNode
   }
 
   def estimateRelationshipRow(rel: RelationshipPattern, left: NodePattern, right: NodePattern, graphModel: GraphModel): Long = {
@@ -75,30 +69,21 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
   }
 
   def joinRecursion(parent: Join, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PhysicalPlan = {
-    val t1 = parent.children.head
-    val t2 = parent.children.last
-
-    val table1 = t1 match {
-      case pj@Join(filterExpr, isSingleMatch, joinType) => joinRecursion(pj, ppc, isSingleMatch)
-      case pm@Merge(mergeSchema, mergeOps, onMatch, onCreate) => {
-        val res = joinRecursion(pm.children.head.asInstanceOf[Join], ppc, isSingleMatch)
-        pm.withChildren(Seq(res))
-      }
-      case _ => t1
-    }
-    val table2 = t2 match {
-      case pj@Join(filterExpr, isSingleMatch, joinType) => joinRecursion(pj, ppc, isSingleMatch)
-      case pm@Merge(mergeSchema, mergeOps, onMatch, onCreate) => {
-        val res = joinRecursion(pm.children.head.asInstanceOf[Join], ppc, isSingleMatch)
-        pm.withChildren(Seq(res))
-      }
-      case _ => t2
-    }
+    val table1 = getBaseTable(parent.children.head, ppc, isSingleMatch)
+    val table2 = getBaseTable(parent.children.last, ppc, isSingleMatch)
 
     if ((table1.isInstanceOf[NodeScan] || table1.isInstanceOf[RelationshipScan])
       && (table2.isInstanceOf[NodeScan] || table2.isInstanceOf[RelationshipScan])) {
       estimateTableSize(parent, table1, table2, ppc)
+    } else Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
+  }
+
+  private def getBaseTable(plan: PhysicalPlan, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PhysicalPlan = plan match {
+    case pj@Join(_, _, _) => joinRecursion(pj, ppc, isSingleMatch)
+    case pm@Merge(mergeSchema, mergeOps, onMatch, onCreate) => {
+      val res = joinRecursion(pm.children.head.asInstanceOf[Join], ppc, isSingleMatch)
+      pm.withChildren(Seq(res))
     }
-    else Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
+    case other => other
   }
 }

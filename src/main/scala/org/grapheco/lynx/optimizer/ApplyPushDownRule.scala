@@ -19,7 +19,8 @@ object ApplyPushDownRule extends PhysicalPlanOptimizerRule {
       ║
      [A]
      */
-    case apply: Apply => apply
+    // case apply: Apply => apply
+    case apply: Apply if apply.right.isEmpty => apply.left
   }
 
   private val APPLY_PUSH_DOWN: PartialFunction[PhysicalPlan, PhysicalPlan] = {
@@ -38,7 +39,8 @@ object ApplyPushDownRule extends PhysicalPlanOptimizerRule {
     case apply:Apply =>
       val A = apply.left
       val B = apply.right
-      val returnItemNames = A.get.schema.map(_._1)
+      // val returnItemNames = A.get.schema.map(_._1)
+      val returnItemNames = A.get.schema.map(_._1).toSet
 
       while (apply.right.isDefined
 //        && apply.right.get.children.length==1

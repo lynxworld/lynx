@@ -50,4 +50,15 @@ class NumericFunctions {
   def sign(x: LynxNumber): Double = {
     math.signum(x.number.doubleValue())
   }
+
+  @LynxProcedure(name = "trunc")
+  def trunc(x: LynxNumber, precision: Option[LynxNumber] = None): Double = {
+    precision match {
+      case Some(p) =>
+        val scale = math.pow(10, p.number.doubleValue()).toDouble
+        math.floor(x.number.doubleValue() * scale) / scale
+      case None =>
+        if (x.number.doubleValue() >= 0) math.floor(x.number.doubleValue()) else math.ceil(x.number.doubleValue())
+    }
+  }
 }

@@ -87,4 +87,14 @@ class TrigonometricFunctions {
   def tanh(x: LynxNumber): Double = {
     math.tanh(x.number.doubleValue())
   }
+
+  @LynxProcedure(name = "degrees")
+  def degrees(x: LynxNumber): Double = {
+    math.toDegrees(x.number.doubleValue())
+  }
+
+  @LynxProcedure(name = "radians")
+  def radians(x: LynxNumber): Double = {
+    math.toRadians(x.number.doubleValue())
+  }
 }

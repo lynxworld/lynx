@@ -41,4 +41,9 @@ class LogarithmicFunctions {
   def sqrt(x: LynxNumber): Double = {
     math.sqrt(x.number.doubleValue())
   }
+
+  @LynxProcedure(name = "power")
+  def power(x: LynxInteger, n: LynxInteger): Int = {
+    math.pow(x.value, n.value).toInt
+  }
 }
