@@ -17,9 +17,13 @@ object DataFrame {
 
   def apply(schema0: Seq[(String, LynxType)], records0: () => Iterator[Seq[LynxValue]]): DataFrame =
     new DataFrame {
-      override def schema: Seq[(String, LynxType)] = schema0
+      // 使用 lazy val 对 schema 和 records 进行懒加载和缓存，避免重复计算。
+      private lazy val cachedSchema = schema0
+      private lazy val cachedRecords = records0()
 
-      override def records: Iterator[Seq[LynxValue]] = records0()
+      override def schema: Seq[(String, LynxType)] = cachedSchema
+
+      override def records: Iterator[Seq[LynxValue]] = cachedRecords
     }
 
   def cached(schema0: Seq[(String, LynxType)], records: Seq[Seq[LynxValue]]): DataFrame =
@@ -32,8 +36,14 @@ object DataFrame {
 
     DataFrame(schema, () => Iterator.single(
       columns.map(col => {
-        expressionEvaluator.eval(col._2)(ctx)
-      })))
+        // 增加错误处理机制，捕获并抛出异常，提供有用的错误信息。
+        try {
+          expressionEvaluator.eval(col._2)(ctx)
+        } catch {
+          case e: Exception => throw new RuntimeException(s"Failed to evaluate expression for column ${col._1}", e)
+        }
+      })
+    ))
   }
 
   def updateColumns(colIndexs: Seq[Int], newColsValues: Seq[Iterator[LynxValue]], srcDF: DataFrame): DataFrame = {
