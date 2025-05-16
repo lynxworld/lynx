@@ -1,12 +1,11 @@
 package org.grapheco.lynx.physical.plans
 
 import org.grapheco.lynx.types.LynxType
-import org.grapheco.lynx.dataframe.{DataFrame, InnerJoin}
+import org.grapheco.lynx.dataframe.{DataFrame, InnerJoin, JoinType}
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.runner.ExecutionContext
 
-case class Apply()(l: PhysicalPlan, r: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends
-  DoublePhysicalPlan(l, r){
+case class Apply(joinType: JoinType = InnerJoin)(implicit val plannerContext: PhysicalPlannerContext) extends DoublePhysicalPlan{
 
   override def schema: Seq[(String, LynxType)] = this.left.get.schema ++ this.right.get.schema
 
@@ -19,7 +18,7 @@ case class Apply()(l: PhysicalPlan, r: PhysicalPlan, val plannerContext: Physica
     val df2 = applyTo.execute(ctx.withArguments(df1))
 //    val j = df2.join(df1, isSingleMatch = true, InnerJoin) //TODO inner?
 //    val j = df1.cross(df2)
-    val j = df1.join(df2, isSingleMatch = true, InnerJoin)
+    val j = df1.join(df2, isSingleMatch = true, joinType)
     j
   }
 

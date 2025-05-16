@@ -6,13 +6,10 @@ import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.runner.ExecutionContext
 import org.opencypher.v9_0.ast.ReturnItem
 
-case class Aggregation(aggregations: Seq[ReturnItem], groupings: Seq[ReturnItem])
-                      (l: PhysicalPlan, val plannerContext: PhysicalPlannerContext)
-  extends SinglePhysicalPlan(l) {
+case class Aggregation(aggregations: Seq[ReturnItem], groupings: Seq[ReturnItem])(implicit val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan {
 
   override def schema: Seq[(String, LynxType)] =
     (groupings ++ aggregations).map(x => x.name -> typeOf(x.expression, in.schema.toMap))
-
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)

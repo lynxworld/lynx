@@ -5,11 +5,17 @@ import org.grapheco.lynx.dataframe.DataFrame
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.runner._
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
+import org.grapheco.lynx.types.property.LynxNull
 import org.grapheco.lynx.types.structural._
 import org.opencypher.v9_0.expressions.{Expression, LabelName, ListLiteral, LogicalVariable, NodePattern, Range, RelTypeName, RelationshipPattern, SemanticDirection}
 
-case class Expand(rel: RelationshipPattern, rightNode: NodePattern)(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext)
-  extends SinglePhysicalPlan(l) {
+abstract class ExpandPlan(relVariable: String, nodeVariable: String)(implicit val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan {
+  override def schema: Seq[(String, LynxType)] = in.schema ++ Seq(relVariable -> LTRelationship, nodeVariable -> LTNode)
+}
+
+
+case class Expand(rel: RelationshipPattern, rightNode: NodePattern, optional: Boolean = false)(implicit val plannerContext: PhysicalPlannerContext)
+  extends SinglePhysicalPlan {
 
   override val schema: Seq[(String, LynxType)] = {
     val RelationshipPattern(
@@ -85,7 +91,8 @@ case class Expand(rel: RelationshipPattern, rightNode: NodePattern)(l: PhysicalP
             )
             .filter(_.endNode.forall(endNodeFilter.matches(_)))
 
-          exd.map { path =>
+          if (exd.isEmpty) Seq(record.:+(LynxNull).:+(LynxNull))
+          else exd.map { path =>
             record.:+(LynxList(path.relationships)).:+(path.endNode.get)
           }
         //            .filter(item => { // TODO: rewrite this filter as a PPT

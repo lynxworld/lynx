@@ -8,8 +8,8 @@ import org.grapheco.lynx.runner.ExecutionContext
 import org.opencypher.v9_0.ast.{AscSortItem, DescSortItem, SortItem}
 import org.opencypher.v9_0.expressions.Expression
 
-case class OrderBy(sortItem: Seq[SortItem])(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext)
-  extends SinglePhysicalPlan(l) {
+case class OrderBy(sortItem: Seq[SortItem])(implicit val plannerContext: PhysicalPlannerContext)
+  extends SinglePhysicalPlan {
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)

@@ -9,6 +9,18 @@ import org.grapheco.lynx.types.structural.{LynxNodeLabel, LynxPropertyKey, LynxR
 import org.grapheco.lynx.runner
 import org.opencypher.v9_0.expressions.{Expression, LabelName, ListLiteral, LogicalVariable, NodePattern, Range, RelTypeName, RelationshipPattern, SemanticDirection}
 
+sealed abstract class RelationshipsPlan(variable: String) extends LeafPhysicalPlan {
+  override def schema: Seq[(String, LynxType)] = Seq(variable -> LTRelationship)
+}
+
+case class RelationshipsPlanFactory(variable: String)(implicit val plannerContext: PhysicalPlannerContext){
+
+}
+
+case class AllRelationships()(variable: String)(implicit val plannerContext: PhysicalPlannerContext) extends RelationshipsPlan(variable) {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = ???
+}
+
 case class RelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, rightNode: NodePattern)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
 
   override val schema: Seq[(String, LynxType)] = {

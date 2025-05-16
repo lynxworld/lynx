@@ -9,7 +9,7 @@ import org.grapheco.lynx.types.structural.{LynxId, LynxNodeLabel, LynxPropertyKe
 import org.grapheco.lynx.{runner}
 import org.opencypher.v9_0.expressions.{Expression, LabelName, ListLiteral, LogicalVariable, NodePattern, Range, RelTypeName, RelationshipPattern, SemanticDirection}
 
-case class ShortestPath(rel: RelationshipPattern, leftNode: NodePattern, rightNode: NodePattern, single: Boolean, resName: String)(val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
+case class ShortestPath(rel: RelationshipPattern, leftNode: NodePattern, rightNode: NodePattern, single: Boolean, resName: String)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
 
 
   override val schema: Seq[(String, LynxType)] = {

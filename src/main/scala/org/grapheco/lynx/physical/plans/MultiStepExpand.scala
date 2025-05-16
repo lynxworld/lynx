@@ -10,7 +10,7 @@ import org.opencypher.v9_0.expressions.{Expression, LabelName, ListLiteral, Logi
 
 case class MultiStepExpand(rel: RelationshipPattern,
                            rightNode: NodePattern
-                          )(implicit in: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
+                          )(implicit val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan {
 
   override val schema: Seq[(String, LynxType)] = {
     val RelationshipPattern(

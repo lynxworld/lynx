@@ -14,7 +14,7 @@ import org.opencypher.v9_0.expressions.Expression
  * @param in
  * @param plannerContext
  */
-case class Delete(expressions: Seq[Expression], forced: Boolean)(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan(l) {
+case class Delete(expressions: Seq[Expression], forced: Boolean)(implicit val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan {
 
   override def schema: Seq[(String, LynxType)] = Seq.empty
 

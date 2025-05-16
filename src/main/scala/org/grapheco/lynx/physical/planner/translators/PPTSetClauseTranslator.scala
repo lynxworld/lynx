@@ -8,6 +8,6 @@ import org.opencypher.v9_0.ast.SetItem
 //////// SET ///////
 case class PPTSetClauseTranslator(setItems: Seq[SetItem]) extends PPTNodeTranslator {
   override def translate(in: Option[PhysicalPlan])(implicit ppc: PhysicalPlannerContext): PhysicalPlan = {
-    Set(setItems)(in.get, ppc)
+    Set(setItems).withChildren(in)
   }
 }

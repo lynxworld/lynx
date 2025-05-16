@@ -33,7 +33,7 @@ case class PPTMergeTranslator(p: Pattern, a: Seq[MergeAction]) extends PPTNodeTr
     Merge(mergeSchema,
       mergeOps,
       a collect { case m: OnMatch => m },
-      a collect { case c: OnCreate => c })(in, plannerContext)
+      a collect { case c: OnCreate => c }).withChildren(in)
   }
 
   private def buildMerge(chain: RelationshipChain, definedVars: Set[String], mergeSchema: mutable.ArrayBuffer[(String, LynxType)], mergeOps: mutable.ArrayBuffer[FormalElement]): String = {

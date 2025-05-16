@@ -1,4 +1,3 @@
 package org.grapheco.lynx
 
-trait LynxException extends RuntimeException {
-}
+trait LynxException extends RuntimeException

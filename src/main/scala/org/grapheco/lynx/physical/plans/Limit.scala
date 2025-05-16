@@ -7,8 +7,8 @@ import org.grapheco.lynx.runner.ExecutionContext
 import org.grapheco.lynx.types.property.LynxInteger
 import org.opencypher.v9_0.expressions.Expression
 
-case class Limit(expr: Expression)(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext)
-  extends SinglePhysicalPlan(l) {
+case class Limit(expr: Expression)(implicit val plannerContext: PhysicalPlannerContext)
+  extends SinglePhysicalPlan {
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)

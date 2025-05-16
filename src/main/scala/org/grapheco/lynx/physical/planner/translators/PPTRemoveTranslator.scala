@@ -8,6 +8,6 @@ import org.opencypher.v9_0.ast.RemoveItem
 /////////REMOVE//////////////
 case class PPTRemoveTranslator(removeItems: Seq[RemoveItem]) extends PPTNodeTranslator {
   override def translate(in: Option[PhysicalPlan])(implicit ppc: PhysicalPlannerContext): PhysicalPlan = {
-    Remove(removeItems)(in.get, ppc)
+    Remove(removeItems).withChildren(in)
   }
 }

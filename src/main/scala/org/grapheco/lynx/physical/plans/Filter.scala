@@ -8,7 +8,7 @@ import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.{LynxBoolean, LynxNull}
 import org.opencypher.v9_0.expressions.Expression
 
-case class Filter(expr: Expression)(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan(l) {
+case class Filter(expr: Expression)(implicit val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan {
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)

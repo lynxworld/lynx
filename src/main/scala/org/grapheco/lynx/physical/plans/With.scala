@@ -6,8 +6,8 @@ import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.runner.ExecutionContext
 import org.opencypher.v9_0.ast.ReturnItems
 
-case class With(ri: ReturnItems)(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext)
-  extends SinglePhysicalPlan(l) {
+case class With(ri: ReturnItems)(implicit val plannerContext: PhysicalPlannerContext)
+  extends SinglePhysicalPlan {
   override def schema: Seq[(String, LynxType)] = ri.items.map(x => x.name)
     .map(x => x -> in.schema.toMap.get(x).get)
 

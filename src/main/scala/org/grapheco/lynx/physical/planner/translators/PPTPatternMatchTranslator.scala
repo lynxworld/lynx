@@ -1,11 +1,12 @@
 package org.grapheco.lynx.physical.planner.translators
-
+import org.grapheco.lynx.logical.plans.ASTConvertor._
 import org.grapheco.lynx.logical.plans.LogicalPatternMatch
 import org.grapheco.lynx.physical
 import org.grapheco.lynx.physical.planner.PPTNodeTranslator
-import org.grapheco.lynx.physical.plans.{FromArgument, Expand, NodeScan, RelationshipScan, PhysicalPlan}
+import org.grapheco.lynx.physical.plans.{Expand, FromArgument, NodeScanByLabel, PhysicalPlan, RelationshipScan}
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.opencypher.v9_0.expressions.{NodePattern, RelationshipPattern}
+import scala.language.implicitConversions
 
 // TODO: very complex, need more think!
 case class PPTPatternMatchTranslator(patternMatch: LogicalPatternMatch)(implicit val plannerContext: PhysicalPlannerContext) extends PPTNodeTranslator {
@@ -19,18 +20,19 @@ case class PPTPatternMatchTranslator(patternMatch: LogicalPatternMatch)(implicit
         case Nil => FromArgument(headNode.variable.get.name)(ppc)
         //match (m)-[r]-(n)
 //        case List(Tuple2(rel, rightNode)) => RelationshipScan(rel, headNode, rightNode)(ppc)
-        case List(Tuple2(rel, rightNode)) => Expand(rel, rightNode)(FromArgument(headNode.variable.get.name)(ppc), plannerContext)
+        case List(Tuple2(rel, rightNode)) => Expand(rel, rightNode, optional)(plannerContext).withChildren(Some(FromArgument(headNode.variable.get.name)(ppc)))
         //match (m)-[r]-(n)-...-[p]-(z)
         case _ =>
           val (lastRelationship, lastNode) = chain.last
           val dropped = chain.dropRight(1)
           val part = planPatternMatch(LogicalPatternMatch(optional, variableName, headNode, dropped))(ppc)
-          Expand(lastRelationship, lastNode)(part, plannerContext)
+          Expand(lastRelationship, lastNode, optional)(plannerContext).withChildren(Some(part))
       }
     } else {
       chain.toList match {
         //match (m)
-        case Nil => NodeScan(headNode)(ppc)
+        case Nil =>NodeScanByLabel(headNode)(headNode.variable.get.toString)(ppc)
+
         //match (m)-[r]-(n)
         case List(Tuple2(rel, rightNode)) => RelationshipScan(rel, headNode, rightNode)(ppc)
         //match (m)-[r]-(n)-...-[p]-(z)
@@ -38,7 +40,7 @@ case class PPTPatternMatchTranslator(patternMatch: LogicalPatternMatch)(implicit
           val (lastRelationship, lastNode) = chain.last
           val dropped = chain.dropRight(1)
           val part = planPatternMatch(LogicalPatternMatch(optional, variableName, headNode, dropped))(ppc)
-          Expand(lastRelationship, lastNode)(part, plannerContext)
+          Expand(lastRelationship, lastNode)(plannerContext).withChildren(Some(part))
       }
     }
   }
