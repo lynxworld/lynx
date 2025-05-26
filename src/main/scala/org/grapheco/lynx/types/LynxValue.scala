@@ -1,5 +1,6 @@
 package org.grapheco.lynx.types
 
+import org.grapheco.lynx.types.LazyLynxValue.initLazyLynxValue
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property.{LynxBoolean, LynxFloat, LynxInteger, LynxNull, LynxNumber, LynxString}
 import org.grapheco.lynx.types.spatial.{Cartesian2D, Cartesian3D, Geographic2D, Geographic3D, LynxPoint}
@@ -94,6 +95,43 @@ trait LynxValue extends Comparable[LynxValue] {
 
 }
 
+case class LazyLynxValue( func: () => LynxValue ) extends LynxValue {
+  override def sameTypeCompareTo(o: LynxValue): Int = underLying.sameTypeCompareTo(initLazyLynxValue(o))
+
+  override def typeOrder(lynxValue: LynxValue): Int = super.typeOrder(underLying)
+
+  override def compareTo(o: LynxValue): Int = underLying.compareTo(initLazyLynxValue(o))
+
+  override def value: Any = underLying.value
+
+  lazy val underLying: LynxValue = func()
+
+  override def lynxType: LynxType = underLying.lynxType
+
+  override def compareOrder: Int = 100
+
+  override def toString: String = underLying.toString
+
+  override def equals(obj: Any): Boolean = {
+    obj match {
+      case lv: LazyLynxValue => underLying == lv.underLying
+      case lv: LynxValue => underLying == lv
+      case _ => false
+    }
+  }
+
+  override def hashCode(): Int = underLying.hashCode()
+
+}
+
+object LazyLynxValue {
+  implicit def forceLazy(lazyValue: LazyLynxValue): LynxValue = lazyValue.underLying
+
+  def initLazyLynxValue(lynxValue: LynxValue): LynxValue = lynxValue match {
+    case lv: LazyLynxValue => lv.underLying
+    case _ => lynxValue
+  }
+}
 object LynxValue {
   def apply(value: Any): LynxValue = value match {
     case null => LynxNull

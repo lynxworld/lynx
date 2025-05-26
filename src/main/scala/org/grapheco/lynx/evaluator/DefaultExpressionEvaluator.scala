@@ -7,14 +7,13 @@ import org.grapheco.lynx.types.property._
 import org.grapheco.lynx.types.structural._
 import org.grapheco.lynx.types.time._
 import org.grapheco.lynx.types.traits.{HasProperty, LynxComputable}
-import org.grapheco.lynx.types.{LTAny, LTBoolean, LTFloat, LTInteger, LTList, LTString, LynxType, LynxValue, TypeSystem}
+import org.grapheco.lynx.types.{CT2LT, LTAny, LTBoolean, LTFloat, LTInteger, LTList, LTString, LazyLynxValue, LynxType, LynxValue, TypeSystem}
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.expressions.functions.{Collect, Id}
 import org.opencypher.v9_0.util.symbols.ListType
 
 import scala.math.abs
 import scala.util.matching.Regex
-import org.grapheco.lynx.types.CT2LT
 /**
  * @ClassName DefaultExpressionEvaluator
  * @Description
@@ -89,7 +88,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
   override def eval(expr: Expression)(implicit ec: ExpressionContext): LynxValue = {
 
-    expr match {
+    val value: LynxValue = expr match {
       case HasLabels(expression, labels) =>
         eval(expression) match {
           case node: LynxNode => LynxBoolean(labels.forall(label => node.labels.map(_.value).contains(label.name)))
@@ -452,6 +451,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         ???
       }
     }
+    LazyLynxValue.initLazyLynxValue(value)
   }
 
   override def aggregateEval(expr: Expression)(ecs: Iterator[ExpressionContext]): LynxValue = {

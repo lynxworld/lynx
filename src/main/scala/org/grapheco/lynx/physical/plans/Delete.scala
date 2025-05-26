@@ -1,6 +1,6 @@
 package org.grapheco.lynx.physical.plans
 
-import org.grapheco.lynx.types.{LTNode, LTPath, LTRelationship, LynxType, LynxValue}
+import org.grapheco.lynx.types.{LTNode, LTPath, LTRelationship, LazyLynxValue, LynxType, LynxValue}
 import org.grapheco.lynx.dataframe.DataFrame
 import org.grapheco.lynx.physical.{PhysicalPlannerContext, SyntaxErrorException}
 import org.grapheco.lynx.runner.ExecutionContext
@@ -26,11 +26,11 @@ case class Delete(expressions: Seq[Expression], forced: Boolean)(l: PhysicalPlan
       elementType match {
         case LTNode => graphModel.deleteNodesSafely(
           dropNull(projected.records) map {
-            _.asInstanceOf[LynxNode].id
+            LazyLynxValue.initLazyLynxValue(_).asInstanceOf[LynxNode].id
           }, forced)
         case LTRelationship => graphModel.deleteRelations(
           dropNull(projected.records) map {
-            _.asInstanceOf[LynxRelationship].id
+            LazyLynxValue.initLazyLynxValue(_).asInstanceOf[LynxRelationship].id
           })
         case LTPath =>
         case _ => throw SyntaxErrorException(s"expected Node, Path pr Relationship, but a ${elementType}")

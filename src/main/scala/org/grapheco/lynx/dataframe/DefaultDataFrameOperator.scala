@@ -1,9 +1,10 @@
 package org.grapheco.lynx.dataframe
 
 import org.grapheco.lynx.evaluator.{ExpressionContext, ExpressionEvaluator}
-import org.grapheco.lynx.types.{LynxType, LynxValue}
+import org.grapheco.lynx.types.{LazyLynxValue, LynxType, LynxValue}
 import org.grapheco.lynx.util.{ParallelismConfig, Profiler}
-import org.opencypher.v9_0.expressions.Expression
+import org.opencypher.v9_0.expressions.{Expression, Variable}
+import org.opencypher.v9_0.util.InputPosition
 
 /**
  * @Author: Airzihao
@@ -26,15 +27,19 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
     DataFrame(df.schema, () => df.records.grouped(ParallelismConfig.parallelism).flatMap(_.par.filter(predicate)))
 
   override def project(df: DataFrame, columns: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame = {
-    val newSchema: Seq[(String, LynxType)] = columns.map {
+    val schema: Seq[(String, LynxType)] = columns.map {
       case (name, expression) => name -> expressionEvaluator.typeOf(expression, df.schema.toMap)
     }
+
+    val newSchema: Seq[(String, LynxType)] = df.schema.filterNot(col => schema.map(_._1).contains(col._1)) ++ schema
+    val newColumns: Seq[(String, Expression)] = df.schema.filterNot(col => schema.map(_._1).contains(col._1))
+      .map(col => (col._1, Variable(col._1)(InputPosition(0,0,0)))) ++ columns
 
     DataFrame(newSchema,
       () => df.records.map(
         record => {
           val recordCtx = ctx.withVars(df.columnsName.zip(record).toMap)
-          columns.map(col => expressionEvaluator.eval(col._2)(recordCtx)) //TODO: to opt
+          newColumns.map(col => LazyLynxValue(() => expressionEvaluator.eval(col._2)(recordCtx))) //TODO: to opt
         }
       )
     )

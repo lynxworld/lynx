@@ -1,6 +1,7 @@
 package org.grapheco.lynx.physical.plans
 
-import org.grapheco.lynx.types.{LTNode, LTRelationship, LynxType, LynxValue}
+import org.apache.commons.lang3.concurrent.LazyInitializer
+import org.grapheco.lynx.types.{LTNode, LTRelationship, LazyLynxValue, LynxType, LynxValue}
 import org.grapheco.lynx.dataframe.DataFrame
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.runner._
@@ -73,7 +74,7 @@ case class Expand(rel: RelationshipPattern, rightNode: NodePattern)(l: PhysicalP
     DataFrame(df.schema ++ schema0, () => {
       df.records.flatMap {
         record =>
-          val path = record.last match {
+          val path = LazyLynxValue.initLazyLynxValue(record.last) match {
             case p: LynxPath => p
             case n: LynxNode => LynxPath.startPoint(n)
           }
