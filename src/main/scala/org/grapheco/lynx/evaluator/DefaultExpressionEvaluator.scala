@@ -436,7 +436,12 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
             var result = list
             if (scope.innerPredicate.isDefined) {
               result = LynxList(list.v.filter {
-                listValue => eval(scope.innerPredicate.get)(ec.withVars(ec.vars + (variableName -> listValue))).asInstanceOf[LynxBoolean].value
+                listValue => val value = eval(scope.innerPredicate.get)(ec.withVars(ec.vars + (variableName -> listValue)))
+                  value match {
+                    case l@LynxList(list) => list.nonEmpty
+                    case l@LynxBoolean(v) => v
+                    case _ => false
+                  }
               })
             }
 
