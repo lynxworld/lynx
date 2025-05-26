@@ -258,6 +258,13 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
         eval(src) match {
           case LynxNull => LynxNull
           case hp: HasProperty => hp.property(LynxPropertyKey(name)).getOrElse(LynxNull)
+          //TODO Temporary modification
+          case l: LynxList => val r = l.value.map(v => v match {
+            case hp: HasProperty => hp.property(LynxPropertyKey(name)).getOrElse(LynxNull)
+            case _ => LynxNull
+          }).filter(_!=LynxNull)
+            if(r.length == 1) r.head else LynxList(r)
+          case _ => LynxNull
         }
 
       case In(lhs, rhs) =>
