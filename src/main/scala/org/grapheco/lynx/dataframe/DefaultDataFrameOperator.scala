@@ -2,7 +2,7 @@ package org.grapheco.lynx.dataframe
 
 import org.grapheco.lynx.evaluator.{ExpressionContext, ExpressionEvaluator}
 import org.grapheco.lynx.types.{LynxType, LynxValue}
-import org.grapheco.lynx.util.Profiler
+import org.grapheco.lynx.util.{ParallelismConfig, Profiler}
 import org.opencypher.v9_0.expressions.Expression
 
 /**
@@ -23,7 +23,7 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
   }
 
   override def filter(df: DataFrame, predicate: Seq[LynxValue] => Boolean)(ctx: ExpressionContext): DataFrame =
-    DataFrame(df.schema, () => df.records.filter(predicate))
+    DataFrame(df.schema, () => df.records.grouped(ParallelismConfig.parallelism).flatMap(_.par.filter(predicate)))
 
   override def project(df: DataFrame, columns: Seq[(String, Expression)])(ctx: ExpressionContext): DataFrame = {
     val newSchema: Seq[(String, LynxType)] = columns.map {
@@ -75,7 +75,9 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
 
   override def join(a: DataFrame, b: DataFrame, joinColumns: Seq[String], joinType: JoinType): DataFrame = {
     // Select the connection algorithm based on heuristic rules
-    JoinerSelector.chooseJoin(a, b, joinColumns, joinType)
+//    TODO need DataFrame but found  (DataFrame, DataFrame, Seq[String], JoinType) => DataFrame
+//    JoinerSelector.chooseJoiner(a, b, joinColumns, joinType)
+    SortMergeJoiner.join(a, b, joinColumns, joinType)
   }
 
   override def cross(a: DataFrame, b: DataFrame): DataFrame = {
