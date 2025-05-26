@@ -85,13 +85,17 @@ object SortMergeJoiner {
       }
     }
 
-    while (indexOfA < sortedTableA.length) {
-      joinedDataFrame.append(sortedTableA(indexOfA) ++ new Array[Int](sortedTableB.head.length).map(_ => LynxNull))
-      indexOfA += 1
+    if(sortedTableB.length>0){
+      while (indexOfA < sortedTableA.length) {
+        joinedDataFrame.append(sortedTableA(indexOfA) ++ new Array[Int](sortedTableB.head.length).map(_ => LynxNull))
+        indexOfA += 1
+      }
     }
-    while (indexOfB < sortedTableB.length) {
-      joinedDataFrame.append(new Array[Int](sortedTableA.head.length).map(_ => LynxNull) ++ sortedTableB(indexOfB))
-      indexOfB += 1
+    if(sortedTableA.length>0){
+      while (indexOfB < sortedTableB.length) {
+        joinedDataFrame.append(new Array[Int](sortedTableA.head.length).map(_ => LynxNull) ++ sortedTableB(indexOfB))
+        indexOfB += 1
+      }
     }
 
     DataFrame(joinedSchema, () => joinedDataFrame.toIterator)
