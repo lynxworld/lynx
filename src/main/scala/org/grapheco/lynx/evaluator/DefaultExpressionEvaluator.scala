@@ -196,7 +196,17 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case Equals(lhs, rhs) => (eval(lhs), eval(rhs)) match {
         case (LynxNull, _) => LynxNull
         case (_, LynxNull) => LynxNull
-        case (l, r) => LynxBoolean(l == r)
+        case (l, r) =>
+          //          TODO Aggregate function sum（LynxInteger） => LynxInteger
+          val r1 = r match {
+            case v:LynxInteger => LynxFloat(v.value.toDouble)
+            case _ => r
+          }
+          val l1 = l match {
+            case v:LynxInteger => LynxFloat(v.value.toDouble)
+            case _ => l
+          }
+          LynxBoolean(l1 == r1)
       }
 
       case GreaterThan(lhs, rhs) =>
