@@ -72,4 +72,19 @@ class TrigonometricFunctions {
   def tan(x: LynxNumber): Double = {
     math.tan(x.number.doubleValue())
   }
+
+  @LynxProcedure(name = "sinh")
+  def sinh(x: LynxNumber): Double = {
+    math.sinh(x.number.doubleValue())
+  }
+
+  @LynxProcedure(name = "cosh")
+  def cosh(x: LynxNumber): Double = {
+    math.cosh(x.number.doubleValue())
+  }
+
+  @LynxProcedure(name = "tanh")
+  def tanh(x: LynxNumber): Double = {
+    math.tanh(x.number.doubleValue())
+  }
 }

@@ -1,6 +1,6 @@
 package org.grapheco.lynx.optimizer
 
-import org.grapheco.lynx.physical.plans.{Cross, Expand, Filter, Join, NodeScan, RelationshipScan, ShortestPath, PhysicalPlan}
+import org.grapheco.lynx.physical.plans.{Cross, Expand, Filter, Join, NodeScan, NodeSeekByID, PhysicalPlan, RelationshipScan, ShortestPath}
 import org.grapheco.lynx.physical._
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.util.InputPosition
@@ -106,12 +106,7 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
         exprs.size match {
           case 0 => {}
           case _ => {
-            propertyMap += name -> Option(
-              ListLiteral(Seq(
-                MapExpression(List(exprs: _*))(InputPosition(0, 0, 0))
-                , MapExpression(List(propOpsItems(name): _*))(InputPosition(0, 0, 0))
-              ))(InputPosition(0, 0, 0))
-            )
+            propertyMap += name -> Option(MapExpression(List(exprs: _*))(InputPosition(0, 0, 0)))
           }
         }
     }
@@ -240,6 +235,19 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
     }
   }
 
+  def patternToPlan(pattern: NodePattern)(ppc: PhysicalPlannerContext): PhysicalPlan = {
+    val prop = pattern.properties
+    prop match {
+      case Some(m:MapExpression) =>
+        val id = m.items.find(_._1.name.equals("_lynx_sys_id")).map(_._2)
+        if (id.isDefined)
+          NodeSeekByID(pattern.variable, id)(ppc)
+        else
+          plans.NodeScan(pattern)(ppc)
+      case _ => plans.NodeScan(pattern)(ppc)
+    }
+  }
+
   /**
    *
    * @param pf    the PPTFilter
@@ -252,8 +260,8 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
       case Seq(pns@NodeScan(pattern)) => {
         val patternAndSet =  handleNodeAndsExpression(pf.expr, pattern)
         if (patternAndSet._3) {
-          if (patternAndSet._2.isEmpty) (Seq(plans.NodeScan(patternAndSet._1)(ppc)), true)
-          else (Seq(plans.Filter(patternAndSet._2.head)(plans.NodeScan(patternAndSet._1)(ppc), ppc)), true)
+          if (patternAndSet._2.isEmpty) (Seq(patternToPlan(patternAndSet._1)(ppc)), true)
+          else (Seq(plans.Filter(patternAndSet._2.head)(patternToPlan(patternAndSet._1)(ppc), ppc)), true)
         }
         else (null, false)
       }
@@ -416,14 +424,21 @@ object PPTFilterPushDownRule extends PhysicalPlanOptimizerRule {
       else node.labels
     }
     val propCheck = nodeProperties.get(node.variable.get.name)
-    val props = {
-      if (propCheck.isDefined) {
-        if (node.properties.isDefined)
-          Option(Ands(Set(node.properties.get, propCheck.get.get))(InputPosition(0, 0, 0)))
-        else propCheck.get
-      }
-      else node.properties
+    val props = (propCheck,node.properties) match {
+      case (Some(Some(m:MapExpression)), Some(n:MapExpression)) => Some(MapExpression(m.items++n.items)(m.position))
+      case (Some(Some(m:Expression)), Some(n:Expression)) => Some(Ands(Set(m,n))(m.position))
+      case (Some(Some(m:MapExpression)), None) => Some(m)
+      case (None, n) => n
+      case (_,_) => None
     }
+//    {
+//      if (propCheck.isDefined) {
+//        if (node.properties.isDefined)
+//          Option(Ands(Set(node.properties.get, propCheck.get.get))(InputPosition(0, 0, 0)))
+//        else propCheck.get
+//      }
+//      else node.properties
+//    }
     NodePattern(node.variable, label, props, node.baseNode)(node.position)
   }
 

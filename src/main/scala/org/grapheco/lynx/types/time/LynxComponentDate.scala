@@ -246,6 +246,8 @@ object LynxComponentDate {
   def getYearMonthDay(dateStr: String): (Int, Int, Int) = {
     val YYYY_MM_DD: Regex = "^([0-9]{4})-([0-9]{2})-([0-9]{2})$".r
     val YYYYMMDD: Regex = "^([0-9]{4})([0-9]{2})([0-9]{2})$".r
+    // 识别 'YYYY/MM/DD'
+    val YYYY_SLASH_MM_SLASH_DD: Regex = "^([0-9]{4})/([0-9]{2})/([0-9]{2})$".r
     val YYYY_MM: Regex = "^([0-9]{4})-([0-9]{2})$".r
     val YYYYMM: Regex = "^([0-9]{4})([0-9]{2})$".r
     val YYYY_Www_D: Regex = "^[-,+]?([0-9]{4})-W([0-9]{2})-([1-7]{1})$".r
@@ -263,6 +265,7 @@ object LynxComponentDate {
     dateStr match {
       case YYYY_MM_DD(year, month, day) => (year.toInt, month.toInt, day.toInt)
       case YYYYMMDD(year, month, day) => (year.toInt, month.toInt, day.toInt)
+      case YYYY_SLASH_MM_SLASH_DD(year, month, day) => (year.toInt, month.toInt, day.toInt)
       case YYYY_MM(year, month) => (year.toInt, month.toInt, 1)
       case YYYYMM(year, month) => (year.toInt, month.toInt, 1)
       case YYYY_Www_D(year, week, day) => transformYearWeekDay(Map("year" -> year.toInt, "week" -> week.toInt, "dayOfWeek" -> day.toInt))

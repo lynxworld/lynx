@@ -87,7 +87,7 @@ class CallTest extends TestBase {
     runOnDemoGraph("CREATE (:profile {works: duration('P18DT16H12M'), history: duration({years: 10.2, months: 5, days: 14, hours:16, minutes: 12})})")
     runOnDemoGraph("CREATE (:profile {works: duration('P10DT16H12M'), history: duration({seconds: 1, milliseconds: 123, microseconds: 456, nanoseconds: 789})})")
     val rs = runOnDemoGraph("match (n:profile) return avg(n.works), sum(n.history)").records().next()
-    Assertions.assertEquals(LynxDuration.parse("PT352H12M"), rs("avg(n.works)"))
+    Assertions.assertEquals(LynxDuration.parse("P14DT16H12M"), rs("avg(n.works)"))
     Assertions.assertEquals(LynxDuration.parse("PT93304H12M1.123123725S"), rs("sum(n.history)"))
   }
 
@@ -179,6 +179,11 @@ class CallTest extends TestBase {
   }
 
   @Test
+  def testLogb(): Unit ={
+    Assertions.assertEquals(LynxFloat(3.0), runOnDemoGraph(s"return logb(8,2) as value").records().next()("value"))
+  }
+
+  @Test
   def testSqrt(): Unit ={
     Assertions.assertEquals(LynxFloat(16.0), runOnDemoGraph(s"return sqrt(256) as value").records().next()("value"))
   }
@@ -236,6 +241,31 @@ class CallTest extends TestBase {
   @Test
   def testTan(): Unit ={
     Assertions.assertEquals(LynxFloat(0.5463024898437905), runOnDemoGraph(s"return tan(0.5) as value").records().next()("value"))
+  }
+
+  @Test
+  def testSinh(): Unit ={
+    Assertions.assertEquals(LynxFloat(0.5210953054937474), runOnDemoGraph(s"return sinh(0.5) as value").records().next()("value"))
+  }
+
+  @Test
+  def testCosh(): Unit ={
+    Assertions.assertEquals(LynxFloat(1.1276259652063807), runOnDemoGraph(s"return cosh(0.5) as value").records().next()("value"))
+  }
+
+  @Test
+  def testTanh(): Unit ={
+    Assertions.assertEquals(LynxFloat(0.46211715726000974), runOnDemoGraph(s"return tanh(0.5) as value").records().next()("value"))
+  }
+  @Test
+  def testComplexQueryWithAggregation(): Unit = {
+    runOnDemoGraph("CREATE (a:person {name: 'John', age: 25}), (b:person {name: 'Alice', age: 30}), (c:person {name: 'Bob', age: 35}), (d:person {name: 'Charlie', age: 40})")
+    runOnDemoGraph("MATCH (a:person), (b:person) WHERE a.name <> b.name CREATE (a)-[:KNOWS]->(b)")
+
+    val rs = runOnDemoGraph("MATCH (n:person)-[:KNOWS]->() RETURN avg(n.age) AS avg_age, max(n.age) AS max_age, min(n.age) AS min_age").records().next()
+    Assertions.assertEquals(LynxFloat(32.5), rs("avg_age"))
+    Assertions.assertEquals(LynxInteger(40), rs("max_age"))
+    Assertions.assertEquals(LynxInteger(25), rs("min_age"))
   }
 
   // String Functions
@@ -319,3 +349,5 @@ class CallTest extends TestBase {
     Assertions.assertEquals(false, runOnDemoGraph("Match p = ()-[:NOT_KNOW]-() return length(p);").records().hasNext)
   }
 }
+
+

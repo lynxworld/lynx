@@ -29,8 +29,13 @@ case class LynxDuration(duration: String, map: Map[String, Int] = Map("days" -> 
   def value: Duration = Duration.ofNanos(nano)
 
   override def toString: String = duration
-
-
+  override def equals(obj: Any): Boolean = obj match {
+    case that: LynxDuration =>
+      val isEqual = this.duration == that.duration
+      isEqual
+    case _ => false
+  }
+  
   def +(that: LynxDuration): LynxDuration = LynxDuration.parse(value.plus(that.value).toString, true)
 
   def -(that: LynxDuration): LynxDuration = LynxDuration.parse(value.minus(that.value).toString, true)

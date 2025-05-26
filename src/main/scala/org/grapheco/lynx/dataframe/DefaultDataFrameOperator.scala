@@ -74,7 +74,8 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
   override def take(df: DataFrame, num: Int): DataFrame = DataFrame(df.schema, () => df.records.take(num))
 
   override def join(a: DataFrame, b: DataFrame, joinColumns: Seq[String], joinType: JoinType): DataFrame = {
-    SortMergeJoiner.join(a, b, joinColumns, joinType)
+    // Select the connection algorithm based on heuristic rules
+    JoinerSelector.chooseJoin(a, b, joinColumns, joinType)
   }
 
   override def cross(a: DataFrame, b: DataFrame): DataFrame = {

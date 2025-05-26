@@ -71,7 +71,7 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
     val estimateTable1 = estimate(table1, ppc)
     val estimateTable2 = estimate(table2, ppc)
     if (estimateTable1 <= estimateTable2) Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
-    else Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
+    else Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table2, table1, ppc)
   }
 
   def joinRecursion(parent: Join, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PhysicalPlan = {

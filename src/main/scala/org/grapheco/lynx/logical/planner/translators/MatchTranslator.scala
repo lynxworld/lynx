@@ -20,8 +20,8 @@ case class MatchTranslator(m: Match) extends LogicalTranslator {
     val matched = combined.drop(1).foldLeft(combined.head)(
       (a, b) =>
         if (a == b) LogicalJoin(true, InnerJoin)(a, b)
-//        else plans.LogicalJoin(true, OuterJoin)(a, b)
-        else LogicalCross()(a, b)
+        else plans.LogicalJoin(true, OuterJoin)(a, b)
+//        else LogicalCross()(a, b)
     )
     //    val matched = parts.drop(1).foldLeft(parts.head)((a,b) => LPTJoin(true, InnerJoin)(a, b))
     val filtered = WhereTranslator(where).translate(Some(matched))
