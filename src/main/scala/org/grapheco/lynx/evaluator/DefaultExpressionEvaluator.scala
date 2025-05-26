@@ -454,18 +454,20 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
     }
   }
 
-  override def aggregateEval(expr: Expression)(ecs: Seq[ExpressionContext]): LynxValue = {
+  override def aggregateEval(expr: Expression)(ecs: Iterator[ExpressionContext]): LynxValue = {
     expr match {
       case fe: ProcedureExpression =>
+        val ecsSeq = ecs.toSeq
+//        TODO Is the eval method thread safe
         if (fe.aggregating) {
           val listArgs = {
             if (fe.distinct) {
-              LynxList(ecs.map(eval(fe.args.head)(_)).distinct.toList)
+              LynxList(ecsSeq.par.map(eval(fe.args.head)(_)).distinct.toList)
             } else {
-              LynxList(ecs.map(eval(fe.args.head)(_)).toList)
+              LynxList(ecsSeq.par.map(eval(fe.args.head)(_)).toList)
             }
           } //todo: ".head": any multi-args situation?
-          val otherArgs = fe.args.drop(1).map(eval(_)(ecs.head)) // 2022.09.15: Added handling of other args, but the default first one is list
+          val otherArgs = fe.args.drop(1).map(eval(_)(ecsSeq.head)) // 2022.09.15: Added handling of other args, but the default first one is list
           fe.procedure.execute(Seq(listArgs) ++ otherArgs)
         } else {
           throw ProcedureException("aggregate by nonAggregating procedure.")

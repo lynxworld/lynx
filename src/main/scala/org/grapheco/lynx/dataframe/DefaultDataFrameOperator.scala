@@ -58,11 +58,11 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
           .mapValues(_.map(_._2)) // #trans to: (groupingValue: Seq[LynxValue] -> recordsCtx: Seq[ExpressionContext])
           .map { case (groupingValue, recordsCtx) => // #aggragate: (groupingValues & aggregationValues): Seq[LynxValue]
             groupingValue ++ {
-              aggregations.map { case (name, expr) => expressionEvaluator.aggregateEval(expr)(recordsCtx) }
+              aggregations.map { case (name, expr) => expressionEvaluator.aggregateEval(expr)(recordsCtx.toIterator) }
             }
           }.toIterator
       } else {
-        val allRecordsCtx = df.records.map { record => ctx.withVars(columnsName.zip(record).toMap) }.toSeq
+        val allRecordsCtx = df.records.map { record => ctx.withVars(columnsName.zip(record).toMap) }
         Iterator(aggregations.map { case (name, expr) => expressionEvaluator.aggregateEval(expr)(allRecordsCtx) })
       }
     })
