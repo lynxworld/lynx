@@ -54,6 +54,21 @@ class WithGraphModelProcedureRegistry(types: TypeSystem,
     }
   }
 
+  def registerScalarFunctionsWithGraphModel(clazz: Any): Unit = {
+    clazz.getClass.getDeclaredMethods.foreach{ method =>
+      val annotation = method.getAnnotation(classOf[LynxProcedure])
+      if (annotation != null) {
+        val inputs = method.getParameters.map{ parameter =>
+          val paraAnnotation = Option(parameter.getAnnotation(classOf[LynxProcedureArgument]))
+          val name = paraAnnotation.map(_.name()).getOrElse(parameter.getName)
+          name -> types.typeOf(parameter.getType)
+        }
+        val outputs = Seq("value" -> types.typeOf(method.getReturnType))
+        register(annotation.name(), annotation.allowNull(), inputs, outputs, args => types.wrap(method.invoke(clazz, args: _*)))
+      }
+    }
+  }
+
   def register(name: String, argsLength: Int, procedure: CallableProcedure): Unit = {
     procedures((name.toLowerCase, argsLength)) = procedure
     logger.debug(s"registered procedure: ${procedure.signature(name)}")

@@ -52,6 +52,7 @@ class CypherRunner(var graphModel: GraphModel) extends LazyLogging {
   protected lazy val queryParser: QueryParser = new CachedQueryParser(new DefaultQueryParser(runnerContext))
 
   def registerAnnotatedClass(clazz: Class[_]): Unit = procedures.registerAnnotatedClass(clazz)
+  def registerAnnotatedClassWithGraphModel(clazz: Any): Unit = procedures.registerScalarFunctionsWithGraphModel(clazz)
 
   def compile(query: String): (Statement, Map[String, Any], SemanticState) = queryParser.parse(query)
 
