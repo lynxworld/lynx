@@ -49,7 +49,7 @@ class CypherRunner(var graphModel: GraphModel) extends LazyLogging {
   protected lazy val logicalPlanner: LogicalPlanner = new DefaultLogicalPlanner(runnerContext)
   protected lazy val physicalPlanner: PhysicalPlanner = new DefaultPhysicalPlanner(runnerContext)
   protected lazy val physicalPlanOptimizer: PhysicalPlanOptimizer = new DefaultPhysicalPlanOptimizer(runnerContext)
-  protected lazy val queryParser: QueryParser = new CachedQueryParser(new DefaultQueryParser(runnerContext))
+  protected lazy val queryParser: QueryParser = new CachedQueryParser(new DefaultQueryParser(procedures))
 
   def registerAnnotatedClass(clazz: Class[_]): Unit = procedures.registerAnnotatedClass(clazz)
   def registerAnnotatedClassWithGraphModel(clazz: Any): Unit = procedures.registerScalarFunctionsWithGraphModel(clazz)

@@ -1,8 +1,8 @@
 package org.grapheco.lynx.parser
 
+import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx.physical.SyntaxErrorException
-import org.grapheco.lynx.procedure.ProcedureExpression
-import org.grapheco.lynx.runner.CypherRunnerContext
+import org.grapheco.lynx.procedure.{ProcedureExpression, ProcedureRegistry}
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.{SemanticErrorDef, SemanticFeature, SemanticState}
 import org.opencypher.v9_0.expressions.FunctionInvocation
@@ -17,7 +17,7 @@ import org.opencypher.v9_0.util._
 
 import scala.reflect.ClassTag
 
-class DefaultQueryParser(runnerContext: CypherRunnerContext) extends QueryParser {
+class DefaultQueryParser(procedureRegistry: ProcedureRegistry) extends QueryParser  with LazyLogging{
   val context = new BaseContext() {
     override def tracer: CompilationPhaseTracer = CompilationPhaseTracer.NO_TRACING
 
@@ -52,9 +52,9 @@ class DefaultQueryParser(runnerContext: CypherRunnerContext) extends QueryParser
       Namespacer andThen
       CNFNormalizer andThen
       LateAstRewriting andThen
-      FunctionMapper(runnerContext)
+      FunctionMapper(procedureRegistry)
 
-  case class FunctionMapper(runnerContext: CypherRunnerContext) extends Phase[BaseContext, BaseState, BaseState] {
+  case class FunctionMapper(procedureRegistry: ProcedureRegistry) extends Phase[BaseContext, BaseState, BaseState] {
     override def phase: CompilationPhase = AST_REWRITE
 
     override def description: String = "map functions to their procedure implementations"
@@ -62,7 +62,7 @@ class DefaultQueryParser(runnerContext: CypherRunnerContext) extends QueryParser
     override def process(from: BaseState, ignored: BaseContext): BaseState = {
       val rewriter = inSequence(
         bottomUp(Rewriter.lift {
-          case func: FunctionInvocation => ProcedureExpression(func)(runnerContext)
+          case func: FunctionInvocation => ProcedureExpression(func)(procedureRegistry)
         }))
       val newStatement = from.statement().endoRewrite(rewriter)
       from.withStatement(newStatement)
@@ -77,7 +77,7 @@ class DefaultQueryParser(runnerContext: CypherRunnerContext) extends QueryParser
 
       override def toTextOutput: String = s"$name $version"
 
-      override def version: String = "0.6.7"
+      override def version: String = "0.6.8"
 
     })
 
