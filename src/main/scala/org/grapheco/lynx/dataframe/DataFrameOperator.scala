@@ -23,7 +23,7 @@ trait DataFrameOperator {
 
   def distinct(df: DataFrame): DataFrame
 
-  def orderBy(df: DataFrame, sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame
+  def orderBy(df: DataFrame, sortItem: Seq[(Expression, Boolean)], limit: Expression, skip: Expression)(ctx: ExpressionContext): DataFrame
 }
 
 sealed trait JoinType

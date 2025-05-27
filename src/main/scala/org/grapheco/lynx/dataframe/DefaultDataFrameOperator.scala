@@ -1,10 +1,17 @@
 package org.grapheco.lynx.dataframe
 
 import org.grapheco.lynx.evaluator.{ExpressionContext, ExpressionEvaluator}
-import org.grapheco.lynx.types.{LazyLynxValue, LynxType, LynxValue}
+import org.grapheco.lynx.types.property.LynxInteger
+import org.grapheco.lynx.types.{LTAny, LazyLynxValue, LynxType, LynxValue}
 import org.grapheco.lynx.util.{ParallelismConfig, Profiler}
 import org.opencypher.v9_0.expressions.{Expression, Variable}
 import org.opencypher.v9_0.util.InputPosition
+
+import scala.collection.mutable
+import scala.collection.mutable.PriorityQueue
+import scala.concurrent.{Await, Future}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
 
 /**
  * @Author: Airzihao
@@ -95,18 +102,102 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
   * */
   override def distinct(df: DataFrame): DataFrame = DataFrame(df.schema, () => df.records.toSeq.distinct.iterator)
 
-  override def orderBy(df: DataFrame, sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame = {
-    val columnsName = df.columnsName
-    DataFrame(df.schema, () => df.records.toSeq
-      .sortWith { (A, B) =>
-        val ctxA = ctx.withVars(columnsName.zip(A).toMap)
-        val ctxB = ctx.withVars(columnsName.zip(B).toMap)
-        val sortValue = sortItem.map {
-          case (exp, asc) =>
-            (expressionEvaluator.eval(exp)(ctxA), expressionEvaluator.eval(exp)(ctxB), asc)
+  override def orderBy(df: DataFrame, sortItem: Seq[(Expression, Boolean)], limit: Expression, skip:Expression)(ctx: ExpressionContext): DataFrame = {
+    val columnsName: Seq[String] = df.columnsName
+    val sortColumns = sortItem.map(col => col._1 match {
+      case Variable(expr) => (expr, if(col._2) -1 else 1)
+      case _ => (col._1.toString, if(col._2) -1 else 1)
+    })
+    val newSchema = sortColumns.map(col => (col._1, LTAny)) ++ df.schema.filterNot(col => sortColumns.map(_._1).contains(col._1))
+    val newDf = DataFrame(newSchema, () => {
+      df.records.map(record => {
+        val recordCtx = ctx.withVars(columnsName.zip(record).toMap)
+        sortItem.map(col => expressionEvaluator.eval(col._1)(recordCtx)) ++ columnsName.zip(record).filterNot(col => sortColumns.map(_._1).contains(col._1)).map(_._2)
+      })
+    })
+    expressionEvaluator.eval(limit)(ctx) match {
+      case LynxInteger(n) => DataFrame(newSchema, ()=> {
+        val asc: Seq[Int] = newSchema.map(_._1).map(col => sortColumns.toMap.getOrElse(col, 0))
+        expressionEvaluator.eval(skip)(ctx) match {
+          case LynxInteger(skipNum) => topNParallel(newDf.records, asc, n+skipNum).takeRight(n.toInt).toIterator
+          case _ => topNParallel(newDf.records, asc, n).toIterator
         }
-        _ascCmp(sortValue.toIterator)
-      }.toIterator)
+      })
+      case _ => DataFrame(df.schema, () => df.records.toSeq
+        .sortWith { (A, B) =>
+          val ctxA = ctx.withVars(columnsName.zip(A).toMap) //map
+          val ctxB = ctx.withVars(columnsName.zip(B).toMap)
+          val sortValue = sortItem.map {
+            case (exp, asc) =>
+              (expressionEvaluator.eval(exp)(ctxA), expressionEvaluator.eval(exp)(ctxB), asc)
+          }
+          _ascCmp(sortValue.toIterator)
+        }.toIterator)
+    }
+  }
+
+  private def topNParallel(records: Iterator[Seq[LynxValue]], asc: Seq[Int], n: Long): Seq[Seq[LynxValue]] = {
+    def compare(a: Seq[LynxValue], b: Seq[LynxValue]): Boolean = {
+      val cmp = asc.iterator.zipWithIndex.foldLeft(0) { case (acc, (order, i)) =>
+        if (acc != 0 || order == 0) acc // 如果已经比较出大小，直接返回
+        else if (order == -1) a(i).compareTo(b(i)) // 升序
+        else if (order == 1) -a(i).compareTo(b(i)) // 降序
+        else 0 // order == 0，跳过此列
+      }
+      cmp < 0 // 负数表示 a < b，返回 true
+    }
+    implicit val ordering: Ordering[Seq[LynxValue]] = Ordering.fromLessThan(compare)
+
+    val chunkSize = 50000 // 选择合适的分块大小
+    // 处理每个块的 topN
+    def processChunk(chunk: Seq[Seq[LynxValue]]): PriorityQueue[Seq[LynxValue]] = {
+      val pq = PriorityQueue.empty[Seq[LynxValue]](ordering)
+      chunk.par.foreach { record =>
+        synchronized {
+          pq.enqueue(record)
+          if (pq.size > n) pq.dequeue()
+        }
+      }
+      pq
+    }
+
+    def processParallelChunk(chunk: Seq[Seq[LynxValue]]): Seq[PriorityQueue[Seq[LynxValue]]] = {
+      val numPartitions = 20
+      val partitions: Seq[Seq[Seq[LynxValue]]] = chunk.grouped((chunk.size.toDouble / numPartitions).ceil.toInt).toSeq
+
+      val f = Future.sequence(partitions.map { subChunk =>
+        Future {
+          val pq = PriorityQueue.empty[Seq[LynxValue]](ordering)
+          subChunk.foreach { record =>
+            pq.synchronized {
+              pq.enqueue(record)
+              if (pq.size > n) pq.dequeue()
+            }
+          }
+          pq
+        }
+      })
+      Await.result(f, Duration.Inf)
+    }
+
+    def mergePriorityQueue(sortedSeq: Seq[PriorityQueue[Seq[LynxValue]]]): mutable.PriorityQueue[Seq[LynxValue]] = {
+      val finalHeap: mutable.PriorityQueue[Seq[LynxValue]] = PriorityQueue.empty[Seq[LynxValue]](ordering)
+      sortedSeq.foreach(partialResults =>{
+        partialResults.foreach(record => {
+          finalHeap.enqueue(record)
+          if (finalHeap.size > n) finalHeap.dequeue()
+        })
+      })
+      finalHeap
+    }
+
+    // 分块并发处理，每个 Future 处理一个 chunk
+    val chunkIter: Iterator[PriorityQueue[Seq[LynxValue]]] =
+      records.grouped(chunkSize).map(chunk => mergePriorityQueue(processParallelChunk(chunk)))
+
+    // 合并所有 Future 的结果
+    val finalHeap: mutable.PriorityQueue[Seq[LynxValue]] = mergePriorityQueue(chunkIter.toSeq)
+    finalHeap.toSeq.sorted(ordering)
   }
 
   private def _ascCmp(sortValue: Iterator[(LynxValue, LynxValue, Boolean)]): Boolean = {

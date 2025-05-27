@@ -12,8 +12,8 @@ import org.opencypher.v9_0.util.InputPosition
  * @Date 2022/4/20
  * @Version 0.1
  */
-case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runnerContext: CypherRunnerContext) extends Expression with LazyLogging {
-  val procedure: CallableProcedure = runnerContext.procedureRegistry.getProcedure(funcInov.namespace.parts, funcInov.functionName.name, funcInov.args.size).getOrElse(throw ProcedureUnregisteredException(funcInov.name))
+case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit procedureRegistry: ProcedureRegistry) extends Expression with LazyLogging {
+  val procedure: CallableProcedure = procedureRegistry.getProcedure(funcInov.namespace.parts, funcInov.functionName.name, funcInov.args.size).getOrElse(throw ProcedureUnregisteredException(funcInov.name))
   val args: Seq[Expression] = funcInov.args
   val aggregating: Boolean = funcInov.containsAggregate
   val distinct: Boolean = funcInov.distinct

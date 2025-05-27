@@ -38,7 +38,8 @@ trait DataFrameOps {
    * @param ctx
    * @return
    */
-  def orderBy(sortItem: Seq[(Expression, Boolean)])(ctx: ExpressionContext): DataFrame = operator.orderBy(srcFrame, sortItem)(ctx)
+  def orderBy(sortItem: Seq[(Expression, Boolean)], limit: Expression, skip: Expression)(ctx: ExpressionContext): DataFrame =
+    operator.orderBy(srcFrame, sortItem, limit, skip)(ctx)
 }
 
 object DataFrameOps {

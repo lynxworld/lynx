@@ -1,15 +1,16 @@
 package org.grapheco.lynx.physical.plans
 
-import org.grapheco.lynx.types.LynxType
 import org.grapheco.lynx.dataframe.DataFrame
 import org.grapheco.lynx.evaluator.ExpressionContext
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.runner.ExecutionContext
 import org.opencypher.v9_0.ast.{AscSortItem, DescSortItem, SortItem}
-import org.opencypher.v9_0.expressions.Expression
+import org.opencypher.v9_0.expressions.{Expression, Null}
+import org.opencypher.v9_0.util.InputPosition
 
-case class OrderBy(sortItem: Seq[SortItem])(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext)
-  extends SinglePhysicalPlan(l) {
+case class OrderBy(sortItem: Seq[SortItem], expr: Expression = Null()(InputPosition(0,0,0)), skip: Expression = Null()(InputPosition(0,0,0)))
+                  (l: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan(l) {
+
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
@@ -22,7 +23,7 @@ case class OrderBy(sortItem: Seq[SortItem])(l: PhysicalPlan, val plannerContext:
       case AscSortItem(expression) => (expression, true)
       case DescSortItem(expression) => (expression, false)
     }
-    df.orderBy(sortItems2)(ec)
+    df.orderBy(sortItems2, expr, skip)(ec)
   }
 
 }
