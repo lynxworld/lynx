@@ -18,5 +18,9 @@ case class Project(ri: ReturnItemsDef)(implicit val plannerContext: PhysicalPlan
     df.project(ri.items.map(x => x.name -> x.expression))(ctx.expressionContext)
   }
 
+  override def toString: String = {
+    s"Project(${ri.items.map(x => x.expression.asCanonicalStringVal + " -> " +  x.name ).mkString(",")})"
+  }
+
 //  def withReturnItems(items: Seq[ReturnItem]) = PPTProject(ReturnItems(ri.includeExisting, items)(ri.position))(in, plannerContext)
 }

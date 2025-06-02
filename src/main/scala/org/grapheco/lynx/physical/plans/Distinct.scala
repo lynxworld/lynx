@@ -12,5 +12,5 @@ case class Distinct()(implicit val plannerContext: PhysicalPlannerContext) exten
     df.distinct()
   }
 
-  override val schema: Seq[(String, LynxType)] = in.schema
+  override def schema: Seq[(String, LynxType)] = in.schema
 }

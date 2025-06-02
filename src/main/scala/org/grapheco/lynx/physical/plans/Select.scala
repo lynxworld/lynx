@@ -14,4 +14,8 @@ case class Select(columns: Seq[(String, Option[String])])(implicit val plannerCo
     val df = in.execute(ctx)
     df.select(columns)
   }
+
+  override def toString: String = {
+    s"Select(${columns.map(x => x._1 + ":" + x._2.getOrElse("")).mkString(",")})"
+  }
 }

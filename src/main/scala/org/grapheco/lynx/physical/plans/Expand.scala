@@ -1,7 +1,10 @@
 package org.grapheco.lynx.physical.plans
 
+import org.grapheco.lynx.LynxException
 import org.grapheco.lynx.types.{LTNode, LTRelationship, LynxType, LynxValue}
 import org.grapheco.lynx.dataframe.DataFrame
+import org.grapheco.lynx.logical.plans.Direction.toCypher
+import org.grapheco.lynx.logical.plans.{BOTH, IN, Direction, GraphPatternEdge, GraphPatternNode, OUT}
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.runner._
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
@@ -13,11 +16,47 @@ abstract class ExpandPlan(relVariable: String, nodeVariable: String)(implicit va
   override def schema: Seq[(String, LynxType)] = in.schema ++ Seq(relVariable -> LTRelationship, nodeVariable -> LTNode)
 }
 
+case class ExpandFactory(source: GraphPatternNode,
+                         rel: GraphPatternEdge,
+                         target: GraphPatternNode,
+                         )(implicit val plannerContext: PhysicalPlannerContext) {
+  def expand: Expand2 = Expand2(source, rel, target)(plannerContext)
+
+  def reversed: ExpandFactory = ExpandFactory(target, rel.reversed, source)
+}
+
+case class Expand2(source: GraphPatternNode,
+                   rel: GraphPatternEdge,
+                   target: GraphPatternNode)(implicit override val plannerContext: PhysicalPlannerContext)
+  extends ExpandPlan(rel.variableName, target.variableName) {
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val df = in.execute(ctx)
+
+    val sourceCol = df.columnsName.zipWithIndex.find(_._1 == source.variableName).map(_._2).getOrElse(throw LynxException("Expand: source node not found"))
+    DataFrame(this.schema, () => {
+      df.records.flatMap { record =>
+          val id = record(sourceCol) match {
+            case n:LynxNode => n.id
+            case _ => throw LynxException("Expand: source node not found")
+          }
+        graphModel.expand(id, RelationshipFilter(rel.types), toCypher(rel.direction)).map { path =>
+          record.:+(path.storedRelation).:+(path.endNode)
+        }
+      }
+    })
+  }
+
+  override def toString: String = s"Expand((${source.variableName})${rel}(${target.variableName}))"
+}
+
+// TODO multi hop
+
 
 case class Expand(rel: RelationshipPattern, rightNode: NodePattern, optional: Boolean = false)(implicit val plannerContext: PhysicalPlannerContext)
   extends SinglePhysicalPlan {
 
-  override val schema: Seq[(String, LynxType)] = {
+  override def schema: Seq[(String, LynxType)] = {
     val RelationshipPattern(
     variable: Option[LogicalVariable],
     types: Seq[RelTypeName],
@@ -55,7 +94,7 @@ case class Expand(rel: RelationshipPattern, rightNode: NodePattern, optional: Bo
         (eval(expressions(0)).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))
           , eval(expressions(1)).asInstanceOf[LynxMap].value.map(kv => {
           val v_2: PropOp = kv._2.value.toString match {
-            case "IN" => IN
+            case "IN" => org.grapheco.lynx.runner.IN
             case "EQUAL" => EQUAL
             case "NOTEQUALS" => NOT_EQUAL
             case "LessThan" => LESS_THAN
@@ -74,7 +113,7 @@ case class Expand(rel: RelationshipPattern, rightNode: NodePattern, optional: Bo
       case Some(None) => (1, Int.MaxValue)
       case Some(Some(Range(a, b))) => (a.map(_.value.toInt).getOrElse(1), b.map(_.value.toInt).getOrElse(Int.MaxValue))
     }
-    val endNodeFilter = NodeFilter(labels2.map(_.name).map(LynxNodeLabel), rightProperties, rightProps)
+    val endNodeFilter = NodeFilter(labels2.map(LynxNodeLabel.fromNodeLabel), rightProperties, rightProps)
 
     DataFrame(df.schema ++ schema0, () => {
       df.records.flatMap {

@@ -105,8 +105,8 @@ case class ShortestPath(rel: RelationshipPattern, leftNode: NodePattern, rightNo
 
     val types1 = types.map(_.name).map(LynxRelationshipType)
     val properties = props2.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)
-    val startNodeFilter = runner.NodeFilter(labels1.map(_.name).map(LynxNodeLabel), leftProperties, leftProps)
-    val endNodeFilter = runner.NodeFilter(labels3.map(_.name).map(LynxNodeLabel), rightProperties, rightProps)
+    val startNodeFilter = runner.NodeFilter(labels1.map(LynxNodeLabel.fromNodeLabel), leftProperties, leftProps)
+    val endNodeFilter = runner.NodeFilter(labels3.map(LynxNodeLabel.fromNodeLabel), rightProperties, rightProps)
     val startNodeId: LynxId = graphModel.nodes(startNodeFilter).map(x => x.id).toList.head
     val endNodeId: LynxId = graphModel.nodes(endNodeFilter).map(x => x.id).toList.head
     if (single) { // shortestPath(...)

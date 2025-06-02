@@ -47,10 +47,10 @@ abstract class SinglePhysicalPlan extends AbstractPhysicalPlan {
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = in.execute(ctx)
 
-  override def withChildren(left: Option[PhysicalPlan], right: Option[PhysicalPlan]): PhysicalPlan = {
-    if (left.isEmpty) throw ExecuteException(s"Physical Plan ${this.getClass.getSimpleName} need child!")
-    else super.withChildren(left,right)
-  }
+//  override def withChildren(left: Option[PhysicalPlan], right: Option[PhysicalPlan]): PhysicalPlan = {
+//    if (left.isEmpty) throw ExecuteException(s"Physical Plan ${this.getClass.getSimpleName} need child!")
+//    else super.withChildren(left,right)
+//  }
 }
 
 abstract class LeafPhysicalPlan extends AbstractPhysicalPlan(None, None) {

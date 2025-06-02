@@ -69,7 +69,7 @@ case class MultiStepExpand(rel: RelationshipPattern,
       case Some(None) => (1, Int.MaxValue)
       case Some(Some(Range(a, b))) => (a.map(_.value.toInt).getOrElse(1), b.map(_.value.toInt).getOrElse(Int.MaxValue))
     }
-    val endNodeFilter = NodeFilter(labels2.map(_.name).map(LynxNodeLabel), rightProperties, rightProps)
+    val endNodeFilter = NodeFilter(labels2.map(LynxNodeLabel.fromNodeLabel), rightProperties, rightProps)
 
     DataFrame(df.schema ++ schema0, () => {
       df.records.flatMap {

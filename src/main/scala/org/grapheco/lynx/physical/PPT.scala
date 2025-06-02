@@ -59,7 +59,7 @@ case class CreateOps(ops: Seq[FormalElement])(eval: Expression => LynxValue, gra
 
     ops.foreach {
       case FormalNode(varName: String, labels: Seq[LabelName], properties: Option[Expression]) =>
-        nodesInput += varName -> NodeInput(labels.map(_.name).map(LynxNodeLabel), properties match {
+        nodesInput += varName -> NodeInput(labels.map(LynxNodeLabel.fromNodeLabel), properties match {
           case Some(MapExpression(items)) => items.map { case (k, v) => LynxPropertyKey(k.name) -> eval(v) }
           case None => Seq.empty
         })

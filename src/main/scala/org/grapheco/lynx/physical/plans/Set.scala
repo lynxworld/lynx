@@ -54,7 +54,7 @@ case class Set(setItems: Seq[SetItem])(implicit val plannerContext: PhysicalPlan
   private class SetLabelOperator(sl: SetLabelItem) extends SetOperator {
     override def getColName(): String = sl.variable.name
     override def perform(e: LynxElement, record: Seq[LynxValue], colNames: Seq[String], ec: ExpressionContext): Option[LynxElement] = {
-      graphModel.write.setNodesLabels(Some(e.id).iterator, sl.labels.map(_.name).map(LynxNodeLabel).toArray).next()
+      graphModel.write.setNodesLabels(Some(e.id).iterator, sl.labels.map(LynxNodeLabel.fromNodeLabel).toArray).next()
     }
   }
 

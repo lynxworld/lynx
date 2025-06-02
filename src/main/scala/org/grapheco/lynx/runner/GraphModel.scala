@@ -121,7 +121,7 @@ trait GraphModel {
     this.write.setNodesProperties(nodeIds, data.map(kv => (LynxPropertyKey(kv._1), kv._2)), cleanExistProperties)
 
   def setNodesLabels(nodeIds: Iterator[LynxId], labels: Array[String]): Iterator[Option[LynxNode]] =
-    this.write.setNodesLabels(nodeIds, labels.map(LynxNodeLabel))
+    this.write.setNodesLabels(nodeIds, labels.map(LynxNodeLabel.fromString))
 
   def setRelationshipsProperties(relationshipIds: Iterator[LynxId], data: Array[(String, LynxValue)], cleanExistProperties: Boolean = false): Iterator[Option[LynxRelationship]] =
     this.write.setRelationshipsProperties(relationshipIds, data.map(kv => (LynxPropertyKey(kv._1), kv._2)), cleanExistProperties)
@@ -133,7 +133,7 @@ trait GraphModel {
     this.write.removeNodesProperties(nodeIds, data.map(LynxPropertyKey))
 
   def removeNodesLabels(nodeIds: Iterator[LynxId], labels: Array[String]): Iterator[Option[LynxNode]] =
-    this.write.removeNodesLabels(nodeIds, labels.map(LynxNodeLabel))
+    this.write.removeNodesLabels(nodeIds, labels.map(LynxNodeLabel.fromString))
 
   def removeRelationshipsProperties(relationshipIds: Iterator[LynxId], data: Array[String]): Iterator[Option[LynxRelationship]] =
     this.write.removeRelationshipsProperties(relationshipIds, data.map(LynxPropertyKey))

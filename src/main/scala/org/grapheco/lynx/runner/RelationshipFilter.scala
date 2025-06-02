@@ -9,7 +9,7 @@ import org.grapheco.lynx.types.structural.{LynxPropertyKey, LynxRelationship, Ly
  * @param types      type names
  * @param properties filter property names
  */
-case class RelationshipFilter(types: Seq[LynxRelationshipType], properties: Map[LynxPropertyKey, LynxValue]) {
+case class RelationshipFilter(types: Seq[LynxRelationshipType], properties: Map[LynxPropertyKey, LynxValue] = Map.empty) {
   def matches(relationship: LynxRelationship): Boolean = ((types, relationship.relationType) match {
     case (Seq(), _) => true
     case (_, None) => false
