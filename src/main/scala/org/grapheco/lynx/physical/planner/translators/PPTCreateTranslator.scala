@@ -62,7 +62,7 @@ case class PPTCreateTranslator(p: Pattern) extends PPTNodeTranslator {
         }
 
         schemaLocal += varRelation -> LTRelationship
-        opsLocal += FormalRelationship(varRelation, types, properties2, varLeftNode, varRightNode)
+        opsLocal += FormalRelationship(varRelation, types, properties2, varLeftNode, varRightNode, direction)
 
         (varRightNode, schemaLocal, opsLocal)
 
@@ -82,7 +82,7 @@ case class PPTCreateTranslator(p: Pattern) extends PPTNodeTranslator {
           } else {
             Seq.empty
           }) ++ Seq(
-            FormalRelationship(varRelation, types, properties2, varLastNode, varRightNode)
+            FormalRelationship(varRelation, types, properties2, varLastNode, varRightNode, direction)
           )
         )
     }

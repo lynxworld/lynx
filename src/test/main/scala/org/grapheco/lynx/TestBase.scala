@@ -5,6 +5,7 @@ import org.grapheco.lynx.parser.{DefaultQueryParser, QueryParser}
 import org.grapheco.lynx.physical._
 import org.grapheco.lynx.procedure.CallableProcedure
 import org.grapheco.lynx.runner._
+import org.grapheco.lynx.runner.filter.Equals
 import org.grapheco.lynx.types.{LTInteger, LTString, LynxType, LynxValue}
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.LynxInteger
@@ -165,7 +166,7 @@ class TestBase extends LazyLogging {
         all_nodes.count(_._2.labels.contains(labelName))
 
       override def numNodeByProperty(labelName: LynxNodeLabel, propertyName: LynxPropertyKey, value: LynxValue): Long =
-        nodes(NodeFilter(Seq(labelName), Map(propertyName->value))).length
+        nodes(NodeFilter(Seq(labelName), Map.empty, Some(Equals(propertyName, value)))).length
 
       override def numRelationship: Long = relationships().length
 

@@ -44,32 +44,14 @@ case class MultiStepExpand(rel: RelationshipPattern,
 
     implicit val ec = ctx.expressionContext
 
-    val (rightProperties, rightProps) = if (properties2.isEmpty) (Map.empty[LynxPropertyKey, LynxValue], Map.empty[LynxPropertyKey, PropOp])
-    else properties2.get match {
-      case li@ListLiteral(expressions) =>
-        (eval(expressions(0)).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))
-          , eval(expressions(1)).asInstanceOf[LynxMap].value.map(kv => {
-          val v_2: PropOp = kv._2.value.toString match {
-            case "IN" => IN
-            case "EQUAL" => EQUAL
-            case "NOTEQUALS" => NOT_EQUAL
-            case "LessThan" => LESS_THAN
-            case "LessThanOrEqual" => LESS_THAN_OR_EQUAL
-            case "GreaterThan" => GREATER_THAN
-            case "GreaterThanOrEqual" => GREATER_THAN_OR_EQUAL
-            case "Contains" => CONTAINS
-            case _ => throw new scala.Exception("unexpected PropOp" + kv._2.value)
-          }
-          (LynxPropertyKey(kv._1), v_2)
-        }))
-    }
+    val filterExpr = getNodeFilerProperties(properties2, ec)
 
     val (lowerLimit, upperLimit) = length match {
       case None => (1, 1)
       case Some(None) => (1, Int.MaxValue)
       case Some(Some(Range(a, b))) => (a.map(_.value.toInt).getOrElse(1), b.map(_.value.toInt).getOrElse(Int.MaxValue))
     }
-    val endNodeFilter = NodeFilter(labels2.map(_.name).map(LynxNodeLabel), rightProperties, rightProps)
+    val endNodeFilter = NodeFilter(labels2.map(_.name).map(LynxNodeLabel), Map.empty, filterExpr)
 
     DataFrame(df.schema ++ schema0, () => {
       df.records.flatMap {

@@ -9,7 +9,7 @@ case class Distinct()(l: PhysicalPlan, implicit val plannerContext: PhysicalPlan
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
-    df.distinct()
+    df.select(this.schema.map(col => (col._1, None))).distinct()
   }
 
   override val schema: Seq[(String, LynxType)] = in.schema

@@ -2,12 +2,17 @@ package org.grapheco.lynx.runner
 
 import org.grapheco.lynx.physical.{NodeInput, RelationshipInput}
 import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.LynxInteger
 import org.grapheco.lynx.types.structural._
+import org.grapheco.lynx.runner.filter
 import org.opencypher.v9_0.expressions.SemanticDirection
 import org.opencypher.v9_0.expressions.SemanticDirection.{BOTH, INCOMING, OUTGOING}
 
+import java.util.concurrent.ConcurrentLinkedQueue
+import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 trait GraphModel {
 
@@ -21,10 +26,10 @@ trait GraphModel {
   def statistics: Statistics = new Statistics {
     override def numNode: Long = nodes().length
 
-    override def numNodeByLabel(labelName: LynxNodeLabel): Long = nodes(NodeFilter(Seq(labelName), Map.empty)).length
+    override def numNodeByLabel(labelName: LynxNodeLabel): Long = nodes(NodeFilter(Seq(labelName), Map.empty, None)).length
 
     override def numNodeByProperty(labelName: LynxNodeLabel, propertyName: LynxPropertyKey, value: LynxValue): Long =
-      nodes(NodeFilter(Seq(labelName), Map(propertyName -> value))).length
+      nodes(NodeFilter(Seq(labelName), Map.empty, Some(filter.Equals(propertyName, value)))).length
 
     override def numRelationship: Long = relationships().length
 
@@ -87,8 +92,11 @@ trait GraphModel {
    */
   def nodes(nodeFilter: NodeFilter): Iterator[LynxNode] = {
     nodeFilter.properties.get(getIdPropKey) match {
-      case None => nodes().filter(nodeFilter.matches(_))
-      case Some(LynxInteger(nodeId: Long)) => nodeAt(NodeId(nodeId)).iterator.filter(nodeFilter.matches(_, getIdPropKey))
+      case Some(LynxList(list)) => list.map(lynxValue => lynxValue.value.asInstanceOf[Long])
+        .map(nodeId => nodeAt(NodeId(nodeId)).iterator.filter(nodeFilter.matches(_)))
+        .reduceOption(_ ++ _).getOrElse(Iterator.empty)
+      case Some(LynxInteger(nodeId: Long)) => nodeAt(NodeId(nodeId)).iterator.filter(nodeFilter.matches(_))
+      case _ => nodes().filter(nodeFilter.matches(_))
     }
   }
 
@@ -182,9 +190,10 @@ trait GraphModel {
                        direction: SemanticDirection,
                        lowerLimit: Int = 0,
                        upperLimit: Int = 64
-                      ): mutable.Seq[LynxPath] = {
-    val paths: mutable.Seq[LynxPath] = allPaths(startNodeId, endNodeId, relationship, direction, lowerLimit, upperLimit)
-    if (paths.isEmpty) mutable.Seq() else paths.filter(path => path.nodeIds.length == paths.map(path => path.nodeIds.length).min)
+                      ): Iterator[LynxPath] = {
+    Iterator.empty
+    //    val paths: mutable.Seq[LynxPath] = allPaths(startNodeId, endNodeId, relationship, direction, lowerLimit, upperLimit)
+    //    if (paths.isEmpty) mutable.Seq() else paths.filter(path => path.nodeIds.length == paths.map(path => path.nodeIds.length).min)
   }
 
   /**
@@ -211,6 +220,14 @@ trait GraphModel {
       firstStop.flatMap(p => extendPath(p, relationshipFilter, direction, leftSteps))
     }.filter(_.endNode.forall(endNodeFilter.matches(_)))
   }// path 新增节点的不能是已有的节点!!!
+
+  def varExpandWithLabel(start: LynxNode,
+                         relationshipFilter: RelationshipFilter,
+                         direction: SemanticDirection,
+                         upperLimit: Int,
+                         lowerLimit: Int, label: String = ""): Iterator[LynxPath] = {
+    varExpand(start, relationshipFilter, direction, upperLimit, lowerLimit)
+  }
 
   def varExpand(start: LynxNode,
                 relationshipFilter: RelationshipFilter,
@@ -269,18 +286,18 @@ trait GraphModel {
   def expandNonStop(start: LynxNode, relationshipFilter: RelationshipFilter, direction: SemanticDirection, steps: Int): Iterator[LynxPath] = {
     if (steps < 0) return Iterator(LynxPath.EMPTY)
     if (steps == 0) return Iterator(LynxPath.startPoint(start))
-//    expand(start.id, relationshipFilter, direction).flatMap{ triple =>
-//      expandNonStop(triple.endNode, relationshipFilter, direction, steps - 1).map{_.connectLeft(triple.toLynxPath)}
-//    }
+    //    expand(start.id, relationshipFilter, direction).flatMap{ triple =>
+    //      expandNonStop(triple.endNode, relationshipFilter, direction, steps - 1).map{_.connectLeft(triple.toLynxPath)}
+    //    }
     // TODO check cycle
     expand(start.id, relationshipFilter, direction)
-    .flatMap { triple =>
-      expandNonStop(triple.endNode, relationshipFilter, direction, steps - 1)
-        .filterNot(_.nodeIds.contains(triple.startNode.id))
-        .map {
-        _.connectLeft(triple.toLynxPath)
+      .flatMap { triple =>
+        expandNonStop(triple.endNode, relationshipFilter, direction, steps - 1)
+          .filterNot(_.nodeIds.contains(triple.startNode.id))
+          .map {
+            _.connectLeft(triple.toLynxPath)
+          }
       }
-    }
   }
 
   def extendPath(path: LynxPath, relationshipFilter: RelationshipFilter, direction: SemanticDirection, steps: Int): Iterator[LynxPath] = {
@@ -304,19 +321,19 @@ trait GraphModel {
       new Hit(node, LynxPath.startPoint(node), mutable.Set(node))
     }
 
-    def extend(node: LynxNode, hit: Hit): Hit = {
-      new Hit(node, hit.path.append(node), hit.set + node)
+    def extend(path: PathTriple, hit: Hit): Hit = {
+      new Hit(path.endNode, hit.path.append(path.storedRelation).append(path.endNode), hit.set + path.endNode)
     }
   }
 
 
-  def allPaths(startNodeId: LynxId,
-               endNodeId: LynxId,
-               relationship: RelationshipFilter,
-               direction: SemanticDirection,
-               lowerLimit: Int = 0,
-               upperLimit: Int = 64
-              ): mutable.Seq[LynxPath] = {
+  private def allPaths(startNodeId: LynxId,
+                       endNodeId: LynxId,
+                       relationship: RelationshipFilter,
+                       direction: SemanticDirection,
+                       lowerLimit: Int = 0,
+                       upperLimit: Int = 64
+                      ): mutable.Seq[LynxPath] = {
     if (lowerLimit > upperLimit) {
       throw new IllegalArgumentException("IllegalArgumentException: `lowerLimit` cannot be greater than `upperLimit`.")
     }
@@ -331,7 +348,7 @@ trait GraphModel {
         if (hit.node != endNode) {
           for (nextNode: PathTriple <- expand(hit.node.id, relationship, direction)) {
             if (!hit.set.contains(nextNode.endNode)) {
-              nextHits = nextHits :+ Hit.extend(nextNode.endNode, hit)
+              nextHits = nextHits :+ Hit.extend(nextNode, hit)
             }
           }
         }

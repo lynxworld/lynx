@@ -47,26 +47,26 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
 
   def checkExpandPath(pe: Expand, ppc: PhysicalPlannerContext): (PhysicalPlan, Seq[((LogicalVariable, PropertyKeyName), Expression)]) = {
     pe.children match {
-      case Seq(pr@RelationshipScan(rel, leftPattern, rightPattern)) => {
+      case Seq(pr@RelationshipScan(rel, leftPattern, rightPattern, optional)) => {
         val leftChecked = checkNodeReference(leftPattern)
         val rightChecked = checkNodeReference(rightPattern)
 
         val res = (leftChecked._2, rightChecked._2) match {
           case (None, None) => pr
-          case (value1, None) => plans.RelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
-          case (None, value2) => plans.RelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
-          case (value1, value2) => plans.RelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
+          case (value1, None) => plans.RelationshipScan(rel, leftChecked._2.get, rightPattern, optional)(ppc)
+          case (None, value2) => plans.RelationshipScan(rel, leftPattern, rightChecked._2.get, optional)(ppc)
+          case (value1, value2) => plans.RelationshipScan(rel, leftChecked._2.get, rightChecked._2.get, optional)(ppc)
         }
 
         (pe.withChildren(Seq(res)), leftChecked._1 ++ rightChecked._1)
       }
-      case Seq(pe2@Expand(rel, rightPattern)) => {
+      case Seq(pe2@Expand(rel, rightPattern, optional)) => {
         val res = checkExpandPath(pe2, ppc)
         val rightChecked = checkNodeReference(rightPattern)
 
         val newPPTExpandPath = {
           if (rightChecked._2.nonEmpty) {
-            plans.Expand(rel, rightChecked._2.get)(res._1, ppc)
+            plans.Expand(rel, rightChecked._2.get, optional)(res._1, ppc)
           }
           else pe2.withChildren(Seq(res._1))
         }
@@ -82,15 +82,15 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
     val newTable = table match {
       case pw@With(ri) => pw
       case pa:Apply => pa
-      case ps@NodeScan(pattern) => {
+      case ps@NodeScan(pattern, optional) => {
         val checked = checkNodeReference(pattern)
         referenceProperty = referenceProperty ++ checked._1
         if (checked._2.isDefined) {
-          plans.NodeScan(checked._2.get)(ppc)
+          plans.NodeScan(checked._2.get, optional)(ppc)
         }
         else ps
       }
-      case pr@RelationshipScan(rel, leftPattern, rightPattern) => {
+      case pr@RelationshipScan(rel, leftPattern, rightPattern, optional) => {
         val leftChecked = checkNodeReference(leftPattern)
         val rightChecked = checkNodeReference(rightPattern)
         referenceProperty ++= leftChecked._1
@@ -98,9 +98,9 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
 
         (leftChecked._2, rightChecked._2) match {
           case (None, None) => table
-          case (value1, None) => plans.RelationshipScan(rel, leftChecked._2.get, rightPattern)(ppc)
-          case (None, value2) => plans.RelationshipScan(rel, leftPattern, rightChecked._2.get)(ppc)
-          case (value1, value2) => plans.RelationshipScan(rel, leftChecked._2.get, rightChecked._2.get)(ppc)
+          case (value1, None) => plans.RelationshipScan(rel, leftChecked._2.get, rightPattern, optional)(ppc)
+          case (None, value2) => plans.RelationshipScan(rel, leftPattern, rightChecked._2.get, optional)(ppc)
+          case (value1, value2) => plans.RelationshipScan(rel, leftChecked._2.get, rightChecked._2.get, optional)(ppc)
         }
       }
       case shortestPaths: ShortestPath => {
@@ -117,7 +117,7 @@ object JoinReferenceRule extends PhysicalPlanOptimizerRule {
           case (value1, value2) => plans.ShortestPath(rel, leftChecked._2.get, rightChecked._2.get, single, resName)(ppc)
         }
       }
-      case pe@Expand(rel, rightPattern) => {
+      case pe@Expand(rel, rightPattern, optional) => {
         val res = checkExpandPath(pe, ppc)
         referenceProperty ++= res._2
         res._1

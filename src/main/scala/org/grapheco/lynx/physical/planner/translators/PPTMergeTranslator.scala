@@ -54,7 +54,7 @@ case class PPTMergeTranslator(p: Pattern, a: Seq[MergeAction]) extends PPTNodeTr
         mergeSchema.append((varRightNode, LTNode))
 
         mergeOps.append(FormalNode(varLeftNode, labels1, properties1))
-        mergeOps.append(FormalRelationship(varRelation, types, properties2, varLeftNode, varRightNode)) // direction
+        mergeOps.append(FormalRelationship(varRelation, types, properties2, varLeftNode, varRightNode, direction)) // direction
         mergeOps.append(FormalNode(varRightNode, labels3, properties3))
 
         varRightNode
@@ -66,7 +66,7 @@ case class PPTMergeTranslator(p: Pattern, a: Seq[MergeAction]) extends PPTNodeTr
         mergeSchema.append((varRelation, LTRelationship))
         mergeSchema.append((varRightNode, LTNode))
 
-        mergeOps.append(FormalRelationship(varRelation, types, properties2, lastNode, varRightNode)) // direction
+        mergeOps.append(FormalRelationship(varRelation, types, properties2, lastNode, varRightNode, direction)) // direction
         mergeOps.append(FormalNode(varRightNode, labels3, properties3))
 
         varRightNode

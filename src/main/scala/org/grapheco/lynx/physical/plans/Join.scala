@@ -16,37 +16,17 @@ case class Join(filterExpr: Option[Expression],
                 joinType: JoinType)
                (l: PhysicalPlan, r: PhysicalPlan, val plannerContext: PhysicalPlannerContext)
   extends DoublePhysicalPlan(l,r) {
-//  override val children: Seq[PhysicalPlan] = Seq(a, b)
+  //  override val children: Seq[PhysicalPlan] = Seq(a, b)
 
   val a:PhysicalPlan = this.left.get
   val b:PhysicalPlan = this.right.get
 
-  override def schema: Seq[(String, LynxType)] = (a.schema ++ b.schema).distinct
+  override def schema: Seq[(String, LynxType)] = a.schema.filterNot(col => b.schema.map(_._1).contains(col._1)) ++ b.schema
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df1 = a.execute(ctx)
-    val df2 = b.execute(ctx)
-
-    val df = df1.join(df2, isSingleMatch, joinType)
-
-    if (filterExpr.nonEmpty) {
-      val ec = ctx.expressionContext
-      val ifNull = joinType match {
-        case InnerJoin => false
-        case _ => true
-      }
-      df.filter {
-        (record: Seq[LynxValue]) =>
-          eval(filterExpr.get)(ec.withVars(df.schema.map(_._1).zip(record).toMap)) match {
-            case LynxBoolean(b) => b
-            case LynxNull => ifNull
-          }
-      }(ec)
-    }
-    else df
+    val df2 = b.execute(ctx.withArguments(DataFrame.cached(df1.schema, df1.records.toSeq)))
+    df2
   }
-
-//  override def withChildren(children0: Seq[PhysicalPlan]): PPTJoin = PPTJoin(filterExpr, isSingleMatch, joinType)(children0.head, children0(1), plannerContext)
-
 
 }

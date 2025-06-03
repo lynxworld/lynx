@@ -20,8 +20,8 @@ case class MatchTranslator(m: Match) extends LogicalTranslator {
     val matched = combined.drop(1).foldLeft(combined.head)(
       (a, b) =>
         if (a == b) LogicalJoin(true, InnerJoin)(a, b)
-        else plans.LogicalJoin(true, OuterJoin)(a, b)
-//        else LogicalCross()(a, b)
+        //        else plans.LogicalJoin(true, OuterJoin)(a, b)
+        else LogicalCross()(a, b)
     )
     //    val matched = parts.drop(1).foldLeft(parts.head)((a,b) => LPTJoin(true, InnerJoin)(a, b))
     val filtered = WhereTranslator(where).translate(Some(matched))
@@ -31,7 +31,10 @@ case class MatchTranslator(m: Match) extends LogicalTranslator {
       case Some(w:LogicalWith) => LogicalAndThen()(w,filtered)
       case Some(w:LogicalUnwind) => LogicalAndThen()(w,filtered)
       case Some(a:LogicalAndThen) => LogicalAndThen()(a, filtered)
-      case Some(left) => plans.LogicalJoin(false, if (optional) LeftJoin else InnerJoin)(left, filtered) // danger!
+      case Some(left) => filtered match {
+        case s: LogicalShortestPaths => LogicalAndThen()(left, s)
+        case _ => plans.LogicalJoin(false, if (optional) LeftJoin else InnerJoin)(left, filtered) // danger!
+      }
     }
   }
   /*
@@ -44,22 +47,22 @@ case class MatchTranslator(m: Match) extends LogicalTranslator {
     _p.foldLeft(Seq.empty[LogicalPatternMatch]) { (left, right) => left.lastOption match {
       case Some(LogicalPatternMatch(o,n,h,c))
         if c.lastOption.map(_._2).getOrElse(h).variable == right.headNode.variable
-        => left.dropRight(1):+LogicalPatternMatch(o,n,h,c++right.chain)
+      => left.dropRight(1):+LogicalPatternMatch(o,n,h,c++right.chain)
       case None => Seq(right)
       case _ => left:+right
     }}
-//    for (i <- _p.indices) {
-//      val tail = _p(i).chain.lastOption.map(_._2).getOrElse(_p(i).headNode)
-//      for (j <- i until _p.size){
-//        val head = _p(j).headNode
-//        if (tail.variable.isDefined && tail.variable.map(_.name).equals(head.variable.map(_.name))){
-//          _p(i) = _p(i) match {
-//            case LogicalPatternMatch(o,v,h,c) => LogicalPatternMatch(o,v,h, c ++: _p(j).chain)
-//          }
-//          _p.remove(j)
-//        }
-//      }
-//    }
+    //    for (i <- _p.indices) {
+    //      val tail = _p(i).chain.lastOption.map(_._2).getOrElse(_p(i).headNode)
+    //      for (j <- i until _p.size){
+    //        val head = _p(j).headNode
+    //        if (tail.variable.isDefined && tail.variable.map(_.name).equals(head.variable.map(_.name))){
+    //          _p(i) = _p(i) match {
+    //            case LogicalPatternMatch(o,v,h,c) => LogicalPatternMatch(o,v,h, c ++: _p(j).chain)
+    //          }
+    //          _p.remove(j)
+    //        }
+    //      }
+    //    }
   }
 
   @tailrec

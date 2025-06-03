@@ -4,11 +4,10 @@ import org.grapheco.lynx.types.{LTNode, LynxType, LynxValue}
 import org.grapheco.lynx.dataframe.DataFrame
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.runner._
-import org.grapheco.lynx.types.composite.LynxMap
 import org.grapheco.lynx.types.structural.{LynxNodeLabel, LynxPropertyKey}
 import org.opencypher.v9_0.expressions._
 
-case class NodeScan(pattern: NodePattern)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
+case class NodeScan(pattern: NodePattern, optional: Boolean = false)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
 
   override def schema: Seq[(String, LynxType)] = {
     val NodePattern(
@@ -25,38 +24,33 @@ case class NodeScan(pattern: NodePattern)(implicit val plannerContext: PhysicalP
     labels: Seq[LabelName],
     properties: Option[Expression],
     baseNode: Option[LogicalVariable]) = pattern
-    implicit val ec = ctx.expressionContext
+    val ec = ctx.expressionContext
+    val df = ctx.arguments
+    val newSchema = df.schema.filter(_._1!=var0.name) ++ Seq(var0.name -> LTNode)
 
-    val (nodeProperties, nodeProps) = if (properties.isEmpty) (Map.empty[LynxPropertyKey, LynxValue], Map.empty[LynxPropertyKey, PropOp])
-    else properties.get match {
-      case li@ListLiteral(expressions) => {
-        (eval(expressions(0)).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))
-          , eval(expressions(1)).asInstanceOf[LynxMap].value.map(kv => {
-          val v_2: PropOp = kv._2.value.toString match {
-            case "IN" => IN
-            case "EQUAL" => EQUAL
-            case "NOTEQUALS" => NOT_EQUAL
-            case "LessThan" => LESS_THAN
-            case "LessThanOrEqual" => LESS_THAN_OR_EQUAL
-            case "GreaterThan" => GREATER_THAN
-            case "GreaterThanOrEqual" => GREATER_THAN_OR_EQUAL
-            case "Contains" => CONTAINS
-            case _ => throw new scala.Exception("unexpected PropOp" + kv._2.value)
-          }
-          (LynxPropertyKey(kv._1), v_2)
-        }))
+    DataFrame(newSchema, () => {
+      if(df.schema.size!=0){
+        df.records.flatMap(record => {
+          val recordCtx = ec.withVars(df.columnsName.zip(record).toMap)
+          val filterExpr = getNodeFilerProperties(properties, recordCtx)
+          val iter = graphModel.nodes(
+            NodeFilter(
+              labels.map(_.name).map(LynxNodeLabel),
+              Map.empty, filterExpr
+            )
+          ).map(Seq(_)).map(df.columnsName.zip(record).filter(_._1!=var0.name).map(_._2) ++ _)
+          val recordToAdd = if(df.columnsName.contains(var0.name)) df.columnsName.zip(record).filter(_._1==var0.name).map(_._2) else Seq()
+          if(iter.isEmpty && optional)  Seq(df.columnsName.zip(record).filter(_._1!=var0.name).map(_._2) ++ recordToAdd) else iter
+        })
+      }else{
+        val filterExpr = getNodeFilerProperties(properties, ec)
+        graphModel.nodes(
+          NodeFilter(
+            labels.map(_.name).map(LynxNodeLabel),
+            Map.empty, filterExpr
+          )
+        ).map(Seq(_))
       }
-      case _ => {
-        (properties.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty), Map.empty[LynxPropertyKey, PropOp])
-      }
-    }
-    DataFrame(Seq(var0.name -> LTNode), () => {
-      graphModel.nodes(
-        NodeFilter(
-          labels.map(_.name).map(LynxNodeLabel),
-          nodeProperties, nodeProps
-        )
-      ).map(Seq(_))
     })
   }
 }

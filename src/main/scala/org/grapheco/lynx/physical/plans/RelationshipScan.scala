@@ -7,9 +7,10 @@ import org.grapheco.lynx.types.{LTList, LTNode, LTPath, LTRelationship, LynxType
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.structural.{LynxNodeLabel, LynxPropertyKey, LynxRelationshipType}
 import org.grapheco.lynx.runner
+import org.grapheco.lynx.types.property.LynxNull
 import org.opencypher.v9_0.expressions.{Expression, LabelName, ListLiteral, LogicalVariable, NodePattern, Range, RelTypeName, RelationshipPattern, SemanticDirection}
 
-case class RelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, rightNode: NodePattern)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
+case class RelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, rightNode: NodePattern, optional: Boolean = false)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
 
   override val schema: Seq[(String, LynxType)] = {
     val RelationshipPattern(
@@ -51,8 +52,7 @@ case class RelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, rig
     baseRel: Option[LogicalVariable]) = rel
     val NodePattern(var1, labels1: Seq[LabelName], props1: Option[Expression], baseNode1: Option[LogicalVariable]) = leftNode
     val NodePattern(var3, labels3: Seq[LabelName], props3: Option[Expression], baseNode3: Option[LogicalVariable]) = rightNode
-
-    implicit val ec = ctx.expressionContext
+    val ec = ctx.expressionContext
 
     //    length:
     //      [r:XXX] = None
@@ -66,67 +66,45 @@ case class RelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, rig
       case Some(None) => (1, Int.MaxValue)
       case Some(Some(Range(a, b))) => (a.map(_.value.toInt).getOrElse(1), b.map(_.value.toInt).getOrElse(Int.MaxValue))
     }
+    val df = ctx.arguments
+    val newSchema = df.schema.filterNot(col => schema.map(_._1).contains(col._1)) ++ schema
 
-    val (leftProperties, leftProps) = if (props1.isEmpty) (Map.empty[LynxPropertyKey, LynxValue], Map.empty[LynxPropertyKey, PropOp])
-    else props1.get match {
-      case li@ListLiteral(expressions) => {
-        (eval(expressions(0)).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))
-          , eval(expressions(1)).asInstanceOf[LynxMap].value.map(kv => {
-          val v_2: PropOp = kv._2.value.toString match {
-            case "IN" => IN
-            case "EQUAL" => EQUAL
-            case "NOTEQUALS" => NOT_EQUAL
-            case "LessThan" => LESS_THAN
-            case "LessThanOrEqual" => LESS_THAN_OR_EQUAL
-            case "GreaterThan" => GREATER_THAN
-            case "GreaterThanOrEqual" => GREATER_THAN_OR_EQUAL
-            case "Contains" => CONTAINS
-            case _ => throw new scala.Exception("unexpected PropOp" + kv._2.value)
-          }
-          (LynxPropertyKey(kv._1), v_2)
-        }))
-      }
-      case _ => {
-        (props1.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty), Map.empty[LynxPropertyKey, PropOp])
-      }
+    DataFrame(newSchema,() => {
+      if(df.schema.size!=0){
+        df.records.grouped(1000).flatMap(records =>{
+          records.par.map(record => {
+            val recordCtx = ec.withVars(df.columnsName.zip(record).toMap)
+            val leftFilterExpr = getNodeFilerProperties(props1, recordCtx)
+            val rightFilterExpr = getNodeFilerProperties(props3, recordCtx)
 
-    }
-
-    val (rightProperties, rightProps) = if (props3.isEmpty) (Map.empty[LynxPropertyKey, LynxValue], Map.empty[LynxPropertyKey, PropOp])
-    else props3.get match {
-      case li@ListLiteral(expressions) => {
-        (eval(expressions(0)).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))
-          , eval(expressions(1)).asInstanceOf[LynxMap].value.map(kv => {
-          val v_2: PropOp = kv._2.value.toString match {
-            case "IN" => IN
-            case "EQUAL" => EQUAL
-            case "NOTEQUALS" => NOT_EQUAL
-            case "LessThan" => LESS_THAN
-            case "LessThanOrEqual" => LESS_THAN_OR_EQUAL
-            case "GreaterThan" => GREATER_THAN
-            case "GreaterThanOrEqual" => GREATER_THAN_OR_EQUAL
-            case "Contains" => CONTAINS
-            case _ => throw new scala.Exception("unexpected PropOp" + kv._2.value)
-          }
-          (LynxPropertyKey(kv._1), v_2)
-        }))
-      }
-      case _ => {
-        (props3.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty), Map.empty[LynxPropertyKey, PropOp])
-      }
-    }
-    DataFrame(schema,
-      () => {
+            val paths = graphModel.paths(
+              runner.NodeFilter(labels1.map(_.name).map(LynxNodeLabel), Map.empty, leftFilterExpr),
+              runner.RelationshipFilter(types.map(_.name).map(LynxRelationshipType), props2.map(eval(_)(recordCtx).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
+              runner.NodeFilter(labels3.map(_.name).map(LynxNodeLabel), Map.empty, rightFilterExpr),
+              direction, upperLimit, lowerLimit)
+            val iterResult = if (length.isEmpty) paths.map { path => Seq(path.startNode.get, path.firstRelationship.get, path.endNode.get) }
+            else paths.map { path => Seq(path.startNode.get, LynxList(path.relationships), path.endNode.get, path) }
+            val iter: Iterator[Seq[LynxValue]] = iterResult.map(df.columnsName.zip(record).filterNot(col => schema.map(_._1).contains(col._1)).map(_._2) ++ _)
+            if (iter.isEmpty && optional) {
+              val recordMap = df.columnsName.zip(record).toMap
+              val recordToAdd = schema.map(col => if (df.columnsName.contains(col._1)) recordMap.get(col._1).getOrElse(LynxNull) else LynxNull)
+              Seq(recordMap.toList.filterNot(col => schema.map(_._1).contains(col._1)).map(_._2) ++ recordToAdd).toIterator
+            }
+            else iter
+            //        else paths.map { path => Seq(path.startNode.get, LynxList(path.relationships), path.endNode.get, path.trim) } // fixme: huchuan 2023-04-11: why trim?
+          }).reduceOption(_ ++ _).getOrElse(Iterator.empty)
+        })
+      }else {
+        val leftFilterExpr = getNodeFilerProperties(props1, ec)
+        val rightFilterExpr = getNodeFilerProperties(props3, ec)
         val paths = graphModel.paths(
-          runner.NodeFilter(labels1.map(_.name).map(LynxNodeLabel), leftProperties, leftProps),
-          runner.RelationshipFilter(types.map(_.name).map(LynxRelationshipType), props2.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
-          runner.NodeFilter(labels3.map(_.name).map(LynxNodeLabel), rightProperties, rightProps),
+          runner.NodeFilter(labels1.map(_.name).map(LynxNodeLabel), Map.empty, leftFilterExpr),
+          runner.RelationshipFilter(types.map(_.name).map(LynxRelationshipType), props2.map(eval(_)(ec).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
+          runner.NodeFilter(labels3.map(_.name).map(LynxNodeLabel), Map.empty, rightFilterExpr),
           direction, upperLimit, lowerLimit)
         if (length.isEmpty) paths.map { path => Seq(path.startNode.get, path.firstRelationship.get, path.endNode.get) }
         else paths.map { path => Seq(path.startNode.get, LynxList(path.relationships), path.endNode.get, path) }
-        //        else paths.map { path => Seq(path.startNode.get, LynxList(path.relationships), path.endNode.get, path.trim) } // fixme: huchuan 2023-04-11: why trim?
-
       }
-    )
+    })
   }
 }

@@ -1,7 +1,10 @@
 package org.grapheco.lynx.evaluator
 
+import org.grapheco.lynx.optimizer.ApplyPushDownRule
+import org.grapheco.lynx.optimizer.PPTFilterPushDownRule.{extractIndexPropFromFilterExpression, foldPushDown, getNewPattern, getPushDownExpression, reverseRelationPattern}
 import org.grapheco.lynx.procedure.{ProcedureException, ProcedureExpression, ProcedureRegistry}
-import org.grapheco.lynx.runner.{GraphModel, NodeFilter, RelationshipFilter}
+import org.grapheco.lynx.runner.filter.FilterExpr
+import org.grapheco.lynx.runner.{GraphModel, NodeFilter, RelationshipFilter, filter}
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property._
 import org.grapheco.lynx.types.structural._
@@ -10,8 +13,11 @@ import org.grapheco.lynx.types.traits.{HasProperty, LynxComputable}
 import org.grapheco.lynx.types.{CT2LT, LTAny, LTBoolean, LTFloat, LTInteger, LTList, LTString, LazyLynxValue, LynxType, LynxValue, TypeSystem}
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.expressions.functions.{Collect, Id}
+import org.opencypher.v9_0.util.InputPosition
 import org.opencypher.v9_0.util.symbols.ListType
 
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 import scala.math.abs
 import scala.util.matching.Regex
 /**
@@ -319,7 +325,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
                   // case [xxx] when [yyy] then 1
                   // if [yyy] is a boolean, then [xxx] no use
                   val res = eval(alt._1)
-                  if (res.isInstanceOf[LynxBoolean]) res.value.asInstanceOf[Boolean]
+                  if (res.isInstanceOf[LynxBoolean]) res.value.asInstanceOf[Boolean] == evalValue
                   else eval(alt._1) == evalValue
                 })
                 .map(_._2).getOrElse(default.get)
@@ -339,33 +345,8 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
 
       case MapExpression(items) => LynxMap(items.map { case (prop, expr) => prop.name -> eval(expr) }.toMap)
 
-      //Only One-hop path-pattern is supported now
-      case PatternExpression(pattern) => { // FIXME only one-hop supported now.
 
-        val rightNode: NodePattern = pattern.element.rightNode
-        val relationship: RelationshipPattern = pattern.element.relationship
-        val leftNode: NodePattern = if (pattern.element.element.isSingleNode) {
-          pattern.element.element.asInstanceOf[NodePattern]
-        } else {
-          throw EvaluatorException(s"PatternExpression is not fully supproted.")
-        }
-
-        //        val exist: Boolean = graphModel.paths(
-        //          _transferNodePatternToFilter(leftNode),
-        //          _transferRelPatternToFilter(relationship),
-        //          _transferNodePatternToFilter(rightNode),
-        //          relationship.direction, 1, 1
-        //        ).exists(path => leftNode.variable.map(eval).forall(_.equals(path.startNode.orNull))  &&
-        //         rightNode.variable.map(eval).forall(_.equals(path.endNode.orNull)))
-        //        LynxBoolean(exist)
-        LynxList(graphModel.paths(
-          _transferNodePatternToFilter(leftNode),
-          _transferRelPatternToFilter(relationship),
-          _transferNodePatternToFilter(rightNode),
-          relationship.direction, 1, 1
-        ).filter(path => leftNode.variable.map(eval).forall(_.equals(path.startNode.orNull)) &&
-          rightNode.variable.map(eval).forall(_.equals(path.endNode.orNull))).toList)
-      }
+      case PatternExpression(pattern) => executePattern(pattern, None, true)
 
       case ip: IterablePredicateExpression => {
         val variable = ip.variable
@@ -470,7 +451,8 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case PatternComprehension(namedPath: Option[LogicalVariable], pattern: RelationshipsPattern,
       predicate: Option[Expression], projection: Expression) => {
         // TODO
-        ???
+        val listValue = LynxList(executePattern(pattern, predicate)(ec).value.map(v =>eval(projection)))
+        listValue
       }
     }
     LazyLynxValue.initLazyLynxValue(value)
@@ -498,17 +480,43 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
     }
   }
 
-  def _transferNodePatternToFilter(nodePattern: NodePattern)(implicit ec: ExpressionContext): NodeFilter = {
-    val properties: Map[LynxPropertyKey, LynxValue] = nodePattern.properties match {
-      case None => Map()
-      case Some(MapExpression(seqOfProps)) => seqOfProps.map {
-        case (propertyKeyName, propValueExpr) => LynxPropertyKey(propertyKeyName.name) -> LynxValue(eval(propValueExpr))
-      }.toMap
+  private def _transferNodePatternToFilter(nodePattern: NodePattern)(implicit ec: ExpressionContext): NodeFilter = {
+    val filterExpr: Option[FilterExpr] = nodePattern.properties match {
+      case None => None
+      case pn@Some(ListLiteral(list)) => Some(filter.Ands(list.map(toFilerExpr(_)).toSet))
     }
-    NodeFilter(nodePattern.labels.map(label => LynxNodeLabel(label.name)), properties)
+
+    NodeFilter(nodePattern.labels.map(label => LynxNodeLabel(label.name)), Map.empty, filterExpr)
   }
 
-  def _transferRelPatternToFilter(relationshipPattern: RelationshipPattern)(implicit ec: ExpressionContext): RelationshipFilter = {
+  def toFilerExpr(expression: Expression)(implicit ec: ExpressionContext): FilterExpr = {
+    expression match {
+      case e@Equals(lhs, rhs) => lhs match {
+        case Property(Variable(name), pkn) => filter.Equals(LynxPropertyKey(pkn.name), LynxValue(eval(rhs)))
+        case Variable(name) => eval(rhs) match {
+          case n: LynxNode => filter.Equals(LynxPropertyKey("_lynx_sys_id"), n.id.toLynxInteger)
+          case _ => throw new Exception(s"transferNodePatternToFilter fail ${e}")
+        }
+        case p: ProcedureExpression => filter.Equals(LynxPropertyKey("_lynx_sys_id"), LynxValue(eval(rhs)))
+      }
+      case in@In(lhs, rhs) => lhs match {
+        case Property(Variable(name), pkn) => eval(rhs) match {
+          case l: LynxList => filter.In(LynxPropertyKey(pkn.name), l)
+          case _ => throw new Exception(s"transferNodePatternToFilter fail ${in}")
+        }
+        case Variable(name) => eval(rhs) match {
+          case LynxList(l: List[LynxNode]) => filter.In(LynxPropertyKey("_lynx_sys_id"), LynxList(l.map(_.id.toLynxInteger)))
+          case _ => throw new Exception(s"transferNodePatternToFilter fail ${in}")
+        }
+        case p: ProcedureExpression => eval(rhs) match {
+          case l: LynxList => filter.In(LynxPropertyKey("_lynx_sys_id"), l)
+          case _ => throw new Exception(s"transferNodePatternToFilter fail ${in}")
+        }
+      }
+      case _ => throw new Exception(s"transferNodePatternToFilter fail ${expression}")
+    }
+  }
+  private def _transferRelPatternToFilter(relationshipPattern: RelationshipPattern)(implicit ec: ExpressionContext): RelationshipFilter = {
     val props: Map[LynxPropertyKey, LynxValue] = relationshipPattern.properties match {
       case None => Map()
       case Some(MapExpression(seqOfProps)) => seqOfProps.map {
@@ -516,5 +524,124 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       }.toMap
     }
     RelationshipFilter(relationshipPattern.types.map(relType => LynxRelationshipType(relType.name)), props)
+  }
+
+  private def pushFilterToPattern(pattern: RelationshipsPattern, expr: Option[Expression], isAddSysId: Boolean)
+                                 (implicit ec: ExpressionContext): Seq[(ArrayBuffer[NodePattern], ArrayBuffer[RelationshipPattern], ArrayBuffer[String], Option[Expression], Boolean)] = {
+    var notPushDown: ArrayBuffer[Expression] = new ArrayBuffer[Expression]
+    var pushDown: ArrayBuffer[Seq[(String, Expression)]] = new ArrayBuffer[Seq[(String, Expression)]]
+    var labelMap = mutable.Map[String, Seq[LabelName]]()
+    if(expr.nonEmpty){
+      val pushDownExpr = getPushDownExpression(expr.get, ec.executionContext.physicalPlannerContext)
+      notPushDown = pushDownExpr._1
+      pushDown = pushDownExpr._2
+      labelMap = pushDownExpr._3
+    }
+    var pushDowns: Seq[Seq[(String, Expression)]] = foldPushDown(pushDown)
+    if(pushDowns.isEmpty) pushDowns = Seq(Seq.empty)
+    pushDowns.map(pushDown => {
+      val schema = new ArrayBuffer[String]()
+      val nodeArr = new ArrayBuffer[NodePattern]()
+      val relArr = new ArrayBuffer[RelationshipPattern]()
+      var relationshipChain: PatternElement = pattern.element
+      var isReverse = false
+      while (!relationshipChain.isSingleNode) {
+        val rel = relationshipChain.asInstanceOf[RelationshipChain]
+        if(expr.isEmpty) {
+          nodeArr.append(rel.rightNode)
+        }else {
+          nodeArr.append(getNewPattern(rel.rightNode, Seq(pushDown), labelMap).head)
+        }
+        relArr.append(rel.relationship)
+        schema.append({
+          if(rel.rightNode.variable.nonEmpty) rel.rightNode.variable.get.name
+          else rel.rightNode.toString
+        })
+        schema.append({
+          if(rel.relationship.variable.nonEmpty) rel.relationship.variable.get.name
+          else rel.relationship.toString
+        })
+        if (rel.element.isSingleNode) {
+          if(expr.isEmpty){
+            val startNodePattern = rel.element.asInstanceOf[NodePattern]
+            if(startNodePattern.properties.isEmpty) isReverse = true
+            nodeArr.append(startNodePattern)
+          }else {
+            val startNodePattern = getNewPattern(rel.element.asInstanceOf[NodePattern], Seq(pushDown), labelMap).head
+            if(startNodePattern.properties.isEmpty) isReverse = true
+            nodeArr.append(startNodePattern)
+          }
+          schema.append({
+            val node = rel.element.asInstanceOf[NodePattern]
+            if(node.variable.nonEmpty) node.variable.get.name
+            else node.toString
+          })
+        }
+        relationshipChain = rel.element
+      }
+      val notPutDownExpr = if(notPushDown.nonEmpty) Some(Ands(notPushDown.toSet)(InputPosition(0,0,0))) else None
+      if(isReverse && !isAddSysId) (nodeArr.reverse, relArr.map(rel => reverseRelationPattern(rel)).reverse, schema.reverse, notPutDownExpr, isReverse)
+      else (nodeArr, relArr, schema, notPutDownExpr, isReverse)
+    })
+  }
+
+  private def executePattern(pattern: RelationshipsPattern, expr: Option[Expression], isAddSysId: Boolean = false)(implicit ec: ExpressionContext): LynxList = {
+    val patterns = pushFilterToPattern(pattern, expr, isAddSysId)
+    val result = patterns.map(pattern => {
+      val (nodeArr, relArr, schema, notPutDownExpr, isReverse) = pattern
+      var nodeIter: Iterator[NodePattern] = Iterator.empty
+      if(isAddSysId){
+        nodeIter = nodeArr.map(ApplyPushDownRule.addIdToNodePattern(_)(ec.executionContext.physicalPlannerContext)).reverse.toIterator
+      }else nodeIter = nodeArr.reverse.toIterator
+      val relIter = relArr.reverse.toIterator
+      var resultPaths: Seq[Seq[LynxValue]] = Seq.empty
+      if (relIter.hasNext) {
+        val relationship = relIter.next()
+        val leftNode = nodeIter.next()
+        val rightNode = nodeIter.next()
+        resultPaths = graphModel.paths(
+          _transferNodePatternToFilter(leftNode),
+          _transferRelPatternToFilter(relationship),
+          _transferNodePatternToFilter(rightNode),
+          relationship.direction, 1, 1
+        ).map(_.elements).toSeq
+      }
+      while (relIter.hasNext) {
+        val relationship = relIter.next()
+        val endNodePattern = nodeIter.next()
+        val endNodeFilter = _transferNodePatternToFilter(endNodePattern)
+        val resultExpands = resultPaths.flatMap(record => {
+          graphModel.varExpandWithLabel(record.last.asInstanceOf[LynxNode], _transferRelPatternToFilter(relationship), relationship.direction, 1, 1)
+            .filter(_.endNode.forall(endNodeFilter.matches(_)))
+            .map(p => record.:+(p.relationships.head).:+(p.endNode.get))
+
+        })
+        resultPaths = resultExpands
+      }
+      val pushDownList: List[LynxList] = if(notPutDownExpr.nonEmpty){
+        val filterResult:List[LynxList] = resultPaths.par.filter{
+          (record: Seq[LynxValue]) =>
+            try{
+              val r1 = eval(notPutDownExpr.get)(ec.withVars(ec.vars ++ schema.reverse.zip(record).toMap))
+              val r2 = r1 match {
+                case LynxBoolean(b) => b
+                case LynxList(l) => l.nonEmpty
+                case LynxNull => false //todo check logic
+              }
+              r2
+            }catch {
+              case e: Exception => println(record)
+                println(schema)
+                throw e
+            }
+
+
+        }.toList.map(_.map(v=> v.asInstanceOf[LynxElement]).toList).map(LynxList(_))
+        filterResult
+      }else resultPaths.toList.map(_.map(v=> v.asInstanceOf[LynxElement]).toList).map(LynxList(_))
+      if(isReverse) pushDownList.map(lynxList => LynxList(lynxList.value.reverse))
+      else pushDownList
+    }).reduceOption(_ ++ _).getOrElse(List.empty[LynxList])
+    LynxList(result)
   }
 }

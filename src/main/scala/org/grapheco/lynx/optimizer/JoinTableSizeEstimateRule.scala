@@ -62,8 +62,8 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
 
   def estimate(table: PhysicalPlan, ppc: PhysicalPlannerContext): Long = {
     table match {
-      case ps@NodeScan(pattern) => estimateNodeRow(pattern, ppc.runnerContext.graphModel)
-      case pr@RelationshipScan(rel, left, right) => estimateRelationshipRow(rel, left, right, ppc.runnerContext.graphModel)
+      case ps@NodeScan(pattern, optional) => estimateNodeRow(pattern, ppc.runnerContext.graphModel)
+      case pr@RelationshipScan(rel, left, right, optional) => estimateRelationshipRow(rel, left, right, ppc.runnerContext.graphModel)
     }
   }
 
@@ -71,7 +71,7 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
     val estimateTable1 = estimate(table1, ppc)
     val estimateTable2 = estimate(table2, ppc)
     if (estimateTable1 <= estimateTable2) Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
-    else Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table2, table1, ppc)
+    else Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
   }
 
   def joinRecursion(parent: Join, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PhysicalPlan = {

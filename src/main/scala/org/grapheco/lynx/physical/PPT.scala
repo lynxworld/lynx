@@ -6,6 +6,7 @@ import org.grapheco.lynx.runner.{ExecutionContext, GraphModel}
 import org.grapheco.lynx.types.composite.LynxMap
 import org.grapheco.lynx.types.structural._
 import org.grapheco.lynx.types.{LynxType, LynxValue}
+import org.opencypher.v9_0.expressions.SemanticDirection.{INCOMING, OUTGOING}
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.util.InputPosition
 
@@ -50,7 +51,7 @@ trait FormalElement {
 
 case class FormalNode(varName: String, labels: Seq[LabelName], properties: Option[Expression]) extends FormalElement
 
-case class FormalRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) extends FormalElement
+case class FormalRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String, direction: SemanticDirection = OUTGOING) extends FormalElement
 
 case class CreateOps(ops: Seq[FormalElement])(eval: Expression => LynxValue, graphModel: GraphModel) {
   def execute(distinct: mutable.Map[NodeInput, LynxNode] = null): Seq[(String, LynxValue with LynxElement)] = {
@@ -64,7 +65,7 @@ case class CreateOps(ops: Seq[FormalElement])(eval: Expression => LynxValue, gra
           case None => Seq.empty
         })
 
-      case FormalRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) =>
+      case FormalRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String, direction: SemanticDirection) =>
 
         def nodeInputRef(nodeVarName: String): NodeInputRef = eval(Variable(nodeVarName)(InputPosition.NONE)) match {
           case node: LynxNode => StoredNodeInputRef(node.id)
@@ -124,7 +125,7 @@ case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[FormalElemen
                   }.getOrElse(Seq.empty))
             }
 
-          case FormalRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String) =>
+          case FormalRelationship(varName: String, types: Seq[RelTypeName], properties: Option[Expression], varNameLeftNode: String, varNameRightNode: String, direction: SemanticDirection) =>
 
             def nodeInputRef(varname: String): NodeInputRef = {
               ctxMap.get(varname).map(
@@ -134,13 +135,20 @@ case class PPTCreate(schemaLocal: Seq[(String, LynxType)], ops: Seq[FormalElemen
                 ContextualNodeInputRef(varname)
               )
             }
-
-            relsInput += varName ->
-              RelationshipInput(types.map(_.name).map(LynxRelationshipType),
+            val relationshipInput: RelationshipInput = direction match {
+              case INCOMING => RelationshipInput(types.map(_.name).map(LynxRelationshipType),
+                properties.map(eval(_)(ec.withVars(ctxMap))).map {
+                  case LynxMap(m) => m.map { case (str, value) => LynxPropertyKey(str) -> value }.toSeq
+                  case _ => throw SyntaxErrorException("Property should be a Map.")
+                }.getOrElse(Seq.empty), nodeInputRef(varNameRightNode), nodeInputRef(varNameLeftNode))
+              case OUTGOING => RelationshipInput(types.map(_.name).map(LynxRelationshipType),
                 properties.map(eval(_)(ec.withVars(ctxMap))).map {
                   case LynxMap(m) => m.map { case (str, value) => LynxPropertyKey(str) -> value }.toSeq
                   case _ => throw SyntaxErrorException("Property should be a Map.")
                 }.getOrElse(Seq.empty), nodeInputRef(varNameLeftNode), nodeInputRef(varNameRightNode))
+              case _ => throw new Exception("Only directed relationships are supported in CREATE")
+            }
+            relsInput += varName -> relationshipInput
         }
 
         record ++ graphModel.createElements(

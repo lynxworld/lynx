@@ -17,7 +17,9 @@ class DefaultPhysicalPlanOptimizer(runnerContext: CypherRunnerContext) extends P
   val rules = Seq[PhysicalPlanOptimizerRule](
     ApplyPushDownRule,
     RemoveNullProject,
+    PPTLimitPushDownRule,
     PPTFilterPushDownRule,
+    RelationshipScanRule,
     RemoveApplyRule,
     JoinReferenceRule,
     JoinTableSizeEstimateRule,
