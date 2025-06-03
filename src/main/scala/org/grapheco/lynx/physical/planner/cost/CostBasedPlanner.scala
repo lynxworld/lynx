@@ -80,7 +80,7 @@ class CostBasedPlanner(costCalculator: CostCalculator) {
 
           // 计算连接计划的成本
           if (candidates.nonEmpty) {
-            val good = candidates.map(estimate).minBy(_.cost)
+            val good = candidates.map(_.withFilters(_filters)).map(estimate).minBy(_.cost)
             // 更新最佳计划
             bestPlan = bestPlan match {
               case None => Some(good)
@@ -134,7 +134,7 @@ class CostBasedPlanner(costCalculator: CostCalculator) {
       val current = queue.dequeue()
 
       // 获取当前节点在子集中的邻居
-      val neighbors = graph.neighbors(current).filter(subset.contains)
+      val neighbors = graph.neighbors(current).intersect(subset)
 
       for (neighbor <- neighbors if !visited.contains(neighbor)) {
         visited.add(neighbor)

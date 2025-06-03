@@ -28,10 +28,9 @@ case class Filter(expr: Expression)(implicit val plannerContext: PhysicalPlanner
 }
 
 object Filter {
-  def multi(exprs: Seq[Expression])(implicit ctx: PhysicalPlannerContext): Option[Filter] = {
-    if (exprs.isEmpty) {
-      return None
-    }
-    Some(Filter(Ands(exprs.toSet)(InputPosition.NONE)))
+  def multi(exprs: Seq[Expression])(implicit ctx: PhysicalPlannerContext): Option[Filter] = exprs match {
+    case Nil => None
+    case Seq(expr) => Some(Filter(expr))
+    case _ => Some(Filter(Ands(exprs.toSet)(InputPosition.NONE)))
   }
 }
