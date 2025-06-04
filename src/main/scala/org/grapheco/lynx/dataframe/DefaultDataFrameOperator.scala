@@ -75,7 +75,7 @@ class DefaultDataFrameOperator(expressionEvaluator: ExpressionEvaluator) extends
 
   override def join(a: DataFrame, b: DataFrame, joinColumns: Seq[String], joinType: JoinType): DataFrame = {
     // Select the connection algorithm based on heuristic rules
-    JoinerSelector.chooseJoin(a, b, joinColumns, joinType)
+    JoinerSelector.chooseJoiner(a, b, joinColumns, joinType)(a,b,joinColumns,joinType)
   }
 
   override def cross(a: DataFrame, b: DataFrame): DataFrame = {

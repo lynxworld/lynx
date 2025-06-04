@@ -4,6 +4,7 @@ import org.grapheco.lynx.physical._
 import org.grapheco.lynx.physical.plans.{Join, Merge, NodeScanByLabel, PhysicalPlan, RelationshipScan}
 import org.grapheco.lynx.runner.GraphModel
 import org.opencypher.v9_0.expressions.{Literal, MapExpression, NodePattern, RelationshipPattern}
+import org.opencypher.v9_0.util.InputPosition
 
 import scala.collection.mutable
 
@@ -62,7 +63,7 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
 
   def estimate(table: PhysicalPlan, ppc: PhysicalPlannerContext): Long = {
     table match {
-      case ps@NodeScan(pattern) => estimateNodeRow(pattern, ppc.runnerContext.graphModel)
+      case ps@NodeScanByLabel(label,_) => estimateNodeRow(NodePattern(None, Seq(label.toNodeLabel), None, None)(InputPosition.NONE), ppc.runnerContext.graphModel)
       case pr@RelationshipScan(rel, left, right) => estimateRelationshipRow(rel, left, right, ppc.runnerContext.graphModel)
     }
   }
@@ -70,8 +71,8 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
   def estimateTableSize(parent: Join, table1: PhysicalPlan, table2: PhysicalPlan, ppc: PhysicalPlannerContext): PhysicalPlan = {
     val estimateTable1 = estimate(table1, ppc)
     val estimateTable2 = estimate(table2, ppc)
-    if (estimateTable1 <= estimateTable2) Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
-    else Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table2, table1, ppc)
+    if (estimateTable1 <= estimateTable2) Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(ppc)
+    else Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(ppc)
   }
 
   def joinRecursion(parent: Join, ppc: PhysicalPlannerContext, isSingleMatch: Boolean): PhysicalPlan = {
@@ -99,6 +100,6 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
       && (table2.isInstanceOf[NodeScanByLabel] || table2.isInstanceOf[RelationshipScan])) {
       estimateTableSize(parent, table1, table2, ppc)
     }
-    else Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
+    else Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(ppc)
   }
 }
