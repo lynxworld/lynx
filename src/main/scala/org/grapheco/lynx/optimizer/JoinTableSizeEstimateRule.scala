@@ -1,7 +1,7 @@
 package org.grapheco.lynx.optimizer
 
 import org.grapheco.lynx.physical._
-import org.grapheco.lynx.physical.plans.{Join, Merge, PhysicalPlan, NodeScan, RelationshipScan}
+import org.grapheco.lynx.physical.plans.{Join, Merge, NodeScanByLabel, PhysicalPlan, RelationshipScan}
 import org.grapheco.lynx.runner.GraphModel
 import org.opencypher.v9_0.expressions.{Literal, MapExpression, NodePattern, RelationshipPattern}
 
@@ -95,8 +95,8 @@ object JoinTableSizeEstimateRule extends PhysicalPlanOptimizerRule {
       case _ => t2
     }
 
-    if ((table1.isInstanceOf[NodeScan] || table1.isInstanceOf[RelationshipScan])
-      && (table2.isInstanceOf[NodeScan] || table2.isInstanceOf[RelationshipScan])) {
+    if ((table1.isInstanceOf[NodeScanByLabel] || table1.isInstanceOf[RelationshipScan])
+      && (table2.isInstanceOf[NodeScanByLabel] || table2.isInstanceOf[RelationshipScan])) {
       estimateTableSize(parent, table1, table2, ppc)
     }
     else Join(parent.filterExpr, parent.isSingleMatch, parent.joinType)(table1, table2, ppc)
