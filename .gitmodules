@@ -1,0 +1,3 @@
+[submodule "InferQL-front-end"]
+	path = InferQL-front-end
+	url = https://github.com/HC-teemo/InferQL-front-end.git

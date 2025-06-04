@@ -6,7 +6,7 @@ import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.runner.ExecutionContext
 import org.opencypher.v9_0.ast.ReturnItem
 
-case class CreateUnit(items: Seq[ReturnItem])(val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
+case class CreateUnit(items: Seq[ReturnItem])(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
   override def withChildren(children0: Seq[PhysicalPlan]): CreateUnit = CreateUnit(items)(plannerContext)
 
   override val schema: Seq[(String, LynxType)] =

@@ -1,5 +1,6 @@
 package org.grapheco.LDBC
 
+import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.LDBC.LDBCQueryTest.{ldbcTestBase, personIds}
 import org.grapheco.lynx.types.property.LynxInteger
 import org.grapheco.lynx.types.structural.LynxPropertyKey
@@ -31,7 +32,7 @@ object LDBCQueryTest {
   }
 }
 
-class LDBCQueryTest {
+class LDBCQueryTest extends LazyLogging{
 
   def getQuery(name: String): String = {
     val path = this.getClass.getResource("/LDBC")
@@ -370,5 +371,14 @@ class LDBCQueryTest {
         |OPTIONAL MATCH (b)-[]->(d)
         |RETURN a,b,c,d
         |""".stripMargin)
+  }
+
+
+  @Test
+  def test3(): Unit = {
+    ldbcTestBase.run(
+      """
+        |MATCH p=()-[r:HAS_MODERATOR]->() RETURN p LIMIT 25
+        |""".stripMargin, Map.empty).show()
   }
 }

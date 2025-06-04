@@ -43,6 +43,12 @@ trait PhysicalPlan extends TreeNode{
     this
   }
 
+  def ~> (andThen: PhysicalPlan): PhysicalPlan = andThen.withChildren(Some(this))
+
+  def ~> (andThen: Option[PhysicalPlan]): PhysicalPlan = andThen.map(_.withChildren(Some(this))).getOrElse(this)
+
+  def <~ (left: Option[PhysicalPlan], right: Option[PhysicalPlan] = None): PhysicalPlan = this.withChildren(left, right)
+
   override def description: String = s"[${this.schema.map(_._1).mkString(",")}]_$toString"
 
 }

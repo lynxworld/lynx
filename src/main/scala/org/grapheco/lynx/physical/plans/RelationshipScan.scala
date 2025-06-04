@@ -9,6 +9,35 @@ import org.grapheco.lynx.types.structural.{LynxNodeLabel, LynxPropertyKey, LynxR
 import org.grapheco.lynx.runner
 import org.opencypher.v9_0.expressions.{Expression, LabelName, ListLiteral, LogicalVariable, NodePattern, Range, RelTypeName, RelationshipPattern, SemanticDirection}
 
+sealed abstract class RelationshipsPlan(sourceVariable: String,
+                                        variable: String,
+                                        targetVariable: String
+                                       ) extends LeafPhysicalPlan {
+  override def schema: Seq[(String, LynxType)] =
+    Seq(sourceVariable -> LTNode, variable -> LTRelationship, targetVariable -> LTNode)
+}
+
+case class RelationshipsPlanFactory(sourceVariable: String,
+                                    variable: String,
+                                    targetVariable: String)(implicit val plannerContext: PhysicalPlannerContext) {
+  def allRelationships: AllRelationships = AllRelationships(sourceVariable, variable, targetVariable)
+
+  def relByType(typeName: LynxRelationshipType): RelationshipsByType = RelationshipsByType(sourceVariable, variable, targetVariable, typeName)
+}
+
+case class AllRelationships(sourceVariable: String, variable: String, targetVariable: String)(implicit val plannerContext: PhysicalPlannerContext) extends RelationshipsPlan(sourceVariable, variable, targetVariable) {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = DataFrame(schema, () => {
+    graphModel.relationships().map(t => Seq(t.startNode, t.storedRelation, t.endNode))
+  })
+}
+
+case class RelationshipsByType(sourceVariable: String, variable: String, targetVariable: String, typeName: LynxRelationshipType)(implicit val plannerContext: PhysicalPlannerContext) extends RelationshipsPlan(sourceVariable, variable, targetVariable) {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = DataFrame(schema, () => {
+    graphModel.relationships(RelationshipFilter(Seq(typeName), Map.empty))
+      .map(t => Seq(t.startNode, t.storedRelation, t.endNode))
+  })
+}
+
 case class RelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, rightNode: NodePattern)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
 
   override val schema: Seq[(String, LynxType)] = {
@@ -118,9 +147,9 @@ case class RelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, rig
     DataFrame(schema,
       () => {
         val paths = graphModel.paths(
-          runner.NodeFilter(labels1.map(_.name).map(LynxNodeLabel), leftProperties, leftProps),
+          runner.NodeFilter(labels1.map(LynxNodeLabel.fromNodeLabel), leftProperties, leftProps),
           runner.RelationshipFilter(types.map(_.name).map(LynxRelationshipType), props2.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty)),
-          runner.NodeFilter(labels3.map(_.name).map(LynxNodeLabel), rightProperties, rightProps),
+          runner.NodeFilter(labels3.map(LynxNodeLabel.fromNodeLabel), rightProperties, rightProps),
           direction, upperLimit, lowerLimit)
         if (length.isEmpty) paths.map { path => Seq(path.startNode.get, path.firstRelationship.get, path.endNode.get) }
         else paths.map { path => Seq(path.startNode.get, LynxList(path.relationships), path.endNode.get, path) }

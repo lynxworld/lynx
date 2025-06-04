@@ -3,12 +3,13 @@ package org.grapheco.lynx.physical.plans
 import org.grapheco.lynx.dataframe.DataFrame
 import org.grapheco.lynx.physical.{ExecuteException, PhysicalPlannerContext}
 import org.grapheco.lynx.runner.ExecutionContext
-import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.{LynxType, LynxValue}
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.{LynxBoolean, LynxNull}
-import org.opencypher.v9_0.expressions.Expression
+import org.opencypher.v9_0.expressions.{Ands, Expression}
+import org.opencypher.v9_0.util.InputPosition
 
-case class Filter(expr: Expression)(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan(l) {
+case class Filter(expr: Expression)(implicit val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan {
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
@@ -23,4 +24,13 @@ case class Filter(expr: Expression)(l: PhysicalPlan, val plannerContext: Physica
     }(ec)
   }
 
+  override def toString: String = s"Filter(${expr.asCanonicalStringVal})"
+}
+
+object Filter {
+  def multi(exprs: Seq[Expression])(implicit ctx: PhysicalPlannerContext): Option[Filter] = exprs match {
+    case Nil => None
+    case Seq(expr) => Some(Filter(expr))
+    case _ => Some(Filter(Ands(exprs.toSet)(InputPosition.NONE)))
+  }
 }

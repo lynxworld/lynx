@@ -12,7 +12,7 @@ import org.grapheco.lynx.types.traits.HasProperty
 import org.opencypher.v9_0.ast.{SetItem, SetLabelItem, SetPropertyItem, SetExactPropertiesFromMapItem, SetIncludingPropertiesFromMapItem}
 import org.opencypher.v9_0.expressions._
 
-case class Set(setItems: Seq[SetItem])(l: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan(l) with WritePlan {
+case class Set(setItems: Seq[SetItem])(implicit val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan with WritePlan {
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
@@ -54,7 +54,7 @@ case class Set(setItems: Seq[SetItem])(l: PhysicalPlan, val plannerContext: Phys
   private class SetLabelOperator(sl: SetLabelItem) extends SetOperator {
     override def getColName(): String = sl.variable.name
     override def perform(e: LynxElement, record: Seq[LynxValue], colNames: Seq[String], ec: ExpressionContext): Option[LynxElement] = {
-      graphModel.write.setNodesLabels(Some(e.id).iterator, sl.labels.map(_.name).map(LynxNodeLabel).toArray).next()
+      graphModel.write.setNodesLabels(Some(e.id).iterator, sl.labels.map(LynxNodeLabel.fromNodeLabel).toArray).next()
     }
   }
 

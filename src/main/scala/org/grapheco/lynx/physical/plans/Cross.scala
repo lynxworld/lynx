@@ -5,8 +5,7 @@ import org.grapheco.lynx.dataframe.{DataFrame, InnerJoin}
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.runner.ExecutionContext
 
-case class Cross()(l: PhysicalPlan, r: PhysicalPlan, val plannerContext: PhysicalPlannerContext) extends
-  DoublePhysicalPlan(l, r){
+case class Cross()(implicit val plannerContext: PhysicalPlannerContext) extends DoublePhysicalPlan{
 
   override val schema: Seq[(String, LynxType)] = l.schema ++ r.schema
 

@@ -7,8 +7,7 @@ import org.grapheco.lynx.runner.ExecutionContext
 import org.grapheco.lynx.types.composite.LynxList
 import org.opencypher.v9_0.expressions.{Expression, Variable}
 
-case class Unwind(expression: Expression, variable: Variable)(l: Option[PhysicalPlan], val plannerContext: PhysicalPlannerContext)
-  extends AbstractPhysicalPlan(l) {
+case class Unwind(expression: Expression, variable: Variable)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
   def in: Option[PhysicalPlan] = this.left
   override def schema: Seq[(String, LynxType)] = in.map(_.schema).getOrElse(Seq.empty) ++ Seq((variable.name, LTAny)) // TODO it is CTAny?
 
@@ -28,6 +27,4 @@ case class Unwind(expression: Expression, variable: Variable)(l: Option[Physical
       DataFrame(schema, () =>
         eval(expression)(ctx.expressionContext).asInstanceOf[LynxList].value.toIterator map (lv => Seq(lv)))
     }
-
-  override def withChildren(children0: Seq[PhysicalPlan]): Unwind = Unwind(expression, variable)(children0.headOption, plannerContext)
 }

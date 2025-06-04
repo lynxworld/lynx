@@ -35,21 +35,33 @@ abstract class AbstractPhysicalPlan(override var left: Option[PhysicalPlan] = No
   }
 }
 
-abstract class DoublePhysicalPlan(l: PhysicalPlan, r: PhysicalPlan) extends AbstractPhysicalPlan(Some(l), Some(r))
+abstract class DoublePhysicalPlan extends AbstractPhysicalPlan {
+  def l: PhysicalPlan = this.left.getOrElse(throw ExecuteException(s"Physical Plan ${this.getClass.getSimpleName} need double child!"))
+  def r: PhysicalPlan = this.right.getOrElse(throw ExecuteException(s"Physical Plan ${this.getClass.getSimpleName} need double child!"))
+}
 
-abstract class SinglePhysicalPlan(l: PhysicalPlan) extends AbstractPhysicalPlan(Some(l), None) {
+abstract class SinglePhysicalPlan extends AbstractPhysicalPlan {
   def in: PhysicalPlan = this.left.getOrElse(throw ExecuteException(s"Physical Plan ${this.getClass.getSimpleName} need child!"))
 
   override def schema: Seq[(String, LynxType)] = in.schema
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = in.execute(ctx)
 
-  override def withChildren(left: Option[PhysicalPlan], right: Option[PhysicalPlan]): PhysicalPlan = {
-    if (left.isEmpty) throw ExecuteException(s"Physical Plan ${this.getClass.getSimpleName} need child!")
-    else super.withChildren(left,right)
-  }
+//  override def withChildren(left: Option[PhysicalPlan], right: Option[PhysicalPlan]): PhysicalPlan = {
+//    if (left.isEmpty) throw ExecuteException(s"Physical Plan ${this.getClass.getSimpleName} need child!")
+//    else super.withChildren(left,right)
+//  }
 }
 
 abstract class LeafPhysicalPlan extends AbstractPhysicalPlan(None, None) {
-  override def withChildren(left: Option[PhysicalPlan], right: Option[PhysicalPlan]): PhysicalPlan = this
+  override def withChildren(left: Option[PhysicalPlan], right: Option[PhysicalPlan]): PhysicalPlan =
+    throw ExecuteException(s"Physical Plan ${this.getClass.getSimpleName} can not has child!")
+}
+
+case class PhysicalPlanBuffer(plan: PhysicalPlan) {
+  val physicalPlan: PhysicalPlan = plan
+
+  def andThen(physicalPlan: PhysicalPlan): PhysicalPlanBuffer =
+    PhysicalPlanBuffer(physicalPlan.withChildren(physicalPlan.children ++ Some(this.plan)))
+
 }

@@ -11,3 +11,7 @@ import org.opencypher.v9_0.util.ASTNode
  * @Version 0.1
  */
 case class UnknownASTNodeException(node: ASTNode) extends LynxException
+
+case class ShortestPathNotSupported() extends LynxException{
+  override def getMessage: String = "Shortest path is not supported"
+}

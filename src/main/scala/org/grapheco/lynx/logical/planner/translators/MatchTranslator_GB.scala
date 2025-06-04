@@ -1,0 +1,82 @@
+package org.grapheco.lynx.logical.planner.translators
+import org.opencypher.v9_0.expressions.{And, Ands, AnonymousPatternPart, Equals, EveryPath, Expression, HasLabels, LabelName, LogicalVariable, NamedPatternPart, NodePattern, Pattern, PatternElement, PatternPart, RelationshipChain, RelationshipPattern, ShortestPaths}
+import org.grapheco.lynx.logical.{LogicalPlannerContext, ShortestPathNotSupported}
+import org.grapheco.lynx.logical.planner.LogicalTranslator
+import org.grapheco.lynx.logical.plans.{FilterExpression, GraphPattern, GraphPatternEdge, GraphPatternMatch, GraphPatternNode, LogicalPlan}
+import org.opencypher.v9_0.ast.{Match, Where}
+import org.grapheco.lynx.logical.plans.ASTConvertor._
+import org.grapheco.lynx.types.structural.LynxNodeLabel
+
+import scala.language.implicitConversions
+import LynxNodeLabel.fromNodeLabel
+
+case class MatchTranslator_GB(m: Match) extends LogicalTranslator {
+
+  override def translate(in: Option[LogicalPlan])(implicit plannerContext: LogicalPlannerContext): LogicalPlan = {
+    // Combine the input graph pattern with the current graph pattern
+    val (graphPattern: GraphPattern, filterOfIn: FilterExpression) = in match {
+      case Some(gp: GraphPatternMatch) => (gp.graphPattern, gp.filters)
+      case _ => (new GraphPattern, FilterExpression.empty)
+    }
+    val Match(optional, Pattern(patternParts: Seq[PatternPart]), hints, where: Option[Where]) = m
+
+    // Translate each pattern part and add it to the graph pattern
+    patternParts.foreach{ // TODO variable name for relationship chain
+      case EveryPath(element) => translatePattern(element, optional,where)(graphPattern)
+      case ShortestPaths(_, _) => throw ShortestPathNotSupported() //TODO graph pattern not support shortest paths
+      case NamedPatternPart(variable, patternPart) => patternPart match {
+        case EveryPath(element) => translatePattern(element, optional,where)(graphPattern)
+        case ShortestPaths(_, _) => throw ShortestPathNotSupported()  //TODO graph pattern not support shortest paths
+      }
+    }
+    // Translate the WHERE clause if it exists, put it in the graph pattern, and return filters can not be translated.
+    val filter = where.map(w => translateWhere(w.expression)(graphPattern)).getOrElse(FilterExpression(Map.empty))
+    // Return the combined graph pattern
+    GraphPatternMatch(graphPattern, filterOfIn combine filter)
+  }
+
+  private def translatePattern(element: PatternElement, optional: Boolean,where:Option[Where])(graphPattern: GraphPattern): Unit = element match {
+    case n: NodePattern => graphPattern.addNode(n)
+    case RelationshipChain(s: NodePattern, r: RelationshipPattern, t: NodePattern) => graphPattern.addEdge(s,r,t)
+    case RelationshipChain(leftChain: RelationshipChain, r: RelationshipPattern, t: NodePattern) =>
+      translatePattern(leftChain, optional, where)(graphPattern)
+      graphPattern.addEdge(leftChain.rightNode,r,t)
+  }
+
+
+  private def translateWhere(expr: Expression)(g: GraphPattern): FilterExpression = expr match {
+    // uncombined And&Ands
+    case And(lhs, rhs) => translateWhere(lhs)(g) combine translateWhere(rhs)(g)
+    case Ands(expressions) => expressions.map(translateWhere(_)(g)).reduce(_ combine _)
+    // only push label&type to element
+    case HasLabels(LogicalVariable(str), labels) => g.maybeNode(str)
+      .map(_.addLabels(labels.map(fromNodeLabel)))
+      .map(g.updateNode)
+      .map(_ => FilterExpression.empty).getOrElse(FilterExpression(Map(Set(str) -> Seq(expr))))
+    // push expression to single element
+    case oneDependency if oneDependency.dependencies.size == 1 => attachSingleFilter(g, oneDependency)
+    // One more dependency, can not be translated.
+    case _ => FilterExpression(Map(expr.dependencies.map(_.name) -> Seq(expr)))
+  }
+
+  private def attachSingleFilter(g: GraphPattern, filter: Expression): FilterExpression = {
+    val involvedName = filter.dependencies.head.name // size = 1
+    // 0. If the filter is not involved in the graph pattern, return the filter expression.
+    if (!g.containsElement(involvedName)) return FilterExpression(Map(Set(involvedName) -> Seq(filter)))
+
+    // 1. attach the filter to the node
+    val _node: Option[GraphPatternNode] = g.maybeNode(involvedName).map(_.addExpressions(Seq(filter)))
+    if (_node.isDefined) {
+      g.updateNode(_node.get)
+      return FilterExpression.empty
+    }
+    // 2. attach the filter to the edge
+    val _edge: Option[GraphPatternEdge] = g.maybeEdge(involvedName).map(_.addExpressions(Seq(filter)))
+    if (_edge.isDefined) {
+      g.updateEdge(_edge.get)
+      return FilterExpression.empty
+    }
+    // 3. return the filter expression if the filter is not involved in the graph pattern.
+    FilterExpression(Map(Set(involvedName) -> Seq(filter)))
+  }
+}
