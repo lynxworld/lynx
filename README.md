@@ -78,7 +78,7 @@
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
-### Intruduction
+### Introduction
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -99,8 +99,13 @@ Import Lynx by Maven.
 
 ### How to use
 
-1. Implementa
+1. Implementation
+   - Implement the required interfaces for your data source
+   - Configure the basic settings
+
 2. Runner
+   - Set up the query environment
+   - Execute your graph queries
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
