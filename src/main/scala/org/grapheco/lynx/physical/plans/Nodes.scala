@@ -20,7 +20,7 @@ case class NodesPlanFactory(variable: String)(implicit val plannerContext: Physi
 
   def allNodes: AllNode = AllNode(variable)
 
-  def nodeScanByLabel(lynxNodeLabel: LynxNodeLabel): NodeScanByLabel2 = NodeScanByLabel2(lynxNodeLabel, variable)
+  def nodeScanByLabel(lynxNodeLabel: LynxNodeLabel): NodeScanByLabel = NodeScanByLabel(lynxNodeLabel, variable)
 
 //  def seekByIndex: NodeSeekByIndex = NodeSeekByIndex(patternNode)(variable)
 
@@ -37,62 +37,7 @@ case class AllNode(variable: String)(implicit val plannerContext: PhysicalPlanne
   override def toString: String = s"AllNode($variable)"
 }
 
-/**
- * Scan Nodes By Labels
- */
-//case class NodeScanByLabel(pattern: GraphPatternNode)(variable: String)(implicit val plannerContext: PhysicalPlannerContext) extends SingleNodePlan(variable) {
-//
-//  override def schema: Seq[(String, LynxType)] = {
-//    val GraphPatternNode(
-//    Some(var0: String),
-//    labels: Seq[LabelName],
-//    properties: Option[Expression],
-//    optional) = pattern
-//    Seq(var0 -> LTNode)
-//  }
-//
-//  override def execute(implicit ctx: ExecutionContext): DataFrame = {
-//    val GraphPatternNode(
-//    Some(var0: String),
-//    labels: Seq[LynxNodeLabel],
-//    properties: Option[Expression],
-//    optional) = pattern
-//    implicit val ec = ctx.expressionContext
-//
-//    val (nodeProperties, nodeProps) = if (properties.isEmpty) (Map.empty[LynxPropertyKey, LynxValue], Map.empty[LynxPropertyKey, PropOp])
-//    else properties.get match {
-//      case li@ListLiteral(expressions) => {
-//        (eval(expressions(0)).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))
-//          , eval(expressions(1)).asInstanceOf[LynxMap].value.map(kv => {
-//          val v_2: PropOp = kv._2.value.toString match {
-//            case "IN" => IN
-//            case "EQUAL" => EQUAL
-//            case "NOTEQUALS" => NOT_EQUAL
-//            case "LessThan" => LESS_THAN
-//            case "LessThanOrEqual" => LESS_THAN_OR_EQUAL
-//            case "GreaterThan" => GREATER_THAN
-//            case "GreaterThanOrEqual" => GREATER_THAN_OR_EQUAL
-//            case "Contains" => CONTAINS
-//            case _ => throw new scala.Exception("unexpected PropOp" + kv._2.value)
-//          }
-//          (LynxPropertyKey(kv._1), v_2)
-//        }))
-//      }
-//      case _ => {
-//        (properties.map(eval(_).asInstanceOf[LynxMap].value.map(kv => (LynxPropertyKey(kv._1), kv._2))).getOrElse(Map.empty), Map.empty[LynxPropertyKey, PropOp])
-//      }
-//    }
-//    DataFrame(Seq(var0 -> LTNode), () => {
-//      graphModel.nodes(
-//        NodeFilter(
-//          labels, nodeProperties, nodeProps
-//        )
-//      ).map(Seq(_))
-//    })
-//  }
-//}
-
-case class NodeScanByLabel2(labelName: LynxNodeLabel, variable: String)(implicit val plannerContext: PhysicalPlannerContext) extends SingleNodePlan(variable) {
+case class NodeScanByLabel(labelName: LynxNodeLabel, variable: String)(implicit val plannerContext: PhysicalPlannerContext) extends SingleNodePlan(variable) {
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     DataFrame(schema, () => graphModel.nodes(NodeFilter(Seq(labelName), Map.empty, Map.empty)).map(Seq(_)))

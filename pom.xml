@@ -161,23 +161,6 @@
             <artifactId>junit-jupiter-api</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/com.softwaremill.sttp.client4/core -->
-        <dependency>
-            <groupId>com.softwaremill.sttp.client4</groupId>
-            <artifactId>core_2.12</artifactId>
-            <version>4.0.7</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.scala-lang</groupId>
-                    <artifactId>scala-library</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.scala-lang</groupId>
-                    <artifactId>scala-reflect</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
         <!-- https://mvnrepository.com/artifact/com.typesafe.scala-logging/scala-logging -->
         <dependency>
             <groupId>com.typesafe.scala-logging</groupId>
@@ -202,7 +185,7 @@
         <dependency>
             <groupId>org.opencypher</groupId>
             <artifactId>front-end-9.0</artifactId>
-            <version>9.0-InferQL</version>
+            <version>9.0.20190305</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/org.opencypher/tck-api -->
         <dependency>

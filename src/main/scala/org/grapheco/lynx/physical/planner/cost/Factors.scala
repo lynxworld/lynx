@@ -1,12 +1,12 @@
 package org.grapheco.lynx.physical.planner.cost
 
-import org.grapheco.lynx.physical.plans.{Aggregation, AllNode, AllRelationships, ApplyJoin, Distinct, Expand, Expand2, Filter, Join, Limit, MultiStepExpand, NodeScanByLabel2, NodeSeekByID, NodeSeekByIndex, OrderBy, PhysicalPlan, Project, RelationshipsByType, Skip, Union}
+import org.grapheco.lynx.physical.plans.{Aggregation, AllNode, AllRelationships, ApplyJoin, Distinct, Expand, Expand2, Filter, Join, Limit, MultiStepExpand, NodeScanByLabel, NodeSeekByID, NodeSeekByIndex, OrderBy, PhysicalPlan, Project, RelationshipsByType, Skip, Union}
 
 object Factors {
   val _factor: Map[Class[_ <: PhysicalPlan], Double] = Map(
     // 节点访问
     classOf[AllNode] -> 1.0,
-    classOf[NodeScanByLabel2] -> 0.4,
+    classOf[NodeScanByLabel] -> 0.4,
     classOf[NodeSeekByID] -> 0.1,
     classOf[NodeSeekByIndex] -> 0.2,
 

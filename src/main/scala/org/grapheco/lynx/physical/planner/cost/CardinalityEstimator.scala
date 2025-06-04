@@ -1,6 +1,6 @@
 package org.grapheco.lynx.physical.planner.cost
 
-import org.grapheco.lynx.physical.plans.{AllNode, AllRelationships, Expand2, Filter, NodeScanByLabel2, PhysicalPlan, RelationshipsByType}
+import org.grapheco.lynx.physical.plans.{AllNode, AllRelationships, Expand2, Filter, NodeScanByLabel, PhysicalPlan, RelationshipsByType}
 import org.grapheco.lynx.runner.GraphModel
 import org.grapheco.lynx.types.structural.{LynxNodeLabel, LynxRelationshipType}
 
@@ -20,7 +20,7 @@ trait CacheCardinalityEstimator extends CardinalityEstimator {
 abstract class AbstractCardinalityEstimator extends CardinalityEstimator {
   override def estimate(plan: PhysicalPlan)(inCard: Seq[Long] = Seq.empty): Long = plan match {
     case an: AllNode => nodeCardinalityAll
-    case ns: NodeScanByLabel2 => nodeCardinality(ns.labelName)
+    case ns: NodeScanByLabel => nodeCardinality(ns.labelName)
     case fl: Filter => inCard.head// selective
     case ex: Expand2 => inCard.head
     case ar: AllRelationships => relCardinalityAll
