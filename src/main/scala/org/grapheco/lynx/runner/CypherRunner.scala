@@ -13,6 +13,7 @@ import org.grapheco.lynx.physical.planner.{DefaultPhysicalPlanner, PhysicalPlann
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.physical.plans.PhysicalPlan
 import org.grapheco.lynx.procedure._
+import org.grapheco.lynx.runner.infer.InferEngine
 import org.grapheco.lynx.types.{DefaultTypeSystem, TypeSystem}
 import org.grapheco.lynx.util.FormatUtils
 import org.grapheco.lynx.util.FormatUtils.convertPatternComprehension
@@ -50,6 +51,8 @@ class CypherRunner(var graphModel: GraphModel) extends LazyLogging {
   protected lazy val physicalPlanner: PhysicalPlanner = new DefaultPhysicalPlanner(runnerContext)
   protected lazy val physicalPlanOptimizer: PhysicalPlanOptimizer = new DefaultPhysicalPlanOptimizer(runnerContext)
   protected lazy val queryParser: QueryParser = new CachedQueryParser(new DefaultQueryParser(runnerContext))
+  // infer
+  protected lazy val inferEngine: InferEngine = InferEngine.remote
 
   def registerAnnotatedClass(clazz: Class[_]): Unit = procedures.registerAnnotatedClass(clazz)
 
@@ -71,7 +74,7 @@ class CypherRunner(var graphModel: GraphModel) extends LazyLogging {
     val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan, physicalPlannerContext)
     logger.info(s"optimized physical plan: \r\n${optimizedPhysicalPlan.pretty}")
 
-    val ctx = ExecutionContext(physicalPlannerContext, statement, param ++ param2)
+    val ctx = ExecutionContext(physicalPlannerContext, statement, param ++ param2, inferEngine = inferEngine)
     val df = optimizedPhysicalPlan.execute(ctx)
     graphModel.write.commit
 

@@ -14,7 +14,9 @@ package object types {
   val LTInteger: IntegerType = IntegerType.instance
   val LTMap: MapType = MapType.instance
   val LTNode: NodeType = NodeType.instance
+  val LTVNode: VirtualNodeType = VirtualNodeType.instance
   val LTRelationship: RelationshipType = RelationshipType.instance
+  val LTVRelationship: VirtualRelationshipType = VirtualRelationshipType.instance
   val LTPoint: PointType = PointType.instance
   val LTDateTime: DateTimeType = TemporalTypes.datetime
   val LTLocalDateTime: LocalDateTimeType = TemporalTypes.localdatetime
@@ -36,6 +38,9 @@ package object types {
     case mapType: symbols.MapType => LTMap
     case dateType: symbols.DateType => LTDate
     case nodeType: symbols.NodeType => LTNode
+    case relationshipType: symbols.RelationshipType => LTRelationship
+    case vNodeType: symbols.VirtualNodeType => LTVNode
+    case vRelationshipType: symbols.VirtualRelationshipType => LTVRelationship
     case pathType: symbols.PathType => LTPath
     case timeType: symbols.TimeType => LTTime
     case floatType: symbols.FloatType => LTFloat

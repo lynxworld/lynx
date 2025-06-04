@@ -143,12 +143,12 @@ class LDBCQueryTest extends LazyLogging{
 //    run(q,p)
 //  }
 //
-//  @Test
-//  def Q5(): Unit = {
-//    val q = getQuery("interactive-complex-5.cypher")
-//    val p = Map("personId" -> update_person_id(0), "minDate" -> LynxDate(LocalDate.of(1800,1,1)))
-//    run(q,p)
-//  }
+  @Test
+  def Q5(): Unit = {
+    val q = getQuery("interactive-complex-5.cypher")
+    val p = Map("personId" -> update_person_id(0), "minDate" -> LynxDate(LocalDate.of(1800,1,1)))
+    run(q,p)
+  }
 //
 //  @Test
 //  def Q6(): Unit = {
@@ -178,12 +178,12 @@ class LDBCQueryTest extends LazyLogging{
 //    run(q,p)
 //  }
 //
-//  @Test
-//  def Q10(): Unit = {
-//    val q = getQuery("interactive-complex-10.cypher")
-//    val p = Map("personId" -> update_person_id(0), "month" -> 5)
-//    run(q,p)
-//  }
+  @Test
+  def Q10(): Unit = {
+    val q = getQuery("interactive-complex-10.cypher")
+    val p = Map("personId" -> update_person_id(0), "month" -> 5)
+    run(q,p)
+  }
 //
 //  @Test
 //  def Q11(): Unit = {

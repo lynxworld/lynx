@@ -79,6 +79,20 @@ object RelationshipType {
     }
 }
 
+object VirtualNodeType {
+    val instance: VirtualNodeType = new VirtualNodeType() {
+        val parentType: LynxType = LTAny
+        override val toString = "VirtualNode"
+    }
+}
+
+object VirtualRelationshipType {
+    val instance: VirtualRelationshipType = new VirtualRelationshipType() {
+        val parentType: LynxType = LTAny
+        override val toString = "VirtualRelationship"
+    }
+}
+
 object PointType {
     val instance: PointType = new PointType() {
         val parentType: LynxType = LTAny
@@ -189,7 +203,9 @@ sealed abstract class FloatType extends LynxType
 sealed abstract class IntegerType extends LynxType
 sealed abstract class MapType extends LynxType
 sealed abstract class NodeType extends LynxType
+sealed abstract class VirtualNodeType extends LynxType
 sealed abstract class RelationshipType extends LynxType
+sealed abstract class VirtualRelationshipType extends LynxType
 sealed abstract class PointType extends LynxType
 sealed abstract class DateTimeType extends LynxType
 sealed abstract class LocalDateTimeType extends LynxType

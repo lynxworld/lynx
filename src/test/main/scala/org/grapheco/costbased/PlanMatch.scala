@@ -89,12 +89,14 @@ class PlanMatch extends TestBase{
 
   @Test
   def _1Hop(): Unit = {
-    runOnDemoGraph("Match (n:Person)-[r:ACTED_IN]->(m:Movie) Return n.name as name, m.title as title")
+    runOnDemoGraph("Match (n:Person)-[r:ACTED_IN]->(m:Movie) " +
+      "Return n.name as name, m.title as title")
   }
 
   @Test
   def _1HopRelFirst(): Unit = {
-    runOnDemoGraph("Match (n:Person)-[r:WRITE]->(m:Movie) Return n.name as name, m.title as title")
+    runOnDemoGraph("Match (n:Person)-[r:WRITE]->(m:Movie) " +
+      "Return n.name as name, m.title as title")
   }
 
   @Test
