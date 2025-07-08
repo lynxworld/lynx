@@ -11,3 +11,7 @@ abstract class InferExpandExecutor extends InferExecutor {
 abstract class InferPropertyExecutor extends InferExecutor {
   def infer(node: LynxNode): LynxNode
 }
+
+abstract class InferLabelExecutor extends InferExecutor {
+  def infer(node: LynxNode): LynxNode
+}

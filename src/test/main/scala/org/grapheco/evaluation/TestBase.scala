@@ -1,14 +1,14 @@
-package org.grapheco.lynx
+package org.grapheco.evaluation
 
 import com.typesafe.scalalogging.LazyLogging
-import org.grapheco.lynx.parser.{DefaultQueryParser, QueryParser}
+import org.grapheco.lynx.LynxResult
 import org.grapheco.lynx.physical._
 import org.grapheco.lynx.procedure.CallableProcedure
 import org.grapheco.lynx.runner._
-import org.grapheco.lynx.types.{LTInteger, LTString, LynxType, LynxValue}
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.LynxInteger
 import org.grapheco.lynx.types.structural._
+import org.grapheco.lynx.types.{LTInteger, LTString, LynxType, LynxValue}
 import org.grapheco.lynx.util.Profiler
 
 import scala.collection.mutable
@@ -198,7 +198,7 @@ class TestBase extends LazyLogging {
     })
   }
 
-  protected def runOnDemoGraph(query: String, param: Map[String, Any] = Map.empty[String, Any]): LynxResult = {
+  def runOnDemoGraph(query: String, param: Map[String, Any] = Map.empty[String, Any]): LynxResult = {
     //runner.compile(query)
     Profiler.timing("Run On Demo Graph",
       {
@@ -209,29 +209,30 @@ class TestBase extends LazyLogging {
     )
   }
 
-  case class TestId(value: Long) extends LynxId {
-    override def toLynxInteger: LynxInteger = LynxInteger(value)
+}
 
-    override def toString: String = value.toString
-  }
+case class TestId(value: Long) extends LynxId {
+  override def toLynxInteger: LynxInteger = LynxInteger(value)
 
-  object TestId {
-    val none: TestId = TestId(0)
-  }
+  override def toString: String = value.toString
+}
 
-  case class TestNode(id: TestId, labels: Seq[LynxNodeLabel], props: Map[LynxPropertyKey, LynxValue]) extends LynxNode{
-    override def property(propertyKey: LynxPropertyKey): Option[LynxValue] = props.get(propertyKey)
+object TestId {
+  val none: TestId = TestId(0)
+}
 
-    override def keys: Seq[LynxPropertyKey] = props.keys.toSeq
+case class TestNode(id: TestId, labels: Seq[LynxNodeLabel], props: Map[LynxPropertyKey, LynxValue]) extends LynxNode{
+  override def property(propertyKey: LynxPropertyKey): Option[LynxValue] = props.get(propertyKey)
 
-  }
+  override def keys: Seq[LynxPropertyKey] = props.keys.toSeq
 
-  case class TestRelationship(id: TestId,
-                              startNodeId: TestId,
-                              endNodeId: TestId,
-                              relationType: Option[LynxRelationshipType],
-                              props: Map[LynxPropertyKey, LynxValue]) extends LynxRelationship {
-    override def property(propertyKey: LynxPropertyKey): Option[LynxValue] = props.get(propertyKey)
-    override def keys: Seq[LynxPropertyKey] = props.keys.toSeq
-  }
+}
+
+case class TestRelationship(id: TestId,
+                            startNodeId: TestId,
+                            endNodeId: TestId,
+                            relationType: Option[LynxRelationshipType],
+                            props: Map[LynxPropertyKey, LynxValue]) extends LynxRelationship {
+  override def property(propertyKey: LynxPropertyKey): Option[LynxValue] = props.get(propertyKey)
+  override def keys: Seq[LynxPropertyKey] = props.keys.toSeq
 }

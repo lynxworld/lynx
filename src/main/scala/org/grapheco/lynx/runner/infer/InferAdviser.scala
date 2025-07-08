@@ -5,12 +5,15 @@ import org.grapheco.lynx.LynxException
 abstract class InferAdviser {
   def forExpand(c: Condition): Option[InferExpandExecutor]
 
+  def forLabel(c: Condition): Option[InferLabelExecutor]
+
   def forProperty(c: Condition): Option[InferPropertyExecutor]
 }
 
 object InferAdviser {
   def none: InferAdviser = new InferAdviser {
     override def forExpand(c: Condition): Option[InferExpandExecutor] = None
+    override def forLabel(c: Condition): Option[InferLabelExecutor] = None
     override def forProperty(c: Condition): Option[InferPropertyExecutor] = None
   }
 }
@@ -29,6 +32,6 @@ case class Condition(
   }
 }
 
-case class NotMatchInferExecutorFoundException() extends LynxException {
-  override def getMessage: String = "Not match infer executor found"
+case class NotMatchInferExecutorFoundException(s: String) extends LynxException {
+  override def getMessage: String = "Not match infer executor found: "+s
 }

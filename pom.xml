@@ -222,6 +222,12 @@
             <artifactId>json4s-native_2.12</artifactId>
             <version>4.1.0-M8</version>
         </dependency>
+        <dependency>
+            <groupId>org.neo4j.driver</groupId>
+            <artifactId>neo4j-java-driver</artifactId>
+            <scope>test</scope>
+            <version>4.4.18</version>
+        </dependency>
     </dependencies>
     <profiles>
         <profile>

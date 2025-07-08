@@ -4,9 +4,9 @@ import org.grapheco.lynx.LynxException
 import org.grapheco.lynx.logical.plans.{FilterExpression, GraphPattern, GraphPatternEdge, GraphPatternMatch, GraphPatternNode}
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.physical.planner.translators.MetaData._
-import org.grapheco.lynx.physical.plans.{Expand, ExpandFactory, Filter, NodesPlanFactory, PhysicalPlan, PhysicalPlanBuffer, RelationshipsPlanFactory}
+import org.grapheco.lynx.physical.plans.{Expand, ExpandFactory, Filter, InferExpand, InferFakeNode, InferPhysicalPlan, InferPlanner, InferProperties, NodesPlanFactory, PhysicalPlan, PhysicalPlanBuffer, RelationshipsPlanFactory}
 import org.grapheco.lynx.runner.{GraphModel, IndexManager}
-import org.opencypher.v9_0.expressions.Expression
+import org.opencypher.v9_0.expressions.{Expression, VirtualPattern, VirtualRelationshipPattern}
 
 import scala.collection.mutable
 
@@ -23,18 +23,13 @@ class CostBasedPlanner(costCalculator: CostCalculator) {
     implicit val dpTable: DPTable = new DPTable()
 
     // 初始化单节点计划, 只保留最优的计划
-    graph.allNodes.foreach{ node =>
-      val candidate = DefaultNodePlanner(node).plan
+    graph.allNodes.map{ n =>
+      if (n.virtual) n -> Candidate(InferFakeNode(n))
+      else n -> DefaultNodePlanner(n).plan
         .map(n => Candidate(n))
         .map(estimate)
         .minBy(_.cost) //TODO top 3
-      dpTable.put(Set(node), candidate)
-    }
-
-    // 如果只有一个节点，直接返回结果
-    if (graph.allNodes.length == 1) {
-      return dpTable(Set(graph.allNodes.head)).plan
-    }
+    }.foreach{ case (node, candidate) => dpTable.put(Set(node), candidate)}
 
     // 迭代构建更大的连通子图
     val allNodes = graph.allNodes.toSet
@@ -44,6 +39,7 @@ class CostBasedPlanner(costCalculator: CostCalculator) {
     for (size <- 2 to maxSize) {
       // 生成所有大小为size的连通子图
       graph.generateConnectedSubsets(size)
+//        .filterNot(subset => subset.forall(_.virtual)) // 去掉纯虚图, 留着单个的虚图
         .foreach(findOptimalJoin(graph, _, dpTable, filters)) // 对每个子图，找到最优的连接方式
     }
 
@@ -188,19 +184,27 @@ class CostBasedPlanner(costCalculator: CostCalculator) {
     }
     val expandFactory = ExpandFactory(_sourceNode, _edge, _targetNode)
     val defaultTriplePlanner: TriplePlanner = DefaultTriplePlanner(_sourceNode, _edge, _targetNode)
+    val inferPlanner: InferPlanner = InferPlanner()
 
-    val plans: Seq[PhysicalPlan] = (leftNodes.size, rightNodes.size) match {
-      // 1. (a), (b) => (a) -> (b), a expand b, or relationships(a, b)
-      case (1,1) =>
-        // 1.0 relationships
-        defaultTriplePlanner.plan ++
-        // 1.1 expand
-        Seq(leftPlan.plan ~> expandFactory.expand ~> DefaultNodePlanner(rightNodes.head).makeFilter)
-      // 2. (n, 1) or (1, n)
-      case (_, 1) => Seq(leftPlan.plan ~> expandFactory.expand ~> DefaultNodePlanner(rightNodes.head).makeFilter)
-      case (1, _) => Seq(rightPlan.plan ~> expandFactory.reversed.expand ~> DefaultNodePlanner(leftNodes.head).makeFilter)
-      // 3. (n, n): a join b
-      case (_, _) => Seq.empty // TODO Join
+    val plans: Seq[PhysicalPlan] = (sourceNode.virtual, edge.virtual, targetNode.virtual, left2right) match {
+      case (_, true, true, true)
+        => inferPlanner.filters(_targetNode)(leftPlan.plan ~> InferExpand(_edge, _targetNode)) // todo infer props
+      case (true, true, false, true) => Seq() // todo infer link
+//      case (false, true, true) => Seq(leftPlan.plan ~> InferExpand(_edge, _targetNode) ) // todo infer props
+      case (false, false, false, _) => (leftNodes.size, rightNodes.size) match {
+        // 1. (a), (b) => (a) -> (b), a expand b, or relationships(a, b)
+        case (1, 1) =>
+          // 1.0 relationships
+          defaultTriplePlanner.plan ++
+            // 1.1 expand
+            Seq(leftPlan.plan ~> expandFactory.expand ~> DefaultNodePlanner(rightNodes.head).makeFilter)
+        // 2. (n, 1) or (1, n)
+        case (_, 1) => Seq(leftPlan.plan ~> expandFactory.expand ~> DefaultNodePlanner(rightNodes.head).makeFilter)
+        case (1, _) => Seq(rightPlan.plan ~> expandFactory.reversed.expand ~> DefaultNodePlanner(leftNodes.head).makeFilter)
+        // 3. (n, n): a join b
+        case (_, _) => Seq.empty // TODO Join
+      }
+      case _ => Seq.empty
     }
     // TODO edge filter of type and props
     // push last filters

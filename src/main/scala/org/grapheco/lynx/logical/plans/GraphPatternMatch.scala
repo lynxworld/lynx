@@ -3,7 +3,7 @@ package org.grapheco.lynx.logical.plans
 import org.grapheco.lynx.runner.{NodeFilter, PropOp}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.structural.{LynxNodeLabel, LynxPropertyKey, LynxRelationshipType}
-import org.opencypher.v9_0.expressions.{Expression, LogicalVariable, NodePattern, Range, RelationshipPattern, SemanticDirection}
+import org.opencypher.v9_0.expressions.{Expression, LogicalVariable, NodePattern, Range, RelationshipPattern, SemanticDirection, VirtualPattern}
 
 import scala.collection.mutable
 import scala.language.implicitConversions
@@ -78,6 +78,7 @@ trait GraphPatternElement {
   def variableName: String
   def expressions: Seq[Expression]
   def optional: Boolean
+  def virtual: Boolean
   def withExpressions(expressions: Seq[Expression]): GraphPatternElement
   def addExpressions(newProperties: Seq[Expression]): GraphPatternElement
   def propertyStr: String = if (expressions.nonEmpty) expressions.map(_.toString).mkString("{",",","}") else ""
@@ -86,6 +87,7 @@ trait GraphPatternElement {
 case class GraphPatternNode(variableName: String,
                             labels: Seq[LynxNodeLabel],
                             expressions: Seq[Expression],
+                            virtual: Boolean = false,
                             optional: Boolean = false) extends GraphPatternElement {
 //  def withVariableName(newName: String): GraphPatternNode = this.copy(variableName = newName)
   def withLabels(newLabels: Seq[LynxNodeLabel]): GraphPatternNode = this.copy(labels = newLabels)
@@ -103,6 +105,7 @@ case class GraphPatternEdge(variableName: String,
                             expressions: Seq[Expression],
                             direction: Direction,
                             length: (Int, Int),
+                            virtual: Boolean = false,
                             optional: Boolean = false) extends GraphPatternElement {
 //  def withVariableName(newName: String): GraphPatternEdge = this.copy(variableName = newName)
   def reversed: GraphPatternEdge = this.copy(direction = Direction.reverse(direction))
@@ -130,12 +133,15 @@ object ASTConvertor{
   implicit def convertNodePattern(pattern: NodePattern): GraphPatternNode =
     GraphPatternNode(pattern.variable.map(_.name).getOrElse(s"_node${pattern.hashCode}"),
       pattern.labels.map(LynxNodeLabel.fromNodeLabel),
-      pattern.properties.toSeq)
+      pattern.properties.toSeq,
+      virtual = pattern.isInstanceOf[VirtualPattern])
 
   implicit def convertEdgePattern(pattern: RelationshipPattern): GraphPatternEdge =
     GraphPatternEdge(pattern.variable.map(_.name).getOrElse(s"_edge${pattern.hashCode}"),
       pattern.types.map(_.name).map(LynxRelationshipType),
-      pattern.properties.toSeq, Direction.fromCypher(pattern.direction), pattern.length)
+      pattern.properties.toSeq, Direction.fromCypher(pattern.direction),
+      pattern.length,
+      virtual = pattern.isInstanceOf[VirtualPattern])
 }
 
 class GraphPattern {

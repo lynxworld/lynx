@@ -13,7 +13,7 @@ trait NodePlanner {
 }
 
 case class DefaultNodePlanner(node: GraphPatternNode)(implicit val plannerContext: PhysicalPlannerContext) extends NodePlanner{
-  val GraphPatternNode(variableName, labels, expressions, _) = node
+  val GraphPatternNode(variableName, labels, expressions, virtual, _) = node
 
   def plan: Seq[PhysicalPlan] = {
     val factory = NodesPlanFactory(variableName)(plannerContext)

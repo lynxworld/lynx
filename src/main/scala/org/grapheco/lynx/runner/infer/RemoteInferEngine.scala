@@ -13,6 +13,9 @@ case class RemoteInferAdviser(allInfer: Map[Condition, InferExecutor] = Map.empt
   override def forExpand(c: Condition): Option[InferExpandExecutor] =
     allInfer.filter(_._1.isMatch(c)).values.collectFirst{case i:InferExpandExecutor => i}
 
+  override def forLabel(c: Condition): Option[InferLabelExecutor] =
+    allInfer.filter(_._1.isMatch(c)).values.collectFirst{case i:InferLabelExecutor => i}
+
   override def forProperty(c: Condition): Option[InferPropertyExecutor] =
     allInfer.filter(_._1.isMatch(c)).values.collectFirst{case i:InferPropertyExecutor => i}
 
