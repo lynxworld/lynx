@@ -10,6 +10,10 @@ class VirtualTestBase extends TestBase {
       .addInfer(Condition(nodeProps = Seq("color")), ColorInfer)
       .addInfer(Condition(nodeProps = Seq("material")), MaterialInfer)
       .addInfer(Condition(), ShapeInfer)
+      .addInfers(
+        Seq("front", "behind", "left", "right")
+          .map(relType => Condition(relType = Seq(relType)) -> PositionInfer).toMap
+      )
 
     override protected lazy val inferEngine: InferEngine = InferEngine.remote.withAdviser(adviser)
   }

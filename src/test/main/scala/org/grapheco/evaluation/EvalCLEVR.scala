@@ -1,6 +1,6 @@
 package org.grapheco.evaluation
 
-import com.github.tototoshi.csv.CSVWriter
+import com.github.tototoshi.csv.{CSVReader, CSVWriter}
 import org.grapheco.lynx.LynxResult
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.property.LynxInteger
@@ -30,40 +30,68 @@ case class EvalCLEVR(name: String)(implicit database: TestBase, driver: Driver) 
     }
   }
 
-  case class EvalResult(result: LynxResult)(implicit driver: Driver) {
-//    def from(file: File): EvalResult = {
-//
-//    }
-
-    def save(file: File): EvalResult = {
-      val writer = CSVWriter.open(file)
-      writer.writeRow(result.columns())
-      writer.writeAll(result.records().map(_.values).toSeq)
-      writer.close()
-      this
-    }
-
-    def eval(cypher: String): Metrics = {
-      val s = driver.session()
-      val labels = s.run(cypher).list().asScala.map(_.get(0).asInt())
-      val metrics = Metrics.calculate(result.records().map(_.get(0).get.asInstanceOf[LynxInteger].value.toInt).toList, labels.toList)
-      s.close()
-      println(metrics)
-      metrics
-    }
-  }
-
   def query(q: String): EvalResult = {
     initDB()
-    val result = database.runOnDemoGraph(q)
-    EvalResult(result)
+    val t0 = System.currentTimeMillis()
+    val result = database.runner.run(q, Map.empty)
+    val r = EvalResult(result.records().map(_.get(0).get.asInstanceOf[LynxInteger].value.toInt))
+    val t1 = System.currentTimeMillis()
+    println(s"Query time: ${t1 - t0}ms")
+    r
   }
 }
+
+case class EvalResult(result: Iterator[Int]) {
+
+  def save(file: File): EvalResult = {
+    val writer = CSVWriter.open(file)
+    val r = result.toList
+    r.foreach{ r =>writer.writeRow(Seq(r))}
+    writer.close()
+    EvalResult(r.iterator)
+  }
+
+  def eval(file: File): Metrics = {
+    val e = EvalResult.from(file)
+    eval(e.result.toList)
+  }
+
+  def eval(result: List[Int]): Metrics = Metrics.calculate(this.result.toList, result)
+
+  def eval(cypher: String)(implicit driver: Driver): Metrics = {
+    val s = driver.session()
+    val labels = s.run(cypher).list().asScala.map(_.get(0).asInt())
+    s.close()
+    eval(labels.toList)
+  }
+}
+
+object EvalResult {
+  def from(file: File): EvalResult = {
+    val reader = CSVReader.open(file)
+    val r = EvalResult(reader.all().map(_.head.toInt).iterator)
+    reader.close()
+    r
+  }
+}
+
 
 
 case class Metrics(accuracy: Double, recall: Double, f1Score: Double) {
   override def toString: String = {
     s"Accuracy: $accuracy, Recall: $recall, F1 Score: $f1Score"
+  }
+
+  def show: Metrics = {
+    println(this)
+    this
+  }
+
+  def save(file: File): Metrics = {
+    val writer = CSVWriter.open(file)
+    writer.writeRow(Seq(accuracy, recall, f1Score))
+    writer.close()
+    this
   }
 }
 
@@ -90,6 +118,7 @@ object Metrics {
 
     Metrics(accuracy, recall, f1Score)
   }
+
 }
 
 

@@ -5,11 +5,13 @@ import org.grapheco.lynx.dataframe.DataFrame
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.runner.ExecutionContext
 
-case class FromArgument(str: String)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
+case class FromArgument(arguments: Seq[(String, LynxType)])(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
 
-  override val schema: Seq[(String, LynxType)] = Seq((str, LTNode)) // Fixme: hard code
+  override val schema: Seq[(String, LynxType)] = arguments
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
-    ctx.arguments.select(Seq((str, None)))
+    ctx.arguments.select(arguments.map{case (name, _) => (name, None)})
   }
+
+  override def toString: String = s"FromArgument(${arguments.map(_._1).mkString(",")})"
 }

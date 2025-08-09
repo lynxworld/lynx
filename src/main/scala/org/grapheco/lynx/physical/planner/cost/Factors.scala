@@ -1,6 +1,6 @@
 package org.grapheco.lynx.physical.planner.cost
 
-import org.grapheco.lynx.physical.plans.{Aggregation, AllNode, AllRelationships, ApplyJoin, Distinct, Expand, Expand2, Filter, Join, Limit, MultiStepExpand, NodeScanByLabel2, NodeSeekByID, NodeSeekByIndex, OrderBy, PhysicalPlan, Project, RelationshipsByType, Skip, Union}
+import org.grapheco.lynx.physical.plans.{Aggregation, AllNode, AllRelationships, ApplyJoin, Distinct, Expand, Expand2, Filter, InferFakeNode, Join, Limit, MultiStepExpand, NodeScanByLabel2, NodeSeekByID, NodeSeekByIndex, OrderBy, PhysicalPlan, Project, RelationshipsByType, Skip, Union, VNodeFromList}
 
 object Factors {
   val _factor: Map[Class[_ <: PhysicalPlan], Double] = Map(
@@ -35,7 +35,11 @@ object Factors {
     classOf[Limit] -> 0.1,
     classOf[Skip] -> 0.1,
     classOf[Distinct] -> 0.4,
-    classOf[Union] -> 0.3
+    classOf[Union] -> 0.3,
+
+    // 推理相关
+    classOf[InferFakeNode] -> 999,
+    classOf[VNodeFromList] -> 0.01,
   )
 
   def apply(plan: PhysicalPlan): Double = _factor.getOrElse(plan.getClass, 1.0)

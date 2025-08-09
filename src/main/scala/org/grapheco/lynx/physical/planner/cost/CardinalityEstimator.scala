@@ -1,6 +1,6 @@
 package org.grapheco.lynx.physical.planner.cost
 
-import org.grapheco.lynx.physical.plans.{AllNode, AllRelationships, Expand2, Filter, InferExpand, InferLabel, InferProperties, NodeScanByLabel2, PhysicalPlan, RelationshipsByType, SinglePhysicalPlan}
+import org.grapheco.lynx.physical.plans.{AllNode, AllRelationships, Expand2, Filter, InferExpand, InferLabel,InferLink, InferProperties, NodeScanByLabel2, PhysicalPlan, RelationshipsByType, SinglePhysicalPlan}
 import org.grapheco.lynx.runner.GraphModel
 import org.grapheco.lynx.types.structural.{LynxNodeLabel, LynxRelationshipType}
 
@@ -26,6 +26,7 @@ abstract class AbstractCardinalityEstimator extends CardinalityEstimator {
     case ar: AllRelationships => relCardinalityAll
     case rt: RelationshipsByType => relCardinality(rt.typeName)
     case ie: InferExpand => inCard.head
+    case ik: InferLink => inCard.head
     case ip: InferProperties => inCard.head
     case il: InferLabel => inCard.head
     case s: SinglePhysicalPlan => inCard.head

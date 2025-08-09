@@ -20,5 +20,5 @@ case class ExecutionContext(physicalPlannerContext: PhysicalPlannerContext,
                             val arguments: DataFrame = DataFrame.empty,
                             val inferEngine: InferEngine = InferEngine.none) {
   val expressionContext = ExpressionContext(this, queryParameters.map(x => x._1 -> physicalPlannerContext.runnerContext.typeSystem.wrap(x._2)))
-  def withArguments(df: DataFrame): ExecutionContext = ExecutionContext(physicalPlannerContext, statement, queryParameters, df)
+  def withArguments(df: DataFrame): ExecutionContext = this.copy(arguments = df)
 }

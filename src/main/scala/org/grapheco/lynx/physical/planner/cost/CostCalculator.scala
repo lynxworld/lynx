@@ -19,6 +19,8 @@ class DefaultCostCalculator(estimator: CardinalityEstimator) extends CostCalcula
   }
 
   private def planCost(plan: PhysicalPlan): (Double, Long) = plan match {
+    case n: InferFakeNode => (factor(plan)*100000, 100000)
+    case n: VNodeFromList => (factor(plan)*10, 10)
     // 节点访问计划
 //    case n: AllNode =>
 //      Candidate(n, factor(n) * nodeNum, nodeNum)
@@ -31,14 +33,14 @@ class DefaultCostCalculator(estimator: CardinalityEstimator) extends CostCalcula
 //      Candidate(n, factor(n) * nodeNum, 1)
     case lp: LeafPhysicalPlan => {
       val car = estimator.estimate(lp)(Seq.empty)
-      println(s"${lp.getClass.getSimpleName} cost: ${car * factor(lp)} cardinal: ${car}")
+//      println(s"${lp.getClass.getSimpleName} cost: ${car * factor(lp)} cardinal: ${car}")
       (car * factor(lp), car)
     }
 
     case sp: SinglePhysicalPlan => {
       val (child_cost, child_car) = planCost(sp.in)
       val car = estimator.estimate(sp)(Seq(child_car))
-      println(s"${sp.getClass.getSimpleName} cost: ${car * factor(sp) + child_cost} cardinal: ${car}")
+//      println(s"${sp.getClass.getSimpleName} cost: ${car * factor(sp) + child_cost} cardinal: ${car}")
       (car * factor(sp) + child_cost, car)
     }
 

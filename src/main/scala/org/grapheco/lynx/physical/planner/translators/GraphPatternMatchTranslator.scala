@@ -17,7 +17,7 @@ case class GraphPatternMatchTranslator(patternMatch: GraphPatternMatch)(implicit
     val cardinalityEstimator: CardinalityEstimator = new ExactlyCardinalityEstimator(ppc.runnerContext.graphModel)
     val costCalculator: CostCalculator = new DefaultCostCalculator(cardinalityEstimator)
     val planner = new CostBasedPlanner(costCalculator)
-    planner.plan(patternMatch)(ppc)
+    planner.plan(patternMatch, in)(ppc)
   }
 
 }

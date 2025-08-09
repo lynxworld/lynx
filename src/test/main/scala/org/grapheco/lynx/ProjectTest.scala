@@ -72,5 +72,15 @@ class ProjectTest extends TestBase {
         |""".stripMargin)
   }
 
+  @Test
+  def test15(): Unit = {
+    runOnDemoGraph(
+      """
+        |match (i:Image{image_index:1})-[:CONTAINS]->(o)
+        |with collect(o) as os
+        |match (a)-[:IS_LEFT]->(b) where a in os and b in os
+        |return a,b
+        |""".stripMargin)
+  }
 
 }

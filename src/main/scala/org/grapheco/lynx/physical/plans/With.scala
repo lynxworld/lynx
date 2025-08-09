@@ -14,4 +14,6 @@ case class With(ri: ReturnItems)(implicit val plannerContext: PhysicalPlannerCon
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     in.execute(ctx).select(ri.items.map(x => x.name -> None))
   }
+
+  override def toString: String = s"With(${ri.asCanonicalStringVal})"
 }

@@ -2,7 +2,7 @@ package org.grapheco.lynx.physical.planner
 
 import org.grapheco.lynx.logical.plans._
 import org.grapheco.lynx.physical._
-import org.grapheco.lynx.physical.planner.translators.{GraphPatternMatchTranslator, LPTShortestPathTranslator, PPTCreateTranslator, PPTMergeTranslator, PPTPatternMatchTranslator, PPTRemoveTranslator, PPTSetClauseTranslator}
+import org.grapheco.lynx.physical.planner.translators.{GraphPatternMatchTranslator, LPTShortestPathTranslator, PPTCreateTranslator, PPTMergeTranslator, PPTRemoveTranslator, PPTSetClauseTranslator}
 import org.grapheco.lynx.physical.plans.{Aggregation, Apply, CreateIndex, CreateUnit, Cross, Delete, Distinct, DropIndex, Filter, Join, Limit, OrderBy, PhysicalPlan, PhysicalPlanBuffer, ProcedureCall, Project, Select, Skip, Union, Unwind, With}
 import org.grapheco.lynx.runner.CypherRunnerContext
 import org.opencypher.v9_0.expressions._
@@ -36,8 +36,8 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
         Join(None, isSingleMatch, joinType)(contextWithArg).withChildren(Some(first), Some(andThen))
       }
       // Used Translator
-      case pm:LogicalPatternMatch  => PPTPatternMatchTranslator(pm)(plannerContext).translate(None)
-      case gp:GraphPatternMatch    => GraphPatternMatchTranslator(gp)(plannerContext).translate(None)
+//      case pm:LogicalPatternMatch  => PPTPatternMatchTranslator(pm)(plannerContext).translate(None)
+      case gp:GraphPatternMatch    => GraphPatternMatchTranslator(gp)(plannerContext).translate(gp.left.map(plan))
       case sp:LogicalShortestPaths => LPTShortestPathTranslator(sp)(plannerContext).translate(None)
       case lc@LogicalCreate(pattern) => PPTCreateTranslator(pattern).translate(lc.in.map(plan(_)))(plannerContext)
       case lm@LogicalMerge(pattern, actions) => PPTMergeTranslator(pattern, actions).translate(lm.in.map(plan(_)))(plannerContext)

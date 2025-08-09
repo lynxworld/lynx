@@ -15,4 +15,6 @@ case class Aggregation(aggregations: Seq[ReturnItem], groupings: Seq[ReturnItem]
     val df = in.execute(ctx)
     df.groupBy(groupings.map(x => x.name -> x.expression), aggregations.map(x => x.name -> x.expression))(ctx.expressionContext)
   }
+
+  override def toString: String = s"Aggregation(${aggregations.map(_.asCanonicalStringVal).mkString(",")})"
 }

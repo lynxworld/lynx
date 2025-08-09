@@ -49,7 +49,22 @@ trait PhysicalPlan extends TreeNode{
 
   def <~ (left: Option[PhysicalPlan], right: Option[PhysicalPlan] = None): PhysicalPlan = this.withChildren(left, right)
 
+  def <~ (left: PhysicalPlan): PhysicalPlan = this.withChildren(Some(left), right)
+
+  def <~ (left: PhysicalPlan, right: PhysicalPlan): PhysicalPlan = this.withChildren(Some(left), Some(right))
+
   override def description: String = s"[${this.schema.map(_._1).mkString(",")}]_$toString"
 
+}
+
+object PhysicalPlan {
+  def empty: PhysicalPlan = new PhysicalPlan {
+    override def schema: Seq[(String, LynxType)] = Seq.empty
+
+    override var left: Option[PhysicalPlan] = None
+    override var right: Option[PhysicalPlan] = None
+
+    override def execute(implicit ctx: ExecutionContext): DataFrame = DataFrame.empty
+  }
 }
 

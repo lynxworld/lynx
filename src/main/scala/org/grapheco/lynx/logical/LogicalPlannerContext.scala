@@ -14,7 +14,10 @@ object LogicalPlannerContext {
   def apply(queryParameters: Map[String, Any], runnerContext: CypherRunnerContext): LogicalPlannerContext =
     new LogicalPlannerContext(
       queryParameters.mapValues(runnerContext.typeSystem.wrap).mapValues(_.lynxType).toSeq,
+      Seq.empty,
       runnerContext)
 }
 
-case class LogicalPlannerContext(parameterTypes: Seq[(String, LynxType)], runnerContext: CypherRunnerContext)
+case class LogicalPlannerContext(parameterTypes: Seq[(String, LynxType)],
+                                 var variables: Seq[(String, LynxType)],
+                                 runnerContext: CypherRunnerContext)

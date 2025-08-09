@@ -49,7 +49,7 @@ class CypherRunner(var graphModel: GraphModel) extends LazyLogging {
    implicit lazy val runnerContext = CypherRunnerContext(types, procedures, dataFrameOperator, expressionEvaluator, graphModel)
   protected lazy val logicalPlanner: LogicalPlanner = new DefaultLogicalPlanner(runnerContext)
   protected lazy val physicalPlanner: PhysicalPlanner = new DefaultPhysicalPlanner(runnerContext)
-  protected lazy val physicalPlanOptimizer: PhysicalPlanOptimizer = new DefaultPhysicalPlanOptimizer(runnerContext)
+  protected lazy val physicalPlanOptimizer: PhysicalPlanOptimizer = PhysicalPlanOptimizer.none
   protected lazy val queryParser: QueryParser = new CachedQueryParser(new DefaultQueryParser(runnerContext))
   // infer
   protected lazy val inferEngine: InferEngine = InferEngine.remote
@@ -72,7 +72,7 @@ class CypherRunner(var graphModel: GraphModel) extends LazyLogging {
     logger.info(s"physical plan: \r\n${physicalPlan.pretty}")
 
     val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan, physicalPlannerContext)
-    logger.info(s"optimized physical plan: \r\n${optimizedPhysicalPlan.pretty}")
+//    logger.info(s"optimized physical plan: \r\n${optimizedPhysicalPlan.pretty}")
 
     val ctx = ExecutionContext(physicalPlannerContext, statement, param ++ param2, inferEngine = inferEngine)
     val df = optimizedPhysicalPlan.execute(ctx)

@@ -9,10 +9,14 @@ import org.grapheco.lynx.types.structural.LynxNodeLabel
 
 import scala.language.implicitConversions
 import LynxNodeLabel.fromNodeLabel
+import org.grapheco.lynx.types.{LTNode, LTRelationship, LTVNode, LTVRelationship}
 
 case class MatchTranslator_GB(m: Match) extends LogicalTranslator {
 
+  var inputVariables:Seq[String] = Seq.empty
+
   override def translate(in: Option[LogicalPlan])(implicit plannerContext: LogicalPlannerContext): LogicalPlan = {
+    inputVariables = plannerContext.variables.map(_._1)
     // Combine the input graph pattern with the current graph pattern
     val (graphPattern: GraphPattern, filterOfIn: FilterExpression) = in match {
       case Some(gp: GraphPatternMatch) => (gp.graphPattern, gp.filters)
@@ -32,7 +36,10 @@ case class MatchTranslator_GB(m: Match) extends LogicalTranslator {
     // Translate the WHERE clause if it exists, put it in the graph pattern, and return filters can not be translated.
     val filter = where.map(w => translateWhere(w.expression)(graphPattern)).getOrElse(FilterExpression(Map.empty))
     // Return the combined graph pattern
-    GraphPatternMatch(graphPattern, filterOfIn combine filter)
+    plannerContext.variables = plannerContext.variables ++
+      graphPattern.allNodes.map(n => (n.variableName, if(n.virtual) LTVNode else LTNode)) ++
+      graphPattern.allEdges.map(e => (e.variableName, if(e.virtual) LTVRelationship else LTRelationship))
+    GraphPatternMatch(graphPattern, filterOfIn combine filter)(in)
   }
 
   private def translatePattern(element: PatternElement, optional: Boolean,where:Option[Where])(graphPattern: GraphPattern): Unit = element match {
@@ -53,8 +60,8 @@ case class MatchTranslator_GB(m: Match) extends LogicalTranslator {
       .map(_.addLabels(labels.map(fromNodeLabel)))
       .map(g.updateNode)
       .map(_ => FilterExpression.empty).getOrElse(FilterExpression(Map(Set(str) -> Seq(expr))))
-    // push expression to single element
-    case oneDependency if oneDependency.dependencies.size == 1 => attachSingleFilter(g, oneDependency)
+    // push expression to single element, if the filter is only involved in one element(exclude input variables).
+    case oneDependency if (oneDependency.dependencies.map(_.name)--inputVariables).size == 1 => attachSingleFilter(g, oneDependency)
     // One more dependency, can not be translated.
     case _ => FilterExpression(Map(expr.dependencies.map(_.name) -> Seq(expr)))
   }

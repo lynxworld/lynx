@@ -3,6 +3,7 @@ package org.grapheco.lynx.logical.planner.translators
 import org.grapheco.lynx.logical.LogicalPlannerContext
 import org.grapheco.lynx.logical.planner.LogicalTranslator
 import org.grapheco.lynx.logical.plans._
+import org.grapheco.lynx.types.LTAny
 import org.opencypher.v9_0.ast.{ReturnItems, Where, With}
 
 case class WithTranslator(w: With) extends LogicalTranslator {
@@ -12,7 +13,8 @@ case class WithTranslator(w: With) extends LogicalTranslator {
         LogicalCreateUnit(items)
 
       case (With(distinct, ri: ReturnItems, orderBy, skip: Option[LogicalSkip], limit: Option[LogicalLimit], where: Option[Where]), Some(sin)) =>
-          LogicalWith(ri)(PipedTranslators(
+        plannerContext.variables = ri.items.map(_.name -> LTAny)
+        LogicalWith(ri)(PipedTranslators(
             Seq(
               ReturnItemsTranslator(ri),
               WhereTranslator(where),

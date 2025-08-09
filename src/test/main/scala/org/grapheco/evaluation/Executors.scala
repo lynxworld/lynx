@@ -1,7 +1,10 @@
 package org.grapheco.evaluation
 
-import org.grapheco.lynx.runner.infer.{InferExpandExecutor, InferLabelExecutor, InferPropertyExecutor}
-import org.grapheco.lynx.types.property.LynxString
+import org.grapheco.lynx.LynxException
+import org.grapheco.lynx.runner.infer.{InferExpandExecutor, InferLabelExecutor, InferLinkExecutor, InferPropertyExecutor}
+import org.grapheco.lynx.types.LynxValue
+import org.grapheco.lynx.types.composite.LynxList
+import org.grapheco.lynx.types.property.{LynxInteger, LynxNumber, LynxString}
 import org.grapheco.lynx.types.structural._
 import org.json4s.DefaultReaders.StringReader
 import org.json4s.native.JsonMethods
@@ -13,6 +16,8 @@ import java.awt.image.BufferedImage
 import java.awt.{Color, Rectangle}
 import java.io.File
 import javax.imageio.ImageIO
+import scala.util.Random
+import scala.util.Random.javaRandomToRandom
 
 
 object ContainsInfer extends InferExpandExecutor {
@@ -39,18 +44,23 @@ object ContainsInfer extends InferExpandExecutor {
       case Right(response) => {
         val j = JsonMethods.parse(response)
         j.extract[List[Mask]].map { mask =>
+          val outId = TestId.nextId
           val e = TestRelationship(
-            TestId.none,
-            TestId.none,
-            TestId.none,
+            TestId.nextId,
+            node.id.asInstanceOf[TestId],
+            outId,
             Some(LynxRelationshipType("contains")),
             Map.empty
           )
           val str = s"cache/${System.currentTimeMillis()}.png"
           val n = TestNode(
-            TestId.none,
+            outId,
             Seq(),
-            Map(LynxPropertyKey("file") -> LynxString(str))
+            Map(
+              LynxPropertyKey("file") -> LynxString(str),
+              LynxPropertyKey("size") -> LynxString(if(mask.area>200)"large" else "small"),
+              LynxPropertyKey("box") -> LynxList(mask.bbox.map(LynxValue.apply))
+            )
           )
           cropImage(file.getAbsolutePath, new Rectangle(mask.bbox(0), mask.bbox(1), mask.bbox(2), mask.bbox(3)), mask.segmentation, str)
           (e, n)
@@ -80,6 +90,7 @@ object ContainsInfer extends InferExpandExecutor {
         maskedImage.setRGB(x, y, new Color(0, 0, 0, 0).getRGB)
       }
     }
+//    val maskedImage = croppedImage
 
     // 保存切割后的小图
     val outputFile = new File(savePath)
@@ -182,6 +193,56 @@ object ShapeInfer extends InferLabelExecutor {
         n.copy(labels = n.labels.+:(LynxNodeLabel(label)))
       }
       case Left(error) => throw new RuntimeException(s"Error: $error")
+    }
+  }
+}
+
+object PositionInfer extends InferLinkExecutor {
+  def pos(box1: List[Int], box2: List[Int]): Seq[String] = {
+    // 解构两个边界框的参数
+    val List(x1, y1, w1, h1) = box1
+    val List(x2, y2, w2, h2) = box2
+
+    // 计算边界框的边界位置
+    val (bbox1Left, bbox1Right) = (x1, x1 + w1)
+    val (bbox1Top, bbox1Bottom) = (y1, y1 + h1)
+    val (bbox2Left, bbox2Right) = (x2, x2 + w2)
+    val (bbox2Top, bbox2Bottom) = (y2, y2 + h2)
+
+
+    val horizontal = if (bbox1Left < bbox2Left  && bbox2Right < bbox1Right) {
+      // inside
+      if ((bbox2Right+bbox2Left)>(bbox1Left+bbox1Right)) "right" else "left"
+    } else {
+      // no inside
+      if (bbox2Left>bbox1Left) "right" else "left"
+    }
+
+    val vertical = if (bbox2Bottom<bbox1Bottom) "behind" else "front"
+
+    Seq(horizontal, vertical)
+  }
+
+
+  override def infer(node: LynxNode, nodes: Seq[LynxNode]): Seq[(LynxNode, LynxRelationship, LynxNode)] = {
+//    val pos = List("front", "behind", "left", "right")
+    // random select one
+    val box = node.property(LynxPropertyKey("box")) match {
+      case Some(LynxList(v: List[LynxNumber])) => v.map(_.number.intValue())
+      case _ => throw LynxException("Property box not find or not match")
+    }
+    nodes.flatMap { n =>
+      val box2 = n.property(LynxPropertyKey("box")) match {
+        case Some(LynxList(v: List[LynxNumber])) => v.map(_.number.intValue())
+        case _ => throw LynxException("Property box not find or not match")
+      }
+      pos(box, box2).map{ relType =>
+        (node, TestRelationship(
+          TestId.nextId,
+          node.id.asInstanceOf[TestId],
+          n.id.asInstanceOf[TestId],
+          Some(LynxRelationshipType(relType)), Map.empty), n)
+      }
     }
   }
 }

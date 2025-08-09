@@ -18,7 +18,7 @@ class DPTable {
    * @param candidate 计划候选项
    */
   def put(subset: Set[GraphPatternNode], candidate: Candidate): Unit = {
-    println(s"put ${subset.map(_.variableName)} -> $candidate")
+//    println(s"put ${subset.map(_.variableName)} -> $candidate")
     table(subset) = candidate
   }
 

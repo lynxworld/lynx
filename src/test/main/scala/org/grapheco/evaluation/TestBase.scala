@@ -11,6 +11,7 @@ import org.grapheco.lynx.types.structural._
 import org.grapheco.lynx.types.{LTInteger, LTString, LynxType, LynxValue}
 import org.grapheco.lynx.util.Profiler
 
+import java.util.concurrent.atomic.AtomicLong
 import scala.collection.mutable
 import scala.language.implicitConversions
 
@@ -30,7 +31,7 @@ class TestBase extends LazyLogging {
 
   val model: GraphModel = new GraphModel {
 
-    private def nodeId: TestId = {_nodeId += 1; TestId(_nodeId)}
+    private def nodeId: TestId = TestId.nextId
 
     private def relationshipId: TestId = {_relationshipId += 1; TestId(_relationshipId)}
 
@@ -219,6 +220,11 @@ case class TestId(value: Long) extends LynxId {
 
 object TestId {
   val none: TestId = TestId(0)
+
+  // generate a id, atomic
+  private val idGenerator = new AtomicLong(0)
+
+  def nextId: TestId = TestId(idGenerator.incrementAndGet())
 }
 
 case class TestNode(id: TestId, labels: Seq[LynxNodeLabel], props: Map[LynxPropertyKey, LynxValue]) extends LynxNode{

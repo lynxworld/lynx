@@ -4,17 +4,18 @@ import org.grapheco.lynx.LynxException
 import org.grapheco.lynx.logical.plans.{FilterExpression, GraphPattern, GraphPatternEdge, GraphPatternMatch, GraphPatternNode}
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.physical.planner.translators.MetaData._
-import org.grapheco.lynx.physical.plans.{Expand, ExpandFactory, Filter, InferExpand, InferFakeNode, InferPhysicalPlan, InferPlanner, InferProperties, NodesPlanFactory, PhysicalPlan, PhysicalPlanBuffer, RelationshipsPlanFactory}
+import org.grapheco.lynx.physical.plans.{Apply, Expand, ExpandFactory, Filter, FromArgument, InferExpand, InferFakeNode, InferPhysicalPlan, InferPlanner, InferProperties, NodesPlanFactory, PhysicalPlan, PhysicalPlanBuffer, RelationshipsPlanFactory}
 import org.grapheco.lynx.runner.{GraphModel, IndexManager}
 import org.opencypher.v9_0.expressions.{Expression, VirtualPattern, VirtualRelationshipPattern}
 
 import scala.collection.mutable
+import scala.util.control.Breaks
 
 class CostBasedPlanner(costCalculator: CostCalculator) {
   val estimate: Candidate => Candidate = costCalculator.estimate
 
   // 迭代动态规划算法实现
-  def plan(graphPatternMatch: GraphPatternMatch)(implicit ppc: PhysicalPlannerContext): PhysicalPlan = {
+  def plan(graphPatternMatch: GraphPatternMatch, in: Option[PhysicalPlan])(implicit ppc: PhysicalPlannerContext): PhysicalPlan = {
     val graphModel: GraphModel = ppc.runnerContext.graphModel
 
     val GraphPatternMatch(graph: GraphPattern, filters: FilterExpression) = graphPatternMatch
@@ -23,12 +24,11 @@ class CostBasedPlanner(costCalculator: CostCalculator) {
     implicit val dpTable: DPTable = new DPTable()
 
     // 初始化单节点计划, 只保留最优的计划
-    graph.allNodes.map{ n =>
-      if (n.virtual) n -> Candidate(InferFakeNode(n))
-      else n -> DefaultNodePlanner(n).plan
-        .map(n => Candidate(n))
-        .map(estimate)
-        .minBy(_.cost) //TODO top 3
+    graph.allNodes.map{ n => n ->
+      (if (n.virtual) DefaultVNodePlanner(n).plan else DefaultNodePlanner(n).plan)
+      .map(p => Candidate(p))
+      .map(estimate)
+      .minBy(_.cost) //TODO top 3
     }.foreach{ case (node, candidate) => dpTable.put(Set(node), candidate)}
 
     // 迭代构建更大的连通子图
@@ -44,7 +44,29 @@ class CostBasedPlanner(costCalculator: CostCalculator) {
     }
 
     // 返回包含所有节点的最优计划
-    dpTable(allNodes).plan
+    val bestPlan = dpTable(allNodes).plan
+    // in
+    if (in.isEmpty) bestPlan
+    else {
+      val prefix = PhysicalPlan.empty <~ bestPlan
+      var head = prefix
+      var tail = bestPlan
+      val loop = new Breaks
+      loop.breakable{
+        while (tail.children.nonEmpty){
+          if (tail.children.size == 2) loop.break()
+          head = tail
+          tail = tail.children.head
+        }
+      }
+      if (tail.children.isEmpty) bestPlan <~ in // all single
+      else { // the leaf is the combine plan
+        tail.leaves.foreach(leaf => leaf <~ FromArgument(in.get.schema))
+        val apply = Apply() <~ (in.get, tail)
+        head <~ apply
+        prefix.left.get
+      }
+    }
   }
 
 
@@ -177,21 +199,20 @@ class CostBasedPlanner(costCalculator: CostCalculator) {
       case (right, left) if leftNodes.contains(left) && rightNodes.contains(right) => false
       case _ => throw LynxException("error ")
     }
-    val(_sourceNode, _edge, _targetNode) = if (left2right) {
-      (sourceNode, edge, targetNode)
+    val(_sourceNode, _edge, _targetNode, _leftP, _rightP) = if (left2right) {
+      (sourceNode, edge, targetNode, leftPlan, rightPlan)
     } else {
-      (targetNode, edge.reversed, sourceNode)
+      (targetNode, edge.reversed, sourceNode, leftPlan, rightPlan)
     }
     val expandFactory = ExpandFactory(_sourceNode, _edge, _targetNode)
     val defaultTriplePlanner: TriplePlanner = DefaultTriplePlanner(_sourceNode, _edge, _targetNode)
-    val inferPlanner: InferPlanner = InferPlanner()
 
-    val plans: Seq[PhysicalPlan] = (sourceNode.virtual, edge.virtual, targetNode.virtual, left2right) match {
-      case (_, true, true, true)
-        => inferPlanner.filters(_targetNode)(leftPlan.plan ~> InferExpand(_edge, _targetNode)) // todo infer props
-      case (true, true, false, true) => Seq() // todo infer link
-//      case (false, true, true) => Seq(leftPlan.plan ~> InferExpand(_edge, _targetNode) ) // todo infer props
-      case (false, false, false, _) => (leftNodes.size, rightNodes.size) match {
+    val inferPlanner: InferPlanner = InferPlanner(_sourceNode, _edge, _targetNode, _leftP, _rightP)
+
+    val plans: Seq[PhysicalPlan] = if (sourceNode.virtual || targetNode.virtual || edge.virtual) {
+      inferPlanner.plan() // if Any virtual, use infer planner
+    } else {
+      (leftNodes.size, rightNodes.size) match {
         // 1. (a), (b) => (a) -> (b), a expand b, or relationships(a, b)
         case (1, 1) =>
           // 1.0 relationships
@@ -204,7 +225,6 @@ class CostBasedPlanner(costCalculator: CostCalculator) {
         // 3. (n, n): a join b
         case (_, _) => Seq.empty // TODO Join
       }
-      case _ => Seq.empty
     }
     // TODO edge filter of type and props
     // push last filters

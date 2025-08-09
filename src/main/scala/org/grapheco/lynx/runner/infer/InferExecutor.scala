@@ -15,3 +15,7 @@ abstract class InferPropertyExecutor extends InferExecutor {
 abstract class InferLabelExecutor extends InferExecutor {
   def infer(node: LynxNode): LynxNode
 }
+
+abstract class InferLinkExecutor extends InferExecutor {
+  def infer(node: LynxNode, nodes: Seq[LynxNode]): Seq[(LynxNode, LynxRelationship, LynxNode)]
+}

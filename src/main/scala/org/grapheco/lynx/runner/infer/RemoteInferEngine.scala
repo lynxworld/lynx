@@ -19,6 +19,9 @@ case class RemoteInferAdviser(allInfer: Map[Condition, InferExecutor] = Map.empt
   override def forProperty(c: Condition): Option[InferPropertyExecutor] =
     allInfer.filter(_._1.isMatch(c)).values.collectFirst{case i:InferPropertyExecutor => i}
 
+  override def forLink(c: Condition): Option[InferLinkExecutor] =
+    allInfer.filter(_._1.isMatch(c)).values.collectFirst{case i:InferLinkExecutor => i}
+
   def addInfer(c: Condition, infer: InferExecutor): RemoteInferAdviser = {
     RemoteInferAdviser(allInfer + (c -> infer))
   }

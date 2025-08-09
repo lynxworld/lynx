@@ -1,19 +1,23 @@
 package org.grapheco.lynx.physical.plans
 
+import org.grapheco.lynx.LynxException
 import org.grapheco.lynx.dataframe.DataFrame
+import org.grapheco.lynx.logical.plans
 import org.grapheco.lynx.logical.plans.{GraphPatternEdge, GraphPatternNode}
+import org.grapheco.lynx.physical.planner.cost.Candidate
 import org.grapheco.lynx.physical.{NodeInput, PhysicalPlannerContext}
 import org.grapheco.lynx.runner.infer.{Condition, NotMatchInferExecutorFoundException}
 import org.grapheco.lynx.runner.{CONTAINS, EQUAL, ExecutionContext, GREATER_THAN, GREATER_THAN_OR_EQUAL, IN, LESS_THAN, LESS_THAN_OR_EQUAL, NOT_EQUAL, NodeFilter, PropOp, RelationshipFilter}
+import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.{LTNode, LTVNode, LTVRelationship, LynxType, LynxValue}
 import org.grapheco.lynx.types.structural.{LynxNode, LynxNodeLabel, LynxPath, LynxPropertyKey, LynxRelationshipType}
 import org.opencypher.v9_0.expressions.{And, Ands, BinaryOperatorExpression, Equals, Expression, HasLabels, LabelName, ListLiteral, LogicalVariable, NodePattern, Property, PropertyKeyName, Range, RelTypeName, RelationshipPattern, SemanticDirection, Variable, VirtualNodePattern, VirtualRelationshipPattern}
 import org.opencypher.v9_0.util.InputPosition
 
-trait InferPhysicalPlan extends SinglePhysicalPlan
+trait InferPhysicalPlan
 
-case class InferPlanner()(implicit val plannerContext: PhysicalPlannerContext) {
-  def filters(node: GraphPatternNode)(in: PhysicalPlan): Seq[PhysicalPlan] = {
+object InferPlanner {
+  def makeFilters(node: GraphPatternNode)(in: PhysicalPlan)(implicit plannerContext: PhysicalPlannerContext): Seq[PhysicalPlan] = {
     val ip = InputPosition.NONE
     val labelsFilter = node.labels.map(label => HasLabels(Variable(node.variableName)(ip), Seq(label.toNodeLabel))(ip)) match {
       case Seq() => None
@@ -42,14 +46,56 @@ case class InferPlanner()(implicit val plannerContext: PhysicalPlannerContext) {
   }
 }
 
-case class InferFakeNode(pattern: GraphPatternNode)(implicit val plannerContext: PhysicalPlannerContext) extends InferPhysicalPlan {
+case class InferPlanner(sourceNode: GraphPatternNode,
+                        edge: GraphPatternEdge,
+                        targetNode: GraphPatternNode,
+                        leftPlan: Candidate,
+                        rightPlan: Candidate
+                       )(implicit val plannerContext: PhysicalPlannerContext) {
+
+  def plan(): Seq[PhysicalPlan] = if (edge.direction == plans.IN) {
+      Seq.empty // infer can not be IN
+    } else {
+      (sourceNode.virtual, targetNode.virtual) match {
+        case (false, true) => planInferExpand()
+        case (true, true) => if (rightPlan.plan.isInstanceOf[InferFakeNode]) planInferExpand() else planInferLink()
+        case (true, false) => planInferLink()
+      }
+    }
+
+  //  (A)~[r]~~<B>
+  private def planInferExpand(): Seq[PhysicalPlan] =
+    InferPlanner.makeFilters(targetNode)(leftPlan.plan ~> InferExpand(edge, targetNode))
+
+  private def planInferLink(): Seq[PhysicalPlan] =
+    InferPlanner.makeFilters(targetNode)(InferLink(sourceNode, edge, targetNode).withChildren(Option(leftPlan.plan), Option(rightPlan.plan)))
+}
+
+case class VNodeFromList(pattern: GraphPatternNode, listVariable: String)(implicit val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan with InferPhysicalPlan{
+  override def schema: Seq[(String, LynxType)] = Seq((pattern.variableName, LTVNode))
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val df = in.execute(ctx)
+    val listIndex = df.columnsName.indexOf(listVariable)
+    if (listIndex == -1) DataFrame(schema, () => {Iterator.empty})
+    else DataFrame(schema, () => {
+      df.records.flatMap{ record =>
+        record(listIndex) match {
+          case list: LynxList => list.v.map(v => Seq(v))
+          case _ => Iterator.empty
+        }
+      }
+    })
+  }
+}
+
+case class InferFakeNode(pattern: GraphPatternNode)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan with InferPhysicalPlan {
   override def schema: Seq[(String, LynxType)] = Seq((pattern.variableName, LTVNode))
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = DataFrame.empty
 }
 
-case class InferExpand(rel: GraphPatternEdge, rightNode: GraphPatternNode)(implicit val plannerContext: PhysicalPlannerContext)
-  extends InferPhysicalPlan {
+case class InferExpand(rel: GraphPatternEdge, rightNode: GraphPatternNode)(implicit val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan with InferPhysicalPlan {
 
   override def schema: Seq[(String, LynxType)] = in.schema ++ Seq(
       rel.variableName -> LTVRelationship,
@@ -87,8 +133,46 @@ case class InferExpand(rel: GraphPatternEdge, rightNode: GraphPatternNode)(impli
   }
 }
 
+case class InferLink(leftNode: GraphPatternNode, rel: GraphPatternEdge, rightNode: GraphPatternNode)
+                    (implicit val plannerContext: PhysicalPlannerContext)
+  extends DoublePhysicalPlan with InferPhysicalPlan {
+
+  override def toString: String = s"InferLink(<${leftNode.variableName}>?${rel.types.head}?<${rightNode.variableName}>)"
+
+  override def schema: Seq[(String, LynxType)] = l.schema ++ Seq(rel.variableName -> LTVRelationship) ++ r.schema
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+    val df_l = l.execute(ctx)
+    val df_r = r.execute(ctx)
+
+    val inferCondition = Condition(leftNode.labels.map(_.toString), Seq.empty, rel.types.map(_.toString), rightNode.labels.map(_.toString))
+
+    val inferEngine = ctx.inferEngine
+
+    val inferExecutor = inferEngine.adviser.forLink(inferCondition).getOrElse(throw  NotMatchInferExecutorFoundException(inferCondition.toString))
+
+    val rightNodesIndex = df_r.columnsName.indexOf(rightNode.variableName)
+//    println(df_r.columnsName)
+    if (rightNodesIndex == -1) throw LynxException(s"Variable ${rightNode.variableName} not found")
+    if (df_r.schema(rightNodesIndex)._2 != LTVNode) throw LynxException(s"Variable ${rightNode.variableName} is not a node")
+
+    val rightNodesMap = df_r.records.map(record => record(rightNodesIndex).asInstanceOf[LynxNode] -> record).toMap
+
+    DataFrame(schema, () => {
+      df_l.records.flatMap{ record =>
+        val endpoint = record.last match {
+          case p: LynxPath => p.nodes.last
+          case n: LynxNode => n
+        }
+        val rsl = inferExecutor.infer(endpoint, rightNodesMap.keys.toSeq)
+        rsl.map { case (_, rel, r) => record ++ Seq(rel) ++ rightNodesMap(r)}
+      }
+    })
+  }
+}
+
 case class InferLabel(nodeVariable: String)(implicit val plannerContext: PhysicalPlannerContext)
-  extends InferPhysicalPlan {
+  extends SinglePhysicalPlan with InferPhysicalPlan {
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
     val inferCondition = Condition(Seq.empty, Seq.empty, Seq.empty)
@@ -109,7 +193,7 @@ case class InferLabel(nodeVariable: String)(implicit val plannerContext: Physica
 
 
 case class InferProperties(nodeVariable: String, propertyKey: Seq[LynxPropertyKey])(implicit val plannerContext: PhysicalPlannerContext)
-  extends InferPhysicalPlan {
+  extends SinglePhysicalPlan with InferPhysicalPlan {
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val df = in.execute(ctx)
@@ -120,13 +204,16 @@ case class InferProperties(nodeVariable: String, propertyKey: Seq[LynxPropertyKe
 
     val inferExecutor = ctx.inferEngine.adviser.forProperty(inferCondition)
 
-    if (inferExecutor.isEmpty) throw NotMatchInferExecutorFoundException(inferCondition.toString)
-
     DataFrame(schema, () => {
       df.records.map{ record =>
         val n = record(index).asInstanceOf[LynxNode]
-        val newNode = inferExecutor.get.infer(n)
-        record.updated(index, newNode)
+        if (propertyKey.forall(n.keys.contains)) {
+          record
+        } else {
+          if (inferExecutor.isEmpty) throw NotMatchInferExecutorFoundException(inferCondition.toString)
+          val newNode = inferExecutor.get.infer(n)
+          record.updated(index, newNode)
+        }
       }
     })
   }

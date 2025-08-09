@@ -8,7 +8,7 @@ import org.opencypher.v9_0.expressions.{Expression, LogicalVariable, NodePattern
 import scala.collection.mutable
 import scala.language.implicitConversions
 
-case class GraphPatternMatch(graphPattern: GraphPattern, filters: FilterExpression = FilterExpression()) extends LeafLogicalPlan
+case class GraphPatternMatch(graphPattern: GraphPattern, filters: FilterExpression = FilterExpression())(implicit input: Option[LogicalPlan] = None) extends SingleLogicalPlan(input)
 
 sealed abstract class Direction
 object Direction{
@@ -96,7 +96,7 @@ case class GraphPatternNode(variableName: String,
   def addExpressions(newProperties: Seq[Expression]): GraphPatternNode = this.copy(expressions = expressions ++ newProperties)
   override def toString: String = {
     val labelStr = labels.map(_.value).mkString(":")
-    s"($variableName:$labelStr${propertyStr})"
+    if(virtual) s"<$variableName:$labelStr${propertyStr}>" else s"($variableName:$labelStr${propertyStr})"
   }
 }
 
@@ -114,10 +114,12 @@ case class GraphPatternEdge(variableName: String,
   override def toString: String = {
     val typeStr = types.map(_.value).mkString(":")
     val body = s"[$variableName:$typeStr${propertyStr}]"
-    direction match {
-      case IN => "<-" + body + "-"
-      case OUT => "-" + body + "->"
-      case BOTH => "-" + body + "-"
+    (virtual, direction) match {
+      case (false, IN) => "<-" + body + "-"
+      case (false, OUT) => "-" + body + "->"
+      case (false, BOTH) => "-" + body + "-"
+      case (true, IN) => "~~" + body + "~"
+      case (true, OUT) => "~" + body + "~~"
     }
   }
 }
@@ -221,6 +223,8 @@ class GraphPattern {
 
   // 获取所有节点
   def allNodes: Seq[GraphPatternNode] = nodesMap.values.toList
+
+  def allEdges: Seq[GraphPatternEdge] = edgesMap.values.toList
 
   def nodesOf(edge: GraphPatternEdge): (GraphPatternNode, GraphPatternNode) = {
     val (sourceKey, targetKey) = relMap(edge.variableName)
