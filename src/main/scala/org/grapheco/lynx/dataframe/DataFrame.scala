@@ -9,6 +9,11 @@ trait DataFrame {
 
   def columnsName: Seq[String] = schema.map(_._1)
 
+  def indexOf(name: String): Option[Int] = columnsName.indexOf(name) match {
+    case -1 => None
+    case i  => Some(i)
+  }
+
   def records: Iterator[Seq[LynxValue]]
 }
 

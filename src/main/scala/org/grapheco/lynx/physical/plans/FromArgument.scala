@@ -9,7 +9,7 @@ case class FromArgument(arguments: Seq[(String, LynxType)])(implicit val planner
 
   override val schema: Seq[(String, LynxType)] = arguments
 
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     ctx.arguments.select(arguments.map{case (name, _) => (name, None)})
   }
 

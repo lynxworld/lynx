@@ -44,6 +44,21 @@ object InferPlanner {
     case _ => Map.empty
     // other
   }
+
+  def extractVarProp(expression: Expression): Map[(String, String), Expression] = expression match {
+    case And(l, r) => extractVarProp(l) ++ extractVarProp(r)
+    case Ands(exprs) => exprs.map(extractVarProp).reduce(_ ++ _)
+    case b:BinaryOperatorExpression => extractVarProp(b.lhs) ++ extractVarProp(b.rhs)
+    case p@Property(Variable(name), PropertyKeyName(key)) => Map((name, key) -> p)
+    case _ => Map.empty
+  }
+
+  def addInferToFilter(expression: Expression)(in: PhysicalPlan)(implicit plannerContext: PhysicalPlannerContext): PhysicalPlan = {
+    extractVarProp(expression).map{
+      case ((variable, property), _:Property) => InferProperties(variable, Seq(property).map(LynxPropertyKey))
+        // case label? TODO
+    }.foldLeft(in)(_ ~> _)
+  }
 }
 
 case class InferPlanner(sourceNode: GraphPatternNode,
@@ -65,7 +80,7 @@ case class InferPlanner(sourceNode: GraphPatternNode,
 
   //  (A)~[r]~~<B>
   private def planInferExpand(): Seq[PhysicalPlan] =
-    InferPlanner.makeFilters(targetNode)(leftPlan.plan ~> InferExpand(edge, targetNode))
+    InferPlanner.makeFilters(targetNode)(leftPlan.plan ~> InferExpand(sourceNode, edge, targetNode))
 
   private def planInferLink(): Seq[PhysicalPlan] =
     InferPlanner.makeFilters(targetNode)(InferLink(sourceNode, edge, targetNode).withChildren(Option(leftPlan.plan), Option(rightPlan.plan)))
@@ -74,7 +89,7 @@ case class InferPlanner(sourceNode: GraphPatternNode,
 case class VNodeFromList(pattern: GraphPatternNode, listVariable: String)(implicit val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan with InferPhysicalPlan{
   override def schema: Seq[(String, LynxType)] = Seq((pattern.variableName, LTVNode))
 
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     val df = in.execute(ctx)
     val listIndex = df.columnsName.indexOf(listVariable)
     if (listIndex == -1) DataFrame(schema, () => {Iterator.empty})
@@ -95,27 +110,25 @@ case class InferFakeNode(pattern: GraphPatternNode)(implicit val plannerContext:
   override def execute(implicit ctx: ExecutionContext): DataFrame = DataFrame.empty
 }
 
-case class InferExpand(rel: GraphPatternEdge, rightNode: GraphPatternNode)(implicit val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan with InferPhysicalPlan {
+case class InferExpand(leftNode: GraphPatternNode, rel: GraphPatternEdge, rightNode: GraphPatternNode)(implicit val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan with InferPhysicalPlan {
 
   override def schema: Seq[(String, LynxType)] = in.schema ++ Seq(
       rel.variableName -> LTVRelationship,
       rightNode.variableName -> LTVNode)
 
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     val df = in.execute(ctx)
 
     val inferCondition = Condition(rightNode.labels.map(_.toString), Seq.empty, rel.types.map(_.toString))
-
-    var step = 0
+    val leftNodeIndex = df.indexOf(leftNode.variableName)
+      .getOrElse(throw LynxException("Unknown column name: "+leftNode.variableName))
 
     DataFrame(schema, () => {
       df.records.flatMap{ record =>
-        val endpoint = record.last match {
+        val endpoint = record(leftNodeIndex) match {
           case p: LynxPath => p.nodes.last
           case n: LynxNode => n
         }
-        println(s"infer step: $step")
-        step += 1
         val inferEngine = ctx.inferEngine
         val inferExecutor = inferEngine.adviser.forExpand(inferCondition)
         if(inferExecutor.isDefined) {
@@ -141,7 +154,7 @@ case class InferLink(leftNode: GraphPatternNode, rel: GraphPatternEdge, rightNod
 
   override def schema: Seq[(String, LynxType)] = l.schema ++ Seq(rel.variableName -> LTVRelationship) ++ r.schema
 
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     val df_l = l.execute(ctx)
     val df_r = r.execute(ctx)
 
@@ -173,7 +186,7 @@ case class InferLink(leftNode: GraphPatternNode, rel: GraphPatternEdge, rightNod
 
 case class InferLabel(nodeVariable: String)(implicit val plannerContext: PhysicalPlannerContext)
   extends SinglePhysicalPlan with InferPhysicalPlan {
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     val df = in.execute(ctx)
     val inferCondition = Condition(Seq.empty, Seq.empty, Seq.empty)
     val index = df.columnsName.indexOf(nodeVariable)
@@ -195,7 +208,7 @@ case class InferLabel(nodeVariable: String)(implicit val plannerContext: Physica
 case class InferProperties(nodeVariable: String, propertyKey: Seq[LynxPropertyKey])(implicit val plannerContext: PhysicalPlannerContext)
   extends SinglePhysicalPlan with InferPhysicalPlan {
 
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     val df = in.execute(ctx)
 
     val inferCondition = Condition(Seq.empty, propertyKey.map(_.value), Seq.empty)

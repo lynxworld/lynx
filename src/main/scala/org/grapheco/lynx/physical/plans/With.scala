@@ -11,7 +11,7 @@ case class With(ri: ReturnItems)(implicit val plannerContext: PhysicalPlannerCon
   override def schema: Seq[(String, LynxType)] = ri.items.map(x => x.name)
     .map(x => x -> in.schema.toMap.get(x).get)
 
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     in.execute(ctx).select(ri.items.map(x => x.name -> None))
   }
 

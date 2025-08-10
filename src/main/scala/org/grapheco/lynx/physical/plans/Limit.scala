@@ -10,7 +10,7 @@ import org.opencypher.v9_0.expressions.Expression
 case class Limit(expr: Expression)(implicit val plannerContext: PhysicalPlannerContext)
   extends SinglePhysicalPlan {
 
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     val df = in.execute(ctx)
     implicit val ec: ExpressionContext = ctx.expressionContext
     val limit: Long = eval(expr) match {

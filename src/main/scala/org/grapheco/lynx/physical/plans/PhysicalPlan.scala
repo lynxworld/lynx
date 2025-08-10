@@ -3,6 +3,7 @@ package org.grapheco.lynx.physical.plans
 import org.grapheco.lynx.dataframe.DataFrame
 import org.grapheco.lynx.runner.ExecutionContext
 import org.grapheco.lynx.TreeNode
+import org.grapheco.lynx.physical.plans.PhysicalPlan.empty
 import org.grapheco.lynx.types.LynxType
 
 import scala.collection.mutable
@@ -18,6 +19,16 @@ trait PhysicalPlan extends TreeNode{
 
   var right: Option[PhysicalPlan]
 
+  var profileMode: Boolean = false
+
+  var cache_hits: Option[Long] = None
+
+  var cache_misses: Option[Long] = None
+
+  var estimated_rows: Option[Long] = None
+
+  var db_hit: Option[Long] = None
+
   def schema: Seq[(String, LynxType)]
 
   def execute(implicit ctx: ExecutionContext): DataFrame
@@ -28,8 +39,8 @@ trait PhysicalPlan extends TreeNode{
     stack.push(this)
     while (stack.nonEmpty) {
       val p = stack.pop()
-      if (p.children.isEmpty) leafs.append(p)
-      else p.children.foreach(stack.push)
+      if (p.children.isEmpty || p.children.forall(empty.eq)) leafs.append(p)
+      else p.children.filterNot(empty.eq).foreach(stack.push)
     }
     leafs
   }
@@ -43,7 +54,7 @@ trait PhysicalPlan extends TreeNode{
     this
   }
 
-  def ~> (andThen: PhysicalPlan): PhysicalPlan = andThen.withChildren(Some(this))
+  def ~> (andThen: PhysicalPlan): PhysicalPlan = this.~>(Option(andThen))
 
   def ~> (andThen: Option[PhysicalPlan]): PhysicalPlan = andThen.map(_.withChildren(Some(this))).getOrElse(this)
 
@@ -53,12 +64,13 @@ trait PhysicalPlan extends TreeNode{
 
   def <~ (left: PhysicalPlan, right: PhysicalPlan): PhysicalPlan = this.withChildren(Some(left), Some(right))
 
-  override def description: String = s"[${this.schema.map(_._1).mkString(",")}]_$toString"
+  override def description: String = (if (profileMode) s"<${db_hit.getOrElse(0)} rows>" else "") +
+    s"[${this.schema.map(_._1).mkString(",")}]_$toString"
 
 }
 
 object PhysicalPlan {
-  def empty: PhysicalPlan = new PhysicalPlan {
+  val empty: PhysicalPlan = new PhysicalPlan {
     override def schema: Seq[(String, LynxType)] = Seq.empty
 
     override var left: Option[PhysicalPlan] = None

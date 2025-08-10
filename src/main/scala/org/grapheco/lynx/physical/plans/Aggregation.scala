@@ -11,7 +11,7 @@ case class Aggregation(aggregations: Seq[ReturnItem], groupings: Seq[ReturnItem]
   override def schema: Seq[(String, LynxType)] =
     (groupings ++ aggregations).map(x => x.name -> typeOf(x.expression, in.schema.toMap))
 
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     val df = in.execute(ctx)
     df.groupBy(groupings.map(x => x.name -> x.expression), aggregations.map(x => x.name -> x.expression))(ctx.expressionContext)
   }

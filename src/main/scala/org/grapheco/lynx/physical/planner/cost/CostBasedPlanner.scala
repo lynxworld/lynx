@@ -230,7 +230,16 @@ class CostBasedPlanner(costCalculator: CostCalculator) {
     // TODO edge filter of type and props
     // push last filters
     val f = Filter.multi(filters)
-    plans.map(_ ~> f).map(p => Candidate(p).withFilters(filters))
+    val nodes = (leftNodes ++ rightNodes).map(n => n.variableName -> n).toMap
+    val empty = PhysicalPlan.empty
+    val infers = filters.filter(_.dependencies.exists(v => nodes(v.name).virtual))
+      .foldLeft(empty){(in, exp) => InferPlanner.addInferToFilter(exp)(in)}
+    if(infers==empty) {
+      plans.map(_ ~> f).map(p => Candidate(p).withFilters(filters))
+    } else {
+      val leaf = infers.leaves.head
+      plans.map{p => p ~> leaf; infers ~> f}.map(p => Candidate(p).withFilters(filters))
+    }
   }
 
 }

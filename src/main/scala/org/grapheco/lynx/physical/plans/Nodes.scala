@@ -32,7 +32,9 @@ case class NodesPlanFactory(variable: String)(implicit val plannerContext: Physi
  * Scan All Nodes
  */
 case class AllNode(variable: String)(implicit val plannerContext: PhysicalPlannerContext) extends SingleNodePlan(variable){
-  override def execute(implicit ctx: ExecutionContext): DataFrame = DataFrame(schema, () => graphModel.nodes().map(Seq(_)))
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
+    DataFrame(schema, () => graphModel.nodes().map(Seq(_)))
+  }
 
   override def toString: String = s"AllNode($variable)"
 }
@@ -94,7 +96,7 @@ case class AllNode(variable: String)(implicit val plannerContext: PhysicalPlanne
 
 case class NodeScanByLabel2(labelName: LynxNodeLabel, variable: String)(implicit val plannerContext: PhysicalPlannerContext) extends SingleNodePlan(variable) {
 
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     DataFrame(schema, () => graphModel.nodes(NodeFilter(Seq(labelName), Map.empty, Map.empty)).map(Seq(_)))
   }
 

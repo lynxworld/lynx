@@ -20,6 +20,8 @@ import org.grapheco.lynx.util.FormatUtils.convertPatternComprehension
 import org.opencypher.v9_0.ast.Statement
 import org.opencypher.v9_0.ast.semantics.SemanticState
 
+import java.util
+
 /**
  * @ClassName CypherRunner
  * @Description
@@ -58,7 +60,7 @@ class CypherRunner(var graphModel: GraphModel) extends LazyLogging {
 
   def compile(query: String): (Statement, Map[String, Any], SemanticState) = queryParser.parse(query)
 
-  def run(query: String, param: Map[String, Any]): LynxResult = {
+  def run(query: String, param: Map[String, Any], profile: Boolean = false): LynxResult = {
     val query2 = convertPatternComprehension(query)
     val (statement, param2, state) = queryParser.parse(query2)
     logger.info(s"AST tree: ${statement}")
@@ -74,9 +76,21 @@ class CypherRunner(var graphModel: GraphModel) extends LazyLogging {
     val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan, physicalPlannerContext)
 //    logger.info(s"optimized physical plan: \r\n${optimizedPhysicalPlan.pretty}")
 
+    if (profile) {
+      val stack = new util.Stack[PhysicalPlan]()
+      stack.push(optimizedPhysicalPlan)
+      while (!stack.isEmpty) {
+        val p = stack.pop()
+        p.profileMode = true
+        p.children.foreach(stack.push)
+      }
+    }
+
     val ctx = ExecutionContext(physicalPlannerContext, statement, param ++ param2, inferEngine = inferEngine)
     val df = optimizedPhysicalPlan.execute(ctx)
     graphModel.write.commit
+
+    if (profile) logger.info(s"profile plan: \r\n${optimizedPhysicalPlan.pretty}")
 
 
     new LynxResult() with PlanAware {

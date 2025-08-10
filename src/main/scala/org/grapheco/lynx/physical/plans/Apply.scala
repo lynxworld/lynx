@@ -9,7 +9,7 @@ case class Apply(joinType: JoinType = InnerJoin)(implicit val plannerContext: Ph
 
   override def schema: Seq[(String, LynxType)] = this.left.get.schema ++ this.right.get.schema
 
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     val from = this.left.get
     val applyTo = this.right.get
 

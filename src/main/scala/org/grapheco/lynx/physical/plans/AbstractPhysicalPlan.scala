@@ -33,6 +33,13 @@ abstract class AbstractPhysicalPlan(override var left: Option[PhysicalPlan] = No
   def createUnitDataFrame(items: Seq[ReturnItem])(implicit ctx: ExecutionContext): DataFrame = {
     DataFrame.unit(items.map(item => item.name -> item.expression))(expressionEvaluator, ctx.expressionContext)
   }
+
+  def profile(df: DataFrame): DataFrame = if (!this.profileMode) {df} else {
+    val schema = df.schema
+    val records = df.records.toList
+    this.db_hit = Some(records.size)
+    DataFrame.cached(schema, records)
+  }
 }
 
 abstract class DoublePhysicalPlan extends AbstractPhysicalPlan {
@@ -45,12 +52,7 @@ abstract class SinglePhysicalPlan extends AbstractPhysicalPlan {
 
   override def schema: Seq[(String, LynxType)] = in.schema
 
-  override def execute(implicit ctx: ExecutionContext): DataFrame = in.execute(ctx)
-
-//  override def withChildren(left: Option[PhysicalPlan], right: Option[PhysicalPlan]): PhysicalPlan = {
-//    if (left.isEmpty) throw ExecuteException(s"Physical Plan ${this.getClass.getSimpleName} need child!")
-//    else super.withChildren(left,right)
-//  }
+  override def execute(implicit ctx: ExecutionContext): DataFrame = this.profile(in.execute(ctx))
 }
 
 abstract class LeafPhysicalPlan extends AbstractPhysicalPlan(None, None) {

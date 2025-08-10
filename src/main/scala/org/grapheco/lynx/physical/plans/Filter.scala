@@ -11,7 +11,7 @@ import org.opencypher.v9_0.util.InputPosition
 
 case class Filter(expr: Expression)(implicit val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan {
 
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     val df = in.execute(ctx)
     val ec = ctx.expressionContext
     df.filter {

@@ -13,7 +13,7 @@ case class Project(ri: ReturnItemsDef)(implicit val plannerContext: PhysicalPlan
     col._1 -> typeOf(col._2, in.schema.toMap)
   }
 
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     val df = in.execute(ctx)
     df.project(ri.items.map(x => x.name -> x.expression))(ctx.expressionContext)
   }
