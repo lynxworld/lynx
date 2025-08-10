@@ -59,7 +59,8 @@ class CostBasedPlanner(costCalculator: CostCalculator) {
           tail = tail.children.head
         }
       }
-      if (tail.children.isEmpty) bestPlan <~ in // all single
+      // fixme, how to remove Allnode(i).
+      if (tail.children.isEmpty) tail <~ in //  all single
       else { // the leaf is the combine plan
         tail.leaves.foreach(leaf => leaf <~ FromArgument(in.get.schema))
         val apply = Apply() <~ (in.get, tail)

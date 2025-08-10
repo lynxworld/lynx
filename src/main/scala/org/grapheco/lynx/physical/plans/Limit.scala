@@ -20,4 +20,6 @@ case class Limit(expr: Expression)(implicit val plannerContext: PhysicalPlannerC
     df.take(limit.intValue())
   }
 
+  override def toString: String = s"Limit(${expr.asCanonicalStringVal})"
+
 }

@@ -15,5 +15,5 @@ case class With(ri: ReturnItems)(implicit val plannerContext: PhysicalPlannerCon
     in.execute(ctx).select(ri.items.map(x => x.name -> None))
   }
 
-  override def toString: String = s"With(${ri.asCanonicalStringVal})"
+  override def toString: String = s"With(${ri.items.map(i => i.expression.asCanonicalStringVal+" as "+i.name).mkString(", ")})"
 }

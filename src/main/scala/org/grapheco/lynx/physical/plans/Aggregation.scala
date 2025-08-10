@@ -16,5 +16,5 @@ case class Aggregation(aggregations: Seq[ReturnItem], groupings: Seq[ReturnItem]
     df.groupBy(groupings.map(x => x.name -> x.expression), aggregations.map(x => x.name -> x.expression))(ctx.expressionContext)
   }
 
-  override def toString: String = s"Aggregation(${aggregations.map(_.asCanonicalStringVal).mkString(",")})"
+  override def toString: String = s"Aggregation(${aggregations.map( i=> i.expression.asCanonicalStringVal + " as " + i.name).mkString(",")})"
 }
