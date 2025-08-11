@@ -116,6 +116,9 @@ case class InferExpand(leftNode: GraphPatternNode, rel: GraphPatternEdge, rightN
       rel.variableName -> LTVRelationship,
       rightNode.variableName -> LTVNode)
 
+  private def leftString = if(leftNode.virtual) s"<${leftNode.variableName}>" else s"(${leftNode.variableName})"
+  override def toString: String = s"InferExpand($leftString~[${rel.types.mkString(", ")}]~><${rightNode.variableName}>)"
+
   override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     val df = in.execute(ctx)
 
@@ -178,7 +181,7 @@ case class InferLink(leftNode: GraphPatternNode, rel: GraphPatternEdge, rightNod
           case n: LynxNode => n
         }
         val rsl = inferExecutor.infer(endpoint, rightNodesMap.keys.toSeq)
-        rsl.map { case (_, rel, r) => record ++ Seq(rel) ++ rightNodesMap(r)}
+        rsl.filter(_._2.relationType.forall(rel.types.contains)).map { case (_, rel, r) => record ++ Seq(rel) ++ rightNodesMap(r)}
       }
     })
   }
@@ -224,7 +227,7 @@ case class InferProperties(nodeVariable: String, propertyKey: Seq[LynxPropertyKe
           record
         } else {
           if (inferExecutor.isEmpty) throw NotMatchInferExecutorFoundException(inferCondition.toString)
-          val newNode = inferExecutor.get.infer(n)
+          val newNode = inferExecutor.get.infer(n, propertyKey)
           record.updated(index, newNode)
         }
       }

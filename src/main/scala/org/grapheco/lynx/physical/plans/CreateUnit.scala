@@ -9,7 +9,7 @@ import org.opencypher.v9_0.ast.ReturnItem
 case class CreateUnit(items: Seq[ReturnItem])(implicit val plannerContext: PhysicalPlannerContext) extends AbstractPhysicalPlan {
   override def withChildren(children0: Seq[PhysicalPlan]): CreateUnit = CreateUnit(items)(plannerContext)
 
-  override val schema: Seq[(String, LynxType)] =
+  override def schema: Seq[(String, LynxType)] =
     items.map(item => item.name -> typeOf(item.expression))
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {

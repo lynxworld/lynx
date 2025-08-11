@@ -32,4 +32,6 @@ case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runner
 
   override def findAggregate: Option[Expression] = funcInov.findAggregate
 
+  override def asCanonicalStringVal: String = funcInov.asCanonicalStringVal
+
 }

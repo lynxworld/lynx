@@ -40,7 +40,7 @@ case class RelationshipsByType(sourceVariable: String, variable: String, targetV
 
 case class RelationshipScan(rel: RelationshipPattern, leftNode: NodePattern, rightNode: NodePattern)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
 
-  override val schema: Seq[(String, LynxType)] = {
+  override def schema: Seq[(String, LynxType)] = {
     val RelationshipPattern(
     var2: Option[LogicalVariable],
     types: Seq[RelTypeName],

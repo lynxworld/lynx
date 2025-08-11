@@ -12,7 +12,7 @@ case class MultiStepExpand(rel: RelationshipPattern,
                            rightNode: NodePattern
                           )(implicit val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan {
 
-  override val schema: Seq[(String, LynxType)] = {
+  override def schema: Seq[(String, LynxType)] = {
     val RelationshipPattern(
     variable: Option[LogicalVariable],
     types: Seq[RelTypeName],

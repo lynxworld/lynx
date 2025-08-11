@@ -14,7 +14,7 @@ case class CreateIndex(labelName: String, properties: List[String])(implicit val
 
   override def withChildren(children0: Seq[PhysicalPlan]): PhysicalPlan = this
 
-  override val schema: Seq[(String, LynxType)] = {
+  override def schema: Seq[(String, LynxType)] = {
     Seq("CreateIndex" -> LTAny)
   }
 }
@@ -26,7 +26,7 @@ case class DropIndex(labelName: String, properties: List[String])(implicit val p
     DataFrame.empty
   }
 
-  override val schema: Seq[(String, LynxType)] = {
+  override def schema: Seq[(String, LynxType)] = {
     Seq("DropIndex" -> LTAny)
   }
 }

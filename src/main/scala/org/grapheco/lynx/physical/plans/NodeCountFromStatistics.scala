@@ -8,7 +8,7 @@ import org.grapheco.lynx.types.property.LynxInteger
 import org.grapheco.lynx.types.structural.LynxNodeLabel
 
 case class NodeCountFromStatistics(label: Option[LynxNodeLabel], variableName: String)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
-  override val schema: Seq[(String, LynxType)] = Seq((variableName, LynxInteger(0).lynxType))
+  override def schema: Seq[(String, LynxType)] = Seq((variableName, LynxInteger(0).lynxType))
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = {
     val stat = plannerContext.runnerContext.graphModel.statistics

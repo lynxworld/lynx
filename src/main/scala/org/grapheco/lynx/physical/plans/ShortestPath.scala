@@ -12,7 +12,7 @@ import org.opencypher.v9_0.expressions.{Expression, LabelName, ListLiteral, Logi
 case class ShortestPath(rel: RelationshipPattern, leftNode: NodePattern, rightNode: NodePattern, single: Boolean, resName: String)(implicit val plannerContext: PhysicalPlannerContext) extends LeafPhysicalPlan {
 
 
-  override val schema: Seq[(String, LynxType)] = {
+  override def schema: Seq[(String, LynxType)] = {
     val RelationshipPattern(
     var2: Option[LogicalVariable],
     types: Seq[RelTypeName],
