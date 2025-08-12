@@ -1,5 +1,6 @@
 package org.grapheco.lynx.dataframe
 
+import org.grapheco.lynx.LynxException
 import org.grapheco.lynx.types.{LynxType, LynxValue}
 import org.grapheco.lynx.types.property.LynxNull
 import org.grapheco.lynx.util.Profiler
@@ -7,276 +8,211 @@ import org.grapheco.lynx.util.Profiler
 import scala.collection.mutable.ListBuffer
 
 /**
- * @Author: Airzihao
- * @Description:
- * @Date: Created at 15:34 2022/7/8
- * @Modified By:
+ * Sort-Merge Join implementation supporting multiple join types
  */
 
 object SortMergeJoiner {
-
+  /**
+   * Public join method that handles all join types
+   * @param a Left DataFrame
+   * @param b Right DataFrame
+   * @param joinColumns Columns to join on
+   * @param joinType Type of join to perform
+   * @return Joined DataFrame
+   */
   def join(a: DataFrame, b: DataFrame, joinColumns: Seq[String], joinType: JoinType): DataFrame = {
-    val joinColIndexs: Seq[(Int, Int)] = joinColumns
-      .map(columnName =>
-        (a.columnsName.indexOf(columnName), b.columnsName.indexOf(columnName))
-      )
+    // Validate join columns exist in both DataFrames
+    val missingColumns = joinColumns.filter { col =>
+      !a.columnsName.contains(col) || !b.columnsName.contains(col)
+    }
+    if (missingColumns.nonEmpty) {
+      throw new IllegalArgumentException(s"Join columns not found in both DataFrames: ${missingColumns.mkString(", ")}")
+    }
 
-    joinType match {
-      case InnerJoin => _innerJoin(a, b, joinColIndexs)
-      case OuterJoin => _fullOuterJoin(a, b, joinColIndexs)
-      case LeftJoin => _leftJoin(a, b, joinColIndexs)
-      case RightJoin => _rightJoin(a, b, joinColIndexs)
-      case _ => throw new Exception("UnExpected JoinType in DataFrame Join Function.")
+    val joinColIndexs = joinColumns.map(col =>
+      (a.columnsName.indexOf(col), b.columnsName.indexOf(col))
+    )
+
+    // Prepare schema with proper handling of duplicate column names
+    val (joinedSchema, renameRightColumns) = prepareJoinedSchema(a, b)
+
+    // Sort both DataFrames on join columns (ascending order)
+    val sortedA = sortDataFrame(a, joinColIndexs.map(_._1))
+    val sortedB = sortDataFrame(b, joinColIndexs.map(_._2))
+
+    // Perform the appropriate join type
+    val joinedData = joinType match {
+      case InnerJoin | LeftJoin | RightJoin | OuterJoin => mergeJoin(sortedA, sortedB,a.schema.size, b.schema.size, joinColIndexs, joinType, renameRightColumns)
+      case _ => throw LynxException(s"Join type $joinType is not supported")
+    }
+
+    DataFrame(joinedSchema, () => joinedData.toIterator)
+  }
+
+  /**
+   * Prepares joined schema with proper handling of duplicate column names
+   */
+  private def prepareJoinedSchema(a: DataFrame, b: DataFrame): (Seq[(String, LynxType)], Boolean) = {
+    val aColumns = a.schema.map(_._1).toSet
+    val hasDuplicateColumns = b.schema.exists { case (name, _) => aColumns.contains(name) }
+
+    if (hasDuplicateColumns) {
+      val newBSchema = b.schema.map { case (name, typ) =>
+        if (aColumns.contains(name)) (s"right.$name", typ) else (name, typ)
+      }
+      (a.schema ++ newBSchema, true)
+    } else {
+      (a.schema ++ b.schema, false)
     }
   }
 
-  private def _innerJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): DataFrame = {
-    // Is this asending or desending?
-    val sortedTableA: Array[Seq[LynxValue]] = _sortByColIndexs(a, joinColIndexs.map(_._1))
-    val sortedTableB: Array[Seq[LynxValue]] = _sortByColIndexs(b, joinColIndexs.map(_._2))
-
-    var indexOfA: Int = 0
-    var indexOfB: Int = 0
-
-    val joinedSchema: Seq[(String, LynxType)] = a.schema ++ b.schema
-    val joinedDataFrame: ListBuffer[Seq[LynxValue]] = ListBuffer[Seq[LynxValue]]()
-
-    while (indexOfA < sortedTableA.length && indexOfB < sortedTableB.length) {
-      val nextInnerRowsA: Seq[Seq[LynxValue]] =
-        _fetchNextInnerRows(sortedTableA, indexOfA, joinColIndexs.map(_._1))
-      val nextInnerRowsB: Seq[Seq[LynxValue]] =
-        _fetchNextInnerRows(sortedTableB, indexOfB, joinColIndexs.map(_._2))
-
-      val status: Int = _innerMergeRows(nextInnerRowsA, nextInnerRowsB, joinColIndexs, joinedDataFrame)
-      if (status == 0) {
-        indexOfA += nextInnerRowsA.length
-        indexOfB += nextInnerRowsB.length
-      } else if (status > 0) indexOfB += nextInnerRowsB.length
-      else indexOfA += nextInnerRowsA.length
-    }
-
-    DataFrame(joinedSchema, () => joinedDataFrame.toIterator)
+  /**
+   * Sorts a DataFrame based on specified column indices
+   */
+  private def sortDataFrame(dataFrame: DataFrame, sortColIndexs: Seq[Int]): Array[Seq[LynxValue]] = {
+      dataFrame.records.toArray.sortWith((rowA, rowB) => compareRows(rowA, rowB, sortColIndexs) < 0)
   }
 
-  private def _fullOuterJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): DataFrame = {
-    // Is this asending or desending?
-    val sortedTableA: Array[Seq[LynxValue]] = _sortByColIndexs(a, joinColIndexs.map(_._1))
-    val sortedTableB: Array[Seq[LynxValue]] = _sortByColIndexs(b, joinColIndexs.map(_._2))
-    var indexOfA: Int = 0
-    var indexOfB: Int = 0
+  /**
+   * Compares two rows based on specified columns
+   * @return negative if rowA < rowB, positive if rowA > rowB, 0 if equal
+   */
+  private def compareRows(rowA: Seq[LynxValue], rowB: Seq[LynxValue], compareColIndexs: Seq[Int]): Int = {
+    compareColIndexs.view
+      .map(idx => rowA(idx).compareTo(rowB(idx)))
+      .find(_ != 0)
+      .getOrElse(0)
+  }
 
-    val joinedSchema: Seq[(String, LynxType)] = a.schema ++ b.schema
-    val joinedDataFrame: ListBuffer[Seq[LynxValue]] = ListBuffer[Seq[LynxValue]]()
+  /**
+   * Core merge join implementation that handles all join types
+   */
+  private def mergeJoin(
+    sortedA: Array[Seq[LynxValue]],
+    sortedB: Array[Seq[LynxValue]],
+    aColCount: Int,
+    bColCount: Int,
+    joinColIndexs: Seq[(Int, Int)],
+    joinType: JoinType,
+    renameRightColumns: Boolean
+  ): ListBuffer[Seq[LynxValue]] = {
+    val result = ListBuffer[Seq[LynxValue]]()
+    var i = 0 // Index for sortedA
+    var j = 0 // Index for sortedB
+//    val aColCount = sortedA.schema.length
+//    val bColCount = sortedB.schema.length
 
-    while (indexOfA < sortedTableA.length && indexOfB < sortedTableB.length) {
-      val nextInnerRowsA: Seq[Seq[LynxValue]] =
-        _fetchNextInnerRows(sortedTableA, indexOfA, joinColIndexs.map(_._1))
-      val nextInnerRowsB: Seq[Seq[LynxValue]] =
-        _fetchNextInnerRows(sortedTableB, indexOfB, joinColIndexs.map(_._2))
+    while (i < sortedA.length && j < sortedB.length) {
+      val currentA = sortedA(i)
+      val currentB = sortedB(j)
+      val aJoinKey = joinColIndexs.map(_._1).map(currentA)
+      val bJoinKey = joinColIndexs.map(_._2).map(currentB)
 
-      val status: Int = _fullOuterMergeRows(nextInnerRowsA, nextInnerRowsB, joinColIndexs, joinedDataFrame)
-      if (status == 0) {
-        indexOfA += nextInnerRowsA.length
-        indexOfB += nextInnerRowsB.length
-      } else if (status > 0) {
-        indexOfB += nextInnerRowsB.length
-      } else {
-        indexOfA += nextInnerRowsA.length
+      val comparison = compareJoinKeys(aJoinKey, bJoinKey)
+
+      comparison match {
+        case 0 => // Keys match - perform join
+          val aGroup = collectGroup(sortedA, i, joinColIndexs.map(_._1))
+          val bGroup = collectGroup(sortedB, j, joinColIndexs.map(_._2))
+
+          // Cross product for matching groups
+          aGroup.foreach(aRow =>
+            bGroup.foreach(bRow => result += (aRow ++ bRow))
+          )
+
+          i += aGroup.size
+          j += bGroup.size
+
+        case -1 => // aKey < bKey - handle left-only rows
+          if (joinType == LeftJoin || joinType == OuterJoin) {
+            val aGroup = collectGroup(sortedA, i, joinColIndexs.map(_._1))
+            aGroup.foreach(aRow => result += (aRow ++ Seq.fill(bColCount)(LynxNull)))
+            i += aGroup.size
+          } else {
+            i += 1
+          }
+
+        case 1 => // aKey > bKey - handle right-only rows
+          if (joinType == RightJoin || joinType == OuterJoin) {
+            val bGroup = collectGroup(sortedB, j, joinColIndexs.map(_._2))
+            bGroup.foreach(bRow => result += (Seq.fill(aColCount)(LynxNull) ++ bRow))
+            j += bGroup.size
+          } else {
+            j += 1
+          }
       }
     }
 
-    while (indexOfA < sortedTableA.length) {
-      joinedDataFrame.append(sortedTableA(indexOfA) ++ new Array[Int](sortedTableB.head.length).map(_ => LynxNull))
-      indexOfA += 1
-    }
-    while (indexOfB < sortedTableB.length) {
-      joinedDataFrame.append(new Array[Int](sortedTableA.head.length).map(_ => LynxNull) ++ sortedTableB(indexOfB))
-      indexOfB += 1
-    }
+    // Handle remaining rows
+    handleRemainingRows(sortedA, i, result, aColCount, bColCount, joinType, isLeft = true)
+    handleRemainingRows(sortedB, j, result, aColCount, bColCount, joinType, isLeft = false)
 
-    DataFrame(joinedSchema, () => joinedDataFrame.toIterator)
+    result
   }
 
-  private def _leftJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): DataFrame = {
-    val sortedTableA: Array[Seq[LynxValue]] = _sortByColIndexs(a, joinColIndexs.map(_._1))
-    val sortedTableB: Array[Seq[LynxValue]] = {
-      if (sortedTableA.length > 0) _sortByColIndexs(b, joinColIndexs.map(_._2))
-      else a.records.toArray
+  /**
+   * Compare two join keys
+   */
+  private def compareJoinKeys(aKey: Seq[LynxValue], bKey: Seq[LynxValue]): Int = {
+    aKey.zip(bKey)
+      .map { case (a, b) => a.compareTo(b) }
+      .find(_ != 0)
+      .getOrElse(0)
+  }
+
+  /**
+   * Collect all consecutive rows with the same join key
+   */
+  private def collectGroup(
+    sortedData: Array[Seq[LynxValue]],
+    startIndex: Int,
+    joinColIndices: Seq[Int]
+  ): Seq[Seq[LynxValue]] = {
+    if (startIndex >= sortedData.length) return Seq.empty
+
+    val group = ListBuffer[Seq[LynxValue]]()
+    val key = joinColIndices.map(sortedData(startIndex)(_))
+    var i = startIndex
+
+    while (i < sortedData.length) {
+      val currentRow = sortedData(i)
+      val currentKey = joinColIndices.map(currentRow(_))
+
+      if (currentKey == key) {
+        group += currentRow
+        i += 1
+      } else {
+        i = sortedData.length // Exit loop
+      }
     }
 
-    var indexOfA: Int = 0
-    var indexOfB: Int = 0
+    group
+  }
 
-    val joinedSchema: Seq[(String, LynxType)] = {
-      // Rename the common column name. Otherwise it would cause null result in the Project operation.
-      val newBSchema: Seq[(String, LynxType)] = {
-        b.schema.map{
-          case (name: String, lynxType: LynxType) =>
-            if (a.schema.map(_._1).contains(name)) (s"right.${name}", lynxType)
-            else (name, lynxType)
+  /**
+   * Handle remaining rows after main merge loop
+   */
+  private def handleRemainingRows(
+    sortedData: Array[Seq[LynxValue]],
+    startIndex: Int,
+    result: ListBuffer[Seq[LynxValue]],
+    aColCount: Int,
+    bColCount: Int,
+    joinType: JoinType,
+    isLeft: Boolean
+  ): Unit = {
+    val shouldAdd = (isLeft && (joinType == LeftJoin || joinType == OuterJoin)) ||
+                   (!isLeft && (joinType == RightJoin || joinType == OuterJoin))
+
+    if (shouldAdd) {
+      for (i <- startIndex until sortedData.length) {
+        val row = sortedData(i)
+        if (isLeft) {
+          result += (row ++ Seq.fill(bColCount)(LynxNull))
+        } else {
+          result += (Seq.fill(aColCount)(LynxNull) ++ row)
         }
       }
-      a.schema ++ newBSchema
     }
-    val joinedDataFrame: ListBuffer[Seq[LynxValue]] = ListBuffer[Seq[LynxValue]]()
-
-    while (indexOfA < sortedTableA.length && indexOfB < sortedTableB.length) {
-      val nextInnerRowsA: Seq[Seq[LynxValue]] =
-        _fetchNextInnerRows(sortedTableA, indexOfA, joinColIndexs.map(_._1))
-      val nextInnerRowsB: Seq[Seq[LynxValue]] =
-        _fetchNextInnerRows(sortedTableB, indexOfB, joinColIndexs.map(_._2))
-
-      val status: Int = _leftOuterMergeRows(nextInnerRowsA, nextInnerRowsB, joinColIndexs, joinedDataFrame)
-      if (status == 0) {
-        indexOfA += nextInnerRowsA.length
-        indexOfB += nextInnerRowsB.length
-      } else if (status > 0) indexOfB += nextInnerRowsB.length
-      else indexOfA += nextInnerRowsA.length
-    }
-
-    while (indexOfA < sortedTableA.length) {
-      joinedDataFrame.append(sortedTableA(indexOfA) ++ new Array[Int](b.schema.length).map(_ => LynxNull))
-      indexOfA += 1
-    }
-
-    DataFrame(joinedSchema, () => joinedDataFrame.toIterator)
-  }
-
-  private def _rightJoin(a: DataFrame, b: DataFrame, joinColIndexs: Seq[(Int, Int)]): DataFrame = {
-    val sortedTableA: Array[Seq[LynxValue]] = Profiler.timing("SortA", _sortByColIndexs(a, joinColIndexs.map(_._1)))
-    val sortedTableB: Array[Seq[LynxValue]] = Profiler.timing("SortB", _sortByColIndexs(b, joinColIndexs.map(_._2)))
-
-    var indexOfA: Int = 0
-    var indexOfB: Int = 0
-
-    val joinedSchema: Seq[(String, LynxType)] = {
-      val newASchema: Seq[(String, LynxType)] = {
-        a.schema.map {
-          case (name: String, lynxType: LynxType) =>
-            if (b.schema.map(_._1).contains(name)) (s"right.${name}", lynxType)
-            else (name, lynxType)
-        }
-      }
-      newASchema ++ b.schema
-    }
-    val joinedDataFrame: ListBuffer[Seq[LynxValue]] = ListBuffer[Seq[LynxValue]]()
-
-    while (indexOfA < sortedTableA.length && indexOfB < sortedTableB.length) {
-      val nextInnerRowsA: Seq[Seq[LynxValue]] =
-        _fetchNextInnerRows(sortedTableA, indexOfA, joinColIndexs.map(_._1))
-      val nextInnerRowsB: Seq[Seq[LynxValue]] =
-        _fetchNextInnerRows(sortedTableB, indexOfB, joinColIndexs.map(_._2))
-
-      val status: Int = _rightOuterMergeRows(nextInnerRowsA, nextInnerRowsB, joinColIndexs, joinedDataFrame)
-      if (status == 0) {
-        indexOfA += nextInnerRowsA.length
-        indexOfB += nextInnerRowsB.length
-      } else if (status > 0) indexOfB += nextInnerRowsB.length
-      else indexOfA += nextInnerRowsA.length
-    }
-
-    while (indexOfB < sortedTableB.length) {
-      joinedDataFrame.append(new Array[Int](sortedTableA.head.length).map(_ => LynxNull) ++ sortedTableB(indexOfB))
-      indexOfB += 1
-    }
-
-    DataFrame(joinedSchema, () => joinedDataFrame.toIterator)
-  }
-
-  private def _innerMergeRows(rowsA: Seq[Seq[LynxValue]], rowsB: Seq[Seq[LynxValue]],
-                              joinColIndexs: Seq[(Int, Int)], joinedDataFrame: ListBuffer[Seq[LynxValue]]): Int = {
-    val joinedColA: Seq[LynxValue] = joinColIndexs.map(index => rowsA.head(index._1))
-    val joinedColB: Seq[LynxValue] = joinColIndexs.map(index => rowsB.head(index._2))
-
-    if (joinedColA.zip(joinedColB).forall(pair => pair._1.compareTo(pair._2) == 0)) {
-      rowsA.foreach(rowA => rowsB.foreach(rowB => joinedDataFrame.append(rowA ++ rowB)))
-      0
-    } else joinedColA.zip(joinedColB).map(pair => pair._1.compareTo(pair._2)).filterNot(compareResult => compareResult == 0).head
-  }
-
-  private def _fullOuterMergeRows(rowsA: Seq[Seq[LynxValue]], rowsB: Seq[Seq[LynxValue]],
-                               joinColIndexs: Seq[(Int, Int)], joinedDataFrame: ListBuffer[Seq[LynxValue]]): Int = {
-    val joinedColA: Seq[LynxValue] = joinColIndexs.map(index => rowsA.head(index._1))
-    val joinedColB: Seq[LynxValue] = joinColIndexs.map(index => rowsB.head(index._2))
-    if (joinedColA.zip(joinedColB).forall(pair => pair._1.compareTo(pair._2) == 0)) {
-      rowsA.foreach(rowA => rowsB.foreach(rowB => joinedDataFrame.append(rowA ++ rowB)))
-      0
-    } else {
-      val compareResult: Int = joinedColA.zip(joinedColB).map(pair => pair._1.compareTo(pair._2)).filterNot(compareResult => compareResult == 0).head
-      if (compareResult < 0) {
-        rowsA.foreach(rowA => joinedDataFrame.append(rowA ++ new Array[Int](rowsB.head.length).map(_ => LynxNull)))
-      } else {
-        rowsB.foreach(rowB => joinedDataFrame.append(new Array[Int](rowsA.head.length).map(_ => LynxNull) ++ rowB))
-      }
-      compareResult
-    }
-  }
-
-  private def _leftOuterMergeRows(rowsA: Seq[Seq[LynxValue]], rowsB: Seq[Seq[LynxValue]],
-                                  joinColIndexs: Seq[(Int, Int)], joinedDataFrame: ListBuffer[Seq[LynxValue]]): Int = {
-    val joinedColA: Seq[LynxValue] = joinColIndexs.map(index => rowsA.head(index._1))
-    val joinedColB: Seq[LynxValue] = joinColIndexs.map(index => rowsB.head(index._2))
-    if (joinedColA.zip(joinedColB).forall(pair => pair._1.compareTo(pair._2) == 0)) {
-      rowsA.foreach(rowA => rowsB.foreach(rowB => joinedDataFrame.append(rowA ++ rowB)))
-      0
-    } else {
-      val compareResult: Int = joinedColA.zip(joinedColB).map(pair => pair._1.compareTo(pair._2)).filterNot(compareResult => compareResult == 0).head
-      if (compareResult < 0) {
-        rowsA.foreach(rowA => joinedDataFrame.append(rowA ++ new Array[Int](rowsB.head.length).map(_ => LynxNull)))
-      }
-      compareResult
-    }
-  }
-
-  private def _rightOuterMergeRows(rowsA: Seq[Seq[LynxValue]], rowsB: Seq[Seq[LynxValue]],
-                                   joinColIndexs: Seq[(Int, Int)], joinedDataFrame: ListBuffer[Seq[LynxValue]]): Int = {
-    val joinedColA: Seq[LynxValue] = joinColIndexs.map(index => rowsA.head(index._1))
-    val joinedColB: Seq[LynxValue] = joinColIndexs.map(index => rowsB.head(index._2))
-    if (joinedColA.zip(joinedColB).forall(pair => pair._1.compareTo(pair._2) == 0)) {
-      rowsA.foreach(rowA => rowsB.foreach(rowB => joinedDataFrame.append(rowA ++ rowB)))
-      0
-    } else {
-      val compareResult: Int = joinedColA.zip(joinedColB).map(pair => pair._1.compareTo(pair._2)).filterNot(compareResult => compareResult == 0).head
-      if (compareResult > 0) {
-        rowsB.foreach(rowB => joinedDataFrame.append(new Array[Int](rowsA.head.length).map(_ => LynxNull) ++ rowB))
-      }
-      compareResult
-    }
-  }
-
-  /*
-      This func is to fetch rows from DataFrame, until a different join-keys
-  */
-  private def _fetchNextInnerRows(outerDataTable: Seq[Seq[LynxValue]], startIndex: Int, joinCols: Seq[Int]): Seq[Seq[LynxValue]] = {
-    if(startIndex < outerDataTable.length) {
-      val rowsBuffer: ListBuffer[Seq[LynxValue]] = ListBuffer[Seq[LynxValue]]()
-
-      val innerRowsJoinValue: Seq[LynxValue] = joinCols.map(colIndex => outerDataTable(startIndex)(colIndex))
-      var innerIndex: Int = startIndex
-      while (innerIndex < outerDataTable.length) {
-        val row: Seq[LynxValue] = outerDataTable(innerIndex)
-        if (joinCols.map(colIndex => row(colIndex)).zip(innerRowsJoinValue).forall(pair => pair._1.compareTo(pair._2) == 0)) {
-          rowsBuffer.append(row)
-          innerIndex += 1
-        } else innerIndex = outerDataTable.length
-      }
-      rowsBuffer.toSeq
-    } else Seq[Seq[LynxValue]]()
-  }
-
-  private def _sortByColIndexs(dataFrame: DataFrame, sortColIndexs: Seq[Int]): Array[Seq[LynxValue]] = {
-    dataFrame.records.toArray.sortWith((rowA, rowB) => _rowCmpGreater(rowA, rowB, sortColIndexs))
-  }
-
-  // Compare Row at the specific columns.
-  // This function is for SortJoin.
-  private def _rowCmpGreater(row1: Seq[LynxValue], row2: Seq[LynxValue], cmpColIndexs: Seq[Int]): Boolean = {
-    val comparedValueList: Seq[Int] = {
-    cmpColIndexs.map(row1(_)).zip(cmpColIndexs.map(row2(_))).map{
-      case (value1, value2) => value1.compareTo(value2)
-    }.filterNot(cmp => cmp == 0)
-    }
-    if (comparedValueList.isEmpty) false
-    else comparedValueList.head < 0
   }
 }
