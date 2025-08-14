@@ -1,12 +1,13 @@
 package org.grapheco.lynx.evaluator
 
 import org.grapheco.lynx.procedure.{ProcedureException, ProcedureExpression, ProcedureRegistry}
+import org.grapheco.lynx.runner.infer.Condition
 import org.grapheco.lynx.runner.{GraphModel, NodeFilter, RelationshipFilter}
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property._
 import org.grapheco.lynx.types.structural._
 import org.grapheco.lynx.types.time._
-import org.grapheco.lynx.types.traits.{HasProperty, LynxComputable}
+import org.grapheco.lynx.types.traits.{HasProperty, HasVirtualProperty, LynxComputable}
 import org.grapheco.lynx.types.{LTAny, LTBoolean, LTFloat, LTInteger, LTList, LTString, LynxType, LynxValue, TypeSystem}
 import org.opencypher.v9_0.expressions._
 import org.opencypher.v9_0.expressions.functions.{Collect, Id}
@@ -248,6 +249,12 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case Property(src, PropertyKeyName(name)) =>
         eval(src) match {
           case LynxNull => LynxNull
+          case vp: LynxNode with HasVirtualProperty => vp.property(LynxPropertyKey(name)).getOrElse{
+              ec.executionContext.inferEngine.adviser
+                .forProperty(Condition(Seq.empty, Seq(name), Seq.empty))
+                .flatMap { _.infer(vp, Seq(LynxPropertyKey(name))).property(LynxPropertyKey(name))}
+                .getOrElse(LynxNull)
+            }
           case hp: HasProperty => hp.property(LynxPropertyKey(name)).getOrElse(LynxNull)
         }
 
@@ -459,11 +466,9 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case fe: ProcedureExpression =>
         if (fe.aggregating) {
           val listArgs = {
-            if (fe.distinct) {
-              LynxList(ecs.map(eval(fe.args.head)(_)).distinct.toList)
-            } else {
-              LynxList(ecs.map(eval(fe.args.head)(_)).toList)
-            }
+            val list = ecs.map(eval(fe.args.head)(_)).toList
+            if (fe.distinct) LynxList(list.distinct)
+            else LynxList(list)
           } //todo: ".head": any multi-args situation?
           val otherArgs = fe.args.drop(1).map(eval(_)(ecs.head)) // 2022.09.15: Added handling of other args, but the default first one is list
           fe.procedure.execute(Seq(listArgs) ++ otherArgs)

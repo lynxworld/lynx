@@ -64,7 +64,7 @@ trait PhysicalPlan extends TreeNode{
 
   def <~ (left: PhysicalPlan, right: PhysicalPlan): PhysicalPlan = this.withChildren(Some(left), Some(right))
 
-  override def description: String = (if (profileMode) s"<${db_hit.getOrElse(0)} rows>" else "") +
+  override def description: String = (if (profileMode) s"<${db_hit.getOrElse(-1)} rows>" else "") +
     s"[${this.schema.map(_._1).mkString(",")}]_$toString"
 
 }

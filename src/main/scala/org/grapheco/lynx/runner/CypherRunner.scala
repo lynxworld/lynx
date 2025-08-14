@@ -71,10 +71,11 @@ class CypherRunner(var graphModel: GraphModel) extends LazyLogging {
 
     val physicalPlannerContext = PhysicalPlannerContext(param ++ param2, runnerContext)
     val physicalPlan = physicalPlanner.plan(logicalPlan)(physicalPlannerContext)
-    logger.info(s"physical plan: \r\n${physicalPlan.pretty}")
+    if (!profile) logger.info(s"physical plan: \r\n${physicalPlan.pretty}")
 
-    val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan, physicalPlannerContext)
+//    val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan, physicalPlannerContext)
 //    logger.info(s"optimized physical plan: \r\n${optimizedPhysicalPlan.pretty}")
+    val optimizedPhysicalPlan = physicalPlan
 
     if (profile) {
       val stack = new util.Stack[PhysicalPlan]()

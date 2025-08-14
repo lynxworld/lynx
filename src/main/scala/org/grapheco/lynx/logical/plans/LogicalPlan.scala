@@ -7,6 +7,8 @@ abstract class LogicalPlan(override var left: Option[LogicalPlan], override var 
 
   override type SerialType = LogicalPlan
 
+  def alone: LogicalPlan = {this.left=None;this.right=None;this}
+
 }
 
 abstract class LeafLogicalPlan extends LogicalPlan(None, None)

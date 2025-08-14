@@ -83,11 +83,11 @@ case class InferPlanner(sourceNode: GraphPatternNode,
     InferPlanner.makeFilters(targetNode)(leftPlan.plan ~> InferExpand(sourceNode, edge, targetNode))
 
   private def planInferLink(): Seq[PhysicalPlan] =
-    InferPlanner.makeFilters(targetNode)(InferLink(sourceNode, edge, targetNode).withChildren(Option(leftPlan.plan), Option(rightPlan.plan)))
+    Seq(InferLink(sourceNode, edge, targetNode).withChildren(Option(leftPlan.plan), Option(rightPlan.plan)))
 }
 
 case class VNodeFromList(pattern: GraphPatternNode, listVariable: String)(implicit val plannerContext: PhysicalPlannerContext) extends SinglePhysicalPlan with InferPhysicalPlan{
-  override def schema: Seq[(String, LynxType)] = Seq((pattern.variableName, LTVNode))
+  override def schema: Seq[(String, LynxType)] = in.schema ++: Seq((pattern.variableName, LTVNode))
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     val df = in.execute(ctx)
@@ -96,7 +96,7 @@ case class VNodeFromList(pattern: GraphPatternNode, listVariable: String)(implic
     else DataFrame(schema, () => {
       df.records.flatMap{ record =>
         record(listIndex) match {
-          case list: LynxList => list.v.map(v => Seq(v))
+          case list: LynxList => list.v.map(v => record ++ Seq(v))
           case _ => Iterator.empty
         }
       }

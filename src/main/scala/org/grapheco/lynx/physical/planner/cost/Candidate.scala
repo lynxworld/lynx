@@ -4,7 +4,7 @@ import org.grapheco.lynx.physical.plans.PhysicalPlan
 import org.opencypher.v9_0.expressions.Expression
 
 case class Candidate(plan: PhysicalPlan,
-                     cardinal: Long,
+                     cardinal: Long = 0,
                      cost: Double = 0,
                      filters: Seq[Expression] = Seq.empty) {
   def withFilters(filters: Seq[Expression]): Candidate = this.copy(filters = filters)

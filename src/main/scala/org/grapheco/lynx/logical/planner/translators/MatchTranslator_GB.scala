@@ -2,13 +2,15 @@ package org.grapheco.lynx.logical.planner.translators
 import org.opencypher.v9_0.expressions.{And, Ands, AnonymousPatternPart, Equals, EveryPath, Expression, HasLabels, LabelName, LogicalVariable, NamedPatternPart, NodePattern, Pattern, PatternElement, PatternPart, RelationshipChain, RelationshipPattern, ShortestPaths}
 import org.grapheco.lynx.logical.{LogicalPlannerContext, ShortestPathNotSupported}
 import org.grapheco.lynx.logical.planner.LogicalTranslator
-import org.grapheco.lynx.logical.plans.{FilterExpression, GraphPattern, GraphPatternEdge, GraphPatternMatch, GraphPatternNode, LogicalPlan}
+import org.grapheco.lynx.logical.plans.{FilterExpression, GraphPattern, GraphPatternEdge, GraphPatternMatch, GraphPatternNode, LogicalAndThen, LogicalJoin, LogicalPlan, LogicalWith}
 import org.opencypher.v9_0.ast.{Match, Where}
 import org.grapheco.lynx.logical.plans.ASTConvertor._
 import org.grapheco.lynx.types.structural.LynxNodeLabel
 
 import scala.language.implicitConversions
 import LynxNodeLabel.fromNodeLabel
+import org.grapheco.lynx.LynxException
+import org.grapheco.lynx.dataframe.{JoinType, LeftJoin, OuterJoin, RightJoin}
 import org.grapheco.lynx.types.{LTNode, LTRelationship, LTVNode, LTVRelationship}
 
 case class MatchTranslator_GB(m: Match) extends LogicalTranslator {
@@ -18,10 +20,35 @@ case class MatchTranslator_GB(m: Match) extends LogicalTranslator {
   override def translate(in: Option[LogicalPlan])(implicit plannerContext: LogicalPlannerContext): LogicalPlan = {
     inputVariables = plannerContext.variables.map(_._1)
     // Combine the input graph pattern with the current graph pattern
-    val (graphPattern: GraphPattern, filterOfIn: FilterExpression) = in match {
-      case Some(gp: GraphPatternMatch) => (gp.graphPattern, gp.filters)
-      case _ => (new GraphPattern, FilterExpression.empty)
+    (m.optional, in) match {
+      // 1. Match-Match
+      case (_, Some(p@GraphPatternMatch(gp, filters, optional))) =>
+        def makeApply(joinType: JoinType): LogicalPlan = p.left match {
+          case Some(w:LogicalWith) => LogicalAndThen(LeftJoin)(w, LogicalJoin(false, joinType)(p.alone, construct()))
+          case _ => LogicalJoin(false, joinType)(p, construct())
+        }
+        (m.optional, optional) match {
+          // 1.1 Optional-Optional => FullJoin
+          case (true, true) =>  makeApply(OuterJoin)
+          // 1.2 Optional-Match => LeftJoin
+          case (true, false) => makeApply(LeftJoin)
+          // 1.3 Match-Optional => RightJoin
+          case (false, true) => makeApply(RightJoin)
+          // 2. Match-Match => Combine
+          case (false, false) => construct(gp, filters, p.left)
+        }
+
+      // 2. Match-Other => Normal
+      case (false, _) => construct(in = in)
+      // 3. Optional-Other => TODO
+      case (true, None) => construct()
+      case (true, Some(p)) => LogicalAndThen(LeftJoin)(p, construct())
     }
+  }
+
+  def construct(graphPattern: GraphPattern = new GraphPattern,
+                filterOfIn: FilterExpression = FilterExpression.empty,
+                in: Option[LogicalPlan]=None)(implicit plannerContext: LogicalPlannerContext): LogicalPlan = {
     val Match(optional, Pattern(patternParts: Seq[PatternPart]), hints, where: Option[Where]) = m
 
     // Translate each pattern part and add it to the graph pattern
@@ -39,7 +66,7 @@ case class MatchTranslator_GB(m: Match) extends LogicalTranslator {
     plannerContext.variables = plannerContext.variables ++
       graphPattern.allNodes.map(n => (n.variableName, if(n.virtual) LTVNode else LTNode)) ++
       graphPattern.allEdges.map(e => (e.variableName, if(e.virtual) LTVRelationship else LTRelationship))
-    GraphPatternMatch(graphPattern, filterOfIn combine filter)(in)
+    GraphPatternMatch(graphPattern, filterOfIn combine filter, optional)(in)
   }
 
   private def translatePattern(element: PatternElement, optional: Boolean,where:Option[Where])(graphPattern: GraphPattern): Unit = element match {

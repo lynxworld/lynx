@@ -9,7 +9,7 @@ case class Cross()(implicit val plannerContext: PhysicalPlannerContext) extends 
 
   override def schema: Seq[(String, LynxType)] = l.schema ++ r.schema
 
-  override def execute(implicit ctx: ExecutionContext): DataFrame = {
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     val lhs = this.left.get
     val rhs = this.right.get
 

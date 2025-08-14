@@ -3,7 +3,7 @@ package org.grapheco.lynx.physical.planner
 import org.grapheco.lynx.logical.plans._
 import org.grapheco.lynx.physical._
 import org.grapheco.lynx.physical.planner.translators.{GraphPatternMatchTranslator, LPTShortestPathTranslator, PPTCreateTranslator, PPTMergeTranslator, PPTRemoveTranslator, PPTSetClauseTranslator}
-import org.grapheco.lynx.physical.plans.{Aggregation, Apply, CreateIndex, CreateUnit, Cross, Delete, Distinct, DropIndex, Filter, Join, Limit, OrderBy, PhysicalPlan, PhysicalPlanBuffer, ProcedureCall, Project, Select, Skip, Union, Unwind, With}
+import org.grapheco.lynx.physical.plans.{Aggregation, Apply, CreateIndex, CreateUnit, Cross, Delete, Distinct, DropIndex, Filter, FromArgument, InferPlanner, Join, Limit, OrderBy, PhysicalPlan, PhysicalPlanBuffer, ProcedureCall, Project, Select, Skip, Union, Unwind, With}
 import org.grapheco.lynx.runner.CypherRunnerContext
 import org.opencypher.v9_0.expressions._
 
@@ -27,6 +27,7 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
         val first = plan(ap.first)
         val contextWithArg: PhysicalPlannerContext = plannerContext.withArgumentsContext(first.schema.map(_._1))
         val andThen = plan(ap._then)(contextWithArg)
+        andThen.leaves.foreach(_ <~ FromArgument(first.schema))
         Apply(joinType)(contextWithArg).withChildren(Some(first), Some(andThen))
       }
       case aj@LogicalAndThenJoin(isSingleMatch, joinType) => {
@@ -63,19 +64,19 @@ class DefaultPhysicalPlanner(runnerContext: CypherRunnerContext) extends Physica
         case LogicalProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]]) =>
           ProcedureCall(procedureNamespace: Namespace, procedureName: ProcedureName, declaredArguments: Option[Seq[Expression]])
       }
-      case single: SingleLogicalPlan => (single match {
-        case LogicalAggregation(a, g) => Aggregation(a, g)
-        case LogicalDelete(expressions, forced) => Delete(expressions, forced)
-        case LogicalDistinct() => Distinct()
-        case LogicalFilter(expr) => Filter(expr)
-        case LogicalLimit(expr) => Limit(expr)
-        case LogicalOrderBy(sortItem) => OrderBy(sortItem)
-        case LogicalProject(ri) => Project(ri)
-        case LogicalSelect(columns: Seq[(String, Option[String])]) => Select(columns)
-        case LogicalSkip(expr) => Skip(expr)
-        case LogicalUnwind(u) => Unwind(u.expression, u.variable)
-        case LogicalWith(ri) => With(ri)
-      }).withChildren(single.left.map(plan))
+//      case single: SingleLogicalPlan => (single match {
+//        case LogicalAggregation(a, g) => Aggregation(a, g)
+//        case LogicalDelete(expressions, forced) => Delete(expressions, forced)
+//        case LogicalDistinct() => Distinct()
+//        case LogicalFilter(expr) => Filter(expr)
+//        case LogicalLimit(expr) => Limit(expr)
+//        case LogicalOrderBy(sortItem) => OrderBy(sortItem)
+//        case LogicalProject(ri) => Project(ri)
+//        case LogicalSelect(columns: Seq[(String, Option[String])]) => Select(columns)
+//        case LogicalSkip(expr) => Skip(expr)
+//        case LogicalUnwind(u) => Unwind(u.expression, u.variable)
+//        case LogicalWith(ri) => With(ri)
+//      }).withChildren(single.left.map(plan))
       case leaf: LeafLogicalPlan => leaf match {
         case LogicalCreateIndex(labelName: String, properties: List[String]) => CreateIndex(labelName, properties)
         case LogicalCreateUnit(items) => CreateUnit(items)

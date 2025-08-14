@@ -1,5 +1,6 @@
 package org.grapheco.evaluation
 
+import com.github.tototoshi.csv.CSVReader
 import org.grapheco.lynx.LynxException
 import org.grapheco.lynx.runner.infer.{InferExpandExecutor, InferLabelExecutor, InferLinkExecutor, InferPropertyExecutor}
 import org.grapheco.lynx.types.LynxValue
@@ -53,14 +54,17 @@ object ContainsInfer extends InferExpandExecutor {
             Map.empty
           )
           val str = s"cache/${System.currentTimeMillis()}.png"
-          val n = TestNode(
+
+          val n = VTNode(
             outId,
             Seq(),
             Map(
               LynxPropertyKey("file") -> LynxString(str),
-              LynxPropertyKey("size") -> LynxString(if(mask.area>200)"large" else "small"),
+              LynxPropertyKey("area") -> LynxInteger(mask.area),
+              LynxPropertyKey("size") -> LynxString(if(mask.area>1300)"large" else "small"),
               LynxPropertyKey("box") -> LynxList(mask.bbox.map(LynxValue.apply))
-            )
+            ),
+            getLabels = ShapeInfer.inferValue
           )
           cropImage(file.getAbsolutePath, new Rectangle(mask.bbox(0), mask.bbox(1), mask.bbox(2), mask.bbox(3)), mask.segmentation, str)
           (e, n)
@@ -109,7 +113,7 @@ object ColorInfer extends InferPropertyExecutor {
 
   val extractUrl = uri"http://10.0.82.200:52109/color"
 
-  override def infer(node: LynxNode): LynxNode = {
+  override def infer(node: LynxNode, props: Seq[LynxPropertyKey] = Seq.empty): LynxNode = {
     val file: File = node.property(LynxPropertyKey("file")).map {
       case v: LynxString => new File(v.value)
       case _ => throw new RuntimeException("file property is not a string")
@@ -125,8 +129,8 @@ object ColorInfer extends InferPropertyExecutor {
       case Right(response) => {
         val j = JsonMethods.parse(response)
         val color = j.extract[List[LabelScore]].maxBy(_.score).label
-        val n = node.asInstanceOf[TestNode]
-        n.copy(props = n.props + (LynxPropertyKey("color") -> LynxString(color)))
+        val n = node.asInstanceOf[VTNode]
+        n.update(Map(LynxPropertyKey("color") -> LynxString(color)))
       }
       case Left(error) => throw new RuntimeException(s"Error: $error")
     }
@@ -140,7 +144,7 @@ object MaterialInfer extends InferPropertyExecutor {
 
   val extractUrl = uri"http://10.0.82.200:52109/material"
 
-  override def infer(node: LynxNode): LynxNode = {
+  override def infer(node: LynxNode, props: Seq[LynxPropertyKey] = Seq.empty): LynxNode = {
     val file: File = node.property(LynxPropertyKey("file")).map {
       case v: LynxString => new File(v.value)
       case _ => throw new RuntimeException("file property is not a string")
@@ -157,8 +161,8 @@ object MaterialInfer extends InferPropertyExecutor {
         val j = JsonMethods.parse(response)
         val color = (j \ "label").as[String]
         val m = if (color=="metal") "metal" else "rubber"
-        val n = node.asInstanceOf[TestNode]
-        n.copy(props = n.props + (LynxPropertyKey("material") -> LynxString(m)))
+        val n = node.asInstanceOf[VTNode]
+        n.update(Map(LynxPropertyKey("material") -> LynxString(m)))
       }
       case Left(error) => throw new RuntimeException(s"Error: $error")
     }
@@ -172,7 +176,8 @@ object ShapeInfer extends InferLabelExecutor {
 
   val extractUrl = uri"http://10.0.82.200:52109/shape"
   case class Shape(label: String, score: Double)
-  override def infer(node: LynxNode): LynxNode = {
+
+  def inferValue(node: LynxNode): Seq[LynxNodeLabel] = {
     val file: File = node.property(LynxPropertyKey("file")).map {
       case v: LynxString => new File(v.value)
       case _ => throw new RuntimeException("file property is not a string")
@@ -188,12 +193,15 @@ object ShapeInfer extends InferLabelExecutor {
     extractResponse.body match {
       case Right(response) => {
         val j = JsonMethods.parse(response)
-        val label = j.extract[List[Shape]].maxBy(_.score).label
-        val n = node.asInstanceOf[TestNode]
-        n.copy(labels = n.labels.+:(LynxNodeLabel(label)))
+        Seq(j.extract[List[Shape]].maxBy(_.score).label).map(LynxNodeLabel.apply)
       }
       case Left(error) => throw new RuntimeException(s"Error: $error")
     }
+  }
+
+  override def infer(node: LynxNode): LynxNode = {
+    val n = node.asInstanceOf[VTNode]
+    n.update(inferValue(n))
   }
 }
 
@@ -242,6 +250,142 @@ object PositionInfer extends InferLinkExecutor {
           node.id.asInstanceOf[TestId],
           n.id.asInstanceOf[TestId],
           Some(LynxRelationshipType(relType)), Map.empty), n)
+      }
+    }
+  }
+}
+
+
+object GoldData {
+
+  private def parseIntList(str: String): List[Int] = {
+    try {
+      str.stripPrefix("[")
+        .stripSuffix("]")
+        .split(",")
+        .map(_.trim)
+        .filter(_.nonEmpty)
+        .map(_.toInt)
+        .toList
+    } catch {
+      case e: Exception =>
+        println(s"Error parsing int list: $str")
+        println(s"Error: ${e.getMessage}")
+        List.empty[Int]
+    }
+  }
+
+  /* read csv file in '$projectdir/datasets/contains.csv' as a map
+    line :i.image_index,collect (id(o))
+          0,"[20495, 20497, 20496, 20498, 20494]"
+   */
+  val contains: Map[Int, List[Int]] =
+    CSVReader.open(new File(s"${System.getProperty("user.dir")}/datasets/contains.csv"))
+      .iterator
+      .drop(1) //skip header
+      .map { line =>
+        val Seq(index, ids) = line
+        index.toInt -> parseIntList(ids)
+      }.toMap
+
+  //  id,size,shape,material,color,behind,front,left,right
+  case class Object(id: Int,
+                    size: String,
+                    shape: String,
+                    material: String,
+                    color: String,
+                    behind: List[Int],
+                    front: List[Int],
+                    left: List[Int],
+                    right: List[Int])
+
+  val objects: Map[Int, Object] =
+    CSVReader.open(new File(s"${System.getProperty("user.dir")}/datasets/objects.csv"))
+      .iterator
+      .drop(1) //skip header
+      .map { line =>
+        val Seq(id, size, shape, material, color, behind, front, left, right) = line
+        id.toInt -> Object(id.toInt, size, shape, material, color, parseIntList(behind), parseIntList(front), parseIntList(left), parseIntList(right))
+      }.toMap
+
+
+}
+
+
+object GoldContainsInfer extends InferExpandExecutor {
+
+  val data: Map[Int, GoldData.Object] = GoldData.objects
+
+  override def infer(node: LynxNode): Seq[(LynxRelationship, LynxNode)] = {
+
+    node.property(LynxPropertyKey("image_index"))
+      .map{case LynxInteger(v) => v.toInt}
+      .flatMap(GoldData.contains.get)
+      .getOrElse(List.empty)
+      .map { out =>
+        val outId = TestId(out)
+        val e = TestRelationship(
+          TestId.nextId,
+          node.id.asInstanceOf[TestId],
+          outId,
+          Some(LynxRelationshipType("contains")),
+          Map.empty
+        )
+        val n = VTNode(outId, Seq.empty, Map.empty, GoldLabel.inferValue)
+        (e, n)
+      }
+  }
+}
+
+object GoldProps extends InferPropertyExecutor {
+
+  val data: Map[Int, GoldData.Object] = GoldData.objects
+
+  override def infer(node: LynxNode, props: Seq[LynxPropertyKey] = Seq.empty): LynxNode = {
+    val id = node.id.toLynxInteger.value
+    val obj = data(id.toInt)
+    val n = node.asInstanceOf[VTNode]
+    // update node according to props
+    props.foldLeft(n) { case (n, prop) =>
+      prop.value match {
+        case "size" => n.update(Map(prop -> LynxString(obj.size)))
+        case "material" => n.update(Map(prop -> LynxString(obj.material)))
+        case "color" => n.update(Map(prop -> LynxString(obj.color)))
+        case _ => n
+      }
+    }
+  }
+}
+
+object GoldLabel extends InferLabelExecutor {
+  override def infer(node: LynxNode): LynxNode = node match {
+    case v: VTNode => v.update(inferValue(v))
+    case _ => node
+  }
+
+  def inferValue(node: LynxNode): Seq[LynxNodeLabel] = {
+    val id = node.id.toLynxInteger.value
+    val obj = GoldData.objects(id.toInt)
+    Seq(LynxNodeLabel(obj.shape))
+  }
+}
+
+object GoldLink extends InferLinkExecutor {
+  override def infer(node: LynxNode, nodes: Seq[LynxNode]): Seq[(LynxNode, LynxRelationship, LynxNode)] = {
+    val id = node.id.toLynxInteger.value
+    val obj = GoldData.objects(id.toInt)
+    nodes.flatMap { n =>
+        val id2 = n.id.toLynxInteger.value
+        (obj.behind.contains(id2.toInt) -> "behind" ::
+          obj.front.contains(id2.toInt) -> "front" ::
+          obj.left.contains(id2.toInt) -> "left" ::
+          obj.right.contains(id2.toInt) -> "right" :: Nil)
+          .filter(_._1).map { case (_, relType) =>
+            (node, TestRelationship(
+              TestId.nextId,
+              node.id.asInstanceOf[TestId],
+              n.id.asInstanceOf[TestId],
+              Some(LynxRelationshipType(relType)), Map.empty), n)
       }
     }
   }

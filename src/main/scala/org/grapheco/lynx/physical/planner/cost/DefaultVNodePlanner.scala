@@ -25,7 +25,7 @@ case class DefaultVNodePlanner(node: GraphPatternNode)(implicit val plannerConte
       val listVariableName = in.dependencies.map(_.name).-(node.variableName).head
 
       plans ++=
-        InferPlanner.makeFilters(node.copy(expressions=others))(VNodeFromList(node.copy(expressions = Seq.empty), listVariableName))
+        InferPlanner.makeFilters(node.copy(expressions=others))(VNodeFromList(node.copy(labels = Seq.empty, expressions = Seq.empty), listVariableName))
 
     }
     plans

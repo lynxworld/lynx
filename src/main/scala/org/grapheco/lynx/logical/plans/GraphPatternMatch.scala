@@ -8,7 +8,9 @@ import org.opencypher.v9_0.expressions.{Expression, LogicalVariable, NodePattern
 import scala.collection.mutable
 import scala.language.implicitConversions
 
-case class GraphPatternMatch(graphPattern: GraphPattern, filters: FilterExpression = FilterExpression())(implicit input: Option[LogicalPlan] = None) extends SingleLogicalPlan(input)
+case class GraphPatternMatch(graphPattern: GraphPattern,
+                             filters: FilterExpression = FilterExpression(),
+                             optional: Boolean = false)(implicit input: Option[LogicalPlan] = None) extends SingleLogicalPlan(input)
 
 sealed abstract class Direction
 object Direction{
@@ -295,4 +297,6 @@ class GraphPattern {
       case (edgeKey, (sourceKey, targetKey)) if leftVariableNames.contains(targetKey) && rightVariableNames.contains(sourceKey) => maybeEdge(edgeKey).get
     }.toSet
   }
+
+  override def toString: String = s"G(${allNodes.map(_.variableName)}, ${allEdges.map(_.variableName)})"
 }

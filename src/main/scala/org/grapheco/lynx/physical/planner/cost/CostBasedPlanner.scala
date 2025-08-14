@@ -4,7 +4,7 @@ import org.grapheco.lynx.LynxException
 import org.grapheco.lynx.logical.plans.{FilterExpression, GraphPattern, GraphPatternEdge, GraphPatternMatch, GraphPatternNode}
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.physical.planner.translators.MetaData._
-import org.grapheco.lynx.physical.plans.{Apply, Expand, ExpandFactory, Filter, FromArgument, InferExpand, InferFakeNode, InferPhysicalPlan, InferPlanner, InferProperties, NodesPlanFactory, PhysicalPlan, PhysicalPlanBuffer, RelationshipsPlanFactory}
+import org.grapheco.lynx.physical.plans.{Apply, Cross, Expand, ExpandFactory, Filter, FromArgument, InferExpand, InferFakeNode, InferPhysicalPlan, InferPlanner, InferProperties, Join, NodesPlanFactory, PhysicalPlan, PhysicalPlanBuffer, RelationshipsPlanFactory}
 import org.grapheco.lynx.runner.{GraphModel, IndexManager}
 import org.opencypher.v9_0.expressions.{Expression, VirtualPattern, VirtualRelationshipPattern}
 
@@ -18,7 +18,7 @@ class CostBasedPlanner(costCalculator: CostCalculator) {
   def plan(graphPatternMatch: GraphPatternMatch, in: Option[PhysicalPlan])(implicit ppc: PhysicalPlannerContext): PhysicalPlan = {
     val graphModel: GraphModel = ppc.runnerContext.graphModel
 
-    val GraphPatternMatch(graph: GraphPattern, filters: FilterExpression) = graphPatternMatch
+    val GraphPatternMatch(graph: GraphPattern, filters: FilterExpression, _) = graphPatternMatch
 
     // 初始化DP表，用于存储子问题的最优解
     implicit val dpTable: DPTable = new DPTable()
@@ -43,8 +43,34 @@ class CostBasedPlanner(costCalculator: CostCalculator) {
         .foreach(findOptimalJoin(graph, _, dpTable, filters)) // 对每个子图，找到最优的连接方式
     }
 
-    // 返回包含所有节点的最优计划
-    val bestPlan = dpTable(allNodes).plan
+    // 返回包含所有节点的最优计划,
+    val bestCandidate: Candidate = if (dpTable.contains(allNodes)) {
+      dpTable(allNodes)
+    } else {
+      //如果没有allNodes，说明不是连通图，则把几个最大的连通的子图的计划join起来
+      dpTable.entries.toArray // all subsets
+//        .map{ case (nodes, candidate) => nodes -> candidate.plan} // plan
+        .sortBy(_._1.size).reverse // sort by size: big to small
+        .reduceLeft[(Set[GraphPatternNode], Candidate)] {
+          case ((party, partyPlan), (newGuys, newPlan)) => // put smaller group into the biggest set one by one
+            if (newGuys.exists(party.contains)) (party, partyPlan) // party only accept new guys
+            else (party ++ newGuys, Candidate(
+              Cross().withChildren(Seq(partyPlan.plan, newPlan.plan)),
+              filters = partyPlan.filters ++ newPlan.filters)
+            ) // JOIN!
+        }._2
+    }
+
+    val Candidate(_bestPlan, _, _, pushedFilters) = bestCandidate
+
+    val remainFilters = filters.filters.values.flatten.filterNot(pushedFilters.contains)
+
+    val bestPlan = if (remainFilters.nonEmpty) {
+      _bestPlan~>Filter.multi(remainFilters.toSeq)
+    } else _bestPlan
+
+
+
     // in
     if (in.isEmpty) bestPlan
     else {
@@ -60,13 +86,13 @@ class CostBasedPlanner(costCalculator: CostCalculator) {
         }
       }
       // fixme, how to remove Allnode(i).
-      if (tail.children.isEmpty) tail <~ in //  all single
+      if (tail.children.isEmpty) {tail <~ in} //  all single
       else { // the leaf is the combine plan
         tail.leaves.foreach(leaf => leaf <~ FromArgument(in.get.schema))
         val apply = Apply() <~ (in.get, tail)
         head <~ apply
-        prefix.left.get
       }
+      prefix.left.get
     }
   }
 
