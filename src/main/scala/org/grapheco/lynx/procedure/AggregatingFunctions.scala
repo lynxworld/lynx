@@ -5,8 +5,11 @@ import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.{LynxFloat, LynxInteger, LynxNull, LynxNumber}
 import org.grapheco.lynx.types.time.LynxDuration
+import org.grapheco.lynx.{ProcedureException, LynxNumber}
 
 import java.time.Duration
+import scala.math._
+import scala.collection.mutable
 
 /**
  * @ClassName AggregatingFunctions
@@ -276,4 +279,362 @@ class AggregatingFunctions {
   }
 
 
+}
+
+/**
+ * @ClassName StatisticalFunctions
+ * @Description Statistical functions to calculate k-th central moment and k-th raw moment.
+ * @ZSJ
+ * @Date 2024/12/22
+ * @Version 0.1
+ */
+class StatisticalFunctions {
+  /**
+   * Calculates the k-th central moment.
+   *
+   * @param inputs A list of numeric values.
+   * @param k      The order of the central moment.
+   * @return A Float representing the k-th central moment.
+   */
+  @LynxProcedure(name = "kthCentralMoment")
+  def kthCentralMoment(inputs: LynxList, k: LynxInteger): LynxFloat = {
+    val values = inputs.value.filterNot(LynxNull.equals).map(_.asInstanceOf[LynxNumber].number.toDouble)
+    if (values.isEmpty) LynxFloat(0) else {
+      val mean = values.sum / values.length
+      val centralMoment = values.map(x => pow(x - mean, k.number.toDouble)).sum / values.length
+      LynxFloat(centralMoment.toFloat)
+    }
+  }
+
+  /**
+   * Calculates the k-th raw moment.
+   *
+   * @param inputs A list of numeric values.
+   * @param k      The order of the raw moment.
+   * @return A Float representing the k-th raw moment.
+   */
+  @LynxProcedure(name = "kthRawMoment")
+  def kthRawMoment(inputs: LynxList, k: LynxInteger): LynxFloat = {
+    val values = inputs.value.filterNot(LynxNull.equals).map(_.asInstanceOf[LynxNumber].number.toDouble)
+    if (values.isEmpty) LynxFloat(0) else {
+      val rawMoment = values.map(x => pow(x, k.number.toDouble)).sum / values.length
+      LynxFloat(rawMoment.toFloat)
+    }
+  }
+}
+
+/**
+ * @ClassName GraphAlgorithms
+ * @Add functions to provide graph analysis procedures for a graph database system.
+ * @Zr
+ * @Date 2024/12/22
+ * @Version 0.1
+ */
+
+class GraphAlgorithms {
+
+  /**
+   * Calculates the PageRank values for nodes in a graph.
+   *
+   * @param inputs The graph's adjacency list representation, where each element is a LynxList containing a node and its outgoing edges.
+   * @return A LynxList containing each node and its corresponding PageRank value.
+   */
+  @LynxProcedure(name = "pagerank")
+  def pagerank(inputs: LynxList): LynxList = {
+    val adjacencyList = buildAdjacencyList(inputs)
+    val N = adjacencyList.size
+    var rank = mutable.Map.empty[String, Double].withDefaultValue(1.0 / N)
+    var newRank = mutable.Map.empty[String, Double]
+    val damping = 0.85
+    val threshold = 1e-6
+    var converged = false
+    var iterations = 0
+    val maxIterations = 100
+
+    while (!converged && iterations < maxIterations) {
+      newRank = adjacencyList.keys.map { node =>
+        val contrib = adjacencyList(node).map { neighbor =>
+          rank(neighbor) / adjacencyList(neighbor).size
+        }.sum
+        val pr = (1 - damping) / N + damping * contrib
+        (node, pr)
+      }.toMap
+      converged = adjacencyList.keys.forall(node => math.abs(newRank(node) - rank(node)) < threshold)
+      rank = newRank
+      iterations += 1
+    }
+
+    val result = rank.map { case (node, pr) =>
+      LynxList(List(LynxString(node), LynxFloat(pr.toFloat)))
+    }.toList
+    LynxList(result)
+  }
+
+  /**
+   * Constructs the graph's adjacency list from the input.
+   *
+   * @param inputs The graph representation, where each element is a LynxList containing a node and its outgoing edges.
+   * @return The adjacency list as a Map.
+   */
+  def buildAdjacencyList(inputs: LynxList): mutable.Map[String, List[String]] = {
+    inputs.value.map { nodeEntry =>
+      val node = nodeEntry.asInstanceOf[LynxList].value.head.asInstanceOf[LynxString].value
+      val neighbors = nodeEntry.asInstanceOf[LynxList].value.tail.head.asInstanceOf[LynxList].value.map(_.asInstanceOf[LynxString].value)
+      (node, neighbors)
+    }.toMap
+  }
+
+  /**
+   * Calculates the maximum flow in a flow network using the Edmonds-Karp algorithm.
+   *
+   * @param inputs A list of edges, where each element is a LynxList containing the start node, end node, and capacity.
+   * @param source The source node.
+   * @param sink The sink node.
+   * @return The value of the maximum flow.
+   */
+  @LynxProcedure(name = "max_flow")
+  def maxFlow(inputs: LynxList, source: LynxString, sink: LynxString): LynxFloat = {
+    val edges = inputs.value.map { edgeEntry =>
+      val edgeList = edgeEntry.asInstanceOf[LynxList].value
+      val from = edgeList(0).asInstanceOf[LynxString].value
+      val to = edgeList(1).asInstanceOf[LynxString].value
+      val capacity = edgeList(2).asInstanceOf[LynxNumber].number.doubleValue()
+      (from, to, capacity)
+    }.toList
+
+    val graph = mutable.Map[String, mutable.Map[String, Double]]()
+    for ((from, to, capacity) <- edges) {
+      if (!graph.contains(from)) graph(from) = mutable.Map.empty
+      if (!graph.contains(to)) graph(to) = mutable.Map.empty
+      graph(from)(to) = capacity
+    }
+
+    def bfs(source: String, sink: String, parent: mutable.Map[String, String]): Boolean = {
+      val visited = mutable.Set[String]()
+      val queue = mutable.Queue[String]()
+      queue.enqueue(source)
+      visited.add(source)
+
+      while (queue.nonEmpty) {
+        val u = queue.dequeue()
+        for ((v, cap) <- graph(u)) {
+          if (!visited.contains(v) && cap > 0) {
+            visited.add(v)
+            parent(v) = u
+            if (v == sink) return true
+            queue.enqueue(v)
+          }
+        }
+      }
+      false
+    }
+
+    val parent = mutable.Map.empty[String, String]
+    var maxFlow = 0.0
+
+    while (bfs(source.value, sink.value, parent)) {
+      var pathFlow = Double.PositiveInfinity
+      var v = sink.value
+      while (v != source.value) {
+        val u = parent(v).get
+        pathFlow = math.min(pathFlow, graph(u)(v))
+        v = u
+      }
+      maxFlow += pathFlow
+      var v = sink.value
+      while (v != source.value) {
+        val u = parent(v).get
+        graph(u)(v) -= pathFlow
+        if (graph(v).contains(u)) {
+          graph(v)(u) += pathFlow
+        } else {
+          graph(v)(u) = pathFlow
+        }
+        v = parent(v).get
+      }
+      parent.clear()
+    }
+
+    LynxFloat(maxFlow.toFloat)
+  }
+
+  /**
+   * Detects communities in a graph using the Louvain algorithm.
+   *
+   * @param inputs The graph's adjacency list representation, where each element is a LynxList containing a node and its outgoing edges.
+   * @return A LynxList containing each node and its corresponding community.
+   */
+  @LynxProcedure(name = "community_detection")
+  def communityDetection(inputs: LynxList): LynxList = {
+    val adjacencyList = buildAdjacencyList(inputs)
+    val nodes = adjacencyList.keys.toList
+    var community = mutable.Map.empty[String, Int]
+    nodes.zipWithIndex.foreach { case (node, idx) => community(node) = idx }
+
+    var modularity = 0.0
+    var newModularity = computeModularity(adjacencyList, community)
+
+    while (newModularity > modularity) {
+      modularity = newModularity
+      var improved = false
+      for (node <- nodes) {
+        val currentCommunity = community(node)
+        var bestModularityGain = 0.0
+        var bestCommunity = currentCommunity
+        for (neighbor <- adjacencyList(node)) {
+          if (community(neighbor) != currentCommunity) {
+            val tempCommunity = community.clone()
+            tempCommunity(node) = community(neighbor)
+            val tempModularity = computeModularity(adjacencyList, tempCommunity)
+            val gain = tempModularity - modularity
+            if (gain > bestModularityGain) {
+              bestModularityGain = gain
+              bestCommunity = community(neighbor)
+            }
+          }
+        }
+        if (bestModularityGain > 0) {
+          community(node) = bestCommunity
+          improved = true
+        }
+      }
+      newModularity = computeModularity(adjacencyList, community)
+      if (!improved) {
+        break
+      }
+    }
+
+    val result = community.map { case (node, comm) =>
+      LynxList(List(LynxString(node), LynxString(comm.toString)))
+    }.toList
+    LynxList(result)
+  }
+
+  private def computeModularity(adjacencyList: mutable.Map[String, List[String]], community: mutable.Map[String, Int]): Double = {
+    val m = adjacencyList.values.flatten.length / 2.0
+    var modularity = 0.0
+    for (node <- adjacencyList.keys) {
+      val k_i = adjacencyList(node).length
+      for (neighbor <- adjacencyList(node)) {
+        if (community(node) == community(neighbor)) {
+          modularity += 1.0 / (2 * m) - math.pow(k_i / (2 * m), 2)
+        }
+      }
+    }
+    modularity
+  }
+}
+/**
+ * @ClassName Graph
+ * @Add Graph algorithm implementation class, including Dijkstra, Prim, and DFS algorithms.
+ * @WZR
+ * @Date 2024/12/22
+ * @Version 0.1
+ */
+
+class Graph(val vertices: Int) {
+  private val adjList = new Array[mutable.ListBuffer[(Int, Int)]](vertices)
+
+  // Initialize adjacency list
+  for (i <- 0 until vertices) {
+    adjList(i) = mutable.ListBuffer.empty[(Int, Int)]
+  }
+
+  // Add an edge with weight
+  def addEdge(v: Int, w: Int, weight: Int): Unit = {
+    require(v >= 0 && v < vertices, s"Vertex $v out of bounds")
+    require(w >= 0 && w < vertices, s"Vertex $w out of bounds")
+    adjList(v) += ((w, weight))
+    adjList(w) += ((v, weight)) // for undirected graph
+  }
+
+  // Add an unweighted edge with default weight 1
+  def addEdge(v: Int, w: Int): Unit = addEdge(v, w, 1)
+
+  // Dijkstra's algorithm for single-source shortest paths
+  def dijkstra(src: Int): Array[Int] = {
+    val dist = Array.fill(vertices)(Int.MaxValue)
+    val visited = new Array[Boolean](vertices)
+    dist(src) = 0
+
+    for (i <- 0 until vertices) {
+      var u = -1
+      var min = Int.MaxValue
+
+      for (v <- 0 until vertices) {
+        if (!visited(v) && dist(v) < min) {
+          u = v
+          min = dist(v)
+        }
+      }
+
+      if (u == -1) return dist
+
+      visited(u) = true
+
+      for ((neighbor, weight) <- adjList(u)) {
+        if (!visited(neighbor) && dist(u) + weight < dist(neighbor)) {
+          dist(neighbor) = dist(u) + weight
+        }
+      }
+    }
+
+    dist
+  }
+
+  // Prim's algorithm for Minimum Spanning Tree (MST)
+  def primMST(): Array[Int] = {
+    val key = Array.fill(vertices)(Int.MaxValue)
+    val parent = new Array[Int](vertices)
+    val inMST = new Array[Boolean](vertices)
+
+    key(0) = 0
+    parent(0) = -1
+
+    for (count <- 0 until vertices) {
+      var u = -1
+      var min = Int.MaxValue
+
+      for (v <- 0 until vertices) {
+        if (!inMST(v) && key(v) < min) {
+          u = v
+          min = key(v)
+        }
+      }
+
+      if (u == -1) return parent // handle disconnected graphs
+
+      inMST(u) = true
+
+      for ((neighbor, weight) <- adjList(u)) {
+        if (!inMST(neighbor) && weight < key(neighbor)) {
+          parent(neighbor) = u
+          key(neighbor) = weight
+        }
+      }
+    }
+
+    parent
+  }
+
+  // Depth-First Search (DFS) traversal
+  def dfs(): Unit = {
+    val visited = new Array[Boolean](vertices)
+    for (i <- 0 until vertices) {
+      if (!visited(i)) {
+        dfsUtil(i, visited)
+      }
+    }
+  }
+
+  private def dfsUtil(v: Int, visited: Array[Boolean]): Unit = {
+    visited(v) = true
+    println(v)
+
+    for ((neighbor, _) <- adjList(v)) {
+      if (!visited(neighbor)) {
+        dfsUtil(neighbor, visited)
+      }
+    }
+  }
 }
