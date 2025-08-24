@@ -44,74 +44,49 @@ case class NodeFilter(labels: Seq[LynxNodeLabel],
                       properties: Map[LynxPropertyKey, LynxValue],
                       propOps: Map[LynxPropertyKey, PropOp] = Map.empty) {
 
-  def matches(node: LynxNode, ignoreProps: LynxPropertyKey*): Boolean = {
-    val newProperties: Map[LynxPropertyKey, LynxValue] = properties -- ignoreProps
-    if (propOps.isEmpty) { // Compatible with empty propOps. e.g.PPTRelationshipScan
-      labels.forall(node.labels.contains) &&
-        newProperties.forall {
-          case (propertyName, value: LynxValue) => node.property(propertyName).exists(value.equals)
-        }
-    }
-    else {
-      labels.forall(node.labels.contains) &&
-        newProperties.forall {
-          case (propertyName, value) =>
-            if (!propOps.contains(propertyName)) {
-              false
-            } else {
-              val maybeOp: Option[PropOp] = propOps.get(propertyName)
-              maybeOp match {
-                case Some(EQUAL) => {
-                  node.property(propertyName).exists(value.equals)
-                }
-                case Some(NOT_EQUAL) => {
-                  if (node.property(propertyName).exists(value.equals)) false else true
-                }
-                case Some(IN) => {
-                  val lynxValues: List[LynxValue] = value.asInstanceOf[LynxList].value
-                  lynxValues.foreach(
-                    f => if (node.property(propertyName).get.valueEq(f)) {
-                     return true
-                    })
-                  false
-                }
-                case Some(LESS_THAN) =>
-                  val nodeValue = node.property(propertyName)
-                  if (nodeValue.isEmpty) false else nodeValue.get.<(value)
-                case Some(LESS_THAN_OR_EQUAL) => {
-                  val nodeValue = node.property(propertyName)
-                  if (nodeValue.isEmpty) false else nodeValue.get.<=(value)
-                }
-                case Some(GREATER_THAN) => {
-                  val nodeValue = node.property(propertyName)
-                  if (nodeValue.isEmpty) false else {
-                    val bool = nodeValue.get.>(value)
-                    bool
-                  }
-                }
-                case Some(GREATER_THAN_OR_EQUAL) => {
-                  val nodeValue = node.property(propertyName)
-                  if (nodeValue.isEmpty) false else nodeValue.get.>=(value)
-                }
-                case Some(CONTAINS) => {
-                  val lynxValue: LynxValue = node.property(propertyName).get
-                  lynxValue.value match {
-                    case lynxStr: String =>
-                      value.value match {
-                        case str: String =>
-                          lynxStr.contains(str)
-                        case _ =>
-                          false
-                      }
-                    case _ =>
-                      false
-                  }
-                }
-                case _ => throw new scala.Exception("unexpected PropOp")
-              }
+  // Helper function to check property matching based on the operation
+  private def matchesProperty(node: LynxNode, propertyName: LynxPropertyKey, value: LynxValue, op: PropOp): Boolean = {
+    node.property(propertyName) match {
+      case Some(nodeValue) =>
+        op match {
+          case EQUAL => nodeValue.equals(value)
+          case NOT_EQUAL => !nodeValue.equals(value)
+          case LESS_THAN => nodeValue.<(value)
+          case LESS_THAN_OR_EQUAL => nodeValue.<=(value)
+          case GREATER_THAN => nodeValue.>(value)
+          case GREATER_THAN_OR_EQUAL => nodeValue.>=(value)
+          case CONTAINS => nodeValue.value match {
+            case lynxStr: String => value.value match {
+              case str: String => lynxStr.contains(str)
+              case _ => false
             }
-          case _ => false
+            case _ => false
+          }
+          case IN => value match {
+            case lynxList: LynxList => lynxList.value.exists(v => nodeValue.valueEq(v))
+            case _ => false
+          }
+          case _ => throw new scala.Exception(s"Unsupported PropOp: $op")
         }
+      case None => false
+    }
+  }
+
+  // Core matching logic
+  def matches(node: LynxNode, ignoreProps: LynxPropertyKey*): Boolean = {
+    val newProperties = properties -- ignoreProps
+    val hasMatchingLabels = labels.forall(node.labels.contains)
+    
+    // If no specific property operations, just check labels and simple equality for properties
+    if (propOps.isEmpty) {
+      hasMatchingLabels && newProperties.forall {
+        case (propertyName, value) => node.property(propertyName).contains(value)
+      }
+    } else {
+      hasMatchingLabels && newProperties.forall {
+        case (propertyName, value) =>
+          propOps.get(propertyName).exists(matchesProperty(node, propertyName, value, _))
+      }
     }
   }
 }
