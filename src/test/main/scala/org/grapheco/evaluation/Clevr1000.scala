@@ -29,13 +29,23 @@ case class ClevrQuestion( image_index: Int,
   val id = s"$image_index-$question_index($template_filename)"
   val withPrefix: String = query.replace("MATCH (i)", prefix)
 
-  def executable(profile: Boolean = false)(implicit db: VirtualTestBase): Executable = new Executable {
+  def executable(profile: Boolean = false, writer: Option[CSVWriter] = None)(implicit db: VirtualTestBase): Executable = new Executable {
     override def execute(): Unit = {
+      var correct = false
       println(s"Test: $id\n Image: $url \n question: $question\n query: ${withPrefix}\n answer: $answer")
-      val res = db.runner.run(withPrefix, Map.empty, profile=profile).records().map(_.get(0).get).toList.headOption
-      val should = answer.toString
-      println(s"Should be: $should, but get: ${res.getOrElse(None)}")
-      assert(res.map(_.toString) == Some(should))
+      try {
+        val res = db.runner.run(withPrefix, Map.empty, profile = profile).records().map(_.get(0).get).toList.headOption
+        val should = answer.toString
+        println(s"Should be: $should, but get: ${res.getOrElse(None)}")
+        correct = res.map(_.toString) == Some(should)
+      } catch {
+        case e => println(e)
+      } finally {
+        writer.foreach{
+          _.writeRow(image_index.toString :: question_index.toString :: template_filename :: correct.toString :: Nil)
+        }
+        assert(correct)
+      }
     }
   }
 }
@@ -44,7 +54,7 @@ class Clevr1000 {
   implicit val formats: DefaultFormats.type = DefaultFormats
   implicit val db: VirtualTestBase = new VirtualTestBase()
 
-  val clevr_1000_small: List[File] = new java.io.File("datasets/CLEVR1000").listFiles().filterNot(_.getName.startsWith(".")).sortBy(_.getName.substring(10,16)).toList
+  val clevr_1000_small: List[File] = new java.io.File("datasets/CLEVR1000FULL").listFiles().filterNot(_.getName.startsWith(".")).sortBy(_.getName.substring(10,16)).toList
 
   def initDB(take: Int = 1000): Unit = {
     if (db.all_nodes.isEmpty) {
@@ -98,10 +108,13 @@ class Clevr1000 {
   @TestFactory
   def testQuestions(): java.util.Collection[DynamicTest] = {
     val PROFILE = true
+    val out = "eval_questions.csv"
+    val writer = CSVWriter.open(out)
+
     initDB(100)
     questions.take(200)
 //      .sortBy(_.template_filename)
-      .map{ question =>DynamicTest.dynamicTest(question.id, question.executable(profile = PROFILE))}
+      .map{ question =>DynamicTest.dynamicTest(question.id, question.executable(profile = PROFILE, writer = Some(writer)))}
       .asJavaCollection
   }
 
@@ -110,11 +123,41 @@ class Clevr1000 {
     initDB(20)
     singleRun(
       """
-        |MATCH (i:Image{image_index:16})~[:contains]~~<o>
-        |RETURN i.image_index, o.area, o.box, o.color, o.size, o.material, labels(o)[0]
+        |MATCH (i:Image{image_index: 18})~[:contains]~~<objects> WITH i,collect(objects) AS objects MATCH <o:cylinder{size:'large',color:'red'}>~[:left]~~<o3>~~[:front]~<o2{size:'small',color:'cyan',material:'rubber'}> WHERE o IN objects AND o2 IN objects AND o3 IN objects RETURN o3.material AS material
+        |
+        |
         |""".stripMargin)
   }
 
+  @Test
+  def forAnalyse_Segement(): Unit = {
+    initDB(1000)
+    val writer = CSVWriter.open(new File("clevr1000.csv"))
+    writer.writeRow("image_index" :: "area" :: "box" :: "file" :: Nil)
+    var i = 0
+    var lastId = ""
+    val allResult = db.runner.run(
+      """
+        |MATCH (i:Image)~[:contains]~~<o>
+        |RETURN i.image_index, o.area, o.box, o.file
+        |""".stripMargin, Map.empty, profile = false)
+    allResult.records().foreach{ record =>
+      val image_index = record.get(0).get.toString
+      writer.writeRow(image_index ::
+        record.get(1).get.toString ::
+        record.get(2).get.asInstanceOf[LynxList].v.mkString("-") :: // [1-2-3-4]
+        record.get(3).get.toString :: Nil)
+
+      if (image_index != lastId) {
+        i += 1
+        if (i % 10 == 0) writer.flush()
+//        println(s"[$i/1000]")
+        lastId = image_index
+      }
+    }
+    writer.flush()
+    writer.close()
+  }
 
   @Test
   def forAnalyse(): Unit = {
@@ -166,7 +209,7 @@ class GoldClevr1000 extends Clevr1000 {
     initDB(100)
     questions.take(1000)
       .sortBy(_.template_filename)
-      .map{ question =>DynamicTest.dynamicTest(question.id, question.executable(profile = true))}
+      .map{ question =>DynamicTest.dynamicTest(question.id, question.executable(profile = false))}
       .asJavaCollection
   }
 
@@ -233,8 +276,14 @@ class GoldClevr1000 extends Clevr1000 {
   def temp2(): Unit = {
     singleRun(
       """
-        |MATCH (i:Image{image_index: 8})~[:contains]~~<o{color:'purple',material:'metal'}>
-        |RETURN labels(o) AS shape
+        |MATCH (i:Image{image_index: 9})~[:contains]~~<objects>
+        | WITH collect(objects) AS objects
+        | OPTIONAL  MATCH <o{size:'large',color:'gray'}>~[:front]~~<o2{size:'small',color:'gray',material:'rubber'}>
+        | WHERE o IN objects AND o2 IN objects
+        | OPTIONAL  MATCH <o3{size:'small',color:'brown'}>~[:left]~~<o4>
+        | WHERE o3 IN objects AND o4 IN objects
+        | RETURN count(DISTINCT o2)=count(DISTINCT o4)
+        |
         |
         |""".stripMargin)
   }

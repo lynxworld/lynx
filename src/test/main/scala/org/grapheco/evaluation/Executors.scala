@@ -28,9 +28,12 @@ object ContainsInfer extends InferExpandExecutor {
 
   val extractUrl = uri"http://10.0.82.200:52109/segment"
 
+  val size_threshold = 14.29
+
   case class Mask(area: Int, bbox: List[Int], predicted_iou: Double, segmentation: List[List[Int]])
 
   override def infer(node: LynxNode): Seq[(LynxRelationship, LynxNode)] = {
+    val time0 = System.currentTimeMillis()
     val file: File = node.property(LynxPropertyKey("file")).map {
       case v: LynxString => new File(v.value)
       case _ => throw new RuntimeException("file property is not a string")
@@ -39,12 +42,14 @@ object ContainsInfer extends InferExpandExecutor {
       .post(extractUrl)
       .multipartBody(multipartFile("image", file))
 
+    val time1 = System.currentTimeMillis()
     // 发送请求并获取响应
     val extractResponse = extractRequest.send(backend)
     extractResponse.body match {
       case Right(response) => {
+        val time2 = System.currentTimeMillis()
         val j = JsonMethods.parse(response)
-        j.extract[List[Mask]].map { mask =>
+        val result = j.extract[List[Mask]].map { mask =>
           val outId = TestId.nextId
           val e = TestRelationship(
             TestId.nextId,
@@ -55,52 +60,60 @@ object ContainsInfer extends InferExpandExecutor {
           )
           val str = s"cache/${System.currentTimeMillis()}.png"
 
+          def size(mask: Mask): Boolean = {
+            val centerY = mask.bbox(1) + mask.bbox(3) / 2
+            mask.area / centerY > size_threshold
+          }
+
           val n = VTNode(
             outId,
             Seq(),
             Map(
               LynxPropertyKey("file") -> LynxString(str),
               LynxPropertyKey("area") -> LynxInteger(mask.area),
-              LynxPropertyKey("size") -> LynxString(if(mask.area>1300)"large" else "small"),
+              LynxPropertyKey("size") -> LynxString(if(size(mask))"large" else "small"),
               LynxPropertyKey("box") -> LynxList(mask.bbox.map(LynxValue.apply))
             ),
             getLabels = ShapeInfer.inferValue
           )
-          cropImage(file.getAbsolutePath, new Rectangle(mask.bbox(0), mask.bbox(1), mask.bbox(2), mask.bbox(3)), mask.segmentation, str)
+          cropImage(file.getAbsolutePath, mask.bbox, mask.segmentation, str)
+
           (e, n)
         }
+        val time3 = System.currentTimeMillis()
+        println(s"${time1-time0}, ${time2-time1}, ${time3-time2}")
+        result
       }
       case Left(error) => throw new RuntimeException(s"Error: $error")
     }
   }
 
-  def cropImage(imagePath: String, box: Rectangle, mask: List[List[Int]], savePath: String): Unit = {
+  def cropImage(imagePath: String, box: List[Int], mask: List[List[Int]], savePath: String): Unit = {
     // 加载原图
     val originalImage: BufferedImage = ImageIO.read(new File(imagePath))
 
     // 切割图像
-    val croppedImage = originalImage.getSubimage(box.x, box.y, box.width, box.height)
-
-    // 创建一个新的图像用于保存遮罩效果
-    val maskedImage = new BufferedImage(croppedImage.getWidth, croppedImage.getHeight, BufferedImage.TYPE_INT_ARGB)
-
-    // 遍历 mask，进行遮罩处理
-    for (y <- mask.indices; x <- mask(y).indices) {
-      if (mask(y)(x) == 1) {
-        // 如果 mask 中的值为 1，保留原图像素
-        maskedImage.setRGB(x, y, croppedImage.getRGB(x, y))
-      } else {
-        // 如果 mask 中的值为 0，设置为透明
-        maskedImage.setRGB(x, y, new Color(0, 0, 0, 0).getRGB)
-      }
-    }
-//    val maskedImage = croppedImage
-
-    // 保存切割后的小图
+    val croppedImage = originalImage.getSubimage(box(0), box(1), box(2), box(3))
     val outputFile = new File(savePath)
-    ImageIO.write(maskedImage, "png", outputFile)  // 使用 PNG 格式以支持透明度
 
-//    println(s"Cropped image saved to ${outputFile.getAbsolutePath}")
+    if (mask != List.empty) {
+      // 创建一个新的图像用于保存遮罩效果
+      val maskedImage = new BufferedImage(croppedImage.getWidth, croppedImage.getHeight, BufferedImage.TYPE_INT_ARGB)
+
+      // 遍历 mask，进行遮罩处理
+      for (y <- mask.indices; x <- mask(y).indices) {
+        if (mask(y)(x) == 1) {
+          // 如果 mask 中的值为 1，保留原图像素
+          maskedImage.setRGB(x, y, croppedImage.getRGB(x, y))
+        } else {
+          // 如果 mask 中的值为 0，设置为透明
+          maskedImage.setRGB(x, y, new Color(0, 0, 0, 0).getRGB)
+        }
+      }
+      ImageIO.write(maskedImage, "png", outputFile)
+    } else {
+      ImageIO.write(croppedImage, "png", outputFile)
+    }
   }
 }
 
@@ -128,9 +141,9 @@ object ColorInfer extends InferPropertyExecutor {
     extractResponse.body match {
       case Right(response) => {
         val j = JsonMethods.parse(response)
-        val color = j.extract[List[LabelScore]].maxBy(_.score).label
+        val label = (j \ "label").as[String]
         val n = node.asInstanceOf[VTNode]
-        n.update(Map(LynxPropertyKey("color") -> LynxString(color)))
+        n.update(Map(LynxPropertyKey("color") -> LynxString(label)))
       }
       case Left(error) => throw new RuntimeException(s"Error: $error")
     }
@@ -159,10 +172,9 @@ object MaterialInfer extends InferPropertyExecutor {
     extractResponse.body match {
       case Right(response) => {
         val j = JsonMethods.parse(response)
-        val color = (j \ "label").as[String]
-        val m = if (color=="metal") "metal" else "rubber"
+        val label = (j \ "label").as[String]
         val n = node.asInstanceOf[VTNode]
-        n.update(Map(LynxPropertyKey("material") -> LynxString(m)))
+        n.update(Map(LynxPropertyKey("material") -> LynxString(label)))
       }
       case Left(error) => throw new RuntimeException(s"Error: $error")
     }
@@ -193,7 +205,8 @@ object ShapeInfer extends InferLabelExecutor {
     extractResponse.body match {
       case Right(response) => {
         val j = JsonMethods.parse(response)
-        Seq(j.extract[List[Shape]].maxBy(_.score).label).map(LynxNodeLabel.apply)
+        val label = (j \ "label").as[String]
+        Seq(label).map(LynxNodeLabel.apply)
       }
       case Left(error) => throw new RuntimeException(s"Error: $error")
     }
