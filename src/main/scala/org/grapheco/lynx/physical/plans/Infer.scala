@@ -12,7 +12,7 @@ import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.LynxNull
 import org.grapheco.lynx.types.{LTNode, LTVNode, LTVRelationship, LynxType, LynxValue}
 import org.grapheco.lynx.types.structural.{LynxNode, LynxNodeLabel, LynxPath, LynxPropertyKey, LynxRelationshipType}
-import org.opencypher.v9_0.expressions.{And, Ands, BinaryOperatorExpression, Equals, Expression, HasLabels, LabelName, ListLiteral, LogicalVariable, NodePattern, Property, PropertyKeyName, Range, RelTypeName, RelationshipPattern, SemanticDirection, Variable, VirtualNodePattern, VirtualRelationshipPattern}
+import org.opencypher.v9_0.expressions.{And, Ands, BinaryOperatorExpression, Equals, Expression, HasLabels, In, LabelName, ListLiteral, LogicalVariable, NodePattern, Property, PropertyKeyName, Range, RelTypeName, RelationshipPattern, SemanticDirection, Variable, VirtualNodePattern, VirtualRelationshipPattern}
 import org.opencypher.v9_0.util.InputPosition
 
 trait InferPhysicalPlan
@@ -42,6 +42,7 @@ object InferPlanner {
     case And(left, right) => extractExpression(left) ++ extractExpression(right)
     case Ands(exprs) => exprs.map(extractExpression).reduce(_ ++ _)
     case e@Equals(Property(_,PropertyKeyName(key)), right) => Map(key -> e)
+    case i@In(Property(_,PropertyKeyName(key)), right) => Map(key -> i)
     case _ => Map.empty
     // other
   }
@@ -122,7 +123,7 @@ case class InferExpand(leftNode: GraphPatternNode, rel: GraphPatternEdge, rightN
 
   override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
     val df = in.execute(ctx)
-
+    val optional = rel.optional
     val inferCondition = Condition(rightNode.labels.map(_.toString), Seq.empty, rel.types.map(_.toString))
     val leftNodeIndex = df.indexOf(leftNode.variableName)
       .getOrElse(throw LynxException("Unknown column name: "+leftNode.variableName))

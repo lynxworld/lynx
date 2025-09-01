@@ -61,17 +61,17 @@ class CypherRunner(var graphModel: GraphModel) extends LazyLogging {
   def compile(query: String): (Statement, Map[String, Any], SemanticState) = queryParser.parse(query)
 
   def run(query: String, param: Map[String, Any], profile: Boolean = false): LynxResult = {
-    val query2 = convertPatternComprehension(query)
-    val (statement, param2, state) = queryParser.parse(query2)
-    logger.info(s"AST tree: ${statement}")
+//    val query2 = convertPatternComprehension(query)
+    val (statement, param2, state) = queryParser.parse(query)
+//    logger.info(s"AST tree: ${statement}")
 
     val logicalPlannerContext = LogicalPlannerContext(param ++ param2, runnerContext)
     val logicalPlan = logicalPlanner.plan(statement, logicalPlannerContext)
-    logger.info(s"logical plan: \r\n${logicalPlan.pretty}")
+    if (profile) logger.info(s"logical plan: \r\n${logicalPlan.pretty}")
 
     val physicalPlannerContext = PhysicalPlannerContext(param ++ param2, runnerContext)
     val physicalPlan = physicalPlanner.plan(logicalPlan)(physicalPlannerContext)
-    if (!profile) logger.info(s"physical plan: \r\n${physicalPlan.pretty}")
+    if (profile) logger.info(s"physical plan: \r\n${physicalPlan.pretty}")
 
 //    val optimizedPhysicalPlan = physicalPlanOptimizer.optimize(physicalPlan, physicalPlannerContext)
 //    logger.info(s"optimized physical plan: \r\n${optimizedPhysicalPlan.pretty}")

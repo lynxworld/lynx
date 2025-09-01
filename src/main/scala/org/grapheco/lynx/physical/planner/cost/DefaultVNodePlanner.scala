@@ -18,7 +18,7 @@ case class DefaultVNodePlanner(node: GraphPatternNode)(implicit val plannerConte
     var plans: Seq[PhysicalPlan] = Seq.empty
     // first: fake
     plans ++= Seq(InferFakeNode(node))
-    val inExp = node.expressions.collectFirst{case i: In => i}
+    val inExp = node.expressions.collectFirst{case i@In(Variable(_), _) => i}
 
     inExp.foreach { in =>
       val others = node.expressions.toSet.-(in).toSeq

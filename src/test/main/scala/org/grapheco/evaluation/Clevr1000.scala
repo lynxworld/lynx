@@ -29,22 +29,46 @@ case class ClevrQuestion( image_index: Int,
   val id = s"$image_index-$question_index($template_filename)"
   val withPrefix: String = query.replace("MATCH (i)", prefix)
 
-  def executable(profile: Boolean = false, writer: Option[CSVWriter] = None)(implicit db: VirtualTestBase): Executable = new Executable {
+  def executable(profile: Boolean = false, writer: Option[CSVWriter] = None)(implicit db: VirtualTestBase, gold: GoldVirtualTestBase): Executable = new Executable {
     override def execute(): Unit = {
       var correct = false
       println(s"Test: $id\n Image: $url \n question: $question\n query: ${withPrefix}\n answer: $answer")
-      try {
-        val res = db.runner.run(withPrefix, Map.empty, profile = profile).records().map(_.get(0).get).toList.headOption
-        val should = answer.toString
-        println(s"Should be: $should, but get: ${res.getOrElse(None)}")
-        correct = res.map(_.toString) == Some(should)
-      } catch {
-        case e => println(e)
-      } finally {
-        writer.foreach{
-          _.writeRow(image_index.toString :: question_index.toString :: template_filename :: correct.toString :: Nil)
-        }
-        assert(correct)
+//      try {
+      val res = db.runner.run(withPrefix, Map.empty, profile = profile).records().map(_.get(0).get).toList.headOption
+      val should = answer.toString
+      println(s"Should be: $should, but get: ${res.getOrElse(None)}")
+      correct = res.map(_.toString) == Some(should)
+//      } catch {
+//        case e => println(e)
+//      } finally {
+      writer.foreach{
+        _.writeRow(image_index.toString :: question_index.toString :: template_filename :: correct.toString :: Nil)
+      }
+      if (!correct) {gold.runner.run(withPrefix, Map.empty, profile = true).cache()}
+      assert(correct)
+//      }
+    }
+  }
+
+  def eval(writer: Option[CSVWriter] = None)(implicit db: VirtualTestBase): Unit = {
+    var correct = false
+    db.runner.compile(withPrefix)
+    val time0 = System.nanoTime()
+    try {
+      val res = db.runner.run(withPrefix, Map.empty, profile = false).records().map(_.get(0).get).toList.headOption
+      val should = answer.toString
+      correct = res.map(_.toString) == Some(should)
+    } catch {
+      case e => println(e)
+    } finally {
+      val time = System.nanoTime() - time0
+      writer.foreach{
+        _.writeRow(image_index.toString
+          :: question_index.toString
+          :: template_filename
+          :: correct.toString
+          :: time
+          :: Nil)
       }
     }
   }
@@ -56,7 +80,7 @@ class Clevr1000 {
 
   val clevr_1000_small: List[File] = new java.io.File("datasets/CLEVR1000FULL").listFiles().filterNot(_.getName.startsWith(".")).sortBy(_.getName.substring(10,16)).toList
 
-  def initDB(take: Int = 1000): Unit = {
+  def initDB(take: Int = 1000)(implicit db: VirtualTestBase): Unit = {
     if (db.all_nodes.isEmpty) {
       clevr_1000_small.take(take).zipWithIndex.map{ case (f,i) =>
         db.all_nodes.put(
@@ -73,7 +97,7 @@ class Clevr1000 {
   }
 
   val questions: List[ClevrQuestion] = {
-    val jsonContent = Source.fromFile("/Users/huchuan/Documents/GitHub/clevr-dataset-gen/output/CLEVR_questions.json").mkString
+    val jsonContent = Source.fromFile("CLEVR_questions.json").mkString
     JsonParser.parse(jsonContent).\("questions").extract[List[ClevrQuestion]]
   }
 
@@ -105,26 +129,41 @@ class Clevr1000 {
     println(s"success: $success, total: ${testCases.size}")
   }
 
+  @Test
+  def evaluation(): Unit = {
+    val out = "eval_questions_local_device.csv"
+    val writer = CSVWriter.open(out)
+    var num = 0
+    val all = questions.size
+    initDB(1000)
+    questions.foreach { question =>
+      question.eval(Option(writer))
+      num += 1
+      if (num % 100 == 0) println(s"[$num/$all]")
+    }
+  }
+
   @TestFactory
   def testQuestions(): java.util.Collection[DynamicTest] = {
     val PROFILE = true
     val out = "eval_questions.csv"
     val writer = CSVWriter.open(out)
-
-    initDB(100)
-    questions.take(200)
+    val gold: GoldVirtualTestBase = new GoldVirtualTestBase()
+    initDB(1000)
+    initDB(1000)(gold)
+    questions.filter(_.template_filename=="comparison.json")
+      .take(200)
 //      .sortBy(_.template_filename)
-      .map{ question =>DynamicTest.dynamicTest(question.id, question.executable(profile = PROFILE, writer = Some(writer)))}
+      .map{ question =>DynamicTest.dynamicTest(question.id, question.executable(profile = PROFILE)(db, gold))}
       .asJavaCollection
   }
 
   @Test
   def temp(): Unit = {
-    initDB(20)
+    initDB(2)
     singleRun(
       """
-        |MATCH (i:Image{image_index: 18})~[:contains]~~<objects> WITH i,collect(objects) AS objects MATCH <o:cylinder{size:'large',color:'red'}>~[:left]~~<o3>~~[:front]~<o2{size:'small',color:'cyan',material:'rubber'}> WHERE o IN objects AND o2 IN objects AND o3 IN objects RETURN o3.material AS material
-        |
+        |MATCH (i:Image{image_index: 1})~[:contains]~~<objects> WITH i,collect(objects) AS objects MATCH <o{color:'green',material:'metal'}>~[:right]~~<o2:sphere{size:'large'}>~[:left]~~<o3:sphere{color:'purple'}> WHERE o IN objects AND o2 IN objects AND o3 IN objects RETURN count(o3) AS counto3
         |
         |""".stripMargin)
   }
@@ -190,7 +229,8 @@ class Clevr1000 {
   def singleRun(query: String, init: Int = 100): Unit = {
     initDB(init)
     println(toCypher(query))
-    db.runner.run(query, Map.empty, profile = true).show()
+    db.runner.compile(query)
+    db.runner.run(query, Map.empty, profile = false).show()
   }
 
   def toCypher(query: String): String = {
@@ -201,104 +241,4 @@ class Clevr1000 {
 
 }
 
-class GoldClevr1000 extends Clevr1000 {
-  override implicit val db: GoldVirtualTestBase = new GoldVirtualTestBase()
 
-  @TestFactory
-  def goldTest(): java.util.Collection[DynamicTest] = {
-    initDB(100)
-    questions.take(1000)
-      .sortBy(_.template_filename)
-      .map{ question =>DynamicTest.dynamicTest(question.id, question.executable(profile = false))}
-      .asJavaCollection
-  }
-
-  @TestFactory
-  def goldTemplateTest(): java.util.Collection[DynamicTest] = {
-    initDB(100)
-    val templateName = "compare_integer.json"
-    questions.take(1000)
-      .filter(_.template_filename == templateName)
-      .sortBy(_.template_filename)
-      .map{ question =>DynamicTest.dynamicTest(question.id, question.executable(profile = true))}
-      .asJavaCollection
-  }
-
-  @Test
-  def compare_integer(): Unit = {
-    initDB(10)
-    db.runner.run(
-      """
-        |MATCH (i:Image{image_index: 7})~[:contains]~~<objects>
-        | WITH collect(objects) AS objects
-        | OPTIONAL  MATCH <o:sphere>~[:behind]~~<o2{color:'brown',material:'rubber'}>
-        | WHERE o IN objects AND o2 IN objects
-        | OPTIONAL  MATCH <o3:cube{size:'large',material:'rubber'}>
-        | WHERE o3 IN objects
-        | RETURN count(DISTINCT o2)<count(DISTINCT o3)
-        |""".stripMargin, Map.empty, profile = true).show()
-  }
-
-
-
-  @Test
-  def compare(): Unit = {
-    initDB(10)
-    db.runner.run(
-      """
-        |MATCH (i:Image{image_index: 6})~[:contains]~~<objects> WITH i,collect(objects) AS objects
-        | MATCH <o{material:'metal'}>~[:front]~~<o2:cube>
-        | WHERE o IN objects AND o2 IN objects
-        | RETURN labels(o2)
-        |""".stripMargin, Map.empty, profile = true).show()
-  }
-
-  @Test
-  def single_or(): Unit = singleRun {
-    """
-      |MATCH (i:Image{image_index: 71})~[:contains]~~<objects:cube> WITH i,collect(objects) AS objects OPTIONAL  MATCH <o{color:'red',material:'rubber'}> WHERE o IN objects WITH objects,o OPTIONAL  MATCH <o2{color:'red'}> WHERE o2 IN objects WITH collect( distinct o) + collect(distinct o2) AS all unwind all as a
-      |RETURN count( distinct a)
-      |
-      |""".stripMargin
-  }
-
-  @Test
-  def same_relate(): Unit = singleRun {
-    """
-      |MATCH (i:Image{image_index: 54})~[r:contains]~~<o2>,(i)~[r2:contains]~~<o:sphere{material:'metal'}>
-      |WHERE o.color=o2.color
-      |return o,o2,r,r2
-      |
-      |""".stripMargin
-  }
-
-  @Test
-  def temp2(): Unit = {
-    singleRun(
-      """
-        |MATCH (i:Image{image_index: 9})~[:contains]~~<objects>
-        | WITH collect(objects) AS objects
-        | OPTIONAL  MATCH <o{size:'large',color:'gray'}>~[:front]~~<o2{size:'small',color:'gray',material:'rubber'}>
-        | WHERE o IN objects AND o2 IN objects
-        | OPTIONAL  MATCH <o3{size:'small',color:'brown'}>~[:left]~~<o4>
-        | WHERE o3 IN objects AND o4 IN objects
-        | RETURN count(DISTINCT o2)=count(DISTINCT o4)
-        |
-        |
-        |""".stripMargin)
-  }
-
-  @Test
-  def oneHop(): Unit = singleRun {
-    """
-      |MATCH (i:Image{image_index: 4})~[:contains]~~<objects>
-      |WITH i,collect(objects) AS objects
-      |MATCH <o{color:'purple'}>~[:front]~~<o2{size:'small'}>
-      |WHERE o IN objects AND o2 IN objects
-      |RETURN o2.color
-      |""".stripMargin
-  }
-
-
-
-}

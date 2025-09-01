@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package vision;
+
+service VisionService {
+  // 图像分割 (SAM)
+  rpc Segment (SegmentRequest) returns (SegmentResponse);
+  // 图像分类 (CLIP)
+  rpc Classify (ClassifyRequest) returns (ClassifyResponse);
+  // Test
+  rpc Test (TestRequest) returns (TestResponse);
+}
+
+message TestRequest {
+  string name = 1;
+}
+
+message TestResponse {
+  string hello = 1;
+}
+
+message SegmentRequest {
+  bytes image = 1; // 图像的二进制数据
+  string filename = 2; // 文件名，用于确定文件类型
+}
+
+message SegmentResponse {
+  repeated SegmentMask masks = 1;
+}
+
+message SegmentMask {
+  BoundingBox bbox = 1;
+  int32 area = 2;
+  float predicted_iou = 3;
+  float stability_score = 4;
+}
+
+message BoundingBox {
+  float x = 1;
+  float y = 2;
+  float width = 3;
+  float height = 4;
+}
+
+message ClassifyRequest {
+  bytes image = 1; // 图像的二进制数据
+  string filename = 2; // 文件名，用于确定文件类型
+  string category_type = 3; // 分类类型：material, shape, color
+}
+
+message ClassifyResponse {
+  string label = 1;
+  float score = 2;
+  string category_type = 3; // 返回分类类型
+}
