@@ -2,7 +2,7 @@ package org.grapheco.lynx.logical.planner.translators
 import org.opencypher.v9_0.expressions.{And, Ands, AnonymousPatternPart, Equals, EveryPath, Expression, HasLabels, LabelName, LogicalVariable, NamedPatternPart, NodePattern, Pattern, PatternElement, PatternPart, RelationshipChain, RelationshipPattern, ShortestPaths}
 import org.grapheco.lynx.logical.{LogicalPlannerContext, ShortestPathNotSupported}
 import org.grapheco.lynx.logical.planner.LogicalTranslator
-import org.grapheco.lynx.logical.plans.{FilterExpression, GraphPattern, GraphPatternEdge, GraphPatternMatch, GraphPatternNode, LogicalAndThen, LogicalJoin, LogicalPlan, LogicalWith}
+import org.grapheco.lynx.logical.plans.{ASTConvertor, FilterExpression, GraphPattern, GraphPatternEdge, GraphPatternMatch, GraphPatternNode, LogicalAndThen, LogicalJoin, LogicalPlan, LogicalWith}
 import org.opencypher.v9_0.ast.{Match, Where}
 import org.grapheco.lynx.logical.plans.ASTConvertor._
 import org.grapheco.lynx.types.structural.LynxNodeLabel
@@ -69,12 +69,16 @@ case class MatchTranslator_GB(m: Match) extends LogicalTranslator {
     GraphPatternMatch(graphPattern, filterOfIn combine filter, optional)(in)
   }
 
-  private def translatePattern(element: PatternElement, optional: Boolean,where:Option[Where])(graphPattern: GraphPattern): Unit = element match {
-    case n: NodePattern => graphPattern.addNode(n)
-    case RelationshipChain(s: NodePattern, r: RelationshipPattern, t: NodePattern) => graphPattern.addEdge(s,r,t)
-    case RelationshipChain(leftChain: RelationshipChain, r: RelationshipPattern, t: NodePattern) =>
-      translatePattern(leftChain, optional, where)(graphPattern)
-      graphPattern.addEdge(leftChain.rightNode,r,t)
+  private def translatePattern(element: PatternElement, optional: Boolean, where:Option[Where])(graphPattern: GraphPattern): Unit = {
+    implicit val n2n: NodePattern => GraphPatternNode = n => ASTConvertor.convertNodePattern(n, optional = optional)
+    implicit val e2e: RelationshipPattern => GraphPatternEdge = e => ASTConvertor.convertEdgePattern(e, optional = optional)
+    element match {
+      case n: NodePattern => graphPattern.addNode(n)
+      case RelationshipChain(s: NodePattern, r: RelationshipPattern, t: NodePattern) => graphPattern.addEdge(s, r, t)
+      case RelationshipChain(leftChain: RelationshipChain, r: RelationshipPattern, t: NodePattern) =>
+        translatePattern(leftChain, optional, where)(graphPattern)
+        graphPattern.addEdge(leftChain.rightNode, r, t)
+    }
   }
 
 

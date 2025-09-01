@@ -134,17 +134,19 @@ object ASTConvertor{
     case Some(Some(Range(a, b))) => (a.map(_.value.toInt).getOrElse(1), b.map(_.value.toInt).getOrElse(Int.MaxValue))
   }
 
-  implicit def convertNodePattern(pattern: NodePattern): GraphPatternNode =
+  implicit def convertNodePattern(pattern: NodePattern, optional: Boolean): GraphPatternNode =
     GraphPatternNode(pattern.variable.map(_.name).getOrElse(s"_node${pattern.hashCode}"),
       pattern.labels.map(LynxNodeLabel.fromNodeLabel),
       pattern.properties.toSeq,
+      optional = optional,
       virtual = pattern.isInstanceOf[VirtualPattern])
 
-  implicit def convertEdgePattern(pattern: RelationshipPattern): GraphPatternEdge =
+  implicit def convertEdgePattern(pattern: RelationshipPattern, optional: Boolean): GraphPatternEdge =
     GraphPatternEdge(pattern.variable.map(_.name).getOrElse(s"_edge${pattern.hashCode}"),
       pattern.types.map(_.name).map(LynxRelationshipType),
       pattern.properties.toSeq, Direction.fromCypher(pattern.direction),
       pattern.length,
+      optional = optional,
       virtual = pattern.isInstanceOf[VirtualPattern])
 }
 

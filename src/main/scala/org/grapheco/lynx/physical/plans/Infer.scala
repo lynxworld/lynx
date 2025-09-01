@@ -9,6 +9,7 @@ import org.grapheco.lynx.physical.{NodeInput, PhysicalPlannerContext}
 import org.grapheco.lynx.runner.infer.{Condition, NotMatchInferExecutorFoundException}
 import org.grapheco.lynx.runner.{CONTAINS, EQUAL, ExecutionContext, GREATER_THAN, GREATER_THAN_OR_EQUAL, IN, LESS_THAN, LESS_THAN_OR_EQUAL, NOT_EQUAL, NodeFilter, PropOp, RelationshipFilter}
 import org.grapheco.lynx.types.composite.LynxList
+import org.grapheco.lynx.types.property.LynxNull
 import org.grapheco.lynx.types.{LTNode, LTVNode, LTVRelationship, LynxType, LynxValue}
 import org.grapheco.lynx.types.structural.{LynxNode, LynxNodeLabel, LynxPath, LynxPropertyKey, LynxRelationshipType}
 import org.opencypher.v9_0.expressions.{And, Ands, BinaryOperatorExpression, Equals, Expression, HasLabels, LabelName, ListLiteral, LogicalVariable, NodePattern, Property, PropertyKeyName, Range, RelTypeName, RelationshipPattern, SemanticDirection, Variable, VirtualNodePattern, VirtualRelationshipPattern}
@@ -161,6 +162,8 @@ case class InferLink(leftNode: GraphPatternNode, rel: GraphPatternEdge, rightNod
     val df_l = l.execute(ctx)
     val df_r = r.execute(ctx)
 
+    val optional = rel.optional
+
     val inferCondition = Condition(leftNode.labels.map(_.toString), Seq.empty, rel.types.map(_.toString), rightNode.labels.map(_.toString))
 
     val inferEngine = ctx.inferEngine
@@ -172,16 +175,27 @@ case class InferLink(leftNode: GraphPatternNode, rel: GraphPatternEdge, rightNod
     if (rightNodesIndex == -1) throw LynxException(s"Variable ${rightNode.variableName} not found")
     if (df_r.schema(rightNodesIndex)._2 != LTVNode) throw LynxException(s"Variable ${rightNode.variableName} is not a node")
 
-    val rightNodesMap = df_r.records.map(record => record(rightNodesIndex).asInstanceOf[LynxNode] -> record).toMap
-
+    val rightNodesMap = df_r.records.toList.map{ record =>
+      record(rightNodesIndex).asInstanceOf[LynxNode].id -> record
+    }.toMap
+    val rightRecordsLen = df_r.schema.length
+    val rightNodes = rightNodesMap.values.map(_(rightNodesIndex).asInstanceOf[LynxNode]).toList
+    val relTypeName = rel.types.headOption
     DataFrame(schema, () => {
       df_l.records.flatMap{ record =>
         val endpoint = record.last match {
           case p: LynxPath => p.nodes.last
           case n: LynxNode => n
         }
-        val rsl = inferExecutor.infer(endpoint, rightNodesMap.keys.toSeq)
-        rsl.filter(_._2.relationType.forall(rel.types.contains)).map { case (_, rel, r) => record ++ Seq(rel) ++ rightNodesMap(r)}
+        val rsl = inferExecutor.infer(endpoint, rightNodes).toList.filter(_._2.relationType == relTypeName)
+        val out = if (optional&&rsl.isEmpty) {
+          List((endpoint, LynxNull, LynxNull))
+        } else rsl
+        out.map { case (_, rel, r) => record ++ Seq(rel) ++ (r match {
+            case n:LynxNode =>rightNodesMap(n.id)
+            case _ => Seq.fill(rightRecordsLen)(LynxNull)
+          })
+        }
       }
     })
   }
