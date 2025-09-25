@@ -1,12 +1,12 @@
 package org.grapheco.evaluation
 
+import org.grapheco.lynx.infer.{Condition, InferAdviser, InferEngine, RemoteInferAdviser}
 import org.grapheco.lynx.runner.CypherRunner
-import org.grapheco.lynx.runner.infer.{Condition, InferAdviser, InferEngine, RemoteInferAdviser}
 
 class GoldVirtualTestBase extends VirtualTestBase {
   override val runner: CypherRunner = new CypherRunner(graphModel = model) {
     val adviser: InferAdviser = RemoteInferAdviser()
-      .addInfer(Condition(relType = Seq("contains")), GoldContainsInfer)
+      .addInfer(Condition(relType = Seq("contains")), GoldExpand)
       .addInfer(Condition(), GoldLabel)
       .addInfers(
         Seq("front", "behind", "left", "right")

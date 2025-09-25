@@ -2,16 +2,11 @@ package org.grapheco.evaluation
 
 import com.github.tototoshi.csv.CSVReader
 import org.grapheco.lynx.LynxException
-import org.grapheco.lynx.runner.infer.{InferExpandExecutor, InferLabelExecutor, InferLinkExecutor, InferPropertyExecutor}
+import org.grapheco.lynx.infer.{InferExpandExecutor, InferLabelExecutor, InferLinkExecutor, InferPropertyExecutor}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.{LynxInteger, LynxNumber, LynxString}
 import org.grapheco.lynx.types.structural._
-import org.json4s.DefaultReaders.StringReader
-import org.json4s.native.JsonMethods
-import org.json4s.{DefaultFormats, Formats}
-import sttp.client4.httpurlconnection.HttpURLConnectionBackend
-import sttp.client4.{SyncBackend, UriContext, basicRequest, multipartFile}
 import vision.Vision
 
 import java.awt.image.BufferedImage

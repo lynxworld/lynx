@@ -1,19 +1,21 @@
 package org.grapheco.evaluation
 
 import com.github.tototoshi.csv.CSVReader
-import org.grapheco.lynx.runner.infer.{InferExpandExecutor, InferLabelExecutor, InferLinkExecutor, InferPropertyExecutor}
+import org.grapheco.lynx.infer.cache.{CacheKey, InferCache}
+import org.grapheco.lynx.infer.{CacheInferExpandExecutor, CacheInferLabelExecutor, CacheInferPropertyExecutor, InferExpandExecutor, InferLabelExecutor, InferLinkExecutor, InferPropertyExecutor}
+import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}
 import org.grapheco.lynx.types.structural.{LynxNode, LynxNodeLabel, LynxPropertyKey, LynxRelationship, LynxRelationshipType}
 
 import java.io.File
 
 
-object GoldContainsInfer extends InferExpandExecutor {
+object GoldExpand extends InferExpandExecutor {
 
   val data: Map[Int, GoldData.Object] = GoldData.objects
 
   override def infer(node: LynxNode): Seq[(LynxRelationship, LynxNode)] = {
-
+    Thread.sleep(20)
     node.property(LynxPropertyKey("image_index"))
       .map{case LynxInteger(v) => v.toInt}
       .flatMap(GoldData.contains.get)
@@ -38,6 +40,7 @@ object GoldProps extends InferPropertyExecutor {
   val data: Map[Int, GoldData.Object] = GoldData.objects
 
   override def infer(node: LynxNode, props: Seq[LynxPropertyKey] = Seq.empty): LynxNode = {
+    Thread.sleep(1)
     val id = node.id.toLynxInteger.value
     val obj = data(id.toInt)
     val n = node.asInstanceOf[VTNode]
@@ -60,6 +63,7 @@ object GoldLabel extends InferLabelExecutor {
   }
 
   def inferValue(node: LynxNode): Seq[LynxNodeLabel] = {
+    Thread.sleep(1)
     val id = node.id.toLynxInteger.value
     val obj = GoldData.objects(id.toInt)
     Seq(LynxNodeLabel(obj.shape))
@@ -140,4 +144,33 @@ object GoldLink extends InferLinkExecutor {
         }
     }
   }
+}
+
+class GoldExpandCache(implicit inferCache: InferCache) extends CacheInferExpandExecutor {
+  override val relType: Long = "contains".hashCode
+
+  override def _infer(node: LynxNode): Seq[(LynxRelationship, LynxNode)] = GoldExpand.infer(node)
+
+  override def cache: InferCache = inferCache
+}
+
+class GoldPropsCache(implicit inferCache: InferCache) extends CacheInferPropertyExecutor {
+  override def updateNode(node: LynxNode, props: List[(LynxPropertyKey, LynxValue)]): LynxNode = {
+    val n = node.asInstanceOf[VTNode]
+    props.foldLeft(n) { case (n, prop) => n.update(Map(prop._1 -> prop._2))}
+  }
+
+  override def _infer(node: LynxNode, props: Seq[LynxPropertyKey]): LynxNode = GoldProps.infer(node, props)
+
+  override def cache: InferCache = inferCache
+}
+
+class GoldLabelCache(implicit inferCache: InferCache) extends CacheInferLabelExecutor {
+  override def updateNode(node: LynxNode, label: LynxNodeLabel): LynxNode = {
+    node.asInstanceOf[VTNode].update(Seq(label))
+  }
+
+  override def _infer(node: LynxNode): LynxNode = GoldLabel.infer(node)
+
+  override def cache: InferCache = inferCache
 }

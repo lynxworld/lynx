@@ -2,11 +2,11 @@ package org.grapheco.lynx.physical.plans
 
 import org.grapheco.lynx.LynxException
 import org.grapheco.lynx.dataframe.DataFrame
+import org.grapheco.lynx.infer.{Condition, NotMatchInferExecutorFoundException}
 import org.grapheco.lynx.logical.plans
 import org.grapheco.lynx.logical.plans.{GraphPatternEdge, GraphPatternNode}
 import org.grapheco.lynx.physical.planner.cost.Candidate
 import org.grapheco.lynx.physical.{NodeInput, PhysicalPlannerContext}
-import org.grapheco.lynx.runner.infer.{Condition, NotMatchInferExecutorFoundException}
 import org.grapheco.lynx.runner.{CONTAINS, EQUAL, ExecutionContext, GREATER_THAN, GREATER_THAN_OR_EQUAL, IN, LESS_THAN, LESS_THAN_OR_EQUAL, NOT_EQUAL, NodeFilter, PropOp, RelationshipFilter}
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.LynxNull

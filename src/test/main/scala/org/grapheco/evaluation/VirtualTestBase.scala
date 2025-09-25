@@ -1,7 +1,7 @@
 package org.grapheco.evaluation
 
+import org.grapheco.lynx.infer.{Condition, InferAdviser, InferEngine, RemoteInferAdviser}
 import org.grapheco.lynx.runner.CypherRunner
-import org.grapheco.lynx.runner.infer._
 
 class VirtualTestBase extends TestBase {
   override val runner: CypherRunner = new CypherRunner(graphModel = model) {

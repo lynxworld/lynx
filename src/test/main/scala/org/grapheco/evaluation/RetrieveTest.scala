@@ -7,15 +7,10 @@ import org.junit.jupiter.api.{BeforeAll, DynamicTest, Test, TestFactory}
 class RetrieveTest extends Clevr1000 {
 
   val retrieveQueries: Map[String, String] = Map(
-    "position_and_color" -> """
-        |MATCH (i:Image)~[:contains]~~<objects>
+    "color" -> """
+        |MATCH (i:Image)~[:contains]~~<o{color:'yellow'}>
         |WHERE i.image_index >=0 AND i.image_index < 100
-        |WITH i, collect(objects) AS obs
-        |OPTIONAL MATCH <o1>~[:right]~~<o2>
-        |WHERE o1 IN obs AND o2 IN obs
-        |WITH i.image_index as id, o1, count(o2) as count
-        |WHERE count = 0 AND o1.color='blue'
-        |RETURN id
+        |RETURN DISTINCT i.image_index AS id
         |""".stripMargin,
     "count_between" -> """
        |MATCH (i:Image)~[:contains]~~<objects>
@@ -71,7 +66,7 @@ class RetrieveTest extends Clevr1000 {
         |WHERE i.image_index >=800 AND i.image_index < 900
         |RETURN DISTINCT i.image_index AS id
         |""".stripMargin,
-    "color_material_size_shape" -> """
+    "color_material_size_shape_count" -> """
         |MATCH (i:Image)~[:contains]~~<o:cylinder{material:'rubber', size: 'small'}>
         |WHERE i.image_index >=900 AND i.image_index < 1000 AND o.color in ['gray', 'blue', 'green']
         |WITH i.image_index as id, count(o) as count
@@ -95,31 +90,29 @@ class RetrieveTest extends Clevr1000 {
        |RETURN toInteger(id / 10) AS GroupID, toInteger(SUM(objectCount)) AS result
        |ORDER BY GroupID
        |""".stripMargin,
-    "count_size_color" -> """
+    "count_color" -> """
        |MATCH (i:Image)~[:contains]~~<o{color: 'red'}>
        |WHERE i.image_index >=400 AND i.image_index < 600
        |WITH i.image_index as id, COUNT(o) AS objectCount
        |RETURN toInteger(id / 10) AS GroupID, toInteger(SUM(objectCount)) AS result
        |ORDER BY GroupID
        |""".stripMargin,
+    "count_material" -> """
+       |MATCH (i:Image)~[:contains]~~<o{material: 'metal'}>
+       |WHERE i.image_index >=600 AND i.image_index < 800
+       |WITH i.image_index as id, COUNT(o) AS objectCount
+       |RETURN toInteger(id / 10) AS GroupID, toInteger(SUM(objectCount)) AS result
+       |ORDER BY GroupID
+       |""".stripMargin,
     "count_size_comp" -> """
        |MATCH (i:Image)~[:contains]~~<o>
-       |WHERE i.image_index >=600 AND i.image_index < 800
+       |WHERE i.image_index >=800 AND i.image_index < 1000
        |WITH i.image_index AS id,
        |     SUM(CASE WHEN o.size = 'large' THEN 1 ELSE 0 END) AS largeCount,
        |     SUM(CASE WHEN o.size = 'small' THEN 1 ELSE 0 END) AS smallCount
        |RETURN toInteger(id / 10) AS GroupID, toInteger(SUM(largeCount)) - toInteger(SUM(smallCount)) AS result
        |ORDER BY GroupID
-       |""".stripMargin,
-    "count_shape_size_comp" -> """
-       |MATCH (i:Image)~[:contains]~~<o:cube>
-       |WHERE i.image_index >=800 AND i.image_index < 1000
-       |WITH i.image_index AS id,
-       |     SUM(CASE WHEN o.material = 'rubber' THEN 1 ELSE 0 END) AS rubberCount,
-       |     SUM(CASE WHEN o.material = 'metal' THEN 1 ELSE 0 END) AS metalCount
-       |RETURN toInteger(id / 10) AS GroupID, toInteger(SUM(metalCount)) - toInteger(SUM(rubberCount)) AS result
-       |ORDER BY GroupID
-       |""".stripMargin,
+       |""".stripMargin
   )
 
   @Test
@@ -180,7 +173,7 @@ class RetrieveTest extends Clevr1000 {
 
     aggregationQueries.foreach { case (name, question) =>
       val t0 = System.nanoTime()
-      val res = db.runner.run(question, Map.empty, profile = true)
+      val res = db.runner.run(question, Map.empty, profile = false)
         .records().flatMap(_.getAsInt("result")).toList.map(_.value)
       val time = System.nanoTime() - t0
       writer.writeRow(Seq(name, res.mkString("[",",","]"), time))
@@ -198,6 +191,21 @@ class RetrieveTest extends Clevr1000 {
       |RETURN toInteger(id / 10) AS GroupID, SUM(objectCount) AS result
       |ORDER BY GroupID
       |""".stripMargin, Map.empty).show()
+  }
+
+  @Test
+  def one(): Unit = {
+    initDB()
+    db.runner.run(
+      """
+        |MATCH (i:Image)~[:contains]~~<objects>
+        |WHERE i.image_index >=0 AND i.image_index < 10
+        |WITH i, objects, collect(objects) AS obs
+        |OPTIONAL MATCH <objects>~[:right]~~<o2>
+        |WHERE o2 IN obs
+        |WITH i.image_index as id, o1, count(o2) as counto2
+        |where counto2=0
+        |RETURN id, o1.color, counto2""".stripMargin, Map.empty, profile=true).show()
   }
 
 }

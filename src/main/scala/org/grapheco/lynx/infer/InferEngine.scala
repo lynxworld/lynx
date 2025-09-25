@@ -1,4 +1,4 @@
-package org.grapheco.lynx.runner.infer
+package org.grapheco.lynx.infer
 
 trait InferEngine {
   def adviser: InferAdviser

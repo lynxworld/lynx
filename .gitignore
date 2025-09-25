@@ -4,7 +4,7 @@
 target/
 *.iml
 *.DS_Store
-cache/
+/cache/
 test-imgs/
 datasets/
 /datasets/CLEVR1000/

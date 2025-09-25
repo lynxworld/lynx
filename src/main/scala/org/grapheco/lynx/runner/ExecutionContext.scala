@@ -2,8 +2,9 @@ package org.grapheco.lynx.runner
 
 import org.grapheco.lynx.dataframe.DataFrame
 import org.grapheco.lynx.evaluator.ExpressionContext
+import org.grapheco.lynx.infer.cache.{InferCache, NoneInferCache}
+import org.grapheco.lynx.infer.{InferEngine, NoneInferEngine}
 import org.grapheco.lynx.physical.PhysicalPlannerContext
-import org.grapheco.lynx.runner.infer.InferEngine
 import org.opencypher.v9_0.ast.Statement
 
 /**
@@ -18,7 +19,8 @@ case class ExecutionContext(physicalPlannerContext: PhysicalPlannerContext,
                             statement: Statement,
                             queryParameters: Map[String, Any],
                             val arguments: DataFrame = DataFrame.empty,
-                            val inferEngine: InferEngine = InferEngine.none) {
+                            val inferEngine: InferEngine = InferEngine.none,
+                            val inferCache: InferCache = NoneInferCache) {
   val expressionContext = ExpressionContext(this, queryParameters.map(x => x._1 -> physicalPlannerContext.runnerContext.typeSystem.wrap(x._2)))
   def withArguments(df: DataFrame): ExecutionContext = this.copy(arguments = df)
 }

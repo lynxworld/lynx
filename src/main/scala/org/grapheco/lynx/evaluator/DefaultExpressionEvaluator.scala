@@ -1,7 +1,7 @@
 package org.grapheco.lynx.evaluator
 
+import org.grapheco.lynx.infer.Condition
 import org.grapheco.lynx.procedure.{ProcedureException, ProcedureExpression, ProcedureRegistry}
-import org.grapheco.lynx.runner.infer.Condition
 import org.grapheco.lynx.runner.{GraphModel, NodeFilter, RelationshipFilter}
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
 import org.grapheco.lynx.types.property._

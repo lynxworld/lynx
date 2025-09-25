@@ -1,4 +1,4 @@
-package org.grapheco.lynx.runner.infer
+package org.grapheco.lynx.infer
 
 import org.grapheco.lynx.LynxException
 

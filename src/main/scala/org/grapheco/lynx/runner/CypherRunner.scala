@@ -4,6 +4,8 @@ import com.typesafe.scalalogging.LazyLogging
 import org.grapheco.lynx._
 import org.grapheco.lynx.dataframe.{DataFrameOperator, DefaultDataFrameOperator}
 import org.grapheco.lynx.evaluator.{DefaultExpressionEvaluator, ExpressionEvaluator}
+import org.grapheco.lynx.infer.InferEngine
+import org.grapheco.lynx.infer.cache.{InferCache, NoneInferCache}
 import org.grapheco.lynx.logical.planner.{DefaultLogicalPlanner, LogicalPlanner}
 import org.grapheco.lynx.logical.LogicalPlannerContext
 import org.grapheco.lynx.logical.plans.LogicalPlan
@@ -13,7 +15,6 @@ import org.grapheco.lynx.physical.planner.{DefaultPhysicalPlanner, PhysicalPlann
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.grapheco.lynx.physical.plans.PhysicalPlan
 import org.grapheco.lynx.procedure._
-import org.grapheco.lynx.runner.infer.InferEngine
 import org.grapheco.lynx.types.{DefaultTypeSystem, TypeSystem}
 import org.grapheco.lynx.util.FormatUtils
 import org.grapheco.lynx.util.FormatUtils.convertPatternComprehension
@@ -55,6 +56,8 @@ class CypherRunner(var graphModel: GraphModel) extends LazyLogging {
   protected lazy val queryParser: QueryParser = new CachedQueryParser(new DefaultQueryParser(runnerContext))
   // infer
   protected lazy val inferEngine: InferEngine = InferEngine.remote
+  // cache
+  protected lazy val inferCache: InferCache = NoneInferCache
 
   def registerAnnotatedClass(clazz: Class[_]): Unit = procedures.registerAnnotatedClass(clazz)
 
@@ -87,7 +90,7 @@ class CypherRunner(var graphModel: GraphModel) extends LazyLogging {
       }
     }
 
-    val ctx = ExecutionContext(physicalPlannerContext, statement, param ++ param2, inferEngine = inferEngine)
+    val ctx = ExecutionContext(physicalPlannerContext, statement, param ++ param2, inferEngine = inferEngine, inferCache = inferCache)
     val df = optimizedPhysicalPlan.execute(ctx)
     graphModel.write.commit
 

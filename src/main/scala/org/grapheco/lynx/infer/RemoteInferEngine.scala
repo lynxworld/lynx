@@ -1,4 +1,4 @@
-package org.grapheco.lynx.runner.infer
+package org.grapheco.lynx.infer
 
 class RemoteInferEngine(val inferAdviser: InferAdviser = InferAdviser.none) extends InferEngine {
   override def adviser: InferAdviser = inferAdviser
