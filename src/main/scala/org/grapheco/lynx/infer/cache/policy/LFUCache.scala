@@ -1,7 +1,6 @@
 package org.grapheco.lynx.infer.cache.policy
 
 import org.grapheco.lynx.infer.cache.core.{CachePolicy, Entry}
-import org.grapheco.lynx.runner.infercache.core._
 
 import scala.collection.mutable
 

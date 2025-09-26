@@ -1,7 +1,6 @@
 package org.grapheco.lynx.infer.cache.sim
 
 import org.grapheco.lynx.infer.cache.core.{CacheMetrics, CachePolicy, OpType, Request}
-import org.grapheco.lynx.runner.infercache.core._
 
 import scala.collection.mutable
 

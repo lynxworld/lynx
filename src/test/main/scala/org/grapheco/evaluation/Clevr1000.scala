@@ -163,9 +163,13 @@ class Clevr1000 {
     initDB(2)
     singleRun(
       """
-        |MATCH (i:Image{image_index: 1})~[:contains]~~<objects> WITH i,collect(objects) AS objects MATCH <o{color:'green',material:'metal'}>~[:right]~~<o2:sphere{size:'large'}>~[:left]~~<o3:sphere{color:'purple'}> WHERE o IN objects AND o2 IN objects AND o3 IN objects RETURN count(o3) AS counto3
+        |MATCH (i:Image{image_index: 1})~[:contains]~~<objects>
+        |WITH i,collect(objects) AS objects
+        |MATCH <o{color:'green',material:'metal'}>~[:right]~~<o2:sphere{size:'large'}>~[:left]~~<o3:sphere{color:'purple'}>
+        |WHERE o IN objects AND o2 IN objects AND o3 IN objects
+        |RETURN count(o3) AS counto3
         |
-        |""".stripMargin)
+        |""".stripMargin, profile = true)
   }
 
   @Test
@@ -226,11 +230,11 @@ class Clevr1000 {
     writer.close()
   }
 
-  def singleRun(query: String, init: Int = 100): Unit = {
+  def singleRun(query: String, init: Int = 100, profile: Boolean = false): Unit = {
     initDB(init)
     println(toCypher(query))
     db.runner.compile(query)
-    db.runner.run(query, Map.empty, profile = false).show()
+    db.runner.run(query, Map.empty, profile = profile).show()
   }
 
   def toCypher(query: String): String = {

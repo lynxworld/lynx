@@ -49,7 +49,11 @@ message ClassifyRequest {
 }
 
 message ClassifyResponse {
+  repeated ClassifyLabel labels = 1;
+  string category_type = 2; // 返回分类类型
+}
+
+message ClassifyLabel {
   string label = 1;
   float score = 2;
-  string category_type = 3; // 返回分类类型
 }

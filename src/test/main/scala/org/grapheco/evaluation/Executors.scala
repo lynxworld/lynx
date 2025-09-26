@@ -2,7 +2,7 @@ package org.grapheco.evaluation
 
 import com.github.tototoshi.csv.CSVReader
 import org.grapheco.lynx.LynxException
-import org.grapheco.lynx.infer.{InferExpandExecutor, InferLabelExecutor, InferLinkExecutor, InferPropertyExecutor}
+import org.grapheco.lynx.infer.{CatLynxValue, InferExpandExecutor, InferLabelExecutor, InferLinkExecutor, InferPropertyExecutor, ProbLynxValue}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.{LynxInteger, LynxNumber, LynxString}
@@ -13,6 +13,7 @@ import java.awt.image.BufferedImage
 import java.awt.{Color, Rectangle}
 import java.io.File
 import javax.imageio.ImageIO
+import scala.collection.JavaConverters.asScalaBufferConverter
 import scala.util.Random
 import scala.util.Random.javaRandomToRandom
 
@@ -34,15 +35,12 @@ object ContainsInfer extends InferExpandExecutor {
   implicit def bbox2list: Vision.BoundingBox => List[Int] = b => List(b.getX, b.getY, b.getWidth, b.getHeight).map(_.toInt)
 
   override def infer(node: LynxNode): Seq[(LynxRelationship, LynxNode)] = {
-    val time0 = System.currentTimeMillis()
     val file: File = node.property(LynxPropertyKey("file")).map {
       case v: LynxString => new File(v.value)
       case _ => throw new RuntimeException("file property is not a string")
     }.getOrElse(throw new RuntimeException("file property not found"))
 
-    val time1 = System.currentTimeMillis()
     val maybeResult = Clients.client.segment(file).toOption
-    val time2 = System.currentTimeMillis()
     val out = maybeResult.map { results =>
       results.map { mask =>
         val outId = TestId.nextId
@@ -70,8 +68,6 @@ object ContainsInfer extends InferExpandExecutor {
         (e, n)
       }
     }
-//    val time3 = System.currentTimeMillis()
-//    println(s"${time1-time0}, ${time2-time1}, ${time3-time2}")
     out.getOrElse(Seq.empty)
   }
 
@@ -113,9 +109,11 @@ case class PropertyInfer(category: String) extends InferPropertyExecutor {
     }.getOrElse(throw new RuntimeException("file property not found"))
 
     Clients.client.classify(file, category).map{ result =>
-      val label = result.getLabel
+      val cat = result.getLabelsList.asScala.map{ cl =>
+        ProbLynxValue(LynxString(cl.getLabel), cl.getScore.toDouble)
+      }.toList
       val n = node.asInstanceOf[VTNode]
-      n.update(Map(LynxPropertyKey(category) -> LynxString(label)))
+      n.update(Map(LynxPropertyKey(category) -> CatLynxValue(cat)))
     }.getOrElse(node)
   }
 }
@@ -133,8 +131,10 @@ object ShapeInfer extends InferLabelExecutor {
     }.getOrElse(throw new RuntimeException("file property not found"))
 
     Clients.client.classify(file, "shape").map{ result =>
-      val label = result.getLabel
-      Seq(LynxNodeLabel(label))
+      val labels = result.getLabelsList.asScala.map{ cl =>
+        (cl.getLabel, cl.getScore.toDouble)
+      }.toList
+      CatLynxValue.selector.select(labels).map(_._1).map{ label => LynxNodeLabel(label) }
     }.getOrElse(Seq.empty)
   }
 

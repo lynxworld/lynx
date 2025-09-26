@@ -192,7 +192,7 @@ class GoldCacheClevr1000 extends Clevr1000 {
       |""".stripMargin
   }
 
-  override def singleRun(query: String, init: Int): Unit = {
+  override def singleRun(query: String, init: Int, profile: Boolean = true): Unit = {
     super.singleRun(query, init)
     println(db._inferCache.metrics)
   }
