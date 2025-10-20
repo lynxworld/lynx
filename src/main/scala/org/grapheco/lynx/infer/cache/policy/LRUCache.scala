@@ -21,7 +21,7 @@ class LRUCache[K, V](val capacity: Int) extends CachePolicy[K, V] {
       e.value
     }
 
-  override def onPut(key: K, value: V, cost: Long, tick: Long): Unit = {
+  override def onPut(key: K, value: V, cost: Long, tick: Long): Option[(K,V)] = {
     map.get(key) match {
       case Some((e, n)) =>
         e.value = value
@@ -36,6 +36,7 @@ class LRUCache[K, V](val capacity: Int) extends CachePolicy[K, V] {
         addToHead(node)
         if (map.size > capacity) evictTail()
     }
+    None
   }
 
   override def invalidate(keys: Iterable[K], tick: Long): Unit =

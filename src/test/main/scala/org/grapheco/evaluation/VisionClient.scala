@@ -47,7 +47,7 @@ case class VisionClient(host: String, port: Int) {
       blockingStub.classify(request)
     } match {
       case Success(result) => Success(result)
-      case Failure(exception) => Failure(exception)
+      case Failure(exception) => println(exception); Failure(exception)
     }
   }
 

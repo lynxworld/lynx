@@ -18,7 +18,7 @@ class RandomCache[K, V](val capacity: Int) extends CachePolicy[K, V] {
       e.value
     }
 
-  override def onPut(key: K, value: V, cost: Long, tick: Long): Unit = {
+  override def onPut(key: K, value: V, cost: Long, tick: Long): Option[(K,V)] = {
     map.get(key) match {
       case Some(e) =>
         e.value = value
@@ -32,6 +32,7 @@ class RandomCache[K, V](val capacity: Int) extends CachePolicy[K, V] {
         }
         map += key -> Entry(value, cost, freq = 1, lastAccessTick = tick, lastPutTick = tick)
     }
+    None
   }
 
   override def invalidate(keys: Iterable[K], tick: Long): Unit =

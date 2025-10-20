@@ -21,8 +21,8 @@ class LFUCache[K, V](val capacity: Int) extends CachePolicy[K, V] {
       e.value
     }
 
-  override def onPut(key: K, value: V, cost: Long, tick: Long): Unit = {
-    if (capacity <= 0) return
+  override def onPut(key: K, value: V, cost: Long, tick: Long): Option[(K,V)] = {
+    if (capacity <= 0) return None
     entries.get(key) match {
       case Some(e) =>
         e.value = value
@@ -37,6 +37,7 @@ class LFUCache[K, V](val capacity: Int) extends CachePolicy[K, V] {
         node.keys += key
         minFreq = 1
     }
+    None
   }
 
   private def bumpFreq(key: K, e: Entry[V]): Unit = {

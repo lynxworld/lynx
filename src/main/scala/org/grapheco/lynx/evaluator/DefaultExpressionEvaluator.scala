@@ -198,7 +198,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case Equals(lhs, rhs) => (eval(lhs), eval(rhs)) match {
         case (LynxNull, _) => LynxNull
         case (_, LynxNull) => LynxNull
-        case (l, r) => LynxBoolean(l == r)
+        case (l, r) => LynxBoolean((l compareTo r) == 0)
       }
 
       case GreaterThan(lhs, rhs) =>

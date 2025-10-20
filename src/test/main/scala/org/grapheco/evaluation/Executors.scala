@@ -114,6 +114,7 @@ case class PropertyInfer(category: String) extends InferPropertyExecutor {
       }.toList
       val n = node.asInstanceOf[VTNode]
       n.update(Map(LynxPropertyKey(category) -> CatLynxValue(cat)))
+//      n.update(Map(LynxPropertyKey(category) -> CatLynxValue(cat).best.label))
     }.getOrElse(node)
   }
 }
@@ -133,10 +134,10 @@ object ShapeInfer extends InferLabelExecutor {
     Clients.client.classify(file, "shape").map{ result =>
       val labels = result.getLabelsList.asScala.map{ cl =>
         (cl.getLabel, cl.getScore.toDouble)
-      }.toList
+      }.toList.sortBy(- _._2)
       CatLynxValue.selector.select(labels).map(_._1).map{ label => LynxNodeLabel(label) }
     }.getOrElse(Seq.empty)
-  }
+  } 
 
   override def infer(node: LynxNode): LynxNode = {
     val n = node.asInstanceOf[VTNode]

@@ -1,6 +1,7 @@
 package org.grapheco.lynx.infer.cache.policy
 
 import org.grapheco.lynx.infer.cache.core.{CachePolicy, Entry}
+import org.grapheco.lynx.infer.cache.depgraph.DepGraph
 
 import scala.collection.mutable
 
@@ -22,8 +23,7 @@ class LDCECache[K, V](
                          val candidateK: Int = 16,
                          val Wc: Double = 1.0,
                          val Wf: Double = 1.0,
-                         val Wt: Double = 1.0,
-                         dependencyOutDegreeProvider: Option[K => Int] = None
+                         val Wt: Double = 1.0
                        ) extends CachePolicy[K, V] {
 
   override val name: String = s"LDC-E(k=$candidateK,Wc=$Wc,Wf=$Wf,Wt=$Wt)"
@@ -41,6 +41,8 @@ class LDCECache[K, V](
   private val map = mutable.HashMap[K, Node]()
   private var head: Node = null
   private var tail: Node = null
+
+  private val heap = mutable.PriorityQueue.empty[(Double, K)](Ordering.by(-_._1)) // 最小堆
 
   // 统计
   private var _evictions: Long = 0L
@@ -64,7 +66,7 @@ class LDCECache[K, V](
     }
   }
 
-  override def onPut(key: K, value: V, cost: Long, tick: Long): Unit = {
+  override def onPut(key: K, value: V, cost: Long, tick: Long): Option[(K,V)] = {
     map.get(key) match {
       case Some(node) =>
         // 更新已有条目
@@ -75,6 +77,7 @@ class LDCECache[K, V](
         e.freq += 1
         e.priority = 0
         moveToHead(node)
+        None
       case None =>
         val e = Entry(value, cost, freq = 1, lastAccessTick = tick)
         val n = Node(key, e)
@@ -82,8 +85,10 @@ class LDCECache[K, V](
         map += key -> n
         // 可能触发驱逐
         if (map.size > capacity) {
-          evictOne(tick)
+          val evicted = evictOne(tick)
+          return evicted.map(e => (e.key, e.entry.value))
         }
+        None
     }
   }
 
@@ -108,31 +113,38 @@ class LDCECache[K, V](
   // ---------------------------------
   // 驱逐核心逻辑
   // ---------------------------------
-  private def evictOne(nowTick: Long): Unit = {
+  private def evictOne(nowTick: Long): Option[Node] = {
     _evictCalls += 1
-    if (tail == null) return
+    if (tail == null) return None
 
     val candidates = collectTailCandidates(candidateK)
-    if (candidates.isEmpty) return
-
-    // 依赖出度过滤
-//    val zeroDep = candidates.filter(_.entry.dependencyOutDegree == 0)
-    val zeroDep = List.empty
-    val evictable = if (zeroDep.nonEmpty) zeroDep else candidates
+    if (candidates.isEmpty) return None
 
     var minNode: Node = null
     var minScore = Double.MaxValue
 
-    evictable.foreach { node =>
+    candidates.foreach { node =>
       val sc = valueScore(node.entry, nowTick)
-//      node.entry.lastScore = sc
       _candidateEvaluations += 1
-      if (sc < minScore) { minScore = sc; minNode = node }
+      if (sc < minScore) {
+        minScore = sc; minNode = node
+      }
     }
 
     if (minNode != null) {
-      removeNode(minNode); map -= minNode.key
+      removeNode(minNode);
+      map -= minNode.key
       _evictions += 1
+    }
+    Option(minNode)
+  }
+
+  override def evict(key: K): Option[(K, V)] = {
+    map.get(key).map { node =>
+      removeNode(node)
+      map -= key
+      _evictions += 1
+      (key, node.entry.value)
     }
   }
 
@@ -154,12 +166,20 @@ class LDCECache[K, V](
   /**
    * 价值评分函数（越低越容易被驱逐）
    */
+  // Wc * log(1 + C) * (Wf * log(1 + F) + Wt / (age+1))
   private def valueScore(e: Entry[V], nowTick: Long): Double = {
     val age = (nowTick - e.lastAccessTick).max(0L)
     val costFactor = math.log1p(Wc * e.cost.toDouble)               // log(1 + Wc*C)
     val freqTerm   = Wf * math.log1p(e.freq.toDouble)               // Wf * log(1 + F)
     val recencyTerm= Wt / (age + 1.0)                               // Wt / (age+1)
     costFactor * (freqTerm + recencyTerm)
+  }
+
+  // Wc * log(1 + C) + Wf * log(1 + F)
+  private def valueScore(e: Entry[V]): Double = {
+    val costFactor = math.log1p(Wc * e.cost.toDouble)               // log(1 + Wc*C)
+    val freqTerm   = Wf * math.log1p(e.freq.toDouble)               // Wf * log(1 + F)
+    costFactor + freqTerm
   }
 
   // ---------------------------------

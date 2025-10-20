@@ -2,11 +2,15 @@ package org.grapheco.evaluation
 
 import org.grapheco.lynx.infer.cache.{CacheKey, CacheValue, DefaultInferCache, InferCache}
 import org.grapheco.lynx.infer.cache.core.{CacheMetrics, CachePolicy}
+import org.grapheco.lynx.infer.cache.depgraph.DepGraph
 import org.grapheco.lynx.infer.{Condition, InferAdviser, InferEngine, RemoteInferAdviser}
 import org.grapheco.lynx.runner.CypherRunner
 
 class GoldVirtualCacheTestBase(val cache: CachePolicy[CacheKey, CacheValue]) extends GoldVirtualTestBase {
-  implicit val _inferCache: InferCache =  new DefaultInferCache(cache)
+
+  val dependencyGraph: DepGraph = DepGraph.empty
+
+  implicit val _inferCache: InferCache =  new DefaultInferCache(cache, dependencyGraph)
 
   override val runner: CypherRunner = new CypherRunner(graphModel = model) {
     val adviser: InferAdviser = RemoteInferAdviser()

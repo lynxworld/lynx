@@ -1,7 +1,7 @@
 package org.grapheco.lynx.infer
 
 import org.grapheco.lynx.LynxException
-import org.grapheco.lynx.infer.cache.{CacheKey, CacheValue, InferCache, NoneInferCache}
+import org.grapheco.lynx.infer.cache.{CacheKey, CacheValue, InferCache, Meta, NoneInferCache}
 import org.grapheco.lynx.infer.cache.core.CachePolicy
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.property.LynxString
@@ -93,7 +93,7 @@ abstract class CacheInferExpandExecutor extends InferExpandExecutor with CacheIn
 abstract class CacheInferPropertyExecutor extends InferPropertyExecutor with CacheInferExecutor {
 
   def cacheKey(node: LynxNode, prop: LynxPropertyKey): CacheKey.Prop =
-    CacheKey.Prop(node.id.toLynxInteger.v, prop.value.hashCode.toLong)
+    CacheKey.Prop(node.id.toLynxInteger.v, Meta.getCode(prop))
 
   override def infer(node: LynxNode, props: Seq[LynxPropertyKey]): LynxNode = if(cacheAvailable) {
     // fixme: only head
@@ -126,7 +126,7 @@ abstract class CacheInferPropertyExecutor extends InferPropertyExecutor with Cac
 
 abstract class CacheInferLabelExecutor extends InferLabelExecutor with CacheInferExecutor {
 
-  def cacheKey(node: LynxNode): CacheKey.Prop = CacheKey.Prop(node.id.toLynxInteger.v, cache.LABEL)
+  def cacheKey(node: LynxNode): CacheKey.Prop = CacheKey.Prop(node.id.toLynxInteger.v, Meta.LABEL)
 
   override def infer(node: LynxNode): LynxNode = if(cacheAvailable) {
     val key = cacheKey(node)

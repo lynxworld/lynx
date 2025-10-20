@@ -1,7 +1,7 @@
 package org.grapheco.evaluation
 
 import com.github.tototoshi.csv.CSVReader
-import org.grapheco.lynx.infer.cache.{CacheKey, InferCache}
+import org.grapheco.lynx.infer.cache.{CacheKey, InferCache, Meta}
 import org.grapheco.lynx.infer.{CacheInferExpandExecutor, CacheInferLabelExecutor, CacheInferPropertyExecutor, InferExpandExecutor, InferLabelExecutor, InferLinkExecutor, InferPropertyExecutor}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.property.{LynxInteger, LynxString}

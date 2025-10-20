@@ -1,6 +1,7 @@
 package org.grapheco.evaluation
 
 import com.github.tototoshi.csv.CSVWriter
+import org.grapheco.lynx.infer.{CatLynxValue, ProbLynxValue}
 import org.grapheco.lynx.types.LynxValue
 import org.grapheco.lynx.types.composite.LynxList
 import org.grapheco.lynx.types.property.LynxInteger
@@ -34,8 +35,14 @@ case class ClevrQuestion( image_index: Int,
       var correct = false
       println(s"Test: $id\n Image: $url \n question: $question\n query: ${withPrefix}\n answer: $answer")
 //      try {
-      val res = db.runner.run(withPrefix, Map.empty, profile = profile).records().map(_.get(0).get).toList.headOption
+      val _res = db.runner.run(withPrefix, Map.empty, profile = profile).records().map(_.get(0).get).toList.headOption
       val should = answer.toString
+      val res = _res match {
+        case Some(v:CatLynxValue) => Some(v.best.label)
+        case Some(v:ProbLynxValue) => Some(v.label)
+        case Some(value) => Some(value)
+        case None => None
+      }
       println(s"Should be: $should, but get: ${res.getOrElse(None)}")
       correct = res.map(_.toString) == Some(should)
 //      } catch {
@@ -151,7 +158,7 @@ class Clevr1000 {
     val gold: GoldVirtualTestBase = new GoldVirtualTestBase()
     initDB(1000)
     initDB(1000)(gold)
-    questions.filter(_.template_filename=="comparison.json")
+    questions
       .take(200)
 //      .sortBy(_.template_filename)
       .map{ question =>DynamicTest.dynamicTest(question.id, question.executable(profile = PROFILE)(db, gold))}
@@ -160,14 +167,13 @@ class Clevr1000 {
 
   @Test
   def temp(): Unit = {
-    initDB(2)
+    initDB(20)
     singleRun(
       """
         |MATCH (i:Image{image_index: 1})~[:contains]~~<objects>
-        |WITH i,collect(objects) AS objects
-        |MATCH <o{color:'green',material:'metal'}>~[:right]~~<o2:sphere{size:'large'}>~[:left]~~<o3:sphere{color:'purple'}>
-        |WHERE o IN objects AND o2 IN objects AND o3 IN objects
-        |RETURN count(o3) AS counto3
+        |RETURN objects.color, objects.size, objects.material, labels(objects)
+        |
+        |
         |
         |""".stripMargin, profile = true)
   }
