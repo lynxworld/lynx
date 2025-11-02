@@ -9,7 +9,7 @@ class DepGraph extends {
   private val nodes = scala.collection.mutable.Map[Int, DepNode]()
 
   def getNode(code: Int): DepNode = {
-    nodes.getOrElseUpdate(code, DepNode(code, weight = 1.0, cost = 0))
+    nodes.getOrElseUpdate(code, DepNode(code, 0, weight = 1.0, cost = 0))
   }
 
   def addEdge(fromCode: Int, toCode: Int): Unit = {

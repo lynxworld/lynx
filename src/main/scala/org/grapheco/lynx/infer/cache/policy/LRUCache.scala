@@ -72,4 +72,5 @@ class LRUCache[K, V](val capacity: Int) extends CachePolicy[K, V] {
   override def contains(key: K): Boolean = map.contains(key)
   override def allKeys: Iterable[K] = map.keys
   override def statsSnapshot: Map[String, Any] = Map("size" -> size, "evictions" -> evictions)
+  def all: Iterable[(K, V)] = map.map { case (k, (e, _)) => (k, e.value)}
 }

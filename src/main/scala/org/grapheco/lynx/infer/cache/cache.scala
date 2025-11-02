@@ -11,17 +11,32 @@ import org.grapheco.lynx.types.structural.{LynxId, LynxNode, LynxNodeLabel, Lynx
 import scala.collection.mutable
 
 object Meta {
+  val mapper: mutable.Map[Int, String] = mutable.Map(
+    "$LABEL".hashCode -> "$LABEL",
+    "$ALIVE".hashCode -> "$ALIVE",
+    "$PROPS".hashCode -> "$PROPS"
+  )
+
   val LABEL: Int = "$LABEL".hashCode
 
   val ALIVE: Int = "$ALIVE".hashCode
 
   val PROPS: Int = "$PROPS".hashCode
 
-  def getCode(pk: LynxPropertyKey): Int = pk.value.hashCode
+  def getCode(pk: LynxPropertyKey): Int = {
+    mapper.put(pk.value.hashCode, pk.value)
+    pk.value.hashCode
+  }
 
-  def getCode(label: LynxNodeLabel): Int = label.value.hashCode
+  def getCode(label: LynxNodeLabel): Int = {
+    mapper.put(label.value.hashCode, label.value)
+    label.value.hashCode
+  }
 
-  def getCode(relType: LynxRelationshipType): Int = relType.value.hashCode
+  def getCode(relType: LynxRelationshipType): Int = {
+    mapper.put(relType.value.hashCode, relType.value)
+    relType.value.hashCode
+  }
 }
 
 sealed trait CacheKey {
@@ -44,7 +59,7 @@ sealed trait CacheValue
 object CacheValue {
   final case class ExpandValue(values: List[(LynxRelationship, LynxNode)]) extends CacheValue
   final case class PropValue(value: LynxValue) extends CacheValue
-  final case class LinkValue(rels: List[(LynxRelationship, LynxNode)]) extends CacheValue
+  final case class LinkValue(rels: List[LynxRelationship]) extends CacheValue
 }
 trait InferCache {
   final val LABEL = "$LABEL".hashCode.toLong

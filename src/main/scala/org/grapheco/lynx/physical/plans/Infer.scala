@@ -30,7 +30,13 @@ object InferPlanner {
       case Some(filter) => in ~> InferLabel(node.variableName) ~> filter
     }
     if (node.expressions.isEmpty) return Seq(withLabel)
-    val exprs = node.expressions.map(extractExpression).reduce(_ ++ _)
+    val exprs = node.expressions.map(extractExpression).reduce(_ ++ _).toSeq.sortBy(_._1 match {
+      case "size" => 0
+      case "color" => 1
+      case "material" => 2
+      case "shape" => 3
+      case _ => 4
+    })
     // todo order
     val plan = exprs.foldLeft(withLabel){ case (left, (key, expr)) =>
       left ~> InferProperties(node.variableName, Seq(LynxPropertyKey(key))) ~> Filter(expr)
