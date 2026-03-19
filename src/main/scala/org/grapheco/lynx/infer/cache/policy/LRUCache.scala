@@ -1,6 +1,6 @@
 package org.grapheco.lynx.infer.cache.policy
 
-import org.grapheco.lynx.infer.cache.core.{CachePolicy, Entry}
+import org.grapheco.lynx.infer.cache.core.{CacheMetrics, CachePolicy, Entry}
 
 import scala.collection.mutable
 
@@ -8,45 +8,64 @@ class LRUCache[K, V](val capacity: Int) extends CachePolicy[K, V] {
   override val name: String = "LRU"
 
   private case class Node(k: K, var prev: Node = null, var next: Node = null)
+
   private val map = mutable.HashMap[K, (Entry[V], Node)]()
   private var head: Node = null
   private var tail: Node = null
+  private var cacheSize: Int = 0
+  // state metrics
+  private var gets: Long = 0L
+  private var hits: Long = 0L
+  private var computeCost: Double = 0.0
+  private var hitCost: Double = 0.0
+  private var invalidations: Long = 0L
   private var evictions: Long = 0L
+  private var evictionsCost: Long = 0L
 
-  override def onGet(key: K, tick: Long): Option[V] =
+  override def onGet(key: K): Option[V] = {
+    gets += 1L
     map.get(key).map { case (e, n) =>
-      e.freq += 1
-      e.lastAccessTick = tick
       moveToHead(n)
+      hits += 1L
+      hitCost += e.cost
       e.value
     }
+}
 
-  override def onPut(key: K, value: V, cost: Long, tick: Long): Option[(K,V)] = {
+  override def onPut(key: K, value: V, cost: Long): Set[(K,V, Int)] = {
+    val size = valueSize(value)
+    computeCost += cost
     map.get(key) match {
       case Some((e, n)) =>
         e.value = value
         e.cost = cost
-        e.lastPutTick = tick
-        e.lastAccessTick = tick
+        cacheSize += size - e.size
+        e.size = size
         moveToHead(n)
       case None =>
-        val e = Entry(value, cost, freq = 1, lastAccessTick = tick, lastPutTick = tick)
+        val e = Entry(value, cost, freq = 1, size = size)
         val node = Node(key)
         map += key -> (e, node)
         addToHead(node)
-        if (map.size > capacity) evictTail()
+        cacheSize += size
     }
-    None
+    val evicted: Set[(K,V, Int)] = Set.empty
+    while (cacheSize > capacity) {
+      evictTail()
+    }
+    evicted //TODO
   }
 
-  override def invalidate(keys: Iterable[K], tick: Long): Unit =
+  override def invalidate(keys: Iterable[K]): Unit = {
     keys.foreach { k =>
-      map.get(k).foreach { case (_, n) => removeNode(n); map -= k }
+      map.get(k).foreach { case (e, n) => removeNode(n); map -= k; cacheSize -= e.size;invalidations += 1 }
     }
+  }
 
   private def evictTail(): Unit = if (tail != null) {
     val k = tail.k
     removeNode(tail)
+    map.get(k).foreach{ case (e, _) => cacheSize -= e.size; evictionsCost += e.cost }
     map -= k
     evictions += 1
   }
@@ -68,9 +87,10 @@ class LRUCache[K, V](val capacity: Int) extends CachePolicy[K, V] {
     removeNode(n); addToHead(n)
   }
 
-  override def size: Int = map.size
+  override def size: Int = cacheSize
   override def contains(key: K): Boolean = map.contains(key)
   override def allKeys: Iterable[K] = map.keys
-  override def statsSnapshot: Map[String, Any] = Map("size" -> size, "evictions" -> evictions)
   def all: Iterable[(K, V)] = map.map { case (k, (e, _)) => (k, e.value)}
+
+  override def metrics: CacheMetrics = CacheMetrics(gets, hits, computeCost, hitCost, invalidations, evictions, evictionsCost)
 }

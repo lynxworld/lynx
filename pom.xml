@@ -6,7 +6,8 @@
 
     <groupId>org.grapheco</groupId>
     <artifactId>lynx</artifactId>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
+
     <version>0.6.7</version>
 
     <name>Lynx</name>
@@ -167,6 +168,7 @@
                 </executions>
             </plugin>
         </plugins>
+
     </build>
     <dependencyManagement>
         <dependencies>

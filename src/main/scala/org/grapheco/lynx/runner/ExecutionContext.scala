@@ -2,7 +2,7 @@ package org.grapheco.lynx.runner
 
 import org.grapheco.lynx.dataframe.DataFrame
 import org.grapheco.lynx.evaluator.ExpressionContext
-import org.grapheco.lynx.infer.cache.{InferCache, NoneInferCache}
+import org.grapheco.lynx.infer.cache.core.{InferCache, NoneInferCache}
 import org.grapheco.lynx.infer.{InferEngine, NoneInferEngine}
 import org.grapheco.lynx.physical.PhysicalPlannerContext
 import org.opencypher.v9_0.ast.Statement

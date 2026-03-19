@@ -1,6 +1,6 @@
 package org.grapheco.lynx.infer.cache.policy
 
-import org.grapheco.lynx.infer.cache.core.{CachePolicy, Entry}
+import org.grapheco.lynx.infer.cache.core.{CacheMetrics, CachePolicy, Entry}
 
 import scala.collection.mutable
 
@@ -11,33 +11,47 @@ class LFUCache[K, V](val capacity: Int) extends CachePolicy[K, V] {
   private val entries = mutable.HashMap[K, Entry[V]]()
   private val freqMap = mutable.HashMap[Int, FreqNode]()
   private var minFreq = 0
-  private var evictions = 0L
+  private var cacheSize:Int = 0
+  // state metrics
+  private var gets: Long = 0L
+  private var hits: Long = 0L
+  private var computeCost: Double = 0.0
+  private var hitCost: Double = 0.0
+  private var invalidations: Long = 0L
+  private var evictions: Long = 0L
+  private var evictionsCost: Long = 0L
 
-  override def onGet(key: K, tick: Long): Option[V] =
+  override def onGet(key: K): Option[V] = {
+    gets += 1L
     entries.get(key).map { e =>
       bumpFreq(key, e)
-      e.lastAccessTick = tick
       e.freq += 1
+      hits += 1L
+      hitCost += e.cost
       e.value
     }
+  }
 
-  override def onPut(key: K, value: V, cost: Long, tick: Long): Option[(K,V)] = {
-    if (capacity <= 0) return None
+  override def onPut(key: K, value: V, cost: Long): Set[(K,V, Int)] = {
+    val size = valueSize(value)
+    computeCost += cost
     entries.get(key) match {
       case Some(e) =>
         e.value = value
         e.cost = cost
-        e.lastPutTick = tick
-        onGet(key, tick)
+        cacheSize += size - e.size
+        e.size = size
+        onGet(key)
       case None =>
-        if (entries.size >= capacity) evict()
-        val e = Entry(value, cost, freq = 1, lastAccessTick = tick, lastPutTick = tick)
+        val e = Entry(value, cost, freq = 1, size = size)
         entries += key -> e
         val node = freqMap.getOrElseUpdate(1, FreqNode(1, mutable.LinkedHashSet.empty[K]))
         node.keys += key
         minFreq = 1
+        cacheSize += size
     }
-    None
+    while (cacheSize >= capacity) evict()
+    Set.empty // TODO
   }
 
   private def bumpFreq(key: K, e: Entry[V]): Unit = {
@@ -50,27 +64,36 @@ class LFUCache[K, V](val capacity: Int) extends CachePolicy[K, V] {
     newNode.keys += key
   }
 
-  private def evict(): Unit = {
+  private def evict(): Option[(K, V, Int)] = {
     freqMap.get(minFreq).foreach { node =>
       val victim = node.keys.head
       node.keys -= victim
+      entries.get(victim).foreach{ e =>
+        cacheSize -= e.size;
+        evictionsCost += e.cost
+      }
       entries -= victim
       evictions += 1
       if (node.keys.isEmpty) freqMap -= node.freq
+      None
     }
+    None
   }
 
-  override def invalidate(keys: Iterable[K], tick: Long): Unit =
+  override def invalidate(keys: Iterable[K]): Unit = {
     keys.foreach { k =>
       entries.get(k).foreach { e =>
+        invalidations += 1
         val f = e.freq.max(1)
         freqMap.get(f).foreach(_.keys -= k)
+        cacheSize -= e.size
         entries -= k
       }
     }
+  }
 
-  override def size: Int = entries.size
+  override def size: Int = cacheSize
   override def contains(key: K): Boolean = entries.contains(key)
   override def allKeys: Iterable[K] = entries.keys
-  override def statsSnapshot: Map[String, Any] = Map("size" -> size, "evictions" -> evictions)
+  override def metrics: CacheMetrics = CacheMetrics(gets, hits, computeCost, hitCost, invalidations, evictions, evictionsCost)
 }

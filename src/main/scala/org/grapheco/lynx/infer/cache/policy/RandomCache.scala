@@ -1,6 +1,6 @@
 package org.grapheco.lynx.infer.cache.policy
 
-import org.grapheco.lynx.infer.cache.core.{CachePolicy, Entry}
+import org.grapheco.lynx.infer.cache.core.{CacheMetrics, CachePolicy, Entry}
 
 import scala.util.Random
 import scala.collection.mutable
@@ -9,38 +9,60 @@ class RandomCache[K, V](val capacity: Int) extends CachePolicy[K, V] {
   override val name: String = "Random"
   private val map = mutable.HashMap[K, Entry[V]]()
   private val rnd = new Random()
-  private var evictions = 0L
+  private var cacheSize: Int = 0
+  // state metrics
+  private var gets: Long = 0L
+  private var hits: Long = 0L
+  private var computeCost: Double = 0.0
+  private var hitCost: Double = 0.0
+  private var invalidations: Long = 0L
+  private var evictions: Long = 0L
+  private var evictionsCost: Long = 0L
 
-  override def onGet(key: K, tick: Long): Option[V] =
+  override def onGet(key: K): Option[V] = {
+    gets += 1L
     map.get(key).map { e =>
-      e.lastAccessTick = tick
-      e.freq += 1
+      hits += 1L
+      hitCost += e.cost
       e.value
     }
+  }
 
-  override def onPut(key: K, value: V, cost: Long, tick: Long): Option[(K,V)] = {
+  override def onPut(key: K, value: V, cost: Long): Set[(K,V,Int)] = {
+    val size = valueSize(value)
+    computeCost += cost
     map.get(key) match {
       case Some(e) =>
         e.value = value
         e.cost = cost
-        e.lastAccessTick = tick
-        e.lastPutTick = tick
+        cacheSize += size - e.size
+        e.size = size
       case None =>
-        if (map.size >= capacity) {
-          val victim = map.keysIterator.drop(rnd.nextInt(map.size)).next()
-          map -= victim; evictions += 1
-        }
-        map += key -> Entry(value, cost, freq = 1, lastAccessTick = tick, lastPutTick = tick)
+
+        map += key -> Entry(value, cost, freq = 1, size = size)
+        cacheSize += size
     }
-    None
+    while (cacheSize >= capacity) {
+      val victim = map.keysIterator.drop(rnd.nextInt(map.size)).next()
+      map.get(victim).foreach{e => cacheSize -= e.size; evictionsCost += e.cost}
+      map -= victim;
+      evictions += 1
+    }
+    Set.empty // TODO
   }
 
-  override def invalidate(keys: Iterable[K], tick: Long): Unit =
-    keys.foreach(map.remove)
+  override def invalidate(keys: Iterable[K]): Unit = {
+    keys.foreach{k =>
+      map.get(k).foreach(cacheSize -= _.size)
+      invalidations += 1
+      map.remove(k)
+    }
+  }
 
-  override def size: Int = map.size
+  override def size: Int = cacheSize
   override def contains(key: K): Boolean = map.contains(key)
   override def allKeys: Iterable[K] = map.keys
-  override def statsSnapshot: Map[String, Any] = Map("size" -> size, "evictions" -> evictions)
+
+  override def metrics: CacheMetrics = CacheMetrics(gets, hits, computeCost, hitCost, invalidations, evictions, evictionsCost)
 }
 

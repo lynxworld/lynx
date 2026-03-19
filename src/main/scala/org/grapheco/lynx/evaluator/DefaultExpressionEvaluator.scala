@@ -456,7 +456,7 @@ class DefaultExpressionEvaluator(graphModel: GraphModel, types: TypeSystem, proc
       case PatternComprehension(namedPath: Option[LogicalVariable], pattern: RelationshipsPattern,
       predicate: Option[Expression], projection: Expression) => {
         // TODO
-        ???
+        throw ProcedureException("PatternComprehension is not supported yet.")
       }
     }
   }

@@ -5,7 +5,7 @@ import org.grapheco.lynx._
 import org.grapheco.lynx.dataframe.{DataFrameOperator, DefaultDataFrameOperator}
 import org.grapheco.lynx.evaluator.{DefaultExpressionEvaluator, ExpressionEvaluator}
 import org.grapheco.lynx.infer.InferEngine
-import org.grapheco.lynx.infer.cache.{InferCache, NoneInferCache}
+import org.grapheco.lynx.infer.cache.core.{InferCache, NoneInferCache}
 import org.grapheco.lynx.logical.planner.{DefaultLogicalPlanner, LogicalPlanner}
 import org.grapheco.lynx.logical.LogicalPlannerContext
 import org.grapheco.lynx.logical.plans.LogicalPlan
