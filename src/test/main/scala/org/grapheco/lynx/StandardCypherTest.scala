@@ -26,7 +26,7 @@ class StandardCypherTest extends LazyLogging{
 
     def emptyGraph: Graph = new TestGraph
 
-    val dynamicTests = allTckScenarios.slice(skip_duration, skip_duration + 100) map{
+    val dynamicTests = allTckScenarios map{
       scenario =>
         val name = scenario.name
         val executable = scenario(emptyGraph)
@@ -46,7 +46,7 @@ class TestGraph extends TestBase with Graph {
 
     (this, CypherValueRecords(
       lynxResult.columns().toList,
-      lynxResult.records().map(_.mapValues(lynxValue2CypherValue)).toList
+      lynxResult.records().map(_.toMap.mapValues(lynxValue2CypherValue)).toList
     ))
   }
 
@@ -62,7 +62,7 @@ class TestGraph extends TestBase with Graph {
       )
       case LynxBoolean(v) => CypherBoolean(v)
       case LynxFloat(v) => CypherFloat(v)
-      case LynxDuration(duration) => CypherString(duration.toString)
+      case LynxDuration(duration,_) => CypherString(duration.toString)
       case LynxInteger(v) => CypherInteger(v)
       case LynxList(v) => CypherOrderedList(v.map(lynxValue2CypherValue))
       case LynxMap(v) => CypherPropertyMap(v.map(kv => (kv._1, lynxValue2CypherValue(kv._2))))

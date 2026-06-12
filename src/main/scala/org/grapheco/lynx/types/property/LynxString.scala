@@ -1,7 +1,6 @@
 package org.grapheco.lynx.types.property
 
-import org.grapheco.lynx.types.LynxValue
-import org.opencypher.v9_0.util.symbols.{CTString, StringType}
+import org.grapheco.lynx.types.{LTString, LynxValue, StringType, TypeMismatchException}
 
 /**
  * @ClassName LynxString
@@ -13,13 +12,12 @@ import org.opencypher.v9_0.util.symbols.{CTString, StringType}
 case class LynxString(v: String) extends LynxValue {
   def value: String = v
 
-  def lynxType: StringType = CTString
+  def lynxType: StringType = LTString
 
-  override def >(lynxValue: LynxValue): Boolean = this.value > lynxValue.asInstanceOf[LynxString].value
+  override def sameTypeCompareTo(o: LynxValue): Int = o match {
+    case s: LynxString => value.compareTo(s.value)
+    case _ => throw TypeMismatchException(this.lynxType, o.lynxType)
+  }
 
-  override def >=(lynxValue: LynxValue): Boolean = this.value >= lynxValue.asInstanceOf[LynxString].value
-
-  override def <(lynxValue: LynxValue): Boolean = this.value < lynxValue.asInstanceOf[LynxString].value
-
-  override def <=(lynxValue: LynxValue): Boolean = this.value <= lynxValue.asInstanceOf[LynxString].value
+  override def toString: String = v
 }

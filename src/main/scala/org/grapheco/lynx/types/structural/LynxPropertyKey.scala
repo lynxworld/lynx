@@ -7,4 +7,6 @@ package org.grapheco.lynx.types.structural
  * @Date 2022/4/1
  * @Version 0.1
  */
-case class LynxPropertyKey(value: String)
+case class LynxPropertyKey(value: String) {
+  override def toString: String = value
+}

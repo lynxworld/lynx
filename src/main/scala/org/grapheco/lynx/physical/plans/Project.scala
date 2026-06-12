@@ -1,0 +1,26 @@
+package org.grapheco.lynx.physical.plans
+
+import org.grapheco.lynx.types.LynxType
+import org.grapheco.lynx.dataframe.DataFrame
+import org.grapheco.lynx.physical.PhysicalPlannerContext
+import org.grapheco.lynx.runner.ExecutionContext
+import org.opencypher.v9_0.ast.{ReturnItem, ReturnItems, ReturnItemsDef}
+
+case class Project(ri: ReturnItemsDef)(implicit val plannerContext: PhysicalPlannerContext)
+  extends SinglePhysicalPlan {
+
+  override def schema: Seq[(String, LynxType)] = ri.items.map(x => x.name -> x.expression).map { col =>
+    col._1 -> typeOf(col._2, in.schema.toMap)
+  }
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
+    val df = in.execute(ctx)
+    df.project(ri.items.map(x => x.name -> x.expression))(ctx.expressionContext)
+  }
+
+  override def toString: String = {
+    s"Project(${ri.items.map(x => x.expression.asCanonicalStringVal + " -> " +  x.name ).mkString(",")})"
+  }
+
+//  def withReturnItems(items: Seq[ReturnItem]) = PPTProject(ReturnItems(ri.includeExisting, items)(ri.position))(in, plannerContext)
+}

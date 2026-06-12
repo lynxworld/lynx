@@ -1,7 +1,7 @@
 package org.grapheco.lynx.procedure
 
 import com.typesafe.scalalogging.LazyLogging
-import org.grapheco.lynx.{CypherRunnerContext, ProcedureUnregisteredException}
+import org.grapheco.lynx.runner.{CypherRunnerContext, ProcedureUnregisteredException}
 import org.opencypher.v9_0.expressions.{Expression, FunctionInvocation}
 import org.opencypher.v9_0.util.InputPosition
 
@@ -16,6 +16,7 @@ case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runner
   val procedure: CallableProcedure = runnerContext.procedureRegistry.getProcedure(funcInov.namespace.parts, funcInov.functionName.name, funcInov.args.size).getOrElse(throw ProcedureUnregisteredException(funcInov.name))
   val args: Seq[Expression] = funcInov.args
   val aggregating: Boolean = funcInov.containsAggregate
+  val distinct: Boolean = funcInov.distinct
 
   logger.debug(s"binding FunctionInvocation ${funcInov.name} to procedure ${procedure}, containsAggregate: ${aggregating}")
 
@@ -30,5 +31,7 @@ case class ProcedureExpression(val funcInov: FunctionInvocation)(implicit runner
   override def containsAggregate: Boolean = funcInov.containsAggregate
 
   override def findAggregate: Option[Expression] = funcInov.findAggregate
+
+  override def asCanonicalStringVal: String = funcInov.asCanonicalStringVal
 
 }

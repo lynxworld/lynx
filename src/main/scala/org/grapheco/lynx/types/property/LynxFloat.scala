@@ -1,11 +1,10 @@
 package org.grapheco.lynx.types.property
 
-import org.grapheco.lynx.types.LynxValue
-import org.opencypher.v9_0.util.symbols.{CTFloat, FloatType}
+import org.grapheco.lynx.types.{FloatType, LTFloat, LynxValue}
 
 /**
  * @ClassName LynxDouble
- * @Description TODO
+ * @Description
  * @Author huchuan
  * @Date 2022/4/1
  * @Version 0.1
@@ -15,7 +14,7 @@ case class LynxFloat(v: Double) extends LynxNumber {
 
   def number: Number = v
 
-  def lynxType: FloatType = CTFloat
+  def lynxType: FloatType = LTFloat
 
   def +(that: LynxNumber): LynxNumber = {
     that match {
@@ -31,11 +30,22 @@ case class LynxFloat(v: Double) extends LynxNumber {
     }
   }
 
-  override def >(lynxValue: LynxValue): Boolean = this.value > lynxValue.asInstanceOf[LynxFloat].value
+  // TODO the type of result
+  override def *(that: LynxNumber): LynxNumber = {
+    that match {
+      case LynxInteger(v2) => LynxFloat(v*v2) // TODO: over
+      case LynxFloat(v2) => LynxFloat(v*v2)
+    }
+  }
 
-  override def >=(lynxValue: LynxValue): Boolean = this.value >= lynxValue.asInstanceOf[LynxFloat].value
+  override def /(that: LynxNumber): LynxNumber = {
+    that match {
+      case LynxInteger(v2) => LynxFloat(v/v2)
+      case LynxFloat(v2) => LynxFloat(v/v2)
+    }
+  }
 
-  override def <(lynxValue: LynxValue): Boolean = this.value < lynxValue.asInstanceOf[LynxFloat].value
-
-  override def <=(lynxValue: LynxValue): Boolean = this.value <= lynxValue.asInstanceOf[LynxFloat].value
+}
+object LynxFloat{
+  val ZERO: LynxFloat = LynxFloat(0)
 }

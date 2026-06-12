@@ -1,8 +1,7 @@
 package org.grapheco.lynx
 
 import org.grapheco.lynx.types.property.LynxInteger
-import org.junit.{Assert, Test}
-
+import org.junit.jupiter.api.{Assertions, BeforeEach, Test}
 class CypherJoinTest extends TestBase {
 
   runOnDemoGraph(
@@ -26,7 +25,7 @@ class CypherJoinTest extends TestBase {
     RETURN count(a)""".stripMargin
     val rs = runOnDemoGraph(q).records().toSeq.head
     val a = rs.get("count(a)").get.asInstanceOf[LynxInteger]
-    Assert.assertEquals(2, a.value)
+    Assertions.assertEquals(2, a.value)
   }
 
   @Test
@@ -37,6 +36,6 @@ class CypherJoinTest extends TestBase {
     RETURN count(a)""".stripMargin
     val rs = runOnDemoGraph(q).records().toSeq.head
     val a = rs.get("count(a)").get.asInstanceOf[LynxInteger]
-    Assert.assertEquals(4, a.value)
+    Assertions.assertEquals(4, a.value)
   }
 }

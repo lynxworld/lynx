@@ -1,0 +1,21 @@
+package org.grapheco.lynx.physical.plans
+
+import org.grapheco.lynx.types.LynxType
+import org.grapheco.lynx.dataframe.DataFrame
+import org.grapheco.lynx.physical.PhysicalPlannerContext
+import org.grapheco.lynx.runner.ExecutionContext
+
+case class Select(columns: Seq[(String, Option[String])])(implicit val plannerContext: PhysicalPlannerContext)
+  extends SinglePhysicalPlan {
+
+  override def schema: Seq[(String, LynxType)] = columns.map(x => x._2.getOrElse(x._1)).map(x => x -> in.schema.find(_._1 == x).get._2) //fixme
+
+  override def execute(implicit ctx: ExecutionContext): DataFrame = profile {
+    val df = in.execute(ctx)
+    df.select(columns)
+  }
+
+  override def toString: String = {
+    s"Select(${columns.map(x => x._1 + ":" + x._2.getOrElse("")).mkString(",")})"
+  }
+}

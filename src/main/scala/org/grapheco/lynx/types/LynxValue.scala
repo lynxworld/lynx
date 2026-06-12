@@ -1,9 +1,10 @@
 package org.grapheco.lynx.types
 
-import org.grapheco.lynx.LynxType
 import org.grapheco.lynx.types.composite.{LynxList, LynxMap}
-import org.grapheco.lynx.types.property.{LynxBoolean, LynxFloat, LynxInteger, LynxNull, LynxString}
-import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxLocalDateTime, LynxLocalTime, LynxTime}
+import org.grapheco.lynx.types.property.{LynxBoolean, LynxFloat, LynxInteger, LynxNull, LynxNumber, LynxString}
+import org.grapheco.lynx.types.spatial.{Cartesian2D, Cartesian3D, Geographic2D, Geographic3D, LynxPoint}
+import org.grapheco.lynx.types.structural.{LynxNode, LynxRelationship}
+import org.grapheco.lynx.types.time.{LynxDate, LynxDateTime, LynxDuration, LynxLocalDateTime, LynxLocalTime, LynxTime}
 
 import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime}
 
@@ -14,20 +15,83 @@ import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetTime, ZonedDateTime
  * @Date 2022/4/1
  * @Version 0.1
  */
-trait LynxValue {
+trait LynxValue extends Comparable[LynxValue] {
   def value: Any
 
   def lynxType: LynxType
 
-  def >(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
+  // TODO: Impl the Compare func for LynxValue
+  def >(lynxValue: LynxValue): Boolean = this.compareTo(lynxValue) > 0
 
-  def >=(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
+  def >=(lynxValue: LynxValue): Boolean = this.compareTo(lynxValue) >= 0
 
-  def <(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
+  def <(lynxValue: LynxValue): Boolean = this.compareTo(lynxValue) < 0
 
-  def <=(lynxValue: LynxValue): Boolean = this.value.equals(lynxValue.value)
+  def <=(lynxValue: LynxValue): Boolean = this.compareTo(lynxValue) <= 0
 
-//  override def toString: String = "a"
+  def valueEq(lynxValue: LynxValue): Boolean = this.compareTo(lynxValue) == 0
+
+  def sameTypeCompareTo(o: LynxValue): Int = 0
+
+  def compareOrder: Int = 0
+
+  /*
+    To accomplish this, we propose a pre-determined order of types and ensure that each value falls
+    under exactly one disjoint type in this order.
+     */
+  private final val Map = 1
+  private final val NODE = 2
+  private final val RELATIONSHIP = 3
+  private final val LIST = 4
+  private final val PATH = 5
+  private final val STRING = 6
+  private final val BOOLEAN = 7
+  private final val NUMBER = 8
+
+  // The Point types will be ordered after Numbers and before Temporal types.
+  // For the current set of four CRS, this means the order is WGS84, WGS84-3D, Cartesian, Cartesian-3D.
+  private final val WGS84 = 71
+  private final val WGS84_3D = 72
+  private final val CART = 73
+  private final val CART_3D = 74
+
+  private final val DATE = 81
+  private final val TIME = 82
+  private final val DATETIME = 83
+
+
+  private final val VOID = 999
+
+  def typeOrder(lynxValue: LynxValue): Int = lynxValue match {
+    case _: LynxMap => Map
+    case _: LynxNode => NODE
+    case _: LynxRelationship => RELATIONSHIP
+    case _: LynxList => LIST
+    //      case _: path todo
+    case _: LynxString => STRING
+    case _: LynxBoolean => BOOLEAN
+    case _: LynxNumber => NUMBER
+    case p: LynxPoint => p match {
+      case _: Geographic2D => WGS84
+      case _: Geographic3D => WGS84_3D
+      case _: Cartesian2D => CART
+      case _: Cartesian3D => CART_3D
+    }
+    case _: LynxDate => DATE
+    case _: LynxTime => TIME
+    case _: LynxDateTime => DATETIME
+    case LynxNull => VOID
+    case _ => lynxValue.compareOrder
+  }
+
+  override def compareTo(o: LynxValue): Int = {
+    val o1 = typeOrder(this)
+    val o2 = typeOrder(o)
+    if (o1 == 0 && o2 == 0) throw TypeCompareException(this.lynxType, o.lynxType)
+    if (o1 == o2) this.sameTypeCompareTo(o)
+    else o1 - o2
+  }
+
 }
 
 object LynxValue {
@@ -45,6 +109,7 @@ object LynxValue {
     case v: LocalDateTime => LynxLocalDateTime(v)
     case v: LocalTime => LynxLocalTime(v)
     case v: OffsetTime => LynxTime(v)
+    case v: String if LynxDuration.valid(v) => LynxDuration(v)
     case v: Iterable[Any] => LynxList(v.map(apply(_)).toList)
     case v: Map[String, Any] => LynxMap(v.map(x => x._1 -> apply(x._2)))
     case v: Array[Int] => LynxList(v.map(apply(_)).toList)
@@ -56,4 +121,6 @@ object LynxValue {
     case v: Array[Any] => LynxList(v.map(apply(_)).toList)
     case _ => throw InvalidValueException(value)
   }
+
+
 }
